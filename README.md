@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD033 MD036 -->
 
 <p align="center">
-  <img src="./2pyr-logo.svg" width="160" alt="2-Pyramid logo">
+  <img src="./src/assets/logo-256.png" width="160" alt="2-Pyramid logo">
 </p>
 
 <h1 align="center">2-Pyramid</h1>
@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Version" src="https://img.shields.io/badge/version-2.0.0-007bff?style=flat-square">
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-1d1d1f?style=flat-square">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
   <img alt="Vue" src="https://img.shields.io/badge/Vue-3.5-4FC08D?style=flat-square">
@@ -31,9 +31,9 @@
 - **广覆盖** — 支持 23 个目标版本区间,涵盖 Classic / Modern / Caves & Cliffs / Trails & Tales / Tricky Trials / Bundles of Bravery 六个时代
 - **完全本地** — 无云端、无账号,文件全程不离开你的电脑
 - **批量处理** — 一次拖入多个资源包,串行 / 并行转换
-- **Overlay 母包叠加** — 在不修改原包的前提下,把自定义 HUD / 物品 / 描边叠加到任意母包上
+- **Overlay 母包叠加** — 在不修改原包的前提下,把自定义覆盖包内容叠加到任意母包上
 - **现代 UI** — 主题色可定制、动画速率三档可调、中英双语界面
-- **资源丰富** — 内置 26 个 3D 物品模型、附魔闪光、彩虹描边等多种 Overlay 模板
+- **资源丰富** — 内置 26 个 物品模型、附魔闪光、彩虹描边等多种 Overlay 模板
 
 ### 🚀 快速开始
 
@@ -52,7 +52,7 @@ cd Hurricane
 npm install
 
 # 启动 Tauri dev 模式(同时启动 Rust 后端 + Vite 前端)
-npm run 2-pyramid
+npm run 2pyr
 ```
 
 常用脚本:
@@ -101,7 +101,7 @@ npm run 2-pyramid
 
 | 层 | 技术 |
 |---|---|
-| 桌面壳 | Tauri 2(Windows / Linux / macOS) |
+| 桌面壳 | Tauri 2(Windows) |
 | 前端 | Vue 3.5 + TypeScript 5 + Vite 5 + vue-i18n 10 |
 | 后端 | Rust 1.x + image crate + tokio + serde |
 | 资源 | `src-tauri/UImage/`(模板贴图) + `src-tauri/overlay/`(Overlay 模板) |
@@ -124,10 +124,7 @@ Hurricane/
 │   ├── UImage/                内置贴图模板
 │   ├── overlay/               Overlay 模板(模型 / shader / lang)
 │   ├── icons/                 应用图标
-│   └── tauri.conf.json        Tauri 配置
-├── Python_Script/             Python 1.0 参考实现(只读)
-├── tools/                     工具脚本(audit / logo 生成)
-└── 2pyr-logo.svg              主 Logo 源文件
+|  └── tauri.conf.json        Tauri 配置
 ```
 
 ### 🤝 贡献
@@ -219,7 +216,7 @@ The core of 2-Pyramid is a hand-rolled **DTD Pipeline** driven by a **BFS Schedu
 
 | Layer | Tech |
 |---|---|
-| Shell | Tauri 2 (Windows / Linux / macOS) |
+| Shell | Tauri 2 (Windows) |
 | Frontend | Vue 3.5 + TypeScript 5 + Vite 5 + vue-i18n 10 |
 | Backend | Rust 1.x + image crate + tokio + serde |
 | Resources | `src-tauri/UImage/` (texture templates), `src-tauri/overlay/` (overlay models / shaders / lang) |
