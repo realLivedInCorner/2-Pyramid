@@ -21,6 +21,7 @@ set_version.py
 2pyr-logo.svg
 overlay_projects.json
 test*
+thumb*
 
 # Temp
 temp_overlay/
