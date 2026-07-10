@@ -1,0 +1,1582 @@
+<template>
+  <div class="fanhua-settings">
+    <div class="vortex-background">
+      <div class="vortex-ring r1"></div>
+    </div>
+
+    <header class="settings-header">
+      <div class="header-left">
+        <button class="back-btn" @click="backToHome">
+          <i class="ri-arrow-left-line back-icon" aria-hidden="true"></i>
+          <span>{{ t('common.home') }}</span>
+        </button>
+        <h1 class="page-title">{{ t('settings.title') }}</h1>
+      </div>
+      <div class="header-search">
+        <i class="ri-search-line search-icon"></i>
+        <input 
+          v-model="searchQuery" 
+          :placeholder="t('settings.searchPlaceholder')"
+          class="search-input"
+        />
+      </div>
+      <div class="header-right"></div>
+    </header>
+
+    <main class="settings-scroll-area">
+      <!-- 新增语言切换 (置于全局设置最前) -->
+      <section class="settings-group" v-if="shouldShowGroup('language')">
+        <h3 class="group-title">{{ t('settings.groups.language') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('language')">
+            <div class="item-icon">
+              <i class="ri-global-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.language.label') }}</div>
+              <div class="desc">{{ t('settings.language.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: locale === 'zh-CN' }" @click="setLanguage('zh-CN')">中文</button>
+                <button class="seg-btn" :class="{ active: locale === 'en-US' }" @click="setLanguage('en-US')">English</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 个人信息 -->
+      <section class="settings-group" v-if="shouldShowGroup('personal')">
+        <h3 class="group-title">{{ t('settings.groups.personal') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('userName')">
+            <div class="item-icon">
+              <i class="ri-user-3-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.userName.label') }}</div>
+              <div class="desc">{{ t('settings.userName.desc', { name: localUserName || '—' }) }}</div>
+            </div>
+            <div class="item-action">
+              <input
+                class="inline-input"
+                v-model="localUserName"
+                :placeholder="t('settings.userName.placeholder')"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 全局设置优先 -->
+      <section class="settings-group" v-if="shouldShowGroup('global')">
+        <h3 class="group-title">{{ t('settings.groups.global') }}</h3>
+        <div class="group-card">
+          <div class="setting-item clickable" @click="openThemeDialog" v-if="shouldShowItem('theme')">
+            <div class="item-icon">
+              <i class="ri-palette-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.theme.label') }}</div>
+              <div class="desc">{{ t('settings.theme.desc', { color: themeColor }) }}</div>
+            </div>
+            <div class="item-action theme-swatches">
+              <div class="swatch-block">
+                <div class="swatch-label">{{ t('common.current') }}</div>
+                <span class="color-swatch" :style="{ background: themeColor }"></span>
+              </div>
+              <div class="swatch-block">
+                <div class="swatch-label">{{ t('common.default') }}</div>
+                <button class="color-swatch reset-swatch" @click.stop="showResetDialog = true" :style="{ background: defaultThemeColor }"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 转换设置 -->
+      <section class="settings-group" v-if="shouldShowGroup('convert')">
+        <h3 class="group-title">{{ t('settings.groups.convert') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('outputMode')">
+            <div class="item-icon">
+              <i class="ri-route-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.outputMode.label') }}</div>
+              <div class="desc">{{ t('settings.outputMode.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: outputMode === 'follow' }" @click="outputMode = 'follow'">{{ t('settings.outputMode.follow') }}</button>
+                <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('settings.outputMode.fixed') }}</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="outputMode === 'fixed' && shouldShowItem('outputMode')">
+            <div class="item-icon">
+              <i class="ri-folder-2-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.outputPath.label') }}</div>
+              <div class="desc">{{ outputPath }}</div>
+            </div>
+            <div class="item-action">
+              <button class="btn-text" @click="showOutputDialog = true">{{ t('common.choose') }}</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 通知设置 -->
+      <section class="settings-group" v-if="shouldShowGroup('notification')">
+        <h3 class="group-title">{{ t('settings.groups.notification') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('notification')">
+            <div class="item-icon">
+              <i class="ri-notification-3-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.notification.label') }}</div>
+              <div class="desc">{{ t('settings.notification.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <label class="switch">
+                <input type="checkbox" v-model="notificationEnabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="notificationEnabled && shouldShowItem('notificationMode')">
+            <div class="item-icon">
+              <i class="ri-window-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.notificationMode.label') }}</div>
+              <div class="desc">{{ t('settings.notificationMode.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
+                <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
+                <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-item clickable" @click="testNotification" v-if="shouldShowItem('testNotification')">
+            <div class="item-icon">
+              <i class="ri-test-tube-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.testNotification.label') }}</div>
+              <div class="desc">{{ t('settings.testNotification.desc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 动画速率设置 -->
+      <section class="settings-group" v-if="shouldShowGroup('animationSpeed')">
+        <h3 class="group-title">{{ t('settings.groups.animation') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('animationSpeed')">
+            <div class="item-icon">
+              <i class="ri-speed-up-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.animationSpeed.label') }}</div>
+              <div class="desc">{{ t('settings.animationSpeed.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button
+                  v-for="opt in animationSpeedOptions"
+                  :key="opt.value"
+                  class="seg-btn"
+                  :class="{ active: animationSpeed === opt.value }"
+                  @click="animationSpeed = opt.value"
+                >{{ t(opt.labelKey) }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 关闭行为设置 -->
+      <section class="settings-group" v-if="shouldShowGroup('closeAction')">
+        <h3 class="group-title">{{ t('settings.groups.closeAction') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('closeAction')">
+            <div class="item-icon">
+              <i class="ri-close-circle-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.closeAction.label') }}</div>
+              <div class="desc">{{ t('settings.closeAction.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: closeAction === 'ask' }" @click="closeAction = 'ask'">{{ t('settings.closeAction.ask') }}</button>
+                <button class="seg-btn" :class="{ active: closeAction === 'close' }" @click="closeAction = 'close'">{{ t('settings.closeAction.close') }}</button>
+                <button class="seg-btn" :class="{ active: closeAction === 'minimize' }" @click="closeAction = 'minimize'">{{ t('settings.closeAction.minimize') }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 版本设置 (新增) -->
+      <section class="settings-group" v-if="shouldShowGroup('version')">
+        <h3 class="group-title">{{ t('settings.groups.version') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('channel')">
+            <div class="item-icon">
+              <i class="ri-git-branch-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.updateChannel.label') }}</div>
+              <div class="desc">{{ t('settings.updateChannel.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="changeChannel('master')">{{ t('settings.updateChannel.stable') }}</button>
+                <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="changeChannel('unstable')">{{ t('settings.updateChannel.unstable') }}</button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item clickable" @click="showVersionInfo = true" v-if="shouldShowItem('versionInfo')">
+            <div class="item-icon">
+              <i class="ri-information-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.versionInfo.label') }}</div>
+              <div class="desc">{{ t('settings.versionInfo.desc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
+          <div class="setting-item clickable" @click="checkUpdate" v-if="shouldShowItem('update')">
+            <div class="item-icon">
+              <i v-if="updateChecking" class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
+              <i v-else class="ri-refresh-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.checkUpdate.label') }}</div>
+              <div class="desc">
+                <template v-if="updateChecking">{{ t('settings.checkUpdate.checking') }}</template>
+                <template v-else-if="updateError">{{ updateError }}</template>
+                <template v-else>{{ t('settings.checkUpdate.desc', { version: currentVersion }) }}</template>
+              </div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 版本信息弹窗 (新增) -->
+    <transition name="dialog-pop">
+      <div v-if="showVersionInfo" class="dialog-overlay" @click="showVersionInfo = false">
+        <div class="dialog-content version-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.versionInfo.dialogTitle') }}</h3>
+            <button class="dialog-close" @click="showVersionInfo = false">×</button>
+          </div>
+          <div class="dialog-body">
+            <div class="version-hero">
+              <img src="/favicon-192.png" class="version-logo" alt="2-Pyramid logo" />
+              <button class="version-tag version-tap-target" @click="onVersionTap">2-Pyramid v{{ currentVersion }}</button>
+              <div v-if="devHint" class="dev-hint">{{ devHint }}</div>
+            </div>
+            <div class="changelog-area">
+              <h4>{{ t('settings.versionInfo.changelogTitle') }}</h4>
+              <ul>
+                <li>{{ t('settings.versionInfo.changelog1') }}</li>
+                <li>{{ t('settings.versionInfo.changelog2') }}</li>
+                <li>{{ t('settings.versionInfo.changelog3') }}</li>
+                <li>{{ t('settings.versionInfo.changelog4') }}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
+      <div v-if="showDevUnlockDialog" class="dialog-overlay" @click="cancelDevUnlock">
+        <div class="dialog-content dev-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.devMode.title') }}</h3>
+            <button class="dialog-close" @click="cancelDevUnlock" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <div class="dialog-hint">{{ t('settings.devMode.hint') }}</div>
+            <div class="dev-code">DeveloperEnable</div>
+            <div class="dialog-input-row">
+              <input class="dialog-input" v-model="devUnlockInput" :placeholder="t('settings.devMode.placeholder')" />
+            </div>
+            <div v-if="devUnlockError" class="dev-error">{{ devUnlockError }}</div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="cancelDevUnlock">{{ t('common.cancel') }}</button>
+            <button class="btn-text" @click="confirmDevUnlock">{{ t('settings.devMode.enter') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
+      <div v-if="showOutputDialog" class="dialog-overlay" @click="showOutputDialog = false">
+        <div class="dialog-content" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.outputPath.dialogTitle') }}</h3>
+            <button class="dialog-close" @click="showOutputDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <label class="dialog-label">{{ t('settings.outputPath.dialogLabel') }}</label>
+            <div class="dialog-input-row">
+              <input class="dialog-input" v-model="outputPath" :placeholder="t('settings.outputPath.dialogPlaceholder')" />
+              <button class="btn-text" @click="pickOutputFolder">{{ t('common.choose') }}</button>
+            </div>
+            <p class="dialog-hint">{{ t('settings.outputPath.dialogHint') }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="showOutputDialog = false">{{ t('common.cancel') }}</button>
+            <button class="btn-text" @click="saveOutputPath">{{ t('common.save') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
+      <div v-if="showThemeDialog" class="dialog-overlay" @click="showThemeDialog = false">
+        <div class="dialog-content theme-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.theme.dialogTitle') }}</h3>
+            <button class="dialog-close" @click="showThemeDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <label class="dialog-label">{{ t('settings.theme.currentColor') }}</label>
+            <div class="theme-preview">
+              <div class="preview-chip" :style="{ background: tempThemeColor }"></div>
+              <div class="preview-text">
+                <div class="preview-title">2-Pyramid Theme</div>
+                <div class="preview-sub">{{ t('settings.theme.previewSubtitle') }}</div>
+              </div>
+            </div>
+            <div class="picker-area" :style="{ '--hue': hue, '--picker-color': tempThemeColor }">
+              <div class="sv-panel" ref="svRef" @mousedown="startPick">
+                <div class="sv-white"></div>
+                <div class="sv-black"></div>
+                <div class="sv-cursor" :style="{ left: sat + '%', top: (100 - val) + '%' }"></div>
+              </div>
+              <div class="picker-side">
+                <input
+                  class="hue-slider"
+                  type="range"
+                  min="0"
+                  max="360"
+                  :value="hue"
+                  :style="{ accentColor: tempThemeColor }"
+                  @input="onHueChange"
+                />
+                <div class="color-value">{{ tempThemeColor }}</div>
+              </div>
+            </div>
+            <p class="dialog-hint">{{ t('settings.theme.applyHint') }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="showThemeDialog = false">{{ t('common.back') }}</button>
+            <button class="btn-text" @click="confirmThemeColor">{{ t('common.confirm') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
+      <div v-if="showResetDialog" class="dialog-overlay" @click="showResetDialog = false">
+        <div class="dialog-content" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.theme.resetTitle') }}</h3>
+            <button class="dialog-close" @click="showResetDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <p class="dialog-hint">{{ t('settings.theme.resetBody') }}</p>
+            <div class="theme-preview">
+              <div class="preview-chip" :style="{ background: defaultThemeColor }"></div>
+              <div class="preview-text">
+                <div class="preview-title">{{ t('settings.theme.resetPreview') }}</div>
+                <div class="preview-sub">{{ defaultThemeColor }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="showResetDialog = false">{{ t('common.back') }}</button>
+            <button class="btn-text" @click="resetThemeColor">{{ t('common.confirm') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <section class="settings-group" v-if="devModeEnabled">
+      <h3 class="group-title">{{ t('settings.groups.dev') }}</h3>
+      <div class="group-card">
+        <div class="setting-item clickable" @click="showLogWindow = true">
+          <div class="item-icon">
+            <i class="ri-terminal-box-line" aria-hidden="true"></i>
+          </div>
+          <div class="item-info">
+            <div class="label">2-PyramidLogWindow</div>
+            <div class="desc">{{ t('settings.devMode.viewLog') }}</div>
+          </div>
+          <div class="item-arrow">→</div>
+        </div>
+        <div class="setting-item clickable danger" @click="showClearConfigDialog = true">
+          <div class="item-icon">
+            <i class="ri-delete-bin-line" aria-hidden="true"></i>
+          </div>
+          <div class="item-info">
+            <div class="label">{{ t('settings.devMode.clearConfig') }}</div>
+            <div class="desc">{{ t('settings.devMode.clearConfigDesc') }}</div>
+          </div>
+          <div class="item-arrow">→</div>
+        </div>
+      </div>
+    </section>
+
+    <transition name="dialog-pop">
+      <div v-if="showClearConfigDialog" class="dialog-overlay" @click="showClearConfigDialog = false">
+        <div class="dialog-content confirm-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.devMode.clearConfigConfirmTitle') }}</h3>
+            <button class="dialog-close" @click="showClearConfigDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <p>{{ t('settings.devMode.clearConfigConfirmBody') }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="showClearConfigDialog = false">
+              {{ t('settings.devMode.clearConfigConfirmCancel') }}
+            </button>
+            <button class="btn-text danger" @click="confirmClearConfig">
+              {{ t('settings.devMode.clearConfigConfirmOk') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
+      <div v-if="showLogWindow" class="dialog-overlay" @click="closeLogWindow">
+        <div class="dialog-content log-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>2-PyramidLogWindow</h3>
+            <button class="dialog-close" @click="closeLogWindow" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <div class="log-toolbar">
+              <button class="btn-text secondary" @click="refreshLogs">{{ t('common.refresh') }}</button>
+              <button class="btn-text" @click="exportLog">{{ t('settings.devMode.exportLog') }}</button>
+            </div>
+            <pre class="log-output">{{ logsText || t('common.noLogs') }}</pre>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n'
+import { open, save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
+import { useUpdater } from '../composables/useUpdater';
+import { useNotification, type NotificationMode } from '../composables/useNotification';
+import { useLanguage } from '../composables/useLanguage'
+const { t } = useI18n()
+const { locale, setLanguage } = useLanguage()
+
+const props = defineProps<{ devMode?: boolean; userName?: string }>();
+const emit = defineEmits(['switch-page', 'update:dev-mode', 'update:user-name', 'update:animation-speed', 'update:close-action', 'show-update-dialog']);
+
+const { notify, setNotificationEnabled, setNotificationMode } = useNotification();
+
+const outputMode = ref<'follow' | 'fixed'>('follow');
+const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
+const showOutputDialog = ref(false);
+const notificationEnabled = ref(true);
+const notificationMode = ref<NotificationMode>('both');
+type AnimationSpeed = 'slow' | 'normal' | 'fast';
+const animationSpeed = ref<AnimationSpeed>('normal');
+const animationSpeedOptions: { value: AnimationSpeed; labelKey: string }[] = [
+  { value: 'slow', labelKey: 'settings.animationSpeed.slow' },
+  { value: 'normal', labelKey: 'settings.animationSpeed.normal' },
+  { value: 'fast', labelKey: 'settings.animationSpeed.fast' },
+];
+const closeAction = ref<'ask' | 'close' | 'minimize'>('ask');
+const showThemeDialog = ref(false);
+const showResetDialog = ref(false);
+const showClearConfigDialog = ref(false);
+const defaultThemeColor = '#007bff';
+const themeColor = ref('#007bff');
+const tempThemeColor = ref('#007bff');
+const hue = ref(210);
+const sat = ref(100);
+const val = ref(100);
+const svRef = ref<HTMLElement | null>(null);
+const isPicking = ref(false);
+
+const localUserName = ref(props.userName || '');
+const searchQuery = ref('');
+const showVersionInfo = ref(false);
+const devModeEnabled = ref(!!props.devMode);
+const versionTapCount = ref(0);
+const devHint = ref('');
+const showDevUnlockDialog = ref(false);
+const devUnlockInput = ref('');
+const devUnlockError = ref('');
+const showLogWindow = ref(false);
+const logsText = ref('');
+let logTimer: ReturnType<typeof setInterval> | null = null;
+
+// ── Updater ──────────────────────────────────────
+const { checkForUpdate, getChannel } = useUpdater();
+const updateChannel = ref('master');
+const updateChecking = ref(false);
+const updateError = ref('');
+const currentVersion = ref('');
+
+async function loadUpdateChannel() {
+  try {
+    updateChannel.value = await getChannel();
+  } catch { /* use default */ }
+}
+
+async function currentVersionFromConfig() {
+  try {
+    const cfg = await invoke<any>('get_config');
+    if (cfg?.update_channel) updateChannel.value = cfg.update_channel;
+  } catch { /* use default */ }
+}
+
+async function changeChannel(ch: string) {
+  updateChannel.value = ch;
+  try {
+    await invoke('set_update_channel', { channel: ch });
+  } catch (e) {
+    console.error('set_update_channel failed', e);
+  }
+}
+
+const settingItems = [
+  { id: 'language', group: 'language', label: t('settings.language.label'), desc: t('settings.language.desc') },
+  { id: 'userName', group: 'personal', label: t('settings.userName.label'), desc: t('settings.userName.desc', { name: localUserName.value || '—' }) },
+  { id: 'theme', group: 'global', label: t('settings.theme.label'), desc: t('settings.theme.searchDesc') },
+  { id: 'outputMode', group: 'convert', label: t('settings.outputMode.label'), desc: t('settings.outputMode.desc') },
+  { id: 'notification', group: 'notification', label: t('settings.notification.label'), desc: t('settings.notification.desc') },
+  { id: 'notificationMode', group: 'notification', label: t('settings.notificationMode.label'), desc: t('settings.notificationMode.desc') },
+  { id: 'testNotification', group: 'notification', label: t('settings.testNotification.label'), desc: t('settings.testNotification.desc') },
+  { id: 'contextMenu', group: 'contextMenu', label: t('settings.contextMenu.label'), desc: t('settings.contextMenu.desc') },
+  { id: 'refreshContextMenu', group: 'contextMenu', label: t('settings.refreshContextMenu.label'), desc: t('settings.refreshContextMenu.desc') },
+  { id: 'closeAction', group: 'closeAction', label: t('settings.closeAction.label'), desc: t('settings.closeAction.desc') },
+  { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
+  { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
+  { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
+  { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') }
+];
+
+const shouldShowGroup = (groupId: string) => {
+  if (!searchQuery.value) return true;
+  return settingItems.some(item => 
+    item.group === groupId && 
+    (item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+     item.desc.toLowerCase().includes(searchQuery.value.toLowerCase()))
+  );
+};
+
+const shouldShowItem = (itemId: string) => {
+  if (!searchQuery.value) return true;
+  const item = settingItems.find(i => i.id === itemId);
+  if (!item) return false;
+  return item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+         item.desc.toLowerCase().includes(searchQuery.value.toLowerCase());
+};
+
+const backToHome = () => emit('switch-page', 'home');
+const checkUpdate = async () => {
+  updateChecking.value = true;
+  updateError.value = '';
+  try {
+    const channel = await getChannel();
+    const result = await checkForUpdate(channel);
+    if (result.hasUpdate) {
+      emit('show-update-dialog', result);
+    } else {
+      updateError.value = t('settings.checkUpdate.alreadyLatest');
+    }
+  } catch (e: any) {
+    updateError.value = typeof e === 'string' ? e : t('settings.checkUpdate.checkFailed');
+  } finally {
+    updateChecking.value = false;
+  }
+};
+
+const testNotification = async () => {
+  await notify({
+    title: t('settings.testNotification.testTitle'),
+    body: t('settings.testNotification.testBody'),
+    type: 'info',
+    source: 'system'
+  });
+};
+
+const onVersionTap = async () => {
+  if (devModeEnabled.value) return;
+  if (showDevUnlockDialog.value) return;
+  versionTapCount.value += 1;
+  if (versionTapCount.value >= 7) {
+    devHint.value = 'DeveloperEnable';
+    showDevUnlockDialog.value = true;
+    return;
+  }
+  devHint.value = t('settings.devMode.hintBefore', { count: 7 - versionTapCount.value });
+};
+
+const cancelDevUnlock = () => {
+  showDevUnlockDialog.value = false;
+  devUnlockInput.value = '';
+  devUnlockError.value = '';
+};
+
+const confirmDevUnlock = async () => {
+  devUnlockError.value = '';
+  if (devUnlockInput.value.trim() !== 'DeveloperEnable') {
+    devUnlockError.value = t('settings.devMode.error');
+    return;
+  }
+  devModeEnabled.value = true;
+  showDevUnlockDialog.value = false;
+  devUnlockInput.value = '';
+  emit('update:dev-mode', true);
+  try {
+    await invoke('set_dev_mode', { enabled: true });
+  } catch {
+    // ignore
+  }
+};
+
+const refreshLogs = async () => {
+  try {
+    logsText.value = await invoke<string>('get_logs');
+  } catch (e) {
+    logsText.value = t('settings.devMode.logError', { error: e });
+  }
+};
+
+const exportLog = async () => {
+  try {
+    const defaultPath = await invoke<string | null>('get_log_path');
+    const dest = await save({
+      defaultPath: defaultPath || undefined,
+      filters: [{ name: 'Log', extensions: ['log', 'txt'] }],
+    });
+    if (dest) {
+      const result = await invoke<string>('export_logs', { dest });
+      await notify({
+        title: t('common.success'),
+        body: t('settings.devMode.exportSuccess', { path: result }),
+        type: 'success',
+        source: 'system',
+      });
+    }
+  } catch (e) {
+    await notify({
+      title: t('common.error'),
+      body: t('settings.devMode.exportFailed', { error: String(e) }),
+      type: 'error',
+      source: 'system',
+    });
+  }
+};
+
+/**
+ * Dev-only: wipe the on-disk settings.json and every localStorage key
+ * the app has written, then reload the page. Intended for QA regression
+ * loops where the user wants to start from a clean slate.
+ */
+const confirmClearConfig = async () => {
+  showClearConfigDialog.value = false;
+  try {
+    // 1. Delete the Tauri-side settings.json
+    await invoke<string>('clear_config');
+    // 2. Wipe localStorage (this is origin-scoped to the Tauri webview, so
+    //    it only removes app keys, not other browser data)
+    localStorage.clear();
+    // 3. Notify the user before we reload so the message is visible
+    await notify({
+      title: t('settings.devMode.clearConfigDoneTitle'),
+      body: t('settings.devMode.clearConfigDoneBody'),
+      type: 'success',
+      source: 'system',
+    });
+  } catch (e) {
+    await notify({
+      title: t('settings.devMode.clearConfigErrorTitle'),
+      body: t('settings.devMode.clearConfigErrorBody', { error: String(e) }),
+      type: 'error',
+      source: 'system',
+    });
+    return;
+  }
+  // Small delay so the toast is visible before the page tears down
+  setTimeout(() => {
+    window.location.reload();
+  }, 600);
+};
+
+const closeLogWindow = () => {
+  showLogWindow.value = false;
+  if (logTimer) {
+    clearInterval(logTimer);
+    logTimer = null;
+  }
+};
+
+const pickOutputFolder = async () => {
+  try {
+    const dir = await open({ directory: true, multiple: false });
+    if (dir && typeof dir === 'string') {
+      outputPath.value = dir;
+    }
+  } catch (e) {
+    console.error('pickOutputFolder failed', e);
+  }
+};
+
+const saveOutputPath = async () => {
+  if (outputMode.value === 'fixed' && outputPath.value.trim().length > 0) {
+    try {
+      await invoke('create_dir', { path: outputPath.value });
+    } catch (e) {
+      console.error('create_dir failed', e);
+    }
+  }
+  try {
+    await invoke('update_config', {
+      patch: {
+        outputMode: outputMode.value,
+        outputPath: outputPath.value,
+      }
+    });
+  } catch (e) {
+    console.error('update_config failed', e);
+  }
+  showOutputDialog.value = false;
+};
+
+onMounted(() => {
+  const savedMode = localStorage.getItem('outputMode');
+  const savedPath = localStorage.getItem('outputPath');
+  if (savedMode === 'follow' || savedMode === 'fixed') {
+    outputMode.value = savedMode;
+  }
+  if (savedPath) {
+    outputPath.value = savedPath;
+  }
+  const savedThemeColor = localStorage.getItem('themeColor');
+  if (savedThemeColor) {
+    themeColor.value = savedThemeColor;
+    tempThemeColor.value = savedThemeColor;
+  }
+
+  const savedNotificationEnabled = localStorage.getItem('notificationEnabled');
+  if (savedNotificationEnabled === 'false') {
+    notificationEnabled.value = false;
+  }
+
+  const savedNotificationMode = localStorage.getItem('notificationMode');
+  if (savedNotificationMode === 'system' || savedNotificationMode === 'app' || savedNotificationMode === 'both') {
+    notificationMode.value = savedNotificationMode;
+  }
+
+  const savedAnimationSpeed = localStorage.getItem('animationSpeed');
+  if (savedAnimationSpeed === 'slow' || savedAnimationSpeed === 'normal' || savedAnimationSpeed === 'fast') {
+    animationSpeed.value = savedAnimationSpeed;
+  }
+  emit('update:animation-speed', animationSpeed.value);
+
+  invoke<any>('get_config')
+    .then((cfg) => {
+      if (cfg?.output_mode === 'follow' || cfg?.output_mode === 'fixed') {
+        outputMode.value = cfg.output_mode;
+      }
+      if (typeof cfg?.output_path === 'string' && cfg.output_path.length > 0) {
+        outputPath.value = cfg.output_path;
+      }
+      if (cfg?.palette?.theme_color) {
+        themeColor.value = cfg.palette.theme_color;
+        tempThemeColor.value = cfg.palette.theme_color;
+      }
+      if (typeof cfg?.notification_enabled === 'boolean') {
+        notificationEnabled.value = cfg.notification_enabled;
+      }
+      if (cfg?.notification_mode === 'system' || cfg?.notification_mode === 'app' || cfg?.notification_mode === 'both') {
+        notificationMode.value = cfg.notification_mode;
+      }
+    })
+    .catch(() => {});
+
+  const savedCloseAction = localStorage.getItem('closeAction');
+  if (savedCloseAction === 'ask' || savedCloseAction === 'close' || savedCloseAction === 'minimize') {
+    closeAction.value = savedCloseAction;
+  }
+
+  currentVersionFromConfig();
+  loadUpdateChannel();
+
+  // Load version from Tauri app metadata (matches Python script's version bump)
+  getVersion().then(v => { currentVersion.value = v; }).catch(() => {});
+  invoke<boolean>('get_dev_mode')
+    .then((enabled) => {
+      devModeEnabled.value = !!enabled;
+    })
+    .catch(() => {});
+});
+
+watch(showVersionInfo, (open) => {
+  if (open) return;
+  versionTapCount.value = 0;
+  devHint.value = '';
+  cancelDevUnlock();
+});
+
+watch(showLogWindow, async (open) => {
+  if (!open) return;
+  await refreshLogs();
+  if (logTimer) clearInterval(logTimer);
+  logTimer = setInterval(refreshLogs, 1200);
+});
+
+watch(() => props.devMode, (v) => {
+  if (typeof v === 'boolean') devModeEnabled.value = v;
+});
+
+onUnmounted(() => {
+  if (logTimer) clearInterval(logTimer);
+});
+
+watch(outputMode, (val) => {
+  localStorage.setItem('outputMode', val);
+  invoke('update_config', { patch: { outputMode: val } }).catch(() => {});
+});
+
+watch(outputPath, (val) => {
+  localStorage.setItem('outputPath', val);
+  invoke('update_config', { patch: { outputPath: val } }).catch(() => {});
+});
+
+watch(notificationEnabled, (val) => {
+  localStorage.setItem('notificationEnabled', String(val));
+  invoke('update_config', { patch: { notificationEnabled: val } }).catch(() => {});
+  setNotificationEnabled(val);
+});
+
+watch(notificationMode, (val) => {
+  localStorage.setItem('notificationMode', val);
+  invoke('update_config', { patch: { notificationMode: val } }).catch(() => {});
+  setNotificationMode(val);
+});
+
+watch(animationSpeed, (val) => {
+  localStorage.setItem('animationSpeed', val);
+  emit('update:animation-speed', val);
+});
+
+watch(closeAction, (val) => {
+  localStorage.setItem('closeAction', val);
+  invoke('update_config', { patch: { closeAction: val } }).catch(() => {});
+  emit('update:close-action', val);
+});
+
+watch(() => props.userName, (v) => {
+  if (v !== undefined) localUserName.value = v;
+});
+
+watch(localUserName, (val) => {
+  emit('update:user-name', val);
+  invoke('update_config', { patch: { userName: val } }).catch(() => {});
+});
+
+const openThemeDialog = () => {
+  tempThemeColor.value = themeColor.value;
+  const hsv = hexToHsv(tempThemeColor.value);
+  hue.value = hsv.h;
+  sat.value = hsv.s;
+  val.value = hsv.v;
+  showThemeDialog.value = true;
+};
+
+const confirmThemeColor = async () => {
+  themeColor.value = tempThemeColor.value;
+  document.documentElement.style.setProperty('--theme-color', themeColor.value);
+  localStorage.setItem('themeColor', themeColor.value);
+  try {
+    await invoke('update_config', {
+      patch: { palette: { theme_color: themeColor.value } }
+    });
+  } catch (e) {
+    console.error('update_config failed', e);
+  }
+  showThemeDialog.value = false;
+};
+
+const resetThemeColor = async () => {
+  themeColor.value = defaultThemeColor;
+  tempThemeColor.value = defaultThemeColor;
+  document.documentElement.style.setProperty('--theme-color', themeColor.value);
+  localStorage.setItem('themeColor', themeColor.value);
+  try {
+    await invoke('update_config', {
+      patch: { palette: { theme_color: themeColor.value } }
+    });
+  } catch (e) {
+    console.error('update_config failed', e);
+  }
+  showResetDialog.value = false;
+};
+
+const updateTempFromHsv = () => {
+  tempThemeColor.value = hsvToHex(hue.value, sat.value, val.value);
+};
+
+const onHueChange = (e: Event) => {
+  const v = Number((e.target as HTMLInputElement).value);
+  hue.value = v;
+  updateTempFromHsv();
+};
+
+const startPick = (event: MouseEvent) => {
+  isPicking.value = true;
+  handlePick(event);
+  window.addEventListener('mousemove', handlePick);
+  window.addEventListener('mouseup', endPick);
+};
+
+const endPick = () => {
+  isPicking.value = false;
+  window.removeEventListener('mousemove', handlePick);
+  window.removeEventListener('mouseup', endPick);
+};
+
+const handlePick = (event: MouseEvent) => {
+  if (!svRef.value) return;
+  const rect = svRef.value.getBoundingClientRect();
+  const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
+  const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+  sat.value = Math.round((x / rect.width) * 100);
+  val.value = Math.round(100 - (y / rect.height) * 100);
+  updateTempFromHsv();
+};
+
+const hsvToHex = (h: number, s: number, v: number) => {
+  const sat = s / 100;
+  const val = v / 100;
+  const c = val * sat;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = val - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  const toHex = (n: number) => {
+    const v = Math.round((n + m) * 255);
+    return v.toString(16).padStart(2, '0');
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+const hexToHsv = (hex: string) => {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.substring(0, 2), 16) / 255;
+  const g = parseInt(normalized.substring(2, 4), 16) / 255;
+  const b = parseInt(normalized.substring(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+  }
+  const s = max === 0 ? 0 : Math.round((d / max) * 100);
+  const v = Math.round(max * 100);
+  return { h, s, v };
+};
+</script>
+
+<style scoped>
+.fanhua-settings {
+  width: 100%; height: 100%; min-height: 0;
+  background: #fff; color: #1d1d1f;
+  display: flex; flex-direction: column; overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  position: relative;
+}
+
+.vortex-background { position: fixed; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+.vortex-ring {
+  position: absolute; border: 1px solid rgba(0, 122, 255, 0.04);
+  border-radius: 50%; top: -100px; right: -100px; width: 600px; height: 600px;
+}
+
+.settings-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 520px) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 24px 48px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-self: start;
+  min-width: 0;
+}
+
+.header-search {
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  justify-self: center;
+}
+
+.header-right {
+  justify-self: end;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 18px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 16px 10px 44px;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  transition: all 0.3s;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--theme-color);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(var(--theme-color-rgb), 0.1);
+}
+
+.page-title {
+  font-size: clamp(22px, 3.2vw, 32px);
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  min-width: 0;
+  max-width: 16ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+.settings-scroll-area::-webkit-scrollbar { width: 6px; }
+.settings-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12); border-radius: 3px;
+}
+.settings-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.22);
+}
+.version-dialog {
+  max-width: 500px;
+}
+
+.version-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 24px;
+}
+
+.version-logo {
+  width: 80px;
+  height: 80px;
+}
+
+.version-tag {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.version-tap-target:hover {
+  color: var(--theme-color);
+}
+
+.dev-hint {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--theme-color);
+}
+
+.dev-dialog {
+  width: min(520px, 92vw);
+}
+
+.dev-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+  color: #0f172a;
+  margin: 10px 0 12px;
+  user-select: text;
+}
+
+.dev-error {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.changelog-area h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+.changelog-area ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.changelog-area li {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+}
+
+.changelog-area li::before {
+  content: "•";
+  color: var(--theme-color);
+  font-weight: bold;
+}
+
+.back-btn {
+  height: 38px;
+  background: rgba(0,0,0,0.05);
+  border: none;
+  padding: 0 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  transition: 0.2s;
+  flex: 0 0 auto;
+}
+.back-icon { font-size: 16px; line-height: 1; color: #111827; }
+.back-btn:hover { background: rgba(0,0,0,0.1); transform: translateX(-2px); }
+.settings-scroll-area::-webkit-scrollbar-track { background: transparent; }
+
+@media (max-width: 720px) {
+  .settings-header {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 20px 16px 12px;
+  }
+  .header-left {
+    justify-self: start;
+  }
+  .header-search {
+    justify-self: stretch;
+    max-width: none;
+  }
+  .page-title {
+    max-width: 22ch;
+  }
+  .settings-group { padding: 0 16px; }
+  .settings-scroll-area { padding-right: 4px; }
+}
+
+@media (max-width: 520px) {
+  .back-btn span {
+    display: none;
+  }
+}
+
+.settings-group { margin-top: 30px; width: 100%; padding: 0 48px; }
+.group-title {
+  font-size: 13px; font-weight: 700; color: #86868b;
+  margin-left: 15px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;
+}
+
+.group-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+}
+
+.setting-item {
+  display: flex; align-items: center; padding: 18px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  transition: 0.2s;
+}
+.setting-item:last-child { border-bottom: none; }
+.setting-item.clickable { cursor: pointer; }
+.setting-item.clickable:hover { background: rgba(0, 0, 0, 0.02); }
+
+.item-icon { width: 40px; color: #111827; display: inline-flex; align-items: center; justify-content: center; }
+.item-icon i { font-size: 20px; line-height: 1; }
+.item-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.item-info .label { font-size: 15px; font-weight: 600; color: #1d1d1f; }
+.item-info .desc { font-size: 12px; color: #86868b; }
+
+.item-arrow { color: #c6c6c8; font-weight: 800; }
+
+.fanhua-select {
+  background: rgba(0, 0, 0, 0.05); border: none; padding: 6px 10px;
+  border-radius: 8px; font-size: 13px; outline: none;
+}
+
+.segmented {
+  display: inline-flex; background: rgba(0,0,0,0.05); padding: 4px; border-radius: 999px; gap: 4px;
+}
+.seg-btn {
+  border: none; background: transparent; padding: 6px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: #6b7280; cursor: pointer; transition: 0.2s;
+}
+.seg-btn.active { background: #fff; color: #1d1d1f; box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+
+.btn-text {
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent); color: var(--theme-color);
+  border: none; padding: 6px 14px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-text.secondary { background: rgba(0,0,0,0.06); color: #334155; }
+
+.inline-input {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #1a1a2e;
+  outline: none;
+  transition: all 0.2s ease;
+  width: 160px;
+  text-align: right;
+}
+.inline-input:focus {
+  border-color: var(--theme-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-color) 12%, transparent);
+}
+.inline-input::placeholder {
+  color: #9ca3af;
+}
+
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; inset: 0; cursor: pointer; background-color: #e9e9eb; transition: .4s; border-radius: 34px;
+}
+.slider:before {
+  position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.switch input:checked + .slider { background-color: var(--theme-color); }
+.switch input:checked + .slider:before { transform: translateX(18px); }
+.switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
+.switch.disabled { cursor: not-allowed; }
+
+/* Dev-only destructive action */
+.setting-item.danger .item-icon { color: #b91c1c; }
+.setting-item.danger:hover { background: rgba(239, 68, 68, 0.06); }
+.btn-text.danger { color: #b91c1c; }
+.btn-text.danger:hover { background: rgba(239, 68, 68, 0.08); }
+
+.status-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+.status-loading      { background: #f1f5f9; color: #64748b; }
+.status-busy         { background: #dbeafe; color: #1d4ed8; }
+.status-registered   { background: #dcfce7; color: #15803d; }
+.status-unregistered { background: #fef3c7; color: #b45309; }
+.status-partial      { background: #fee2e2; color: #b91c1c; }
+
+.dialog-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.3);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+  backdrop-filter: blur(6px);
+}
+.dialog-content {
+  width: 420px; max-width: 90vw;
+  background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 20px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+.log-dialog {
+  width: min(900px, 90vw);
+}
+.log-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.log-output {
+  height: 360px;
+  overflow: auto;
+  background: #0b1020;
+  color: #a8ffb0;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dialog-header h3 { font-size: 16px; margin: 0; }
+.dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #64748b; }
+.dialog-body { display: flex; flex-direction: column; gap: 8px; }
+.dialog-label { font-size: 12px; color: #64748b; }
+.dialog-input {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px;
+}
+.dialog-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dialog-input-row .dialog-input {
+  flex: 1;
+}
+
+.theme-swatches {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.swatch-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch-label {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6);
+}
+
+.reset-swatch {
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: transparent;
+  padding: 0;
+}
+
+.theme-dialog {
+  width: 460px;
+}
+
+.theme-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.preview-chip {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+.preview-title { font-weight: 700; font-size: 14px; }
+.preview-sub { font-size: 12px; color: #64748b; }
+
+.picker-area {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sv-panel {
+  position: relative;
+  width: 220px;
+  height: 140px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #fff, hsl(var(--hue), 100%, 50%));
+  overflow: hidden;
+  border: 1px solid #111;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.18), 0 0 18px color-mix(in srgb, var(--picker-color) 30%, transparent);
+  cursor: crosshair;
+}
+
+.sv-white {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #fff, rgba(255,255,255,0));
+}
+
+.sv-black {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, #000, rgba(0,0,0,0));
+}
+
+.sv-cursor {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.4), 0 0 12px color-mix(in srgb, var(--picker-color) 60%, transparent);
+  transform: translate(-6px, -6px);
+}
+
+.picker-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.hue-slider {
+  width: 160px;
+  background: linear-gradient(90deg, #ff2b2b, #ffd12b, #2bff6a, #2be6ff, #2b5bff, #b42bff, #ff2b9a);
+  border-radius: 999px;
+  height: 8px;
+  appearance: none;
+  box-shadow: inset 0 0 0 1px #111, 0 0 10px color-mix(in srgb, var(--picker-color) 35%, transparent);
+}
+
+.hue-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--picker-color);
+  border: 2px solid #111;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(0,0,0,0.25);
+  cursor: pointer;
+  margin-top: -4px;
+}
+
+.hue-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--picker-color);
+  border: 2px solid #111;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+
+.hue-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid #111;
+}
+
+.hue-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid #111;
+  background: linear-gradient(90deg, #ff2b2b, #ffd12b, #2bff6a, #2be6ff, #2b5bff, #b42bff, #ff2b9a);
+}
+
+.color-value {
+  font-size: 13px;
+  color: #64748b;
+}
+.dialog-hint { font-size: 12px; color: #94a3b8; margin: 0; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+.dialog-pop-enter-active, .dialog-pop-leave-active { transition: all 0.25s ease; }
+.dialog-pop-enter-from { opacity: 0; transform: translateY(10px) scale(0.98); }
+.dialog-pop-leave-to { opacity: 0; transform: translateY(10px) scale(0.98); }
+
+.ri-spin { animation: ri-spin 1s linear infinite; }
+@keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
