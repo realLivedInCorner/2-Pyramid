@@ -1,0 +1,26 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "item/elytra"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "broken": 1
+      },
+      "model": "item/broken_elytra"
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [ 0, 0, 0 ],
+      "translation": [ 0, 3, 1 ],
+      "scale": [ @, @, @ ]
+    },
+    "ground": {
+      "rotation": [ 0, 0, 0 ],
+      "translation": [ 0, 2, 0],
+      "scale": [ #, #, # ]
+    }
+  }
+}

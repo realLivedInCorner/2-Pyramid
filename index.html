@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="alternate icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tauri + Vue + Typescript App</title>
+  </head>
+
+  <body>
+    <div class="splash" id="splash-screen">
+      <div class="splash-aurora"></div>
+      <div class="splash-content">
+        <div class="splash-icon">
+          <svg viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="#000" stroke-linecap="round">
+              <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
+              <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
+              <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
+              <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
+            </g>
+          </svg>
+        </div>
+        <h1 class="splash-title">2-Pyramid</h1>
+        <p class="splash-sub" id="splash-sub">多版本通用材质包转换器</p>
+        <div class="splash-spinner">
+          <svg viewBox="0 0 50 50">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="#e9ecef" stroke-width="3"/>
+            <circle cx="25" cy="25" r="20" fill="none" stroke="var(--theme-color)" stroke-width="3" stroke-dasharray="30, 150" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function() {
+        var lang = localStorage.getItem('language') || 'zh-CN';
+        document.documentElement.lang = lang;
+        var sub = document.getElementById('splash-sub');
+        if (sub) {
+          sub.textContent = lang === 'en-US' ? 'Universal Multi-Version Resource Pack Converter' : '多版本通用材质包转换器';
+        }
+        document.getElementById('splash-screen').dataset.start = Date.now();
+      })();
+    </script>
+    <div id="app"></div>
+    <style>
+      :root { --theme-color: #007bff; }
+      html, body { overflow: hidden; }
+      .splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+        background-size: 200% 200%;
+        animation: splash-bg 14s ease-in-out infinite;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+        transition: opacity 0.45s ease;
+      }
+      .splash-out { opacity: 0; pointer-events: none; }
+      .splash-aurora {
+        position: absolute; inset: -10%;
+        background: radial-gradient(900px 500px at 30% 30%, color-mix(in srgb, var(--theme-color) 22%, transparent), transparent 60%),
+                    radial-gradient(800px 400px at 70% 70%, color-mix(in srgb, var(--theme-color) 16%, transparent), transparent 60%);
+        opacity: 0.7; filter: blur(8px);
+        animation: splash-aurora 20s ease-in-out infinite;
+        pointer-events: none;
+      }
+      .splash-content {
+        position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px;
+      }
+        .splash-icon {
+          width: 104px; height: 104px; color: var(--theme-color);
+          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.08));
+        }
+      .splash-title {
+        font-size: 40px; font-weight: 900; letter-spacing: -1.5px; color: #212529; margin: 0;
+      }
+      .splash-sub {
+        font-size: 13px; color: #6b7280; font-weight: 600; margin: 4px 0 14px;
+      }
+      .splash-spinner {
+        width: 40px; height: 40px; color: var(--theme-color);
+      }
+      .splash-spinner svg { width: 100%; height: 100%; }
+      .splash-spinner circle:last-child {
+        animation: splash-ring 1.2s linear infinite;
+        transform-origin: center;
+      }
+      @keyframes splash-ring {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes splash-bg {
+        0% { background-position: 0% 0%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 100%; }
+      }
+      @keyframes splash-aurora {
+        0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.65; }
+        50% { transform: translate3d(30px, -15px, 0); opacity: 0.85; }
+      }
+    </style>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
