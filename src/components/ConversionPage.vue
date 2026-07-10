@@ -1221,13 +1221,24 @@ const exportLogsToFile = async () => {
   border-radius: 12px;
 }
 
+/* Dialog enter/leave. Vue's `<transition>` only listens for
+   transitionend / animationend on the **root** element of the
+   transition (here, `.dialog-overlay`). So the overlay itself must
+   carry a real transition — even if it's just a tiny opacity fade —
+   otherwise Vue thinks the leave finished instantly and unmounts the
+   whole tree on the same frame, killing the content's fade/scale and
+   the version-card stagger exit. */
 .dialog-pop-enter-active,
 .dialog-pop-leave-active {
-  /* Overlay stays put; only the content card animates. The overlay
-     itself is a fullscreen scrim (position: fixed; inset: 0) so
-     opacity/transform changes are invisible. We instead animate
-     .dialog-content (the actual white box) via descendant selectors. */
+  transition: opacity 0.22s ease;
 }
+.dialog-pop-enter-from,
+.dialog-pop-leave-to {
+  opacity: 0;
+}
+
+/* The actual white card: enters with a slight lift + scale, exits the
+   same way. This rides on top of the overlay fade. */
 .dialog-pop-enter-active .dialog-content,
 .dialog-pop-leave-active .dialog-content {
   transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.4,0,.2,1);
