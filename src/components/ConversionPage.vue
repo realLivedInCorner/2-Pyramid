@@ -1224,13 +1224,18 @@ const exportLogsToFile = async () => {
 /* Dialog enter/leave. Vue's `<transition>` only listens for
    transitionend / animationend on the **root** element of the
    transition (here, `.dialog-overlay`). So the overlay itself must
-   carry a real transition — even if it's just a tiny opacity fade —
+   carry a real transition — even if it's just an opacity fade —
    otherwise Vue thinks the leave finished instantly and unmounts the
    whole tree on the same frame, killing the content's fade/scale and
-   the version-card stagger exit. */
+   the version-card stagger exit.
+
+   We size the overlay's transition (0.27s) to fit the longest
+   leave path on the version cards (90ms reverse-stagger delay + 180ms
+   per-card animation = 270ms) so the last card finishes before
+   Vue tears the tree down. */
 .dialog-pop-enter-active,
 .dialog-pop-leave-active {
-  transition: opacity 0.22s ease;
+  transition: opacity 0.27s ease;
 }
 .dialog-pop-enter-from,
 .dialog-pop-leave-to {
@@ -1249,21 +1254,18 @@ const exportLogsToFile = async () => {
   transform: translateY(12px) scale(0.96);
 }
 
-/* Close animation: cards exit in a quick reverse-stagger (last entered
-   leaves first), so the dialog "collapses" rather than hard-cutting.
-   The .dialog-pop-leave-active wrapper stays around for 0.22s, which is
-   enough time for the per-card animations to finish. */
+/* Version-picker card stagger exit: last era's cards leave first, so
+   the eye follows the collapse from the bottom-right back to the
+   top-left. Delays kept under the 0.27s overlay budget. */
 .dialog-pop-leave-active .version-card {
-  animation: version-card-out 0.22s cubic-bezier(.4,0,.2,1) both;
+  animation: version-card-out 0.18s cubic-bezier(.4,0,.2,1) both;
 }
-/* Reverse-stagger by row: the last era's cards leave first, so the eye
-   follows the collapse from the bottom-right back to the top-left. */
-.dialog-pop-leave-active .version-era:nth-child(1) .version-card { animation-delay: 120ms; }
-.dialog-pop-leave-active .version-era:nth-child(2) .version-card { animation-delay:  90ms; }
-.dialog-pop-leave-active .version-era:nth-child(3) .version-card { animation-delay:  60ms; }
-.dialog-pop-leave-active .version-era:nth-child(4) .version-card { animation-delay:  30ms; }
-.dialog-pop-leave-active .version-era:nth-child(5) .version-card { animation-delay:  10ms; }
-.dialog-pop-leave-active .version-era:nth-child(6) .version-card { animation-delay:   0ms; }
+.dialog-pop-leave-active .version-era:nth-child(1) .version-card { animation-delay: 90ms; }
+.dialog-pop-leave-active .version-era:nth-child(2) .version-card { animation-delay: 70ms; }
+.dialog-pop-leave-active .version-era:nth-child(3) .version-card { animation-delay: 50ms; }
+.dialog-pop-leave-active .version-era:nth-child(4) .version-card { animation-delay: 30ms; }
+.dialog-pop-leave-active .version-era:nth-child(5) .version-card { animation-delay: 15ms; }
+.dialog-pop-leave-active .version-era:nth-child(6) .version-card { animation-delay:  0ms; }
 @keyframes version-card-out {
   from { opacity: 1; transform: translateY(0)    scale(1); }
   to   { opacity: 0; transform: translateY(6px)  scale(0.96); }
