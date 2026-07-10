@@ -17,6 +17,7 @@
 //! per event is well below any perceptible threshold.
 
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WindowEvent,
@@ -28,21 +29,49 @@ const TRAY_ID: &str = "main-tray";
 const MENU_SHOW: &str = "show";
 const MENU_QUIT: &str = "quit";
 
+// Embedded ICO so the tray has a valid icon even when the runtime cannot
+// decode PNGs (dev mode + `tauri` features without `image-png`) or when
+// `app.default_window_icon()` returns `None` for any reason. ICO is a
+// well-supported format that `tauri::image::Image::from_bytes` decodes
+// without any additional Cargo features.
+const FALLBACK_ICON_ICO: &[u8] = include_bytes!("../../icons/icon.ico");
+
 /// Build the system tray icon and attach all handlers. Called from
 /// `tauri::Builder::setup` after window state is initialized.
+///
+/// If tray creation fails for any reason (e.g. no system tray in the
+/// current environment, icon decode error) we log the failure but return
+/// `Ok(())` so the rest of the app can still start. The frontend's own
+/// `currentWindow.hide()` path is what actually hides the window; the
+/// tray is purely a UX nicety on top.
 pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
-    // Fall back to the bundled default icon if the window doesn't expose
-    // one (e.g. tests or unusual startup paths).
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".into()))?;
+    // Resolve an icon with a robust fallback chain:
+    //   1. Tauri's default window icon (PNG, requires `image-png` feature)
+    //   2. Embedded ICO bytes (always available; ICO needs no features)
+    //   3. Error: tray without icon — `TrayIconBuilder::with_id(...).build`
+    //      will reject an icon we can't decode; we then give up entirely.
+    let icon = match app.default_window_icon().cloned() {
+        Some(ic) => ic,
+        None => match Image::from_bytes(FALLBACK_ICON_ICO) {
+            Ok(ic) => {
+                crate::log_info!("tray: using embedded ICO fallback (default icon unavailable)");
+                ic
+            }
+            Err(e) => {
+                crate::log_error!("tray: icon decode failed: {}", e);
+                return Err(tauri::Error::AssetNotFound(format!(
+                    "default icon: {}, fallback ICO: {}",
+                    "None", e
+                )));
+            }
+        },
+    };
 
     let show_item = MenuItem::with_id(app, MENU_SHOW, "Show 2-Pyramid", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, MENU_QUIT, "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-    TrayIconBuilder::with_id(TRAY_ID)
+    match TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .icon_as_template(false) // keep colors; the icon is already a styled PNG/ICO
         .tooltip("2-Pyramid")
@@ -64,10 +93,21 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 show_main_window(tray.app_handle());
             }
         })
-        .build(app)?;
-
-    crate::log_info!("tray: system tray initialized");
-    Ok(())
+        .build(app)
+    {
+        Ok(_) => {
+            crate::log_info!("tray: system tray initialized");
+            Ok(())
+        }
+        Err(e) => {
+            // Don't take down the whole app if the tray subsystem fails
+            // (some headless / kiosk Windows configurations have no tray).
+            // The frontend still hides the window; the user just has no
+            // tray entry point to restore it.
+            crate::log_error!("tray: build failed: {} — continuing without tray", e);
+            Ok(())
+        }
+    }
 }
 
 /// Restore + focus the main window. No-op if the window label can't be found.
@@ -96,8 +136,10 @@ pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
         match action.as_str() {
             "minimize" => {
                 api.prevent_close();
-                let _ = window.hide();
-                crate::log_info!("tray: close intercepted → hide to tray");
+                match window.hide() {
+                    Ok(()) => crate::log_info!("tray: close intercepted → hide to tray"),
+                    Err(e) => crate::log_error!("tray: window.hide() failed: {}", e),
+                }
             }
             // "ask" / "close" / unknown → let it close. The frontend's
             // custom close button will still show the ask dialog when

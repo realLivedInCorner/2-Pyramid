@@ -183,19 +183,24 @@ async function doMarkerCheck() {
  }; 
   
 const closeWindow = async () => { 
+    console.log('[closeWindow] mode=', closeDialogMode.value);
     if (closeDialogMode.value === 'minimize') {
       try {
         if (!currentWindow && tauriIsAvailable()) {
           currentWindow = getCurrentWindow();
         }
         if (currentWindow) {
+          console.log('[closeWindow] calling currentWindow.hide()');
           // Hide to system tray (not minimize to taskbar). The Rust
           // on_window_event hook mirrors this for OS-initiated closes
           // (Alt+F4, taskbar right-click, task manager).
           await currentWindow.hide();
+          console.log('[closeWindow] hide() resolved — window should be in tray');
+        } else {
+          console.warn('[closeWindow] currentWindow is null; tauriIsAvailable=', tauriIsAvailable());
         }
       } catch (error) {
-        console.error("Failed to hide window:", error);
+        console.error("[closeWindow] hide() failed:", error);
       }
       return;
     }

@@ -15,6 +15,13 @@ dist-ssr
 *.rs.bk
 .env*
 
+# Project-specific
+Python_Script/
+set_version.py
+2pyr-logo.svg
+overlay_projects.json
+test*
+
 # Temp
 temp_overlay/
 
