@@ -46,7 +46,7 @@
 
 ```bash
 git clone <repo-url>
-cd Hurricane
+cd 2-Pyramid
 
 # 前端依赖
 npm install
