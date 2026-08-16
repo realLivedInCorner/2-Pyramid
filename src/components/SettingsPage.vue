@@ -781,12 +781,14 @@ const namingPresets = [
 ];
 const namingPreview = computed(() => {
   const render = (tpl: string) => tpl
-    .replace(/\[Name\]/g, 'Vanilla Orange Edit')
+    // 名字留空：实际转换时自动填入对应材质包的名字
+    .replace(/\[Name\]/g, '')
     .replace(/\[Ver\]/g, 'Java 1.20-1.20.1')
     .replace(/\[Time\]/g, '20260816-101234')
     .replace(/\[Date\]/g, '2026-08-16');
   const rendered = render(namingDraft.value).trim();
-  return (rendered || 'Vanilla Orange Edit') + '.zip';
+  // 模板渲染结果为空时，用默认示例名演示（欢迎来到2-Pyramid）
+  return (rendered || t('settings.outputNaming.defaultName')) + '.zip';
 });
 const openNamingDialog = () => {
   namingDraft.value = namingTemplate.value;
