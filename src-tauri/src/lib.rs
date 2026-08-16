@@ -101,9 +101,18 @@ pub fn run() {
 
     // `--action-monitor` 启动参数：记录前端所有点击行为（开发者诊断）。
     // 也可以之后在设置页开发者选项里开关。
-    if std::env::args().any(|a| a == "--action-monitor") {
+    //
+    // 传参方式（Tauri CLI 规则：第二个 `--` 之后才是应用参数）：
+    //   npm run tauri dev -- -- -- --action-monitor
+    // 或直接设置环境变量：
+    //   $env:2PYR_ACTION_MONITOR = "1"; npm run tauri dev
+    let action_monitor_arg = std::env::args().any(|a| a == "--action-monitor")
+        || std::env::var("2PYR_ACTION_MONITOR")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+    if action_monitor_arg {
         crate::commands::misc::ACTION_MONITOR.store(true, std::sync::atomic::Ordering::Relaxed);
-        log_info!("action monitor enabled via --action-monitor");
+        log_info!("action monitor enabled via --action-monitor / env");
     }
 
     match tauri::Builder::default()
