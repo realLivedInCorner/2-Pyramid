@@ -230,9 +230,9 @@
       "placeholder": "例如：[Ver][Name]",
       "tags": "插入占位符",
       "preview": "预览",
-      "nameDesc": "原材质包名",
-      "verDesc": "目标版本",
-      "timeDesc": "时间戳",
+      "nameDesc": "原材质包名 / Source pack name",
+      "verDesc": "目标版本 / Target version",
+      "timeDesc": "时间戳 / Timestamp",
       "defaultName": "欢迎使用2-Pyramid"
     },
     "conversionHistory": {
