@@ -181,48 +181,15 @@
             </div>
           </div>
 
-          <div class="setting-item" v-if="shouldShowItem('outputNaming')">
+          <div class="setting-item clickable" @click="openNamingDialog" v-if="shouldShowItem('outputNaming')">
             <div class="item-icon">
               <i class="ri-file-text-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
               <div class="label">{{ t('settings.outputNaming.label') }}</div>
-              <div class="desc">{{ t('settings.outputNaming.desc') }}</div>
+              <div class="desc">{{ t('settings.outputNaming.desc') }}：{{ namingTemplate }}</div>
             </div>
-          </div>
-
-          <div class="naming-editor" v-if="shouldShowItem('outputNaming')">
-            <input
-              v-model="namingTemplate"
-              class="naming-input"
-              :placeholder="t('settings.outputNaming.placeholder')"
-              spellcheck="false"
-              maxlength="200"
-            />
-            <div class="naming-row">
-              <span class="naming-hint-label">{{ t('settings.outputNaming.tags') }}</span>
-              <button
-                v-for="tag in namingTags"
-                :key="tag.token"
-                class="naming-tag-btn"
-                :title="tag.label"
-                @click="insertNamingTag(tag.token)"
-              >{{ tag.token }}</button>
-            </div>
-            <div class="naming-row">
-              <span class="naming-hint-label">{{ t('settings.outputNaming.presets') }}</span>
-              <button
-                v-for="p in namingPresets"
-                :key="p.template"
-                class="naming-preset-btn"
-                :class="{ active: namingTemplate === p.template }"
-                @click="namingTemplate = p.template"
-              >{{ p.label }}</button>
-            </div>
-            <div class="naming-preview">
-              {{ t('settings.outputNaming.preview') }}:
-              <b>{{ namingPreview }}</b>
-            </div>
+            <div class="item-arrow">→</div>
           </div>
         </div>
       </section>
@@ -528,6 +495,55 @@
     </transition>
 
     <transition name="dialog-pop">
+      <div v-if="showNamingDialog" class="dialog-overlay" @click="showNamingDialog = false">
+        <div class="dialog-content naming-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.outputNaming.dialogTitle') }}</h3>
+            <button class="dialog-close" @click="showNamingDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <input
+              v-model="namingDraft"
+              class="naming-input"
+              :placeholder="t('settings.outputNaming.placeholder')"
+              spellcheck="false"
+              maxlength="200"
+              @keyup.enter="saveNamingDialog"
+            />
+            <div class="naming-row">
+              <span class="naming-hint-label">{{ t('settings.outputNaming.tags') }}</span>
+              <button
+                v-for="tag in namingTags"
+                :key="tag.token"
+                class="naming-tag-btn"
+                :title="tag.label"
+                @click="insertNamingTag(tag.token)"
+              >{{ tag.token }}</button>
+            </div>
+            <div class="naming-row">
+              <span class="naming-hint-label">{{ t('settings.outputNaming.presets') }}</span>
+              <button
+                v-for="p in namingPresets"
+                :key="p.template"
+                class="naming-preset-btn"
+                :class="{ active: namingDraft === p.template }"
+                @click="namingDraft = p.template"
+              >{{ p.label }}</button>
+            </div>
+            <div class="naming-preview">
+              {{ t('settings.outputNaming.preview') }}:
+              <b>{{ namingPreview }}</b>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="showNamingDialog = false">{{ t('common.cancel') }}</button>
+            <button class="btn-text" @click="saveNamingDialog">{{ t('common.save') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
       <div v-if="showThemeDialog" class="dialog-overlay" @click="showThemeDialog = false">
         <div class="dialog-content theme-dialog" @click.stop>
           <div class="dialog-header">
@@ -749,6 +765,8 @@ const conversionThreads = ref(2);
 const conversionThreadsOptions = [1, 2, 4];
 // 输出文件命名模板（占位符：[Name] [Ver] [Time] [Date]）
 const namingTemplate = ref('[Name] [Ver]');
+const showNamingDialog = ref(false);
+const namingDraft = ref('[Name] [Ver]');
 const namingTags = [
   { token: '[Name]', label: 'Name' },
   { token: '[Ver]', label: 'Version' },
@@ -767,12 +785,20 @@ const namingPreview = computed(() => {
     .replace(/\[Ver\]/g, 'Java 1.20-1.20.1')
     .replace(/\[Time\]/g, '20260816-101234')
     .replace(/\[Date\]/g, '2026-08-16');
-  const rendered = render(namingTemplate.value).trim();
+  const rendered = render(namingDraft.value).trim();
   return (rendered || 'Vanilla Orange Edit') + '.zip';
 });
+const openNamingDialog = () => {
+  namingDraft.value = namingTemplate.value;
+  showNamingDialog.value = true;
+};
+const saveNamingDialog = () => {
+  namingTemplate.value = namingDraft.value;
+  showNamingDialog.value = false;
+};
 const insertNamingTag = (token: string) => {
-  const current = namingTemplate.value.trimEnd();
-  namingTemplate.value = current ? `${current} ${token}` : token;
+  const current = namingDraft.value.trimEnd();
+  namingDraft.value = current ? `${current} ${token}` : token;
 };
 // 转换历史
 interface HistoryEntry {
@@ -1768,13 +1794,12 @@ const hexToHsv = (hex: string) => {
 .history-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 .history-empty { padding: 20px 0; text-align: center; color: #94a3b8; font-size: 13px; }
 
-/* 输出命名模板编辑器 */
-.naming-editor {
+/* 输出命名模板编辑器（对话框内） */
+.naming-dialog { width: 480px; max-width: 90vw; }
+.naming-dialog .dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 4px 4px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  gap: 12px;
 }
 .naming-input {
   width: 100%;
@@ -1783,11 +1808,11 @@ const hexToHsv = (hex: string) => {
   font-family: inherit;
   border: 1.5px solid rgba(0, 0, 0, 0.12);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.04);
   color: #1a1a2e;
   outline: none;
 }
-.naming-input:focus { border-color: var(--theme-color); }
+.naming-input:focus { border-color: var(--theme-color); background: #fff; }
 .naming-row {
   display: flex;
   align-items: center;

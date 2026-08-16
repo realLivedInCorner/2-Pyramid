@@ -223,7 +223,8 @@
     },
     "outputNaming": {
       "label": "输出命名模板",
-      "desc": "自定义输出文件名，使用占位符组合",
+      "desc": "自定义输出文件名",
+      "dialogTitle": "输出命名模板",
       "searchLabel": "输出命名模板",
       "searchDesc": "自定义输出文件名",
       "placeholder": "例如：[Name] [Ver]",
