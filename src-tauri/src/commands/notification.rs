@@ -32,11 +32,14 @@ const TOAST_W: f64 = 320.0;
 const TOAST_H: f64 = 88.0;
 /// Gap between stacked toasts and from screen edges.
 const TOAST_GAP: f64 = 10.0;
-/// Toast hugs the top-right corner of the screen ("顶格"): a small
-/// 12px margin keeps the rounded card from touching the bezel while
-/// still reading as a corner notification.
+/// Toast hugs the corner of the screen ("顶格"): a small 12px margin
+/// keeps the rounded card from touching the bezel while still reading
+/// as a corner notification. Corner is user-configurable via
+/// `toast_position`; these margins apply to all four corners.
 const TOAST_MARGIN_RIGHT: f64 = 12.0;
 const TOAST_MARGIN_TOP: f64 = 12.0;
+const TOAST_MARGIN_BOTTOM: f64 = 12.0;
+const TOAST_MARGIN_LEFT: f64 = 12.0;
 /// Maximum number of toasts we keep on screen at once. Older ones get
 /// forced-closed so the stack never grows off the bottom of the
 /// monitor.
@@ -123,9 +126,12 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         format!("&actions={}", urlencoding_encode(&json))
     };
     // Effective on-screen duration: caller-provided value when set,
-    // otherwise a readable 8s default (4.5s was too short to read).
+    // otherwise the user-configured toast duration (default 8s).
     let effective_duration = if payload.duration_ms == 0 {
-        8000
+        crate::commands::config::read_config_file()
+            .ok()
+            .and_then(|c| c.toast_duration_ms)
+            .unwrap_or(8000)
     } else {
         payload.duration_ms.max(1000)
     };
@@ -166,7 +172,7 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
             format!("failed to build toast window: {}", e)
         })?;
 
-    // Anchor to upper-right of the primary monitor.
+    // Anchor to the user-configured corner of the primary monitor.
     let mut anchor: Option<(f64, f64)> = None;
     if let Some(monitor) = app.primary_monitor().map_err(|e| {
         crate::log_warn!("toast: primary_monitor failed: {}", e);
@@ -177,18 +183,44 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         let scale = monitor.scale_factor();
         // Convert monitor size + position to logical units.
         let mon_w = mon_size.width as f64 / scale;
+        let mon_h = mon_size.height as f64 / scale;
         let mon_x = mon_pos.x as f64 / scale;
         let mon_y = mon_pos.y as f64 / scale;
 
-        // Count existing live toasts so we can stack the new one
-        // below them. The stack grows downward. NOTE: `count_live_toasts`
+        // Count existing live toasts so we can stack the new one below
+        // them. The stack grows downward. NOTE: `count_live_toasts`
         // already sees the window we just built (it is registered the
         // moment build() succeeds), so subtract 1 — otherwise the very
         // first toast is pushed down one slot and every stack position
         // is off by one.
         let stack_offset = count_live_toasts(&app).saturating_sub(1) as f64;
-        let x = mon_x + mon_w - TOAST_W - TOAST_MARGIN_RIGHT;
-        let y = mon_y + TOAST_MARGIN_TOP + stack_offset * (TOAST_H + TOAST_GAP);
+
+        let position = crate::commands::config::read_config_file()
+            .ok()
+            .and_then(|c| c.toast_position)
+            .unwrap_or_else(|| "top-right".to_string());
+
+        let (x, y) = match position.as_str() {
+            "top-left" => (
+                mon_x + TOAST_MARGIN_LEFT,
+                mon_y + TOAST_MARGIN_TOP + stack_offset * (TOAST_H + TOAST_GAP),
+            ),
+            "bottom-right" => (
+                mon_x + mon_w - TOAST_W - TOAST_MARGIN_RIGHT,
+                mon_y + mon_h - TOAST_H - TOAST_MARGIN_BOTTOM
+                    - stack_offset * (TOAST_H + TOAST_GAP),
+            ),
+            "bottom-left" => (
+                mon_x + TOAST_MARGIN_LEFT,
+                mon_y + mon_h - TOAST_H - TOAST_MARGIN_BOTTOM
+                    - stack_offset * (TOAST_H + TOAST_GAP),
+            ),
+            // Default: top-right
+            _ => (
+                mon_x + mon_w - TOAST_W - TOAST_MARGIN_RIGHT,
+                mon_y + TOAST_MARGIN_TOP + stack_offset * (TOAST_H + TOAST_GAP),
+            ),
+        };
 
         let _ = window.set_position(LogicalPosition::new(x, y));
         let _ = window.set_size(LogicalSize::new(TOAST_W, TOAST_H));

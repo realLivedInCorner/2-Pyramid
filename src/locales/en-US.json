@@ -199,6 +199,28 @@
       "testTitle": "Test Notification",
       "testBody": "This is a test notification to verify that the notification feature is working properly."
     },
+    "toastDuration": {
+      "label": "Toast Duration",
+      "desc": "How long desktop toasts stay before auto-dismissing",
+      "searchLabel": "Toast Duration",
+      "searchDesc": "How long desktop toasts stay before auto-dismissing"
+    },
+    "toastPosition": {
+      "label": "Toast Position",
+      "desc": "Which screen corner desktop toasts appear in",
+      "searchLabel": "Toast Position",
+      "searchDesc": "Which screen corner desktop toasts appear in",
+      "topLeft": "Top Left",
+      "topRight": "Top Right",
+      "bottomLeft": "Bottom Left",
+      "bottomRight": "Bottom Right"
+    },
+    "conversionThreads": {
+      "label": "Conversion Threads",
+      "desc": "How many packs convert in parallel - more is faster but uses more memory",
+      "searchLabel": "Conversion Threads",
+      "searchDesc": "How many packs convert in parallel"
+    },
     "animationSpeed": {
       "label": "Animation Speed",
       "desc": "Controls page transition and stagger speed",

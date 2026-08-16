@@ -18,7 +18,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 
  const { t } = useI18n();
  const currentPage = ref<string>("home");
- const { setCurrentPage, setNotificationEnabled, setNotificationMode } = useNotification();
+ const { setCurrentPage, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
 
  const showConversionGuard = ref(false);
  const sourceHandling = ref<'ask' | 'delete' | 'keep'>('ask');
@@ -334,6 +334,9 @@ onMounted(async () => {
        if (cfg?.notification_mode === 'system' || cfg?.notification_mode === 'app' || cfg?.notification_mode === 'both') {
          setNotificationMode(cfg.notification_mode);
        }
+       if (typeof cfg?.toast_duration_ms === 'number') {
+         setToastDuration(cfg.toast_duration_ms);
+       }
        if (cfg?.user_name) {
          userName.value = cfg.user_name;
        }
@@ -425,6 +428,9 @@ onMounted(async () => {
      }
      if (typeof cfg?.open_output_after_convert === 'boolean') {
        openOutputAfterConvert.value = cfg.open_output_after_convert;
+     }
+     if (typeof cfg?.toast_duration_ms === 'number') {
+       setToastDuration(cfg.toast_duration_ms);
      }
    } catch { /* ignore */ }
    // Dismiss splash after OOBE finishes
