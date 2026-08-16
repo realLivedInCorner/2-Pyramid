@@ -135,7 +135,6 @@
       "convert": "Conversion",
       "notification": "Notifications",
       "animation": "Animation",
-      "closeAction": "Close Behavior",
       "version": "Version & Info",
       "dev": "Developer"
     },
@@ -208,15 +207,6 @@
       "slow": "Slow",
       "normal": "Graceful",
       "fast": "Fast"
-    },
-    "closeAction": {
-      "label": "Close Behavior",
-      "desc": "Action when clicking the close button",
-      "searchLabel": "Close Behavior",
-      "searchDesc": "Action when clicking the close button",
-      "ask": "Ask",
-      "close": "Close",
-      "minimize": "Minimize"
     },
     "updateChannel": {
       "label": "Update Channel",
@@ -391,14 +381,10 @@
     }
   },
   "dialog": {
-    "close2Pyramid": "Close 2-Pyramid",
-    "closePrompt": "How would you like to handle the window?",
-    "minimizeToTray": "Minimize to Tray",
-    "closeDirectly": "Close Directly",
-    "rememberChoice": "Remember my choice",
-    "trayToastTitle": "Hidden to system tray",
-    "trayToastBody": "Still running in the background. Press Ctrl+Shift+Q to quit.",
-    "forceQuitHint": "Press Ctrl+Shift+Q to force quit",
+    "convRunningTitle": "Conversion in progress",
+    "convRunningBody": "A conversion is still running. Closing the app will interrupt it and may leave an incomplete resource pack. Are you sure you want to quit?",
+    "convRunningConfirm": "Quit anyway",
+    "convRunningCancel": "Keep converting",
     "borderColor": {
       "title": "Border Color",
       "borderMode": "Border Mode",
@@ -602,11 +588,6 @@
       "outputModeFixed": "Fixed Directory",
       "notification": "Notifications",
       "notificationDesc": "Receive alerts when conversion completes",
-      "closeAction": "Close Behavior",
-      "closeActionDesc": "What happens when you click the close button",
-      "closeActionAsk": "Ask Every Time",
-      "closeActionClose": "Close Directly",
-      "closeActionMinimize": "Background to Tray",
       "sourceHandling": {
         "label": "Source Pack Handling",
         "desc": "What to do with the source pack after conversion",
