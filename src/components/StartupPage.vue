@@ -144,7 +144,7 @@ async function finish() {
 
       <div class="startup-brand">
         <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <g stroke="#fff" stroke-linecap="round">
+          <g stroke="currentColor" stroke-linecap="round">
             <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
             <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
             <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
@@ -158,39 +158,39 @@ async function finish() {
         <Transition name="aside-fade" mode="out-in">
           <div class="aside-illustration" :key="step">
             <svg v-if="step === 0" viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="72" stroke="#fff" stroke-width="2" opacity="0.2"/>
-              <circle cx="100" cy="100" r="56" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
-              <ellipse cx="100" cy="100" rx="30" ry="70" stroke="#fff" stroke-width="1.5" opacity="0.35"/>
-              <line x1="28" y1="75" x2="172" y2="75" stroke="#fff" stroke-width="1" opacity="0.3"/>
-              <line x1="28" y1="125" x2="172" y2="125" stroke="#fff" stroke-width="1" opacity="0.3"/>
-              <circle cx="100" cy="100" r="72" stroke="#fff" stroke-width="2" opacity="0.2" stroke-dasharray="8 4">
+              <circle cx="100" cy="100" r="72" stroke="currentColor" stroke-width="2" opacity="0.2"/>
+              <circle cx="100" cy="100" r="56" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+              <ellipse cx="100" cy="100" rx="30" ry="70" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+              <line x1="28" y1="75" x2="172" y2="75" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+              <line x1="28" y1="125" x2="172" y2="125" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+              <circle cx="100" cy="100" r="72" stroke="currentColor" stroke-width="2" opacity="0.2" stroke-dasharray="8 4">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="40s" repeatCount="indefinite"/>
               </circle>
-              <text x="60" y="98" font-size="28" font-weight="700" fill="#fff" opacity="0.9">A</text>
-              <text x="118" y="108" font-size="22" font-weight="600" fill="#fff" opacity="0.7">文</text>
+              <text x="60" y="98" font-size="28" font-weight="700" fill="currentColor" opacity="0.9">A</text>
+              <text x="118" y="108" font-size="22" font-weight="600" fill="currentColor" opacity="0.7">文</text>
             </svg>
             <svg v-else-if="step === 1" viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="72" r="32" stroke="#fff" stroke-width="2.5" opacity="0.7"/>
-              <path d="M45 165C45 130 68 108 100 108C132 108 155 130 155 165" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-              <circle cx="100" cy="100" r="85" stroke="#fff" stroke-width="1.2" opacity="0.15" stroke-dasharray="6 6">
+              <circle cx="100" cy="72" r="32" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
+              <path d="M45 165C45 130 68 108 100 108C132 108 155 130 155 165" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+              <circle cx="100" cy="100" r="85" stroke="currentColor" stroke-width="1.2" opacity="0.15" stroke-dasharray="6 6">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="-360 100 100" dur="30s" repeatCount="indefinite"/>
               </circle>
             </svg>
             <svg v-else-if="step === 2" viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="60" fill="#fff" opacity="0.1"/>
-              <path d="M70 105L90 125L135 75" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
-              <circle cx="100" cy="100" r="78" stroke="#fff" stroke-width="1.2" opacity="0.2" stroke-dasharray="4 8">
+              <circle cx="100" cy="100" r="60" fill="currentColor" opacity="0.1"/>
+              <path d="M70 105L90 125L135 75" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+              <circle cx="100" cy="100" r="78" stroke="currentColor" stroke-width="1.2" opacity="0.2" stroke-dasharray="4 8">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="20s" repeatCount="indefinite"/>
               </circle>
-              <circle cx="55" cy="45" r="4" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite"/></circle>
-              <circle cx="150" cy="50" r="3" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/></circle>
-              <circle cx="145" cy="155" r="3.5" fill="#fff" opacity="0.45"><animate attributeName="opacity" values="0.45;0.95;0.45" dur="1.8s" repeatCount="indefinite"/></circle>
-              <circle cx="50" cy="150" r="3" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.4;0.8;0.4" dur="2.2s" repeatCount="indefinite"/></circle>
+              <circle cx="55" cy="45" r="4" fill="currentColor" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite"/></circle>
+              <circle cx="150" cy="50" r="3" fill="currentColor" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/></circle>
+              <circle cx="145" cy="155" r="3.5" fill="currentColor" opacity="0.45"><animate attributeName="opacity" values="0.45;0.95;0.45" dur="1.8s" repeatCount="indefinite"/></circle>
+              <circle cx="50" cy="150" r="3" fill="currentColor" opacity="0.4"><animate attributeName="opacity" values="0.4;0.8;0.4" dur="2.2s" repeatCount="indefinite"/></circle>
             </svg>
             <svg v-else-if="step === 3" viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="28" stroke="#fff" stroke-width="2.5" opacity="0.6"/>
-              <circle cx="100" cy="100" r="12" fill="#fff" opacity="0.25"/>
-              <g stroke="#fff" stroke-width="2" opacity="0.5">
+              <circle cx="100" cy="100" r="28" stroke="currentColor" stroke-width="2.5" opacity="0.6"/>
+              <circle cx="100" cy="100" r="12" fill="currentColor" opacity="0.25"/>
+              <g stroke="currentColor" stroke-width="2" opacity="0.5">
                 <line x1="100" y1="58" x2="100" y2="45" stroke-linecap="round"/>
                 <line x1="100" y1="155" x2="100" y2="142" stroke-linecap="round"/>
                 <line x1="58" y1="100" x2="45" y2="100" stroke-linecap="round"/>
@@ -200,19 +200,19 @@ async function finish() {
                 <line x1="130" y1="70" x2="139" y2="61" stroke-linecap="round"/>
                 <line x1="70" y1="130" x2="61" y2="139" stroke-linecap="round"/>
               </g>
-              <circle cx="100" cy="100" r="50" stroke="#fff" stroke-width="1" opacity="0.15" stroke-dasharray="4 4">
+              <circle cx="100" cy="100" r="50" stroke="currentColor" stroke-width="1" opacity="0.15" stroke-dasharray="4 4">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="15s" repeatCount="indefinite"/>
               </circle>
             </svg>
             <svg v-else viewBox="0 0 200 200" fill="none">
-              <path d="M100 30L110 70H150L118 92L128 132L100 110L72 132L82 92L50 70H90L100 30Z" fill="#fff" opacity="0.2"/>
-              <path d="M100 50L107 75H133L112 90L119 115L100 100L81 115L88 90L67 75H93L100 50Z" stroke="#fff" stroke-width="2" opacity="0.6"/>
-              <circle cx="100" cy="100" r="85" stroke="#fff" stroke-width="1" opacity="0.15"/>
-              <circle cx="50" cy="40" r="3" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/></circle>
-              <circle cx="155" cy="35" r="2.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite"/></circle>
-              <circle cx="160" cy="160" r="3" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite"/></circle>
-              <circle cx="40" cy="165" r="2" fill="#fff" opacity="0.55"><animate attributeName="opacity" values="0.55;1;0.55" dur="1.6s" repeatCount="indefinite"/></circle>
-              <circle cx="100" cy="25" r="2.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.6;1;0.6" dur="2.2s" repeatCount="indefinite"/></circle>
+              <path d="M100 30L110 70H150L118 92L128 132L100 110L72 132L82 92L50 70H90L100 30Z" fill="currentColor" opacity="0.2"/>
+              <path d="M100 50L107 75H133L112 90L119 115L100 100L81 115L88 90L67 75H93L100 50Z" stroke="currentColor" stroke-width="2" opacity="0.6"/>
+              <circle cx="100" cy="100" r="85" stroke="currentColor" stroke-width="1" opacity="0.15"/>
+              <circle cx="50" cy="40" r="3" fill="currentColor" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/></circle>
+              <circle cx="155" cy="35" r="2.5" fill="currentColor" opacity="0.6"><animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite"/></circle>
+              <circle cx="160" cy="160" r="3" fill="currentColor" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite"/></circle>
+              <circle cx="40" cy="165" r="2" fill="currentColor" opacity="0.55"><animate attributeName="opacity" values="0.55;1;0.55" dur="1.6s" repeatCount="indefinite"/></circle>
+              <circle cx="100" cy="25" r="2.5" fill="currentColor" opacity="0.6"><animate attributeName="opacity" values="0.6;1;0.6" dur="2.2s" repeatCount="indefinite"/></circle>
             </svg>
           </div>
         </Transition>
@@ -270,7 +270,7 @@ async function finish() {
               <button class="lang-card" :class="{ active: selectedLang === 'en-US' }" @click="selectLang('en-US')">
                 <span class="lang-check"><i class="ri-check-line"></i></span>
                 <span class="lang-flag">
-                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="#fff" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="#C8102E" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="#fff" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="#C8102E" stroke-width="6"/></svg>
+                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="currentColor" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="#C8102E" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="currentColor" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="#C8102E" stroke-width="6"/></svg>
                 </span>
                 <span class="lang-name">{{ t('oobe.step1.en') }}</span>
               </button>
@@ -496,11 +496,11 @@ async function finish() {
   display: flex;
   flex-direction: column;
   padding: 36px 44px 28px;
-  color: #fff;
+  color: #1a1a2e;
   background: linear-gradient(165deg,
-    color-mix(in srgb, var(--theme-color) 88%, #1e1b4b) 0%,
-    color-mix(in srgb, var(--theme-color) 45%, #1e1b4b) 55%,
-    #12102e 100%);
+    color-mix(in srgb, var(--theme-color) 26%, #ffffff) 0%,
+    color-mix(in srgb, var(--theme-color) 14%, #ffffff) 50%,
+    color-mix(in srgb, var(--theme-color) 8%, #f4f6fb) 100%);
   overflow: hidden;
 }
 
@@ -513,14 +513,14 @@ async function finish() {
 .glow-1 {
   width: 480px; height: 480px;
   top: -140px; right: -140px;
-  background: color-mix(in srgb, #818cf8 45%, transparent);
-  opacity: 0.55;
+  background: color-mix(in srgb, var(--theme-color) 30%, transparent);
+  opacity: 0.4;
 }
 .glow-2 {
   width: 380px; height: 380px;
   bottom: -120px; left: -100px;
-  background: color-mix(in srgb, #22d3ee 30%, transparent);
-  opacity: 0.4;
+  background: color-mix(in srgb, #818cf8 25%, transparent);
+  opacity: 0.3;
   animation: glow-drift 14s ease-in-out infinite;
 }
 
@@ -532,9 +532,9 @@ async function finish() {
 .aside-grid {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+  background-image: radial-gradient(color-mix(in srgb, var(--theme-color) 22%, transparent) 1px, transparent 1px);
   background-size: 26px 26px;
-  opacity: 0.4;
+  opacity: 0.5;
   pointer-events: none;
 }
 
@@ -548,14 +548,14 @@ async function finish() {
 .startup-logo {
   width: 40px;
   height: 40px;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--theme-color) 18%, transparent));
 }
 
 .startup-brand-name {
   font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.4px;
-  color: #fff;
+  color: #1a1a2e;
 }
 
 .aside-body {
@@ -575,6 +575,7 @@ async function finish() {
   height: 180px;
   margin-bottom: 28px;
   flex-shrink: 0;
+  color: var(--theme-color);
 }
 
 .aside-illustration svg {
@@ -588,14 +589,14 @@ async function finish() {
   font-weight: 800;
   letter-spacing: -0.6px;
   line-height: 1.25;
-  color: #fff;
+  color: #111827;
 }
 
 .aside-desc {
   margin: 0;
   font-size: 14px;
   line-height: 1.75;
-  color: rgba(255, 255, 255, 0.78);
+  color: #475569;
   max-width: 340px;
 }
 
@@ -605,7 +606,7 @@ async function finish() {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: #94a3b8;
 }
 
 .aside-foot-dot {
