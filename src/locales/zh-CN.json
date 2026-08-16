@@ -299,6 +299,8 @@
       "logPath": "日志文件: {path}",
       "clearConfig": "清空全部配置",
       "clearConfigDesc": "删除 settings.json + 清空 localStorage，便于回归测试",
+      "actionMonitor": "动作监视",
+      "actionMonitorDesc": "记录所有点击行为（元素+坐标）到日志，用于诊断界面问题",
       "clearConfigConfirmTitle": "确认清空全部配置?",
       "clearConfigConfirmBody": "将重置 Tauri 端 settings.json 与 localStorage 中的全部应用设置，应用会自动重启。",
       "clearConfigConfirmOk": "清空并重启",
