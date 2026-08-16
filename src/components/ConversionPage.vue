@@ -641,12 +641,12 @@ const startConversion = async () => {
   // Warn when converting a lot of files at once.
   manyFilesWarning.value = selectedItems.value.length >= MANY_FILES_THRESHOLD;
 
-  notify({
-    title: t('conversion.convStartTitle'),
-    body: t('conversion.convStartBody', { count: selectedItems.value.length }),
-    type: 'info',
-    source: 'conversion'
-  });
+  // NOTE: deliberately no toast here for "conversion started". Creating
+  // a top-level toast means spawning a fresh WebView2 window, and doing
+  // that while the conversion saturates the CPU stalls the main thread
+  // (dead window buttons / frozen dialogs). The progress panel below
+  // already shows the running state; the completion toast is fired
+  // AFTER the batch returns, when the CPU is idle again.
 
 
   const versionMap: Record<string, number> = Object.fromEntries(

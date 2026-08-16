@@ -212,6 +212,22 @@
         </div>
       </div>
     </transition>
+
+    <!-- 删除覆盖包确认对话框（自绘，不使用系统原生弹窗） -->
+    <transition name="dialog-pop-quick">
+      <div v-if="showDeleteDialog" class="dialog-overlay" @click.self="showDeleteDialog = false">
+        <div class="simple-dialog dialog-content">
+          <h3>{{ t('overlay.deleteTitle') }}</h3>
+          <p class="dialog-desc">{{ t('overlay.deleteConfirm', { name: pendingDelete?.name ?? '' }) }}</p>
+          <div class="dialog-footer">
+            <button class="ghost-btn" @click="showDeleteDialog = false">{{ t('common.cancel') }}</button>
+            <button class="danger-btn" @click="confirmDeleteOverlay">
+              {{ t('overlay.deleteConfirmBtn') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -219,7 +235,7 @@
 import { ref, onMounted, reactive } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core';
-import { open, ask } from '@tauri-apps/plugin-dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import ItemNameDialog from './ItemNameDialog.vue';
 import ItemSizeDialog from './ItemSizeDialog.vue';
 import VisualDialog from './VisualDialog.vue';
@@ -251,6 +267,8 @@ const showVisualDialog = ref(false);
 const showCreateDialog = ref(false);
 const showImportDialog = ref(false);
 const showExportDialog = ref(false);
+const showDeleteDialog = ref(false);
+const pendingDelete = ref<OverlayProject | null>(null);
 const shareCodeToImport = ref('');
 const exportedShareCode = ref('');
 const newProjectName = ref('');
@@ -375,22 +393,26 @@ const loadOverlay = (item: OverlayProject) => {
   viewMode.value = 'editor';
 };
 
-const deleteOverlay = async (item: OverlayProject) => {
-  const confirmed = await ask(t('overlay.deleteConfirm', { name: item.name }), {
-    title: t('overlay.deleteTitle'),
-    kind: 'warning'
-  });
-  
-  if (confirmed) {
-    try {
-      await invoke('delete_overlay_project', { id: item.id });
-      overlayHistory.value = overlayHistory.value.filter(i => i.id !== item.id);
-      statusMsg.value = { text: t('overlay.deleteSuccess', { name: item.name }), type: 'success' };
-      setTimeout(() => statusMsg.value = null, 3000);
-    } catch (e) {
-      statusMsg.value = { text: t('overlay.deleteFailed', { error: e }), type: 'error' };
-      setTimeout(() => statusMsg.value = null, 5000);
-    }
+const deleteOverlay = (item: OverlayProject) => {
+  // Custom-drawn confirm dialog instead of the OS-native
+  // plugin-dialog `ask` — the native window looks alien next to the
+  // rest of the UI (and can't be themed / animated).
+  pendingDelete.value = item;
+  showDeleteDialog.value = true;
+};
+
+const confirmDeleteOverlay = async () => {
+  const item = pendingDelete.value;
+  if (!item) return;
+  showDeleteDialog.value = false;
+  try {
+    await invoke('delete_overlay_project', { id: item.id });
+    overlayHistory.value = overlayHistory.value.filter(i => i.id !== item.id);
+    statusMsg.value = { text: t('overlay.deleteSuccess', { name: item.name }), type: 'success' };
+    setTimeout(() => statusMsg.value = null, 3000);
+  } catch (e) {
+    statusMsg.value = { text: t('overlay.deleteFailed', { error: e }), type: 'error' };
+    setTimeout(() => statusMsg.value = null, 5000);
   }
 };
 
@@ -760,6 +782,13 @@ onMounted(() => {
 }
 .primary-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
 .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.danger-btn {
+  padding: 10px 20px; border-radius: 12px; border: none;
+  background: #ef4444; color: #fff; font-weight: 700; cursor: pointer;
+  transition: all 0.2s;
+}
+.danger-btn:hover { background: #dc2626; transform: translateY(-1px); }
 
 /* 动画相关 */
 .page-transition { animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
