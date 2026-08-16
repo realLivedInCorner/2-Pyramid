@@ -126,17 +126,28 @@ pub fn clear_background() -> Result<(), String> {
     Ok(())
 }
 
-/// 按路径读取图片字节（前端 asset 协议不可用时的回退方案）。
-/// 大小上限 50MB，仅接受图片扩展名。
+/// 按路径读取图片并返回完整 data URL（`data:image/<mime>;base64,...`）。
+/// 前端直接内联显示，不依赖 asset 协议 / CSP 探测，行为在 dev 与
+/// 生产环境一致。大小上限 50MB，仅接受图片扩展名。
 #[tauri::command]
-pub fn read_image_bytes(path: String) -> Result<Vec<u8>, String> {
+pub fn read_image_b64(path: String) -> Result<String, String> {
     let p = Path::new(&path);
-    if allowed_ext(p).is_none() {
-        return Err("Unsupported image format".to_string());
-    }
+    let ext = allowed_ext(p).ok_or_else(|| "Unsupported image format".to_string())?;
     let meta = std::fs::metadata(p).map_err(|e| format!("Failed to stat file: {}", e))?;
     if meta.len() > 50 * 1024 * 1024 {
         return Err("Image too large (>50MB)".to_string());
     }
-    std::fs::read(p).map_err(|e| format!("Failed to read file: {}", e))
+    let bytes = std::fs::read(p).map_err(|e| format!("Failed to read file: {}", e))?;
+    let mime = match ext {
+        "jpg" | "jpeg" => "image/jpeg",
+        other => match other {
+            "png" => "image/png",
+            "webp" => "image/webp",
+            "gif" => "image/gif",
+            "bmp" => "image/bmp",
+            _ => "image/png",
+        },
+    };
+    let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+    Ok(format!("data:{};base64,{}", mime, encoded))
 }
