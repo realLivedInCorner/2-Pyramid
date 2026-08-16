@@ -8,9 +8,12 @@ use self::commands::{
     convert_resource_pack,
     test_command,
     convert_resource_packs_batch,
+    cancel_conversion,
+    is_conversion_running,
     open_folder,
     write_file,
     create_dir,
+    delete_paths,
     get_config,
     update_config,
     overlay_init,
@@ -31,6 +34,19 @@ use self::commands::{
     log_notification,
     export_logs,
     get_log_path,
+    get_app_info,
+    clear_config,
+    factory_reset,
+    factory_reset_deep,
+    get_last_backup_info,
+    import_last_backup,
+    force_quit,
+    ping,
+    show_toast,
+    dismiss_toast,
+    dismiss_all_toasts,
+    focus_main_window,
+    run_toast_action,
 };
 
 mod commands;
@@ -50,6 +66,28 @@ pub use invoke_conversion::invoke_conversion;
 pub fn run() {
     use crate::{log_info, log_debug, log_error};
 
+    // ── WebView2: disable background throttling ────────────────────
+    // When the window is minimized / occluded, WebView2 by default
+    // throttles the renderer: JS timers stop firing, which kills our
+    // frontend heartbeat and makes every window-control button feel
+    // dead after the window is restored. The environment variable
+    // must be set BEFORE the WebView2 environment is created, so we do
+    // it here at the very top of run(), before tauri::Builder::build().
+    if cfg!(windows) {
+        const FLAG: &str = "--disable-backgrounding-occluded-windows";
+        let existing = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS")
+            .unwrap_or_default();
+        if !existing.contains(FLAG) {
+            let combined = if existing.trim().is_empty() {
+                FLAG.to_string()
+            } else {
+                format!("{} {}", existing.trim(), FLAG)
+            };
+            std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", combined);
+            log_info!("webview2: background throttling disabled (browser arg set)");
+        }
+    }
+
     log_info!("========================================");
     log_info!("2-Pyramid started");
     log_info!("Started at: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
@@ -60,7 +98,48 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // Single instance: a second launch of the app is not allowed
+        // to spawn another process. Instead it re-activates the
+        // already-running main window. NOTE: `run_silent` (context-menu
+        // conversion) deliberately does NOT register this plugin — a
+        // silent conversion must be able to run alongside the main
+        // app as its own short-lived process.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
+            // Create the main window in code (not via tauri.conf.json)
+            // so we can disable WebView2 background throttling — the
+            // config file has no field for it. Without this, restoring
+            // a minimized window can feel dead because the renderer was
+            // suspended while minimized. `background_throttling(false)`
+            // keeps the renderer alive at all times.
+            tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("2-Pyramid")
+            .inner_size(1200.0, 750.0)
+            .min_inner_size(800.0, 600.0)
+            .decorations(false)
+            .transparent(true)
+            .center()
+            .resizable(true)
+            .focused(true)
+            .visible(true)
+            .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
+            .build()
+            .map_err(|e| {
+                crate::log_error!("failed to build main window: {}", e);
+                e
+            })?;
+            crate::log_info!("main window created in code (background throttling disabled)");
+
             // Resolve and cache resource paths via Tauri resource API (required for production)
             let handle = app.handle();
             crate::resource_resolver::cache_resource_from_app(&handle, "UImage");
@@ -69,13 +148,6 @@ pub fn run() {
             // Backward compat: ensure overlay/UImage at exe level for old MSI installs
             if let Err(e) = crate::resource_resolver::ensure_resources_at_exe_level() {
                 crate::log_info!("ensure_resources_at_exe_level: {}", e);
-            }
-
-            // Build the system tray icon (Show / Quit menu, left-click restores).
-            // When `close_action = "minimize"`, closing the window hides it into
-            // this tray instead of exiting the app — see `tray::handle_window_event`.
-            if let Err(e) = crate::commands::tray::setup_tray(&app) {
-                crate::log_error!("tray: setup failed: {}", e);
             }
 
             // The taskbar / window icon is wired in `build.rs` via
@@ -87,20 +159,21 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            crate::commands::tray::handle_window_event(window, event);
-        })
         .invoke_handler(tauri::generate_handler!(
             get_logs,
             set_dev_mode,
             get_dev_mode,
+            get_app_info,
             convert_zip,
             convert_resource_pack,
             convert_resource_packs_batch,
+            cancel_conversion,
+            is_conversion_running,
             test_command,
             open_folder,
             write_file,
             create_dir,
+            commands::misc::delete_paths,
             get_config,
             update_config,
             overlay_init,
@@ -121,7 +194,18 @@ pub fn run() {
             log_notification,
             export_logs,
             get_log_path,
-            commands::clear_config,
+            clear_config,
+            factory_reset,
+            factory_reset_deep,
+            get_last_backup_info,
+            import_last_backup,
+            force_quit,
+            ping,
+            show_toast,
+            dismiss_toast,
+            dismiss_all_toasts,
+            focus_main_window,
+            run_toast_action,
             updater::check_for_update,
             updater::download_update,
             updater::install_update,
@@ -129,9 +213,14 @@ pub fn run() {
             updater::set_update_channel,
             updater::check_update_marker
         ))
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
     {
-        Ok(_) => {
+        Ok(app) => {
+            // Plain run loop: closing the main window exits the app.
+            // There is no tray / background-resident mode anymore, so
+            // no ExitRequested interception is needed — window gone
+            // means process gone, exactly what the user expects.
+            app.run(|_app_handle, _event| {});
             log_info!("========================================");
             log_info!("2-Pyramid exited normally");
             log_info!("========================================");
