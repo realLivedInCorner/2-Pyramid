@@ -33,6 +33,9 @@ pub struct AppConfig {
     pub background_fit: Option<String>,
     /// Background layer opacity (0.1–1.0).
     pub background_opacity: Option<f64>,
+    /// UI surface style: "glass" (translucent + blur) or "frosted"
+    /// (opaque matte).
+    pub ui_style: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -65,6 +68,8 @@ pub struct ConfigPatch {
     pub conversion_threads: Option<u32>,
     #[serde(alias = "outputNaming")]
     pub output_naming: Option<String>,
+    #[serde(alias = "uiStyle")]
+    pub ui_style: Option<String>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -409,6 +414,7 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         patch.toast_position.as_ref().map(|_| "toast_position"),
         patch.conversion_threads.as_ref().map(|_| "conversion_threads"),
         patch.output_naming.as_ref().map(|_| "output_naming"),
+        patch.ui_style.as_ref().map(|_| "ui_style"),
     ]
     .into_iter()
     .flatten()
@@ -462,6 +468,13 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         // just cap the length so a runaway paste can't bloat the file.
         let capped: String = v.chars().take(200).collect();
         cfg.output_naming = Some(capped);
+    }
+    if let Some(v) = patch.ui_style {
+        let normalized = match v.as_str() {
+            "frosted" => "frosted".to_string(),
+            _ => "glass".to_string(),
+        };
+        cfg.ui_style = Some(normalized);
     }
     write_config_file(&cfg)?;
     crate::log_info!("OKAY update_config [{}]", changed.join(", "));
