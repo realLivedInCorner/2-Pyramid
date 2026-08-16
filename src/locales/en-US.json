@@ -223,7 +223,8 @@
     },
     "outputNaming": {
       "label": "Output Naming Template",
-      "desc": "Custom output file name using placeholders",
+      "desc": "Custom output file name",
+      "dialogTitle": "Output Naming Template",
       "searchLabel": "Output Naming Template",
       "searchDesc": "Custom output file name",
       "placeholder": "e.g. [Name] [Ver]",
