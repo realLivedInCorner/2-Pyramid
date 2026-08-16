@@ -98,20 +98,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        // Single instance: a second launch of the app is not allowed
-        // to spawn another process. Instead it re-activates the
-        // already-running main window. NOTE: `run_silent` (context-menu
-        // conversion) deliberately does NOT register this plugin — a
-        // silent conversion must be able to run alongside the main
-        // app as its own short-lived process.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
-        }))
         .setup(|app| {
+            // Single instance: bind a fixed localhost TCP port before
+            // creating any window. The first process to bind owns the
+            // lock; a second process fails to bind, pokes the port,
+            // waits for our "ok" ack and exits immediately — the first
+            // instance then brings its main window to the foreground.
+            //
+            // Implemented with plain std (no extra crate, no network
+            // access needed at build time). `run_silent` (context-menu
+            // conversion) deliberately skips this so silent conversions
+            // can run alongside the main app.
+            install_single_instance(app);
+
             // Create the main window in code (not via tauri.conf.json)
             // so we can disable WebView2 background throttling — the
             // config file has no field for it. Without this, restoring
@@ -230,6 +229,84 @@ pub fn run() {
             log_error!("2-Pyramid failed: {}", e);
             log_error!("========================================");
             std::process::exit(1);
+        }
+    }
+}
+
+/// Fixed localhost port used as the single-instance lock. Chosen to be
+/// unlikely to collide with other software; if something else already
+/// holds it, both sides fall back gracefully (see below).
+const SINGLE_INSTANCE_PORT: u16 = 24157;
+
+/// Single-instance enforcement without external crates:
+///
+/// * First instance binds `127.0.0.1:SINGLE_INSTANCE_PORT` and spawns a
+///   thread that accepts "wake" pokes; on each poke it replies "ok" and
+///   brings the main window to the foreground.
+/// * A second instance fails to bind. It connects to the port, sends
+///   "wake" and waits briefly for an "ok" ack. If acked, another
+///   2-Pyramid instance is definitely running → exit immediately. If
+///   not acked (the port is held by unrelated software), start
+///   normally — app availability beats strict single-instance.
+fn install_single_instance(app: &tauri::App) {
+    use std::io::{Read, Write};
+    use std::net::{SocketAddr, TcpListener, TcpStream};
+    use std::time::Duration;
+    use tauri::Manager;
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], SINGLE_INSTANCE_PORT));
+
+    match TcpListener::bind(addr) {
+        Ok(listener) => {
+            // First instance — own the lock and wake the window whenever
+            // a second instance knocks.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                for stream in listener.incoming() {
+                    match stream {
+                        Ok(mut s) => {
+                            // Read the (tiny) wake payload, then ack so
+                            // the caller knows it reached a real
+                            // 2-Pyramid instance.
+                            let mut buf = [0u8; 4];
+                            let _ = s.set_read_timeout(Some(Duration::from_millis(500)));
+                            let _ = s.read(&mut buf);
+                            let _ = s.write_all(b"ok");
+                            crate::log_info!(
+                                "single-instance: wake poke received → focusing main window"
+                            );
+                            if let Some(w) = handle.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                        Err(_) => break, // listener closed (app shutting down)
+                    }
+                }
+            });
+            crate::log_info!(
+                "single-instance: lock acquired on port {}",
+                SINGLE_INSTANCE_PORT
+            );
+        }
+        Err(_) => {
+            // Could not bind — maybe another 2-Pyramid instance holds it.
+            // Verify by poking and awaiting the "ok" ack before giving up.
+            if let Ok(mut s) = TcpStream::connect_timeout(&addr, Duration::from_millis(400)) {
+                let _ = s.write_all(b"wake");
+                let mut ack = [0u8; 2];
+                if s.read(&mut ack).map(|n| &ack[..n] == b"ok").unwrap_or(false) {
+                    crate::log_info!(
+                        "single-instance: another instance confirmed — exiting this process"
+                    );
+                    std::process::exit(0);
+                }
+            }
+            crate::log_warn!(
+                "single-instance: port {} unavailable but no 2-Pyramid instance answered — starting normally",
+                SINGLE_INSTANCE_PORT
+            );
         }
     }
 }
