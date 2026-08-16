@@ -940,50 +940,50 @@ onMounted(async () => {
   * delays for that speed; default (no attribute or "normal") uses the
   * base values below.
   */
- .page-shell > * > * {
+ .page-shell > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
    opacity: 0;
    animation: stagger-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
  }
- .page-shell > * > *:nth-child(1)  { animation-delay: 0.18s; }
- .page-shell > * > *:nth-child(2)  { animation-delay: 0.26s; }
- .page-shell > * > *:nth-child(3)  { animation-delay: 0.34s; }
- .page-shell > * > *:nth-child(4)  { animation-delay: 0.42s; }
- .page-shell > * > *:nth-child(5)  { animation-delay: 0.50s; }
- .page-shell > * > *:nth-child(6)  { animation-delay: 0.58s; }
- .page-shell > * > *:nth-child(7)  { animation-delay: 0.66s; }
- .page-shell > * > *:nth-child(8)  { animation-delay: 0.74s; }
- .page-shell > * > *:nth-child(9)  { animation-delay: 0.82s; }
- .page-shell > * > *:nth-child(10) { animation-delay: 0.90s; }
+ .page-shell > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.18s; }
+ .page-shell > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.26s; }
+ .page-shell > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.34s; }
+ .page-shell > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.42s; }
+ .page-shell > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.50s; }
+ .page-shell > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.58s; }
+ .page-shell > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.66s; }
+ .page-shell > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.74s; }
+ .page-shell > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.82s; }
+ .page-shell > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { animation-delay: 0.90s; }
 
  /* Slow mode: 1.5× duration, +60ms between siblings, longer start delay */
- .page-shell[data-anim-speed="slow"] > * > * {
+ .page-shell[data-anim-speed="slow"] > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
    animation-duration: 0.75s;
  }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(1)  { animation-delay: 0.25s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(2)  { animation-delay: 0.40s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(3)  { animation-delay: 0.55s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(4)  { animation-delay: 0.70s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(5)  { animation-delay: 0.85s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(6)  { animation-delay: 1.00s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(7)  { animation-delay: 1.15s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(8)  { animation-delay: 1.30s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(9)  { animation-delay: 1.45s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(10) { animation-delay: 1.60s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.25s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.40s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.55s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.70s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.85s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.00s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.15s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.30s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.45s; }
+ .page-shell[data-anim-speed="slow"] > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { animation-delay: 1.60s; }
 
  /* Fast mode: 0.6× duration, -60ms between siblings, near-zero start delay */
- .page-shell[data-anim-speed="fast"] > * > * {
+ .page-shell[data-anim-speed="fast"] > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
    animation-duration: 0.3s;
  }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(1)  { animation-delay: 0.05s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(2)  { animation-delay: 0.10s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(3)  { animation-delay: 0.15s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(4)  { animation-delay: 0.20s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(5)  { animation-delay: 0.25s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(6)  { animation-delay: 0.30s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(7)  { animation-delay: 0.35s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(8)  { animation-delay: 0.40s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(9)  { animation-delay: 0.45s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(10) { animation-delay: 0.50s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.05s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.10s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.15s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.20s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.25s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.30s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.35s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.40s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.45s; }
+ .page-shell[data-anim-speed="fast"] > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { animation-delay: 0.50s; }
 
  @keyframes stagger-rise {
    from {
