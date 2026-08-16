@@ -10,23 +10,11 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "2-Pyramid",
-        "width": 1200,
-        "height": 750,
-        "decorations": false,
-        "transparent": true,
-        "center": true,
-        "resizable": true,
-        "fullscreen": false,
-        "alwaysOnTop": false,
-        "focus": true,
-        "visible": true
-      }
-    ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://github.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: https://asset.localhost data:;"
+      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://github.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: https://asset.localhost data:;",
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {

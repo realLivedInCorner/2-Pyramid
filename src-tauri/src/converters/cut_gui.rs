@@ -5,10 +5,10 @@ use crate::hurray::scheduler::{TaskType, TaskTier};
 use crate::hurray::texture::TexturePool;
 
 /// Cut GUI sprites using GuiSurgeon
-/// 
+///
 /// # Parameters
 /// - `context`: Hurray context
-/// 
+///
 /// # Returns
 /// - `Ok(())` on success, `Err(String)` on failure
 pub fn cut_gui(context: &HurrayContext) -> Result<(), String> {
@@ -47,98 +47,90 @@ pub fn register_task_with_deps(engine: &mut crate::hurray::engine::HurrayEngine)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::converters::fix_machinery_ui;
-    use crate::converters::fix_smithing2_villager2_ui;
-    use crate::hurray::context::HurrayContext;
     use std::fs;
     use tempfile::tempdir;
 
-    /// End-to-end test: copy a real 1.20 vanilla resource pack's container
-    /// folder (Pika 5K 16x) into a tempdir, run the fix_* and cut_gui pipeline,
-    /// then verify all 17 sprite sub-folders in `sprites/container/*` are
-    /// populated with files of non-trivial size.
+    /// End-to-end regression test for the 1.20.1 → 1.21.4 inventory bug:
+    /// the deferred-cleanup list in GuiSurgeon must NOT delete
+    /// `container/inventory.png`, otherwise the post-conversion resource
+    /// pack is missing the file the 1.21 client uses to render the
+    /// survival/creative inventory background, and the player sees no
+    /// inventory GUI.
     ///
-    /// If "锻造台/制图台缺格子" comes from a missing or truncated sprite, this
-    /// test will catch it.
+    /// We run the production `invoke_conversion` entry point on a copy of
+    /// Pika 5K 16x and assert that the conversion finishes without errors
+    /// AND that `container/inventory.png` survives.
     #[test]
-    fn test_cut_gui_sprites_from_pika5k() {
+    fn invoke_conversion_preserves_inventory_png() {
         let rp_root = r"D:\GameTime\.minecraft\versions\1.20.1-OptiFine_I6\resourcepacks\!   §1§b§lPika 5K - 16x";
         if !std::path::Path::new(rp_root).exists() {
             eprintln!("SKIP: Pika 5K not found at {}", rp_root);
             return;
         }
-        let src_container = std::path::Path::new(rp_root)
-            .join("assets/minecraft/textures/gui/container");
-        if !src_container.exists() {
-            eprintln!("SKIP: Pika 5K container folder missing");
-            return;
-        }
 
         let temp = tempdir().expect("tempdir");
-        let dst_container = temp
-            .path()
-            .join("assets/minecraft/textures/gui/container");
-        fs::create_dir_all(&dst_container).expect("mkdir container");
-        for entry in fs::read_dir(&src_container).expect("read src container") {
-            let entry = entry.expect("dir entry");
-            if entry.file_type().expect("filetype").is_file()
-                && entry
-                    .file_name()
-                    .to_string_lossy()
-                    .ends_with(".png")
-            {
-                fs::copy(
-                    entry.path(),
-                    dst_container.join(entry.file_name()),
-                )
-                .expect("copy png");
-            }
-        }
-
-        // Run the fix_* pipeline first
-        fix_smithing2_villager2_ui::fix_smithing2_villager2_ui(temp.path())
-            .expect("fix_smithing2_villager2_ui");
-        fix_machinery_ui::fix_machinery_ui(temp.path()).expect("fix_machinery_ui");
-
-        // Run cut_gui via HurrayContext
-        let ctx = HurrayContext::new(temp.path().to_str().expect("utf-8 path"));
-        cut_gui(&ctx).expect("cut_gui");
-
-        // Verify ONLY the two sub-folders the user reported: 锻造台 (smithing)
-        // and 制图台 (cartography_table). Continue past the first failure so
-        // we see the full picture.
-        let sprites_dir = temp
-            .path()
-            .join("assets/minecraft/textures/gui/sprites/container");
-        let mut failures: Vec<String> = Vec::new();
-        let smithing_files: &[&str] = &["template_slot.png", "base_slot.png", "addition_slot.png", "result_slot.png", "error.png"];
-        let cart_files: &[&str] = &["duplicated_map.png", "scaled_map.png", "map.png", "locked.png", "error.png"];
-        for (sub, files) in &[("smithing", smithing_files), ("cartography_table", cart_files)] {
-            let sub_dir = sprites_dir.join(sub);
-            for f in *files {
-                let p = sub_dir.join(f);
-                if !p.exists() {
-                    failures.push(format!("MISSING {}/{}", sub, f));
-                    continue;
-                }
-                let img = match image::open(&p) {
-                    Ok(i) => i.to_rgba8(),
-                    Err(e) => { failures.push(format!("OPEN-FAIL {}/{}: {}", sub, f, e)); continue; }
-                };
-                let (w, h) = img.dimensions();
-                if w < 2 || h < 2 {
-                    failures.push(format!("DEGENERATE {}/{}: {}x{}", sub, f, w, h));
-                    continue;
-                }
-                if !img.pixels().any(|px| px[3] > 0) {
-                    failures.push(format!("TRANSPARENT {}/{}", sub, f));
+        // Copy full Pika 5K tree (subdirs included — process_tabs needs
+        // `container/creative_inventory/tabs.png`).
+        fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+            std::fs::create_dir_all(dst)?;
+            for entry in std::fs::read_dir(src)? {
+                let entry = entry?;
+                let ty = entry.file_type()?;
+                let from = entry.path();
+                let to = dst.join(entry.file_name());
+                if ty.is_dir() {
+                    copy_dir_all(&from, &to)?;
+                } else {
+                    std::fs::copy(&from, &to)?;
                 }
             }
+            Ok(())
         }
+        copy_dir_all(std::path::Path::new(rp_root), temp.path()).expect("copy pika");
+
+        // Production conversion: 1.20.1 (pack_format 15) -> 1.21.4 (pack_format 34)
+        crate::invoke_conversion::invoke_conversion(
+            temp.path(),
+            temp.path(),
+            34, // target: 1.21.4
+            15, // source: 1.20.1
+        ).expect("invoke_conversion 1.20.1 -> 1.21.4");
+
+        // Copy the result to a stable path for diffing with Py 1.0's output
+        // (Py 1.0 was run separately and produced D:\temp_rp_test\py_output).
+        let dst = std::path::Path::new(r"D:\temp_rp_test\rust_invoke_fixed");
+        if dst.exists() { let _ = std::fs::remove_dir_all(dst); }
+        std::fs::create_dir_all(dst).expect("mkdir rust_invoke_fixed");
+        let temp_path = temp.path();
+        copy_dir_all(temp_path, dst).expect("copy rust_invoke_fixed");
+
+        // Assert: `container/inventory.png` MUST survive the conversion.
+        // The 1.21 vanilla resource pack still ships an `inventory.png`
+        // (256x256 simplified panel), and the client uses the resource
+        // pack's file (if present) to render the survival/creative
+        // inventory background. Deleting it causes the inventory GUI to
+        // disappear after the player loads the converted pack.
+        let inv = temp_path.join("assets/minecraft/textures/gui/container/inventory.png");
         assert!(
-            failures.is_empty(),
-            "User-reported '缺格子' sprite failures:\n  - {}",
-            failures.join("\n  - ")
+            inv.exists(),
+            "BUG: container/inventory.png was deleted by GuiSurgeon cleanup_files. \
+             The 1.21 vanilla resource pack still ships an inventory.png; deleting it \
+             causes the post-conversion resource pack to be missing the file the 1.21 \
+             client needs to render the survival/creative inventory GUI."
         );
+
+        // Sanity check: the 1.21+ sprite files were actually produced.
+        let eff_large = temp_path.join(
+            "assets/minecraft/textures/gui/sprites/container/inventory/effect_background_large.png",
+        );
+        assert!(eff_large.exists(), "sprites/container/inventory/effect_background_large.png should be produced");
+
+        let tab_top = temp_path.join(
+            "assets/minecraft/textures/gui/sprites/container/creative_inventory/tab_top_selected_1.png",
+        );
+        assert!(tab_top.exists(), "sprites/container/creative_inventory/tab_top_selected_1.png should be produced");
+
+        // Hold the tempdir so it doesn't get dropped/cleaned (drops Rust output!)
+        std::mem::forget(temp);
     }
 }

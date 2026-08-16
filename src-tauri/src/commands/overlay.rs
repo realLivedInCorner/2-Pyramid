@@ -305,7 +305,6 @@ pub fn import_overlay_share_code(share_code: String) -> Result<OverlayProject, S
 #[tauri::command]
 pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<String, String> {
     let temp_dir = overlay_temp_dir(Some(&project_name))?;
-    let name = project_name.clone();
 
     if !temp_dir.exists() {
         return Err("Overlay project directory does not exist".to_string());
@@ -313,6 +312,20 @@ pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<St
 
     let overlay_dir = overlay_templates_dir_from_app(&app)?;
     apply_overlay_changes(&project_name, &overlay_dir)?;
+
+    package_overlay_zip(&temp_dir, &project_name)
+}
+
+/// 核心 zip 打包逻辑（独立函数，无 Tauri 依赖，可在测试中调用）。
+///
+/// - workspace 模式：打包为 `[覆盖]{原 workspace 名}.zip`，并从 overlay.json 移除
+///   `workspace` 字段防止泄露内部路径
+/// - 独立模式：写入临时 pack.mcmeta，打包为 `{project_name}.zip`（空名 fallback 为
+///   `你的覆盖包.zip`），再删除 mcmeta
+///
+/// 包名 `[覆盖]` 与 Python 参考实现 (`overlay.py:759`) 一致，本地化标识。
+pub fn package_overlay_zip(temp_dir: &Path, project_name: &str) -> Result<String, String> {
+    let name = project_name;
 
     let overlay_json_path = temp_dir.join("overlay.json");
     let workspace_root = if overlay_json_path.exists() {
@@ -332,8 +345,8 @@ pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<St
             return Err("Parent pack workspace directory does not exist".to_string());
         }
 
-        let original_name = ws_root.file_name().and_then(|n| n.to_str()).unwrap_or(&name);
-        let output_name = format!("[Overlay]{}.zip", original_name);
+        let original_name = ws_root.file_name().and_then(|n| n.to_str()).unwrap_or(name);
+        let output_name = format!("[覆盖]{}.zip", original_name);
         let output_path = temp_dir.join(&output_name);
 
         crate::log_info!("packaging from workspace: {} -> {}", ws_root.display(), output_path.display());
@@ -379,7 +392,11 @@ pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<St
         fs::write(&pack_mcmeta, serde_json::to_string(&mcmeta).unwrap_or_default())
             .map_err(|e| format!("Failed to write pack.mcmeta: {}", e))?;
 
-        let output_name = format!("{}.zip", name);
+        let output_name = if name.is_empty() {
+            "你的覆盖包.zip".to_string()
+        } else {
+            format!("{}.zip", name)
+        };
         let output_path = temp_dir.join(&output_name);
         let assets_dir = temp_dir.join("assets");
 
@@ -401,8 +418,8 @@ pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<St
                 if path.is_dir() {
                     continue;
                 }
-                let name = path.strip_prefix(&temp_dir).map_err(|e| format!("Path processing failed: {}", e))?;
-                let name_str = name.to_string_lossy().replace('\\', "/");
+                let entry_name = path.strip_prefix(temp_dir).map_err(|e| format!("Path processing failed: {}", e))?;
+                let name_str = entry_name.to_string_lossy().replace('\\', "/");
                 zip.start_file(name_str, options).map_err(|e| format!("Failed to write archive: {}", e))?;
                 let mut f = fs::File::open(path).map_err(|e| format!("Failed to read file: {}", e))?;
                 buffer.clear();
@@ -611,10 +628,9 @@ fn apply_overlay_changes(project_name: &str, overlay_dir: &Path) -> Result<(), S
 
     if config.get("no_shadow").and_then(|v| v.as_bool()).unwrap_or(false) {
         fs::create_dir_all(&shaders_dir).map_err(|e| e.to_string())?;
-        let src = overlay_dir.join("core_inventory").join("rendertype_gui.vsh");
-        if src.exists() {
-            fs::copy(&src, shaders_dir.join("rendertype_gui.vsh")).map_err(|e| e.to_string())?;
-        }
+        let copied =
+            crate::overlay::process_core_shadow(&overlay_dir, &shaders_dir).map_err(|e| e.to_string())?;
+        crate::log_info!("no_shadow: copied {} files from core_inventory", copied);
     }
 
     if let Some(outline_type) = config.get("outline_type").and_then(|v| v.as_str()) {
@@ -735,5 +751,272 @@ pub fn overlay_set_parent_pack(patch: OverlayParentPatch) -> Result<(), String> 
         Ok(())
     } else {
         Err("Project does not exist".to_string())
+    }
+}
+
+// ── 单元测试 ────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    // ── normalize_overlay_config_keys ──
+
+    #[test]
+    fn normalize_renames_lang_itemname_to_custom_names() {
+        let v = serde_json::json!({ "lang_itemname": { "item.apple": "Pomme" } });
+        let out = normalize_overlay_config_keys(v);
+        assert!(out.get("lang_itemname").is_none());
+        assert_eq!(
+            out.get("custom_names").unwrap(),
+            &serde_json::json!({ "item.apple": "Pomme" })
+        );
+    }
+
+    #[test]
+    fn normalize_does_not_clobber_existing_custom_names() {
+        // 已有 custom_names 时,不要被 lang_itemname 覆盖
+        let v = serde_json::json!({
+            "custom_names": { "item.apple": "Apple" },
+            "lang_itemname": { "item.apple": "Pomme" }
+        });
+        let out = normalize_overlay_config_keys(v);
+        assert_eq!(
+            out.get("custom_names").unwrap(),
+            &serde_json::json!({ "item.apple": "Apple" })
+        );
+    }
+
+    #[test]
+    fn normalize_renames_big_items_plural_to_singular() {
+        let v = serde_json::json!({ "big_items": { "diamond_sword": {} } });
+        let out = normalize_overlay_config_keys(v);
+        assert!(out.get("big_items").is_none());
+        assert!(out.get("big_item").is_some());
+    }
+
+    #[test]
+    fn normalize_converts_core_shadow_to_no_shadow() {
+        let v = serde_json::json!({ "core_shadow": { "enabled": true } });
+        let out = normalize_overlay_config_keys(v);
+        assert_eq!(out.get("no_shadow").unwrap(), &serde_json::json!(true));
+    }
+
+    #[test]
+    fn normalize_ignores_disabled_core_shadow() {
+        let v = serde_json::json!({ "core_shadow": { "enabled": false } });
+        let out = normalize_overlay_config_keys(v);
+        assert!(out.get("no_shadow").is_none());
+    }
+
+    #[test]
+    fn normalize_converts_rainbow_outline() {
+        let v = serde_json::json!({ "core_outline_rainbow": { "enabled": true } });
+        let out = normalize_overlay_config_keys(v);
+        assert_eq!(out.get("outline_type").unwrap(), "rainbow");
+    }
+
+    #[test]
+    fn normalize_converts_default_outline() {
+        let v = serde_json::json!({ "core_outline": { "enabled": true } });
+        let out = normalize_overlay_config_keys(v);
+        assert_eq!(out.get("outline_type").unwrap(), "default");
+    }
+
+    #[test]
+    fn normalize_rainbow_wins_over_default() {
+        // 两个都启用时,rainbow 优先
+        let v = serde_json::json!({
+            "core_outline_rainbow": { "enabled": true },
+            "core_outline": { "enabled": true }
+        });
+        let out = normalize_overlay_config_keys(v);
+        assert_eq!(out.get("outline_type").unwrap(), "rainbow");
+    }
+
+    #[test]
+    fn normalize_preserves_existing_outline_type() {
+        let v = serde_json::json!({
+            "outline_type": "rainbow_hexian",
+            "core_outline_rainbow": { "enabled": true }
+        });
+        let out = normalize_overlay_config_keys(v);
+        // 已有 outline_type 时不覆盖
+        assert_eq!(out.get("outline_type").unwrap(), "rainbow_hexian");
+    }
+
+    #[test]
+    fn normalize_handles_non_object_input() {
+        // 非 object 应原样返回
+        let v = serde_json::json!([1, 2, 3]);
+        let out = normalize_overlay_config_keys(v.clone());
+        assert_eq!(out, v);
+    }
+
+    // ── create_default_overlay_structure ──
+
+    #[test]
+    fn create_default_structure_creates_all_subdirs() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join("project_a");
+        create_default_overlay_structure(&target).unwrap();
+
+        assert!(target.join("assets/minecraft/models").is_dir());
+        assert!(target.join("assets/minecraft/shaders/core").is_dir());
+        assert!(target.join("assets/minecraft/lang").is_dir());
+        assert!(target.join("assets/minecraft/textures/models/item").is_dir());
+        assert!(target.join("assets/minecraft/textures/misc").is_dir());
+    }
+
+    #[test]
+    fn create_default_structure_is_idempotent() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join("project_b");
+        create_default_overlay_structure(&target).unwrap();
+        // 第二次调用应仍成功(目录已存在)
+        let result = create_default_overlay_structure(&target);
+        assert!(result.is_ok());
+    }
+
+    // ── package_overlay_zip ──
+
+    fn make_test_zip(src_dir: &Path, name: &str, files: &[(&str, &[u8])]) -> PathBuf {
+        use std::io::Write as _;
+
+        let zip_path = src_dir.join(format!("{}.zip", name));
+        let file = fs::File::create(&zip_path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::FileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        for (rel, content) in files {
+            zip.start_file(*rel, options).unwrap();
+            zip.write_all(content).unwrap();
+        }
+        zip.finish().unwrap();
+        zip_path
+    }
+
+    fn extract_test_zip(zip_path: &Path, dest: &Path) {
+        let file = fs::File::open(zip_path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        for i in 0..archive.len() {
+            let mut entry = archive.by_index(i).unwrap();
+            let out_path = dest.join(entry.name().replace('\\', "/"));
+            if entry.is_dir() {
+                fs::create_dir_all(&out_path).unwrap();
+                continue;
+            }
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            let mut out = fs::File::create(&out_path).unwrap();
+            std::io::copy(&mut entry, &mut out).unwrap();
+        }
+    }
+
+    #[test]
+    fn package_workspace_mode_creates_chinese_named_zip() {
+        // 模拟工作流:解压母包到 workspace/,在 overlay.json 写入 workspace.path
+        let src = tempdir().unwrap();
+        let zip_path = make_test_zip(src.path(), "TestParent", &[
+            ("pack.mcmeta", br#"{"pack":{"pack_format":15}}"#),
+            ("assets/minecraft/lang/en_us.json", br#"{"item.apple":"Apple"}"#),
+        ]);
+        let project = tempdir().unwrap();
+        let ws = crate::overlay::process_parent_pack_workspace(
+            project.path(),
+            &zip_path.to_string_lossy(),
+        )
+        .unwrap();
+        // 写 overlay.json —— 用 serde_json 自动转义 Windows 路径里的反斜杠
+        let overlay_config = serde_json::json!({
+            "workspace": {
+                "path": ws.to_string_lossy(),
+                "processed": true
+            }
+        });
+        fs::write(
+            project.path().join("overlay.json"),
+            serde_json::to_string_pretty(&overlay_config).unwrap(),
+        )
+        .unwrap();
+
+        let out = package_overlay_zip(project.path(), "TestProject").unwrap();
+        // 包名应是中文 [覆盖]TestParent.zip
+        let expected = project.path().join("[覆盖]TestParent.zip");
+        assert_eq!(out, expected.to_string_lossy().to_string());
+        assert!(expected.exists());
+
+        // 验证 zip 内容:arcname 用 ws.parent 作为根,即 TestParent/...
+        let extract_to = tempdir().unwrap();
+        extract_test_zip(&expected, extract_to.path());
+        assert!(extract_to.path().join("TestParent/pack.mcmeta").exists());
+        assert!(extract_to
+            .path()
+            .join("TestParent/assets/minecraft/lang/en_us.json")
+            .exists());
+
+        // overlay.json 的 workspace 字段应被移除
+        let overlay_after: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(project.path().join("overlay.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(overlay_after.get("workspace").is_none());
+    }
+
+    #[test]
+    fn package_workspace_mode_errors_on_missing_workspace() {
+        let project = tempdir().unwrap();
+        fs::write(
+            project.path().join("overlay.json"),
+            r#"{ "workspace": { "path": "Z:/does/not/exist" } }"#,
+        )
+        .unwrap();
+        let result = package_overlay_zip(project.path(), "Test");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not exist"));
+    }
+
+    #[test]
+    fn package_standalone_mode_uses_project_name() {
+        let project = tempdir().unwrap();
+        // 没 overlay.json → 走独立模式
+        let assets_dir = project.path().join("assets/minecraft/lang");
+        fs::create_dir_all(&assets_dir).unwrap();
+        fs::write(assets_dir.join("zh_cn.json"), r#"{"item.apple":"苹果"}"#).unwrap();
+
+        let out = package_overlay_zip(project.path(), "MyOverlay").unwrap();
+        let expected = project.path().join("MyOverlay.zip");
+        assert_eq!(out, expected.to_string_lossy().to_string());
+        assert!(expected.exists());
+
+        // 验证 zip 内容:有 pack.mcmeta 和 assets/...
+        let extract_to = tempdir().unwrap();
+        extract_test_zip(&expected, extract_to.path());
+        assert!(extract_to.path().join("pack.mcmeta").exists());
+        let mcmeta: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(extract_to.path().join("pack.mcmeta")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(mcmeta["pack"]["pack_format"], 15);
+        assert_eq!(mcmeta["pack"]["description"], "MyOverlay");
+        assert!(extract_to
+            .path()
+            .join("assets/minecraft/lang/zh_cn.json")
+            .exists());
+
+        // 临时 pack.mcmeta 应被清理
+        assert!(!project.path().join("pack.mcmeta").exists());
+    }
+
+    #[test]
+    fn package_standalone_falls_back_to_chinese_name_for_empty() {
+        // 模拟从 import_overlay_share_code 拿到的空名情况
+        let project = tempdir().unwrap();
+        let out = package_overlay_zip(project.path(), "").unwrap();
+        let expected = project.path().join("你的覆盖包.zip");
+        assert_eq!(out, expected.to_string_lossy().to_string());
+        assert!(expected.exists());
     }
 }

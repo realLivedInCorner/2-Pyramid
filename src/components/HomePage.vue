@@ -3,7 +3,7 @@
     <header class="home-header">
       <div class="header-brand">
         2-Pyramid
-        <span class="header-version">Dev-2.0.0</span>
+        <span class="header-version">v{{ appVersion }}</span>
       </div>
     </header>
 
@@ -60,6 +60,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import appIcon from '../assets/app-icon.png';
+import { useAppInfo } from '../composables/useAppInfo';
 
 const { t } = useI18n();
 defineProps<{ userName?: string }>();
@@ -68,11 +69,17 @@ const emit = defineEmits(['switch-page']);
 const switchToConversion = () => emit('switch-page', 'conversion');
 const switchToOverlay = () => emit('switch-page', 'overlay');
 const switchToSettings = () => emit('switch-page', 'settings');
+
+// Show the plain semver (e.g. "2.0.0") in the top-left corner. The
+// build number lives in Settings → Version Info so this badge stays
+// clean and minimal.
+const { version: appVersion } = useAppInfo();
 </script>
 
 <style scoped>
 .fanhua-home {
   width: 100%; height: 100%;
+  min-height: 100vh;
   background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
   color: #1d1d1f;
   display: flex; flex-direction: column; overflow: hidden;
@@ -155,7 +162,16 @@ const switchToSettings = () => emit('switch-page', 'settings');
   z-index: 0;
 }
 
-.vortex-background { position: absolute; width: 100%; height: 100%; z-index: 1; overflow: hidden; }
+/* `position: fixed` instead of `absolute` so the vortex layer is
+   anchored to the viewport rather than the (sometimes collapsing)
+   flex parent. This guarantees the background always fills the
+   visible area even when .fanhua-home is mid-layout. */
+.vortex-background {
+  position: fixed; inset: 0;
+  width: 100vw; height: 100vh;
+  z-index: 1; overflow: hidden;
+  pointer-events: none;
+}
 
 .blob {
   position: absolute;

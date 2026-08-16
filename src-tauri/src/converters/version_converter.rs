@@ -9,7 +9,7 @@ use walkdir::WalkDir;
 use crate::converters::zip::{extract_resource_pack, repack_resource_pack};
 use crate::{log_info, log_warn};
 
-const PACK_FORMAT_LABELS: [&str; 25] = [
+const PACK_FORMAT_LABELS: [&str; 26] = [
     "Java 1.6-1.8",
     "Java 1.9-1.10",
     "Java 1.11-1.12",
@@ -34,6 +34,7 @@ const PACK_FORMAT_LABELS: [&str; 25] = [
     "Java 1.21.9-1.21.10",
     "Java 1.21.11",
     "Java 26.1-26.1.2",
+    "Java 26.2",
     "Bedrock Latest",
 ];
 
@@ -63,6 +64,7 @@ fn pack_format_label(pack_format: u32) -> &'static str {
         69 => "Java 1.21.9-1.21.10",
         75 => "Java 1.21.11",
         84 => "Java 26.1-26.1.2",
+        88 => "Java 26.2",
         1000 => "Bedrock Latest",
         _ => "Unknown",
     }
