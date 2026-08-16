@@ -354,8 +354,11 @@ const progressText = ref(t('conversion.ready'));
 // Warn when a batch is large enough that it may take a while.
 const MANY_FILES_THRESHOLD = 10;
 const manyFilesWarning = ref(false);
-const selectedVersion = ref('1.21-1.21.1');
-const fixAlphaLayers = ref(false);
+// 记住上次的转换设置：目标版本与 Alpha 修复开关持久化到
+// localStorage，重启后恢复。标签合法性在 onMounted 校验（版本列表
+// 更新后旧标签可能失效）。
+const selectedVersion = ref(localStorage.getItem('conversion.lastVersion') ?? '1.21-1.21.1');
+const fixAlphaLayers = ref(localStorage.getItem('conversion.fixAlphaLayers') === 'true');
 const selectedItems = ref<any[]>([]);
 const showResultModal = ref(false);
 const conversionResults = ref<any[]>([]);
@@ -456,6 +459,20 @@ const loadOutputSettings = async () => {
 
 onMounted(async () => {
   void loadOutputSettings();
+
+  // 校验持久化的版本标签仍存在（版本列表更新后旧标签可能失效），
+  // 失效则回退到默认目标版本。
+  if (!versions.some(v => v.label === selectedVersion.value)) {
+    selectedVersion.value = '1.21-1.21.1';
+  }
+
+  // 记住上次的转换设置（目标版本 / Alpha 修复开关）
+  watch(selectedVersion, (v) => {
+    localStorage.setItem('conversion.lastVersion', v);
+  });
+  watch(fixAlphaLayers, (v) => {
+    localStorage.setItem('conversion.fixAlphaLayers', String(v));
+  });
 
   // Register the toast-action handler for “Open output folder”. The
   // toast page emits `conv:open-output` via Rust when the user clicks
