@@ -48,15 +48,6 @@ import { resolveImageUrl } from "./utils/assetUrl";
    }
  }
 
- // 有背景时把 html/body 的白底切换为透明 —— CSS 绘制顺序里块级
- // 元素背景画在负 z-index 层之后，body 的 --bg-color 白底会盖住
- // 背景图（表现为"背景是白色的"）。
- watch(backgroundImage, (url) => {
-   const on = !!url;
-   document.documentElement.classList.toggle('has-background', on);
-   document.body.classList.toggle('has-background', on);
- });
-
  function onBackgroundChanged(payload: { path: string | null; fit: string; opacity: number; themeColor?: string | null }) {
    applyBackground(payload.path, payload.fit, payload.opacity);
    if (payload.themeColor) applyThemeColor(payload.themeColor);
@@ -668,12 +659,6 @@ onMounted(async () => {
    line-height: 1.6; 
    transition: background-color 0.3s, color 0.3s; 
  } 
-
- /* 自定义背景启用时：html/body 白底切透明，让 z-index:-1 的
-    背景层透出来（否则块级背景绘制顺序会盖住它） */
- html.has-background, body.has-background {
-   background-color: transparent;
- }
  
  #app { 
    height: 100%; 
@@ -709,14 +694,16 @@ onMounted(async () => {
   width: 100%; 
    overflow: hidden; 
    background-color: var(--bg-color); 
+   position: relative;
+   z-index: 2;
  } 
 
- /* 自定义背景层：fixed 全屏垫底（z-index 低于内容层），展示方式/
-    平铺随配置，CSS 随窗口自适应 */
+ /* 自定义背景层：窗口白底（body）之上、控件（app-container）之下。
+    图片 opacity < 1 时透出的是白底 —— 层叠顺序：白底 → 图片 → 控件 */
  .app-background {
    position: fixed;
    inset: 0;
-   z-index: -1;
+   z-index: 1;
    pointer-events: none;
  }
 
