@@ -146,6 +146,12 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         .decorations(false)
         .focused(false)
         .visible(false)
+        // The toast window is never focused, so WebView2 treats it as a
+        // background window and throttles its JS timers — the toast's
+        // own `setTimeout(dismiss, duration)` then fires far too late
+        // ("toast never goes away"). Disable throttling like the main
+        // window does.
+        .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
         .build()
         .map_err(|e| {
             crate::log_error!("toast: build failed: {}", e);
@@ -153,6 +159,7 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         })?;
 
     // Anchor to upper-right of the primary monitor.
+    let mut anchor: Option<(f64, f64)> = None;
     if let Some(monitor) = app.primary_monitor().map_err(|e| {
         crate::log_warn!("toast: primary_monitor failed: {}", e);
         e
@@ -162,18 +169,22 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         let scale = monitor.scale_factor();
         // Convert monitor size + position to logical units.
         let mon_w = mon_size.width as f64 / scale;
-        let mon_h = mon_size.height as f64 / scale;
         let mon_x = mon_pos.x as f64 / scale;
         let mon_y = mon_pos.y as f64 / scale;
 
         // Count existing live toasts so we can stack the new one
-        // below them. The stack grows downward.
-        let stack_offset = count_live_toasts(&app) as f64;
+        // below them. The stack grows downward. NOTE: `count_live_toasts`
+        // already sees the window we just built (it is registered the
+        // moment build() succeeds), so subtract 1 — otherwise the very
+        // first toast is pushed down one slot and every stack position
+        // is off by one.
+        let stack_offset = count_live_toasts(&app).saturating_sub(1) as f64;
         let x = mon_x + mon_w - TOAST_W - TOAST_MARGIN_RIGHT;
         let y = mon_y + TOAST_MARGIN_TOP + stack_offset * (TOAST_H + TOAST_GAP);
 
         let _ = window.set_position(LogicalPosition::new(x, y));
         let _ = window.set_size(LogicalSize::new(TOAST_W, TOAST_H));
+        anchor = Some((x, y));
     } else {
         crate::log_warn!("toast: no primary monitor; using default position");
     }
@@ -185,6 +196,33 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         crate::log_error!("toast: show failed: {}", e);
         format!("failed to show toast: {}", e)
     })?;
+
+    // Some Windows display configurations drop the pre-show position;
+    // re-assert the anchor after the window is visible so the toast
+    // never appears at a stale/default corner.
+    if let Some((x, y)) = anchor {
+        let _ = window.set_position(LogicalPosition::new(x, y));
+    }
+
+    // Safety net: the toast page normally closes itself via a JS
+    // setTimeout after `duration_ms`. If that never fires (renderer
+    // crash, JS error, throttling edge case) the window would linger
+    // on screen forever. Force-close from Rust after the duration plus
+    // a generous grace period so a well-behaved toast never gets cut
+    // short by the net.
+    {
+        let app = app.clone();
+        let label = label.clone();
+        let grace_ms = payload.duration_ms.max(1000) + 2500;
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(grace_ms));
+            if let Some(w) = app.get_webview_window(&label) {
+                crate::log_warn!("toast: safety net closing lingering window {}", label);
+                let _ = w.close();
+            }
+        });
+    }
+
     crate::log_info!(
         "toast: shown (label={}, title={:?})",
         label,
