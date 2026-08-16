@@ -1292,4 +1292,59 @@ onMounted(async () => {
   opacity: 0;
   transform: scale(0.95);
 }
+
+/* Faster sibling of dialog-pop, used by small quick dialogs
+   (OverlayPage create/import, SettingsPage compact dialogs). */
+.dialog-pop-quick-enter-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.dialog-pop-quick-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.dialog-pop-quick-enter-from,
+.dialog-pop-quick-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+/* dialog-pop-fast: snappy enter, slow leave (ConversionPage version
+   picker needs 700ms leave so the inner version-card spring can play
+   out before the overlay disappears). */
+.dialog-pop-fast-enter-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.dialog-pop-fast-leave-active {
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.dialog-pop-fast-enter-from,
+.dialog-pop-fast-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* OverlayPage header status toast: slides down from the top, fades out. */
+.header-status-toast-enter-active {
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.header-status-toast-leave-active {
+  transition: all 0.25s ease-in;
+}
+.header-status-toast-enter-from {
+  opacity: 0;
+  transform: translateY(-16px);
+}
+.header-status-toast-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ConversionPage version-picker sidebar overlay: plain opacity fade. */
+.sidebar-overlay-fade-enter-active,
+.sidebar-overlay-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.sidebar-overlay-fade-enter-from,
+.sidebar-overlay-fade-leave-to {
+  opacity: 0;
+}
 </style>

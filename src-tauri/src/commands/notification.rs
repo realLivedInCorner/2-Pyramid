@@ -92,8 +92,18 @@ pub struct ToastPayload {
 /// it in the upper-right of the primary monitor, then return. The
 /// window self-closes after `payload.duration_ms` via a setTimeout in
 /// the toast page itself.
+///
+/// IMPORTANT: this command is `async` on purpose. Tauri v2 runs
+/// synchronous commands on the MAIN thread; building a WebView2
+/// window there can stall the main thread (WebView2 controller
+/// creation waits for a renderer process, which is slow while a
+/// conversion saturates the CPU) and freeze ALL window event handling
+/// and IPC — observed as "window buttons dead, dialogs frozen" right
+/// after a conversion. As an async command it runs on the async
+/// runtime and only dispatches the tiny main-thread parts through
+/// Tauri's channel.
 #[tauri::command]
-pub fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), String> {
+pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), String> {
     let n = TOAST_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
     let label = format!("toast-{}-{}", chrono_timestamp_ms(), n);
 
