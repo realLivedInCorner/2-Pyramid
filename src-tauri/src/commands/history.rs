@@ -87,6 +87,6 @@ pub fn clear_conversion_history() -> Result<(), String> {
     if path.exists() {
         std::fs::remove_file(&path).map_err(|e| format!("Failed to remove history file: {}", e))?;
     }
-    crate::log_info!("history: cleared");
+    crate::log_info!("OKAY clear_conversion_history");
     Ok(())
 }
