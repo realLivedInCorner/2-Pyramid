@@ -232,6 +232,7 @@
       "presets": "Presets",
       "preview": "Preview",
       "presetDefault": "Default: [Ver]Welcome to 2-Pyramid",
+      "presetNameVer": "Name + Version",
       "presetVerTime": "[Ver] + Timestamp",
       "presetWelcome": "Welcome to 2-Pyramid",
       "defaultName": "Welcome to 2-Pyramid"

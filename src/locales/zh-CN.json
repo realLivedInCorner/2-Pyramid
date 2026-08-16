@@ -232,6 +232,7 @@
       "presets": "预设",
       "preview": "预览",
       "presetDefault": "默认：[Ver]欢迎使用2-Pyramid",
+      "presetNameVer": "原名 + 版本",
       "presetVerTime": "[Ver] + 时间戳",
       "presetWelcome": "欢迎使用2-Pyramid",
       "defaultName": "欢迎使用2-Pyramid"
