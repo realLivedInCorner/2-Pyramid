@@ -198,35 +198,16 @@
       <section class="settings-group" v-if="shouldShowGroup('conversionHistory')">
         <h3 class="group-title">{{ t('settings.conversionHistory.groupTitle') }}</h3>
         <div class="group-card">
-          <div class="setting-item" v-if="shouldShowItem('conversionHistory')">
+          <div class="setting-item clickable" @click="openHistoryDialog" v-if="shouldShowItem('conversionHistory')">
             <div class="item-icon">
               <i class="ri-history-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
               <div class="label">{{ t('settings.conversionHistory.label') }}</div>
-              <div class="desc">{{ t('settings.conversionHistory.desc') }}</div>
+              <div class="desc">{{ t('settings.conversionHistory.desc') }}（{{ historyEntries.length }}）</div>
             </div>
-            <div class="item-action">
-              <button class="btn-text" @click="clearConversionHistory" :disabled="historyEntries.length === 0">
-                {{ t('settings.conversionHistory.clear') }}
-              </button>
-            </div>
+            <div class="item-arrow">→</div>
           </div>
-          <div class="history-list" v-if="historyEntries.length > 0">
-            <div class="history-item" v-for="(h, i) in historyEntries" :key="i">
-              <i class="history-status" :class="h.status === 'success' ? 'ok' : h.status === 'cancelled' ? 'cancelled' : 'fail'" aria-hidden="true"></i>
-              <div class="history-info">
-                <div class="history-name">{{ historyFileName(h.input) }}</div>
-                <div class="history-meta">{{ h.time }} · {{ h.duration_s.toFixed(1) }}s</div>
-              </div>
-              <button
-                v-if="h.status === 'success' && h.output"
-                class="btn-text"
-                @click="openHistoryOutput(h.output)"
-              >{{ t('settings.conversionHistory.openOutput') }}</button>
-            </div>
-          </div>
-          <div class="history-empty" v-else>{{ t('settings.conversionHistory.empty') }}</div>
         </div>
       </section>
 
@@ -544,6 +525,40 @@
     </transition>
 
     <transition name="dialog-pop">
+      <div v-if="showHistoryDialog" class="dialog-overlay">
+        <div class="dialog-content history-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.conversionHistory.groupTitle') }}</h3>
+            <button class="dialog-close" @click="showHistoryDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <div class="history-list" v-if="historyEntries.length > 0">
+              <div class="history-item" v-for="(h, i) in historyEntries" :key="i">
+                <i class="history-status" :class="h.status === 'success' ? 'ok' : h.status === 'cancelled' ? 'cancelled' : 'fail'" aria-hidden="true"></i>
+                <div class="history-info">
+                  <div class="history-name">{{ historyFileName(h.input) }}</div>
+                  <div class="history-meta">{{ h.time }} · {{ h.duration_s.toFixed(1) }}s</div>
+                </div>
+                <button
+                  v-if="h.status === 'success' && h.output"
+                  class="btn-text"
+                  @click="openHistoryOutput(h.output)"
+                >{{ t('settings.conversionHistory.openOutput') }}</button>
+              </div>
+            </div>
+            <div class="history-empty" v-else>{{ t('settings.conversionHistory.empty') }}</div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="clearConversionHistory" :disabled="historyEntries.length === 0">
+              {{ t('settings.conversionHistory.clear') }}
+            </button>
+            <button class="btn-text" @click="showHistoryDialog = false">{{ t('common.close') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="dialog-pop">
       <div v-if="showThemeDialog" class="dialog-overlay" @click="showThemeDialog = false">
         <div class="dialog-content theme-dialog" @click.stop>
           <div class="dialog-header">
@@ -810,6 +825,12 @@ interface HistoryEntry {
   duration_s: number;
 }
 const historyEntries = ref<HistoryEntry[]>([]);
+const showHistoryDialog = ref(false);
+
+const openHistoryDialog = () => {
+  showHistoryDialog.value = true;
+  loadConversionHistory();
+};
 
 const loadConversionHistory = () => {
   invoke<HistoryEntry[]>('get_conversion_history')
@@ -1762,12 +1783,12 @@ const hexToHsv = (hex: string) => {
 .btn-text.secondary { background: rgba(0,0,0,0.06); color: #334155; }
 .btn-text:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* 转换历史列表 */
+/* 转换历史列表（对话框内） */
+.history-dialog { width: 520px; max-width: 92vw; }
 .history-list {
   display: flex;
   flex-direction: column;
-  margin-top: 12px;
-  max-height: 320px;
+  max-height: 420px;
   overflow-y: auto;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
