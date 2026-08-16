@@ -125,3 +125,18 @@ pub fn clear_background() -> Result<(), String> {
     crate::log_info!("OKAY clear_background");
     Ok(())
 }
+
+/// 按路径读取图片字节（前端 asset 协议不可用时的回退方案）。
+/// 大小上限 50MB，仅接受图片扩展名。
+#[tauri::command]
+pub fn read_image_bytes(path: String) -> Result<Vec<u8>, String> {
+    let p = Path::new(&path);
+    if allowed_ext(p).is_none() {
+        return Err("Unsupported image format".to_string());
+    }
+    let meta = std::fs::metadata(p).map_err(|e| format!("Failed to stat file: {}", e))?;
+    if meta.len() > 50 * 1024 * 1024 {
+        return Err("Image too large (>50MB)".to_string());
+    }
+    std::fs::read(p).map_err(|e| format!("Failed to read file: {}", e))
+}

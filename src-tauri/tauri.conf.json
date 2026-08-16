@@ -11,7 +11,13 @@
   },
   "app": {
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://github.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: https://asset.localhost data:;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/.2pyr/**"
+        ]
+      },
+      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://github.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:;",
       "capabilities": [
         "default"
       ]

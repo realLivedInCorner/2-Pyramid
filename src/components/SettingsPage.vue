@@ -829,8 +829,8 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
+import { resolveImageUrl } from '../utils/assetUrl';
 import { useUpdater } from '../composables/useUpdater';
 import { useNotification, type NotificationMode } from '../composables/useNotification';
 import { useLanguage } from '../composables/useLanguage';
@@ -1009,7 +1009,7 @@ const pickBackgroundImage = async () => {
     });
     if (selected && typeof selected === 'string') {
       bgDraftFile.value = selected;
-      bgDraftPreview.value = convertFileSrc(selected);
+      bgDraftPreview.value = await resolveImageUrl(selected);
     }
   } catch (e) {
     console.error('[background] pick failed:', e);
