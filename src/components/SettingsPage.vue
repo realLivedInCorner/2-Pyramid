@@ -665,8 +665,6 @@ const settingItems = [
   { id: 'notification', group: 'notification', label: t('settings.notification.label'), desc: t('settings.notification.desc') },
   { id: 'notificationMode', group: 'notification', label: t('settings.notificationMode.label'), desc: t('settings.notificationMode.desc') },
   { id: 'testNotification', group: 'notification', label: t('settings.testNotification.label'), desc: t('settings.testNotification.desc') },
-  { id: 'contextMenu', group: 'contextMenu', label: t('settings.contextMenu.label'), desc: t('settings.contextMenu.desc') },
-  { id: 'refreshContextMenu', group: 'contextMenu', label: t('settings.refreshContextMenu.label'), desc: t('settings.refreshContextMenu.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
