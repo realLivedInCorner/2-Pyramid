@@ -52,7 +52,7 @@ function readQuery(): {
     title: p.get("title") ?? "2-Pyramid",
     body: p.get("body") ?? "",
     kind: (p.get("kind") ?? "info").toLowerCase(),
-    durationMs: Math.max(1000, parseInt(p.get("duration") ?? "4500", 10) || 4500),
+    durationMs: Math.max(1000, parseInt(p.get("duration") ?? "8000", 10) || 8000),
     label: p.get("label") ?? "",
     actions,
   };
