@@ -199,6 +199,28 @@
       "testTitle": "测试通知",
       "testBody": "这是一条测试通知，用于验证通知功能是否正常工作。"
     },
+    "toastDuration": {
+      "label": "通知显示时长",
+      "desc": "桌面通知自动消失前的停留时间",
+      "searchLabel": "通知显示时长",
+      "searchDesc": "桌面通知自动消失前的停留时间"
+    },
+    "toastPosition": {
+      "label": "通知位置",
+      "desc": "桌面通知出现在屏幕的哪个角落",
+      "searchLabel": "通知位置",
+      "searchDesc": "桌面通知出现在屏幕的哪个角落",
+      "topLeft": "左上",
+      "topRight": "右上",
+      "bottomLeft": "左下",
+      "bottomRight": "右下"
+    },
+    "conversionThreads": {
+      "label": "转换并发数",
+      "desc": "同时转换的资源包数量，更多更快但更占内存",
+      "searchLabel": "转换并发数",
+      "searchDesc": "同时转换的资源包数量"
+    },
     "animationSpeed": {
       "label": "动画速率",
       "desc": "控制页面切换和元素依次出现的速度",
