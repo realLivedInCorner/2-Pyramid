@@ -23,6 +23,17 @@ const notificationMode = ref<'system' | 'app' | 'both'>('both')
 // will prompt before deleting any of their packs.
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>('ask')
 const openOutputAfterConvert = ref<boolean>(true)
+// 新增重要选项：批量转换并发数与输出命名模板
+const conversionThreads = ref(2)
+const namingTemplate = ref('[Ver][Name]')
+const namingPreview = computed(() => {
+  const render = (tpl: string) => tpl
+    .replace(/\[Name\]/g, t('settings.outputNaming.defaultName'))
+    .replace(/\[Ver\]/g, '[Java 1.20-1.20.1]')
+    .replace(/\[Time\]/g, '20260816-101234')
+  const rendered = render(namingTemplate.value).trim()
+  return (rendered || t('settings.outputNaming.defaultName')) + '.zip'
+})
 
 // 每步的标题/描述（显示在右侧内容区顶部）
 const stepMeta = computed(() => {
@@ -119,6 +130,8 @@ async function finish() {
         notificationMode: notificationMode.value,
         sourceHandling: sourceHandling.value,
         openOutputAfterConvert: openOutputAfterConvert.value,
+        conversionThreads: conversionThreads.value,
+        outputNaming: namingTemplate.value,
       }
     })
     console.log('[StartupPage] update_config result:', result)
@@ -247,6 +260,26 @@ async function finish() {
                 </div>
               </div>
 
+              <!-- Conversion Threads -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-cpu-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('settings.conversionThreads.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('settings.conversionThreads.desc') }}</span>
+                </div>
+                <div class="segmented">
+                  <button
+                    v-for="opt in [1, 2, 4]"
+                    :key="opt"
+                    class="seg-btn"
+                    :class="{ active: conversionThreads === opt }"
+                    @click="conversionThreads = opt"
+                  >{{ opt }}</button>
+                </div>
+              </div>
+
               <!-- Notification -->
               <div class="startup-setting-row">
                 <div class="item-icon">
@@ -307,6 +340,30 @@ async function finish() {
                   <input type="checkbox" v-model="openOutputAfterConvert" />
                   <span class="slider"></span>
                 </label>
+              </div>
+
+              <!-- Output Naming Template -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-file-text-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('settings.outputNaming.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('settings.outputNaming.desc') }}</span>
+                </div>
+              </div>
+              <div class="naming-row-inline">
+                <input
+                  v-model="namingTemplate"
+                  class="naming-input"
+                  :placeholder="t('settings.outputNaming.placeholder')"
+                  spellcheck="false"
+                  maxlength="200"
+                />
+                <div class="naming-preview-inline">
+                  {{ t('settings.outputNaming.preview') }}:
+                  <b>{{ namingPreview }}</b>
+                </div>
               </div>
             </div>
           </div>
@@ -789,6 +846,45 @@ async function finish() {
 .startup-setting-desc {
   font-size: 12px;
   color: #9ca3af;
+}
+
+/* 命名模板行内编辑器 */
+.naming-row-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.naming-input {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #1a1a2e;
+  outline: none;
+}
+
+.naming-input:focus {
+  border-color: var(--theme-color);
+  background: #fff;
+}
+
+.naming-preview-inline {
+  font-size: 12px;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.naming-preview-inline b {
+  color: #0f172a;
 }
 
 /* 分段按钮 */
