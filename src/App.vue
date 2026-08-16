@@ -4,8 +4,8 @@
  import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
  import { isTauri as tauriIsAvailable } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { resolveImageUrl } from "./utils/assetUrl";
  import { useI18n } from "vue-i18n";
  import HomePage from "./components/HomePage.vue";
  import ConversionPage from "./components/ConversionPage.vue";
@@ -36,10 +36,13 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 
  function applyBackground(path: string | null, fit: string, opacity: number) {
    if (path) {
-     backgroundImage.value = convertFileSrc(path);
      backgroundFit.value = (['cover', 'contain', 'stretch', 'tile'].includes(fit)
        ? fit : 'cover') as typeof backgroundFit.value;
      backgroundOpacity.value = Math.min(1, Math.max(0.1, opacity));
+     // 异步解析（asset 协议失败时回退 Blob URL）
+     resolveImageUrl(path)
+       .then((url) => { backgroundImage.value = url; })
+       .catch((e) => console.error('[background] resolve failed:', e));
    } else {
      backgroundImage.value = '';
    }
