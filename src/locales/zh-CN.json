@@ -326,6 +326,7 @@
     "codeCopied": "分享码已复制到剪贴板",
     "copyFailed": "复制失败，请手动选择复制",
     "deleteConfirm": "确定要删除项目 \"{name}\" 吗？这不可撤销。",
+    "deleteConfirmBtn": "删除",
     "deleteTitle": "确认删除",
     "deleteSuccess": "项目 \"{name}\" 已删除",
     "deleteFailed": "删除失败: {error}",

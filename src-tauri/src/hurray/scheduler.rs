@@ -501,15 +501,24 @@ impl ProgressTracker {
         // final integer Progress line.
         self.stop_live_ticker();
         let current = self.done.fetch_add(1, Ordering::SeqCst) + 1;
-        let percent = (current * 100) / self.total;
-        log_info!(
-            "{}Progress: {}/{} ({}%) - {}",
-            self.prefix,
-            current,
-            self.total,
-            percent,
-            task_name
-        );
+        // Log every 50th module plus the final one. Repacking alone can
+        // emit 1000+ lines in ~1.5s (≈800 logs/s); that flood wastes
+        // CPU, bloats the log file and, combined with a parallel batch,
+        // starves the WebView2 renderer process of the main window
+        // (dead buttons / frozen animations during conversion). The
+        // live ticker above still gives smooth per-200ms feedback, so
+        // the file stays useful for debugging without the flood.
+        if current % 50 == 0 || current == self.total {
+            let percent = (current * 100) / self.total;
+            log_info!(
+                "{}Progress: {}/{} ({}%) - {}",
+                self.prefix,
+                current,
+                self.total,
+                percent,
+                task_name
+            );
+        }
     }
 
     fn stop_live_ticker(&self) {
