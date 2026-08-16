@@ -720,26 +720,38 @@ onMounted(async () => {
    pointer-events: none;
  }
 
- /* ── 控件表面皮肤：玻璃（透光+模糊，默认）与磨砂（不透光实底）──
-    由 body.ui-frosted 切换。所有卡片/按钮容器统一走这两个皮肤。 */
+ /* ── 统一控件系统 ──────────────────────────────────────────────
+    控件只分两类：
+      1. 卡片（面板容器）：中心不透明、越往外越透明的径向渐变玻璃；
+         磨砂模式下为全不透明实底
+      2. 按钮（中性按钮）：统一圆角矩形，玻璃/磨砂表面；主题色主按
+         钮保持实色，仅统一圆角
+    药丸（底部导航 pill）不属于按钮，保持 999px 药丸圆角。
+    尺寸策略：宽高均随内容自适应（padding 控制），不写死。 */
 
  :root {
-   --ui-surface: rgba(255, 255, 255, 0.62);
-   --ui-surface-strong: rgba(255, 255, 255, 0.86);
-   --ui-blur: 14px;
+   /* 玻璃：径向渐变 —— 中心近实、边缘透光（越往外越透明） */
+   --ui-card-surface: radial-gradient(120% 150% at 50% 35%,
+     rgba(255, 255, 255, 0.94) 55%,
+     rgba(255, 255, 255, 0.38) 100%);
+   --ui-btn-surface: rgba(255, 255, 255, 0.85);
+   --ui-blur: 16px;
+   --ui-radius-card: 14px;
+   --ui-radius-btn: 10px;
  }
 
  body.ui-frosted {
-   --ui-surface: #f1f2f5;
-   --ui-surface-strong: #e9ebef;
+   /* 磨砂：全不透明实底 */
+   --ui-card-surface: #f1f2f5;
+   --ui-btn-surface: #e9ebef;
    --ui-blur: 0px;
  }
 
+ /* ── 卡片类（统一表面 + 统一圆角） ── */
  .app-container .group-card,
  .app-container .card,
  .app-container .home-greeting,
  .app-container .engine-indicator,
- .app-container .segmented,
  .app-container .action-dock,
  .app-container .home-header,
  .app-container .startup-setting-row,
@@ -751,17 +763,65 @@ onMounted(async () => {
  .startup-root .lang-card,
  .startup-root .welcome-card,
  .startup-root .nav-pill {
-   background: var(--ui-surface);
-   backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
-   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
+   background: var(--ui-card-surface);
+   backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
+   border-radius: var(--ui-radius-card);
  }
 
- /* 对话框用更实的表面保证可读性 */
+ /* 对话框用更实的表面保证可读性（玻璃边缘不透到底） */
  .app-container .dialog-content,
  .startup-root .startup-backup-card {
-   background: var(--ui-surface-strong);
-   backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
-   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
+   background: var(--ui-card-surface);
+   backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
+   border-radius: var(--ui-radius-card);
+ }
+
+ /* ── 按钮类（中性按钮统一玻璃/磨砂表面 + 统一圆角矩形）── */
+ .app-container .segmented,
+ .app-container .seg-btn,
+ .app-container .btn-text.secondary,
+ .app-container .dialog-button.secondary,
+ .app-container .ghost-btn,
+ .app-container .danger-btn,
+ .app-container .naming-tag-btn,
+ .app-container .naming-preset-btn,
+ .startup-root .seg-btn,
+ .startup-root .ghost-btn,
+ .startup-root .danger-btn {
+   border-radius: var(--ui-radius-btn);
+   background: var(--ui-btn-surface);
+   backdrop-filter: blur(calc(var(--ui-blur) * 0.6));
+   -webkit-backdrop-filter: blur(calc(var(--ui-blur) * 0.6));
+ }
+
+ /* 主题色主按钮只统一圆角（保持实色） */
+ .app-container .btn-text,
+ .app-container .dialog-button,
+ .app-container .primary-btn,
+ .startup-root .primary-btn {
+   border-radius: var(--ui-radius-btn);
+ }
+
+ /* 磨砂模式下分段按钮选中态用实白（不透明一致） */
+ body.ui-frosted .seg-btn.active {
+   background: #ffffff;
+ }
+
+ /* ── 文本自适应：按钮文字不撑破布局，超长省略 ── */
+ .app-container button,
+ .startup-root button {
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   max-width: 100%;
+ }
+
+ .app-container .item-info,
+ .app-container .startup-setting-info,
+ .app-container .history-info {
+   min-width: 0;
  }
 
  /* 有背景时：应用容器全透明，背景图清晰透出；玻璃模糊只加在
