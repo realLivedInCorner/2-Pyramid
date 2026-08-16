@@ -167,7 +167,10 @@ export function useNotification() {
             title,
             body,
             kind: type,
-            durationMs: 4500,
+            // Long enough to actually read the text. Toasts carrying
+            // action buttons stay even longer so the user has time to
+            // notice and click them.
+            durationMs: actions.length > 0 ? 10000 : 8000,
             actions,
           },
         });

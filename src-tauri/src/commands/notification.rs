@@ -122,12 +122,20 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
             .unwrap_or_else(|_| "[]".to_string());
         format!("&actions={}", urlencoding_encode(&json))
     };
+    // Effective on-screen duration: caller-provided value when set,
+    // otherwise a readable 8s default (4.5s was too short to read).
+    let effective_duration = if payload.duration_ms == 0 {
+        8000
+    } else {
+        payload.duration_ms.max(1000)
+    };
+
     let url = format!(
         "toast.html?title={}&body={}&kind={}&duration={}&label={}{}",
         urlencoding_encode(&payload.title),
         urlencoding_encode(&payload.body),
         urlencoding_encode(&payload.kind),
-        payload.duration_ms.max(1000),
+        effective_duration,
         urlencoding_encode(&label),
         actions_param,
     );
@@ -213,7 +221,7 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
     {
         let app = app.clone();
         let label = label.clone();
-        let grace_ms = payload.duration_ms.max(1000) + 1200;
+        let grace_ms = effective_duration + 1200;
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(grace_ms));
             if let Some(w) = app.get_webview_window(&label) {
