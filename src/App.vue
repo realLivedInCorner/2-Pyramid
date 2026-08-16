@@ -443,7 +443,9 @@ onMounted(async () => {
  </script> 
 
  <template>
-   <StartupPage v-if="showOOBE" @complete="onOOBEComplete" />
+   <Transition name="oobe-fade">
+     <StartupPage v-if="showOOBE" @complete="onOOBEComplete" />
+   </Transition>
    <div class="app-container">
      <div class="drag-region" data-tauri-drag-region="true"></div> 
  
@@ -1218,6 +1220,18 @@ onMounted(async () => {
 .toast-slide-leave-to { opacity: 0; transform: translateX(40px); }
 
 /* ── Conversion-in-progress guard dialog ────────────── */
+/* OOBE 覆盖层的淡入淡出（工厂重置 → 首次启动引导的过渡） */
+.oobe-fade-enter-active {
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.oobe-fade-leave-active {
+  transition: opacity 0.35s ease;
+}
+.oobe-fade-enter-from,
+.oobe-fade-leave-to {
+  opacity: 0;
+}
+
 .conv-guard-overlay {
   position: fixed;
   inset: 0;
