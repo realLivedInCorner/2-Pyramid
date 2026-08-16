@@ -24,6 +24,11 @@ pub struct AppConfig {
     pub toast_position: Option<String>,
     /// How many resource packs a batch converts in parallel (1–4).
     pub conversion_threads: Option<u32>,
+    /// Output file naming style: "default" (`[tag]name.zip` with a
+    /// numeric suffix on collision) / "timestamp" (adds a timestamp
+    /// instead of a counter) / "overwrite" (replaces an existing file
+    /// with the same name).
+    pub output_naming: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -54,6 +59,8 @@ pub struct ConfigPatch {
     pub toast_position: Option<String>,
     #[serde(alias = "conversionThreads")]
     pub conversion_threads: Option<u32>,
+    #[serde(alias = "outputNaming")]
+    pub output_naming: Option<String>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -434,6 +441,14 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     if let Some(v) = patch.conversion_threads {
         crate::log_info!("config: conversion_threads = {}", v);
         cfg.conversion_threads = Some(v.clamp(1, 4));
+    }
+    if let Some(v) = patch.output_naming {
+        crate::log_info!("config: output_naming = {}", v);
+        let normalized = match v.as_str() {
+            "timestamp" | "overwrite" => v,
+            _ => "default".to_string(),
+        };
+        cfg.output_naming = Some(normalized);
     }
     write_config_file(&cfg)?;
     crate::log_info!("config: saved to {:?}", config_path());
