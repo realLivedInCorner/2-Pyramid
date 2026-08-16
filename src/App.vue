@@ -696,19 +696,39 @@ onMounted(async () => {
    background-color: var(--bg-color); 
  } 
 
- /* 自定义背景层：fixed 全屏垫底，展示方式/平铺随配置，CSS 随窗口自适应 */
+ /* 自定义背景层：fixed 全屏垫底（z-index 低于内容层），展示方式/
+    平铺随配置，CSS 随窗口自适应 */
  .app-background {
    position: fixed;
    inset: 0;
-   z-index: 0;
+   z-index: -1;
    pointer-events: none;
  }
 
- /* 有背景时：页面容器切换为半透明白 + 毛玻璃模糊（透出背景） */
+ /* 有背景时：应用容器全透明，背景图清晰透出；玻璃模糊只加在
+    卡片/控件附近，像一块块玻璃盖在背景上，而不是糊掉整张图。 */
  .app-container.has-background {
-   background-color: rgba(255, 255, 255, 0.72);
-   backdrop-filter: blur(22px) saturate(1.1);
-   -webkit-backdrop-filter: blur(22px) saturate(1.1);
+   background: transparent;
+ }
+
+ .app-container.has-background .fanhua-home {
+   background: transparent;
+   animation: none;
+ }
+
+ /* 主页的涡旋装饰在自定义背景下隐藏，背景图是主角 */
+ .app-container.has-background .vortex-background {
+   display: none;
+ }
+
+ /* 卡片级玻璃：仅控件附近模糊 */
+ .app-container.has-background .group-card,
+ .app-container.has-background .card,
+ .app-container.has-background .home-greeting,
+ .app-container.has-background .engine-indicator {
+   background: rgba(255, 255, 255, 0.58);
+   backdrop-filter: blur(16px) saturate(1.15);
+   -webkit-backdrop-filter: blur(16px) saturate(1.15);
  }
  
  .drag-region { 
