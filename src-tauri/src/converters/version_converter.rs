@@ -207,6 +207,42 @@ pub fn build_output_path_for_batch(
     build_output_path(input_zip, target_version, parent_folder_path, output_dir_override)
 }
 
+/// Render the user's output-naming template.
+///
+/// Supported placeholders:
+///   * `[Name]` — source pack name (version prefix stripped)
+///   * `[Ver]`  — target version label, e.g. "Java 1.20-1.20.1"
+///   * `[Time]` — timestamp `YYYYMMDD-HHMMSS`
+///   * `[Date]` — date `YYYY-MM-DD`
+///
+/// Unknown text passes through verbatim (sanitised for the filesystem),
+/// so `[Name] [Ver]` → `Vanilla Orange Edit Java 1.20-1.20.1`. An
+/// empty/whitespace-only template falls back to the pack name alone.
+fn apply_naming_template(template: &str, name: &str, version: &str, time: &str, date: &str) -> String {
+    let rendered = template
+        .replace("[Name]", name)
+        .replace("[Ver]", version)
+        .replace("[Time]", time)
+        .replace("[Date]", date);
+    let trimmed = sanitize_filename_component(rendered.trim());
+    if trimmed.is_empty() {
+        name.to_string()
+    } else {
+        trimmed
+    }
+}
+
+/// Replace characters that are illegal in Windows file names so a
+/// user-supplied template can never produce an uncreatable path.
+fn sanitize_filename_component(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            c => c,
+        })
+        .collect()
+}
+
 pub fn build_output_path(
     input_zip: &Path,
     target_version: u32,
@@ -220,22 +256,26 @@ pub fn build_output_path(
         .unwrap_or("resource_pack");
     let cleaned_base = strip_version_prefix(base_name);
 
-    // Naming style is user-configurable:
-    //   * "default"   → `[tag]name.zip`, numeric suffix on collision
-    //   * "timestamp" → `[tag]name_YYYYMMDD-HHMMSS.zip`
-    //   * "overwrite" → `[tag]name.zip`, replaces an existing file
+    // User-configurable naming template. Legacy values from before the
+    // template system are migrated on read:
+    //   "default" / empty → "[Name] [Ver]"
+    //   "timestamp"       → "[Name] [Time]"
+    //   "overwrite"       → "[Name]"
     let naming = crate::commands::read_config_file()
         .ok()
         .and_then(|c| c.output_naming)
-        .unwrap_or_else(|| "default".to_string());
-
-    let mut file_name = match naming.as_str() {
-        "timestamp" => {
-            let stamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
-            format!("[{}]{}_{}.zip", label, cleaned_base, stamp)
-        }
-        _ => format!("[{}]{}.zip", label, cleaned_base),
+        .unwrap_or_default();
+    let template = match naming.as_str() {
+        "" | "default" => "[Name] [Ver]".to_string(),
+        "timestamp" => "[Name] [Time]".to_string(),
+        "overwrite" => "[Name]".to_string(),
+        other => other.to_string(),
     };
+
+    let stamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let date = Local::now().format("%Y-%m-%d").to_string();
+    let stem = apply_naming_template(&template, &cleaned_base, label, &stamp, &date);
+    let mut file_name = format!("{}.zip", stem);
 
     let output_dir = if let Some(override_dir) = output_dir_override {
         Path::new(override_dir).to_path_buf()
@@ -255,16 +295,14 @@ pub fn build_output_path(
     fs::create_dir_all(&output_dir)
         .map_err(|e| format!("failed to create output directory {}: {}", output_dir.display(), e))?;
 
+    // Collision handling is always "append a numeric suffix" — the
+    // user chose never to overwrite (see naming settings discussion).
     let mut output_path = output_dir.join(&file_name);
-    // "overwrite" replaces an existing file; the other styles never
-    // clobber — append a numeric suffix until the path is free.
-    if naming != "overwrite" {
-        let mut counter = 1;
-        while output_path.exists() {
-            file_name = format!("[{}]{}_{}.zip", label, cleaned_base, counter);
-            output_path = output_dir.join(&file_name);
-            counter += 1;
-        }
+    let mut counter = 1;
+    while output_path.exists() {
+        file_name = format!("{} ({}).zip", stem, counter);
+        output_path = output_dir.join(&file_name);
+        counter += 1;
     }
 
     Ok(output_path)

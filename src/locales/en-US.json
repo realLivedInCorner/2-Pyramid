@@ -222,13 +222,18 @@
       "searchDesc": "How many packs convert in parallel"
     },
     "outputNaming": {
-      "label": "Output Naming",
-      "desc": "How converted output files are named",
-      "searchLabel": "Output Naming",
-      "searchDesc": "How converted output files are named",
-      "default": "Default",
-      "timestamp": "Timestamp",
-      "overwrite": "Overwrite"
+      "label": "Output Naming Template",
+      "desc": "Custom output file name using placeholders",
+      "searchLabel": "Output Naming Template",
+      "searchDesc": "Custom output file name",
+      "placeholder": "e.g. [Name] [Ver]",
+      "tags": "Insert placeholder",
+      "presets": "Presets",
+      "preview": "Preview",
+      "presetNameVer": "Name + Version",
+      "presetVerName": "Version + Name",
+      "presetNameOnly": "Name only",
+      "presetNameTime": "Name + Timestamp"
     },
     "conversionHistory": {
       "groupTitle": "Conversion History",
