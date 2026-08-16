@@ -26,18 +26,17 @@ use tauri::{
 // it does not in 2.8+ (the only path the library itself uses is
 // `crate::runtime::dpi::Position`, also not public).
 
-/// Width / height of a single toast in DIPs.
-const TOAST_W: f64 = 360.0;
-const TOAST_H: f64 = 96.0;
+/// Width / height of a single toast in DIPs. Compact notification
+/// size (like a Windows 11 banner), not a modal panel.
+const TOAST_W: f64 = 320.0;
+const TOAST_H: f64 = 88.0;
 /// Gap between stacked toasts and from screen edges.
-const TOAST_GAP: f64 = 12.0;
-const TOAST_MARGIN_RIGHT: f64 = 16.0;
-/// Top margin. Must clear the main window's custom title-bar buttons
-/// (min/max/close live at ~top:10px, height 36px → up to ~46px). A
-/// toast is an always-on-top separate window, so if it lands on the
-/// buttons it swallows their clicks (“window controls dead after
-/// conversion”). 76px keeps the whole toast below that zone.
-const TOAST_MARGIN_TOP: f64 = 76.0;
+const TOAST_GAP: f64 = 10.0;
+/// Toast hugs the top-right corner of the screen ("顶格"): a small
+/// 12px margin keeps the rounded card from touching the bezel while
+/// still reading as a corner notification.
+const TOAST_MARGIN_RIGHT: f64 = 12.0;
+const TOAST_MARGIN_TOP: f64 = 12.0;
 /// Maximum number of toasts we keep on screen at once. Older ones get
 /// forced-closed so the stack never grows off the bottom of the
 /// monitor.
@@ -124,11 +123,12 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         format!("&actions={}", urlencoding_encode(&json))
     };
     let url = format!(
-        "toast.html?title={}&body={}&kind={}&duration={}{}",
+        "toast.html?title={}&body={}&kind={}&duration={}&label={}{}",
         urlencoding_encode(&payload.title),
         urlencoding_encode(&payload.body),
         urlencoding_encode(&payload.kind),
         payload.duration_ms.max(1000),
+        urlencoding_encode(&label),
         actions_param,
     );
 
@@ -213,7 +213,7 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
     {
         let app = app.clone();
         let label = label.clone();
-        let grace_ms = payload.duration_ms.max(1000) + 2500;
+        let grace_ms = payload.duration_ms.max(1000) + 1200;
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(grace_ms));
             if let Some(w) = app.get_webview_window(&label) {
