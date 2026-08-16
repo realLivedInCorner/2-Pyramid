@@ -4,6 +4,7 @@
  import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
  import { isTauri as tauriIsAvailable } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
  import { useI18n } from "vue-i18n";
  import HomePage from "./components/HomePage.vue";
@@ -24,6 +25,30 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
  const sourceHandling = ref<'ask' | 'delete' | 'keep'>('ask');
  const openOutputAfterConvert = ref<boolean>(true);
  const showOOBE = ref(false);
+
+ // ── 自定义背景 ────────────────────────────────────────────────
+ // 背景图层放在 app-container 之下（fixed 全屏），CSS
+ // background-size 随窗口尺寸自适应；有背景时 app-container 切换为
+ // 半透明白 + 模糊（玻璃透色），卡片原有的半透明玻璃样式自然透出。
+ const backgroundImage = ref('');
+ const backgroundFit = ref<'cover' | 'contain' | 'stretch' | 'tile'>('cover');
+ const backgroundOpacity = ref(1);
+
+ function applyBackground(path: string | null, fit: string, opacity: number) {
+   if (path) {
+     backgroundImage.value = convertFileSrc(path);
+     backgroundFit.value = (['cover', 'contain', 'stretch', 'tile'].includes(fit)
+       ? fit : 'cover') as typeof backgroundFit.value;
+     backgroundOpacity.value = Math.min(1, Math.max(0.1, opacity));
+   } else {
+     backgroundImage.value = '';
+   }
+ }
+
+ function onBackgroundChanged(payload: { path: string | null; fit: string; opacity: number; themeColor?: string | null }) {
+   applyBackground(payload.path, payload.fit, payload.opacity);
+   if (payload.themeColor) applyThemeColor(payload.themeColor);
+ }
   
  const pageComponent = computed(() => { 
    if (currentPage.value === "conversion") return ConversionPage; 
@@ -378,6 +403,13 @@ onMounted(async () => {
        if (typeof cfg?.toast_duration_ms === 'number') {
          setToastDuration(cfg.toast_duration_ms);
        }
+       if (typeof cfg?.background_image === 'string' && cfg.background_image.length > 0) {
+         applyBackground(
+           cfg.background_image,
+           cfg.background_fit ?? 'cover',
+           typeof cfg.background_opacity === 'number' ? cfg.background_opacity : 1,
+         );
+       }
        if (cfg?.user_name) {         userName.value = cfg.user_name;
        }
        if (!cfg?.initialized) {
@@ -492,7 +524,14 @@ onMounted(async () => {
    <Transition name="oobe-fade">
      <StartupPage v-if="showOOBE" @complete="onOOBEComplete" />
    </Transition>
-   <div class="app-container">
+   <div v-if="backgroundImage" class="app-background" :style="{
+     backgroundImage: `url(${backgroundImage})`,
+     backgroundSize: backgroundFit === 'stretch' ? '100% 100%' : backgroundFit,
+     backgroundRepeat: backgroundFit === 'tile' ? 'repeat' : 'no-repeat',
+     backgroundPosition: 'center',
+     opacity: backgroundOpacity,
+   }"></div>
+   <div class="app-container" :class="{ 'has-background': !!backgroundImage }">
      <div class="drag-region" data-tauri-drag-region="true"></div> 
  
      <div class="floating-window-controls"> 
@@ -529,6 +568,7 @@ onMounted(async () => {
                @update:source-handling="(v: 'ask' | 'delete' | 'keep') => sourceHandling = v"
                @update:open-output-after-convert="(v: boolean) => openOutputAfterConvert = v"
                @update:action-monitor="(v: boolean) => actionMonitor = v"
+               @update:background="onBackgroundChanged"
                @show-update-dialog="onSettingsCheckUpdate"
                @reset-to-oobe="onFactoryResetToOobe"
              />
@@ -652,6 +692,21 @@ onMounted(async () => {
    overflow: hidden; 
    background-color: var(--bg-color); 
  } 
+
+ /* 自定义背景层：fixed 全屏垫底，展示方式/平铺随配置，CSS 随窗口自适应 */
+ .app-background {
+   position: fixed;
+   inset: 0;
+   z-index: 0;
+   pointer-events: none;
+ }
+
+ /* 有背景时：页面容器切换为半透明白 + 毛玻璃模糊（透出背景） */
+ .app-container.has-background {
+   background-color: rgba(255, 255, 255, 0.72);
+   backdrop-filter: blur(22px) saturate(1.1);
+   -webkit-backdrop-filter: blur(22px) saturate(1.1);
+ }
  
  .drag-region { 
    position: fixed; 
