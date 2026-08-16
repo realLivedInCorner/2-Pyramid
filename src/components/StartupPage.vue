@@ -269,6 +269,9 @@ async function finish() {
           <div class="startup-settings">
             <!-- Output Mode -->
             <div class="startup-setting-row">
+              <div class="item-icon">
+                <i class="ri-route-line" aria-hidden="true"></i>
+              </div>
               <div class="startup-setting-info">
                 <span class="startup-setting-label">{{ t('oobe.step4.outputMode') }}</span>
                 <span class="startup-setting-desc">{{ t('oobe.step4.outputModeDesc') }}</span>
@@ -281,6 +284,9 @@ async function finish() {
 
             <!-- Notification -->
             <div class="startup-setting-row">
+              <div class="item-icon">
+                <i class="ri-notification-3-line" aria-hidden="true"></i>
+              </div>
               <div class="startup-setting-info">
                 <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
                 <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
@@ -293,6 +299,9 @@ async function finish() {
 
             <!-- Notification Mode -->
             <div class="startup-setting-row" v-if="notificationEnabled">
+              <div class="item-icon">
+                <i class="ri-window-line" aria-hidden="true"></i>
+              </div>
               <div class="startup-setting-info">
                 <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
                 <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
@@ -308,6 +317,9 @@ async function finish() {
 
             <!-- Source Pack Handling (post-conversion) -->
             <div class="startup-setting-row">
+              <div class="item-icon">
+                <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
+              </div>
               <div class="startup-setting-info">
                 <span class="startup-setting-label">{{ t('oobe.step4.sourceHandling.label') }}</span>
                 <span class="startup-setting-desc">{{ t('oobe.step4.sourceHandling.desc') }}</span>
@@ -321,6 +333,9 @@ async function finish() {
 
             <!-- Open Output Folder After Convert -->
             <div class="startup-setting-row">
+              <div class="item-icon">
+                <i class="ri-external-link-line" aria-hidden="true"></i>
+              </div>
               <div class="startup-setting-info">
                 <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
                 <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
@@ -406,8 +421,14 @@ async function finish() {
         </button>
         <div v-else class="startup-nav-spacer"></div>
 
-        <div class="startup-dots">
-          <span v-for="i in totalSteps" :key="i" class="startup-dot" :class="{ active: i - 1 === step, done: i - 1 < step }"></span>
+        <div class="startup-steps">
+          <template v-for="i in totalSteps" :key="i">
+            <span v-if="i > 1" class="startup-step-line" :class="{ done: i - 2 < step }"></span>
+            <span class="startup-step-dot" :class="{ active: i - 1 === step, done: i - 1 < step }">
+              <i v-if="i - 1 < step" class="ri-check-line"></i>
+              <template v-else>{{ i }}</template>
+            </span>
+          </template>
         </div>
 
         <button
@@ -760,29 +781,42 @@ async function finish() {
   color: #9ca3af;
 }
 
-/* Settings rows — subtle inset cards */
+/* Settings rows — settings-page-style cards with icon squares */
 .startup-settings {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .startup-setting-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 16px;
-  gap: 16px;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .startup-setting-row:hover {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: color-mix(in srgb, var(--theme-color) 22%, transparent);
-  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+  border-color: color-mix(in srgb, var(--theme-color) 25%, transparent);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+}
+
+/* Icon square — matches the Settings page item-icon */
+.item-icon {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
 }
 
 .startup-setting-info {
@@ -790,6 +824,7 @@ async function finish() {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .startup-setting-label {
@@ -893,27 +928,50 @@ async function finish() {
   width: 80px;
 }
 
-.startup-dots {
+/* Numbered step indicator with connector lines */
+.startup-steps {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
 
-.startup-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.12);
-  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.startup-dot.active {
-  background: linear-gradient(90deg, var(--theme-color), color-mix(in srgb, var(--theme-color) 55%, #fff));
+.startup-step-dot {
   width: 26px;
-  border-radius: 4px;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--theme-color) 40%, transparent);
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  background: rgba(0, 0, 0, 0.07);
+  color: #94a3b8;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.startup-dot.done {
+.startup-step-dot i { font-size: 13px; }
+
+.startup-step-dot.active {
+  background: var(--theme-color);
+  color: #fff;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--theme-color) 40%, transparent);
+}
+
+.startup-step-dot.done {
+  background: color-mix(in srgb, var(--theme-color) 18%, transparent);
+  color: var(--theme-color);
+}
+
+.startup-step-line {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(0, 0, 0, 0.09);
+  transition: background 0.3s ease;
+}
+
+.startup-step-line.done {
   background: color-mix(in srgb, var(--theme-color) 45%, transparent);
 }
 
@@ -933,7 +991,7 @@ async function finish() {
 }
 
 .startup-btn-primary {
-  background: linear-gradient(135deg, var(--theme-color), color-mix(in srgb, var(--theme-color) 72%, #4338ca));
+  background: var(--theme-color);
   color: #fff;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-color) 35%, transparent);
 }
