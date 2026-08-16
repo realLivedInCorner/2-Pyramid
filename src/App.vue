@@ -52,6 +52,15 @@ import { resolveImageUrl } from "./utils/assetUrl";
    applyBackground(payload.path, payload.fit, payload.opacity);
    if (payload.themeColor) applyThemeColor(payload.themeColor);
  }
+
+ // ── 控件表面样式：玻璃（透光+模糊，默认）/ 磨砂（不透光实底）──
+ const uiStyle = ref<'glass' | 'frosted'>('glass');
+
+ function applyUiStyle(style: string) {
+   const s = style === 'frosted' ? 'frosted' : 'glass';
+   uiStyle.value = s;
+   document.body.classList.toggle('ui-frosted', s === 'frosted');
+ }
   
  const pageComponent = computed(() => { 
    if (currentPage.value === "conversion") return ConversionPage; 
@@ -413,6 +422,9 @@ onMounted(async () => {
            typeof cfg.background_opacity === 'number' ? cfg.background_opacity : 1,
          );
        }
+       if (typeof cfg?.ui_style === 'string') {
+         applyUiStyle(cfg.ui_style);
+       }
        if (cfg?.user_name) {         userName.value = cfg.user_name;
        }
        if (!cfg?.initialized) {
@@ -572,6 +584,7 @@ onMounted(async () => {
                @update:open-output-after-convert="(v: boolean) => openOutputAfterConvert = v"
                @update:action-monitor="(v: boolean) => actionMonitor = v"
                @update:background="onBackgroundChanged"
+               @update:ui-style="(v: string) => applyUiStyle(v)"
                @show-update-dialog="onSettingsCheckUpdate"
                @reset-to-oobe="onFactoryResetToOobe"
              />
@@ -707,6 +720,50 @@ onMounted(async () => {
    pointer-events: none;
  }
 
+ /* ── 控件表面皮肤：玻璃（透光+模糊，默认）与磨砂（不透光实底）──
+    由 body.ui-frosted 切换。所有卡片/按钮容器统一走这两个皮肤。 */
+
+ :root {
+   --ui-surface: rgba(255, 255, 255, 0.62);
+   --ui-surface-strong: rgba(255, 255, 255, 0.86);
+   --ui-blur: 14px;
+ }
+
+ body.ui-frosted {
+   --ui-surface: #f1f2f5;
+   --ui-surface-strong: #e9ebef;
+   --ui-blur: 0px;
+ }
+
+ .app-container .group-card,
+ .app-container .card,
+ .app-container .home-greeting,
+ .app-container .engine-indicator,
+ .app-container .segmented,
+ .app-container .action-dock,
+ .app-container .home-header,
+ .app-container .startup-setting-row,
+ .app-container .naming-row-inline,
+ .app-container .lang-card,
+ .app-container .welcome-card,
+ .startup-root .startup-setting-row,
+ .startup-root .naming-row-inline,
+ .startup-root .lang-card,
+ .startup-root .welcome-card,
+ .startup-root .nav-pill {
+   background: var(--ui-surface);
+   backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
+ }
+
+ /* 对话框用更实的表面保证可读性 */
+ .app-container .dialog-content,
+ .startup-root .startup-backup-card {
+   background: var(--ui-surface-strong);
+   backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.15);
+ }
+
  /* 有背景时：应用容器全透明，背景图清晰透出；玻璃模糊只加在
     卡片/控件附近，像一块块玻璃盖在背景上，而不是糊掉整张图。 */
  .app-container.has-background {
@@ -721,16 +778,6 @@ onMounted(async () => {
  /* 主页的涡旋装饰在自定义背景下隐藏，背景图是主角 */
  .app-container.has-background .vortex-background {
    display: none;
- }
-
- /* 卡片级玻璃：仅控件附近模糊 */
- .app-container.has-background .group-card,
- .app-container.has-background .card,
- .app-container.has-background .home-greeting,
- .app-container.has-background .engine-indicator {
-   background: rgba(255, 255, 255, 0.58);
-   backdrop-filter: blur(16px) saturate(1.15);
-   -webkit-backdrop-filter: blur(16px) saturate(1.15);
  }
  
  .drag-region { 

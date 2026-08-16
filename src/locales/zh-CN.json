@@ -184,6 +184,14 @@
       "removed": "背景已移除",
       "failed": "更换背景失败: {error}"
     },
+    "uiStyle": {
+      "label": "控件样式",
+      "desc": "卡片与控件的透光质感",
+      "searchLabel": "控件样式",
+      "searchDesc": "卡片与控件的透光质感",
+      "glass": "玻璃",
+      "frosted": "磨砂"
+    },
     "outputMode": {
       "label": "输出目录策略",
       "desc": "选择固定目录或跟随原材质包",
