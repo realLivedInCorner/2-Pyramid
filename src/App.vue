@@ -609,7 +609,12 @@ onMounted(async () => {
    top: 0; 
    left: 0; 
    right: 0; 
-   height: 50px; 
+   /* Slim drag strip. A taller region swallowed clicks on anything
+      that scrolled into the top of the window (Windows drag regions
+      consume pointer events) — settings rows like “Delete user
+      profile” became unclickable when they landed in the top 50px.
+      28px keeps window dragging easy while sparing the content. */
+   height: 28px; 
    z-index: 1001; 
    cursor: move; 
    -webkit-app-region: drag; 
