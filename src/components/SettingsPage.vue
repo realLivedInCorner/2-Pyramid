@@ -497,19 +497,11 @@
                 v-for="tag in namingTags"
                 :key="tag.token"
                 class="naming-tag-btn"
-                :title="tag.label"
                 @click="insertNamingTag(tag.token)"
-              >{{ tag.token }}</button>
-            </div>
-            <div class="naming-row">
-              <span class="naming-hint-label">{{ t('settings.outputNaming.presets') }}</span>
-              <button
-                v-for="p in namingPresets"
-                :key="p.template"
-                class="naming-preset-btn"
-                :class="{ active: namingDraft === p.template }"
-                @click="namingDraft = p.template"
-              >{{ p.label }}</button>
+              >
+                <span class="naming-tag-token">{{ tag.token }}</span>
+                <span class="naming-tag-desc">{{ tag.desc }}</span>
+              </button>
             </div>
             <div class="naming-preview">
               {{ t('settings.outputNaming.preview') }}:
@@ -778,21 +770,15 @@ const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-rig
 // 批量转换并行资源包数
 const conversionThreads = ref(2);
 const conversionThreadsOptions = [1, 2, 4];
-// 输出文件命名模板（占位符：[Ver] [Time] [Date]）
+// 输出文件命名模板（占位符：[Name] [Ver] [Time]）
 const namingWelcome = t('settings.outputNaming.defaultName');
-const namingTemplate = ref(`[Ver]${namingWelcome}`);
+const namingTemplate = ref('[Ver][Name]');
 const showNamingDialog = ref(false);
-const namingDraft = ref(`[Ver]${namingWelcome}`);
+const namingDraft = ref('[Ver][Name]');
 const namingTags = [
-  { token: '[Name]', label: 'Name' },
-  { token: '[Ver]', label: 'Version' },
-  { token: '[Time]', label: 'Time' },
-];
-const namingPresets = [
-  { label: t('settings.outputNaming.presetDefault'), template: `[Ver]${namingWelcome}` },
-  { label: t('settings.outputNaming.presetNameVer'), template: '[Name] [Ver]' },
-  { label: t('settings.outputNaming.presetVerTime'), template: '[Ver] [Time]' },
-  { label: t('settings.outputNaming.presetWelcome'), template: namingWelcome },
+  { token: '[Name]', label: 'Name', desc: t('settings.outputNaming.nameDesc') },
+  { token: '[Ver]', label: 'Version', desc: t('settings.outputNaming.verDesc') },
+  { token: '[Time]', label: 'Time', desc: t('settings.outputNaming.timeDesc') },
 ];
 const namingPreview = computed(() => {
   const render = (tpl: string) => tpl
@@ -1241,8 +1227,8 @@ onMounted(() => {
       if (typeof cfg?.output_naming === 'string' && cfg.output_naming.length > 0) {
         // 迁移旧值（default/timestamp/overwrite）到模板语义
         const legacy: Record<string, string> = {
-          default: `[Ver]${namingWelcome}`,
-          timestamp: '[Ver] [Time]',
+          default: '[Ver][Name]',
+          timestamp: '[Ver][Time]',
           overwrite: '[Name]',
         };
         namingTemplate.value = legacy[cfg.output_naming] ?? cfg.output_naming;
@@ -1842,34 +1828,29 @@ const hexToHsv = (hex: string) => {
 }
 .naming-hint-label { font-size: 12px; color: #94a3b8; min-width: 76px; }
 .naming-tag-btn {
-  padding: 4px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: 1px dashed rgba(0, 0, 0, 0.18);
   background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.naming-tag-btn:hover { border-color: var(--theme-color); background: color-mix(in srgb, var(--theme-color) 6%, transparent); }
+.naming-tag-token {
   font-size: 12px;
   font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
   color: #475569;
-  cursor: pointer;
-  transition: all 0.15s;
 }
-.naming-tag-btn:hover { border-color: var(--theme-color); color: var(--theme-color); background: color-mix(in srgb, var(--theme-color) 6%, transparent); }
-.naming-preset-btn {
-  padding: 4px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: rgba(0, 0, 0, 0.03);
-  font-size: 12px;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.naming-preset-btn:hover { background: rgba(0, 0, 0, 0.06); }
-.naming-preset-btn.active {
-  border-color: var(--theme-color);
-  color: var(--theme-color);
-  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
-  font-weight: 600;
+.naming-tag-btn:hover .naming-tag-token { color: var(--theme-color); }
+.naming-tag-desc {
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.2;
 }
 .naming-preview {
   font-size: 12.5px;
