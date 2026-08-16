@@ -258,16 +258,16 @@ pub fn build_output_path(
 
     // User-configurable naming template. Legacy values from before the
     // template system are migrated on read:
-    //   "default" / empty → "[Ver]欢迎使用2-Pyramid"
-    //   "timestamp"       → "[Ver] [Time]"
+    //   "default" / empty → "[Ver][Name]"
+    //   "timestamp"       → "[Ver][Time]"
     //   "overwrite"       → "[Name]"
     let naming = crate::commands::read_config_file()
         .ok()
         .and_then(|c| c.output_naming)
         .unwrap_or_default();
     let template = match naming.as_str() {
-        "" | "default" => "[Ver]欢迎使用2-Pyramid".to_string(),
-        "timestamp" => "[Ver] [Time]".to_string(),
+        "" | "default" => "[Ver][Name]".to_string(),
+        "timestamp" => "[Ver][Time]".to_string(),
         "overwrite" => "[Name]".to_string(),
         other => other.to_string(),
     };
