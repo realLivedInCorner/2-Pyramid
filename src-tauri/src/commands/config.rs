@@ -24,10 +24,8 @@ pub struct AppConfig {
     pub toast_position: Option<String>,
     /// How many resource packs a batch converts in parallel (1–4).
     pub conversion_threads: Option<u32>,
-    /// Output file naming style: "default" (`[tag]name.zip` with a
-    /// numeric suffix on collision) / "timestamp" (adds a timestamp
-    /// instead of a counter) / "overwrite" (replaces an existing file
-    /// with the same name).
+    /// Output file naming template with `[Name]` / `[Ver]` / `[Time]` /
+    /// `[Date]` placeholders, e.g. `[Name] [Ver]`.
     pub output_naming: Option<String>,
 }
 
@@ -444,11 +442,10 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     }
     if let Some(v) = patch.output_naming {
         crate::log_info!("config: output_naming = {}", v);
-        let normalized = match v.as_str() {
-            "timestamp" | "overwrite" => v,
-            _ => "default".to_string(),
-        };
-        cfg.output_naming = Some(normalized);
+        // Free-form template with [Name]/[Ver]/[Time]/[Date] placeholders;
+        // just cap the length so a runaway paste can't bloat the file.
+        let capped: String = v.chars().take(200).collect();
+        cfg.output_naming = Some(capped);
     }
     write_config_file(&cfg)?;
     crate::log_info!("config: saved to {:?}", config_path());
