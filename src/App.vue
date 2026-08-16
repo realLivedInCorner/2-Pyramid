@@ -444,6 +444,21 @@ onMounted(async () => {
      e.preventDefault();
    });
 
+   // ── 柔光玻璃：鼠标跟随光斑 ────────────────────────────────
+   // 全局 mousemove（rAF 节流）把光标位置写入 CSS 变量，控件的高光
+   // 层（radial-gradient at var(--glare-x) var(--glare-y)）随之流动，
+   // 模拟澎湃 OS 柔光玻璃"感知交互、灵动回应"的光影。
+   let glareRaf = 0;
+   const onGlareMove = (e: MouseEvent) => {
+     if (glareRaf) return;
+     glareRaf = requestAnimationFrame(() => {
+       glareRaf = 0;
+       document.documentElement.style.setProperty('--glare-x', `${e.clientX}px`);
+       document.documentElement.style.setProperty('--glare-y', `${e.clientY}px`);
+     });
+   };
+   document.addEventListener('mousemove', onGlareMove);
+
    // Ctrl+Shift+Q — guaranteed hard exit. Bypasses the window close
    // flow entirely (including the conversion guard) via app.exit(0).
    document.addEventListener("keydown", (e) => {
@@ -720,34 +735,67 @@ onMounted(async () => {
    pointer-events: none;
  }
 
- /* ── 统一控件系统 ──────────────────────────────────────────────
+ /* ── 统一控件系统（柔光玻璃版）────────────────────────────────
     控件只分两类：
-      1. 卡片（面板容器）：中心不透明、越往外越透明的径向渐变玻璃；
-         磨砂模式下为全不透明实底
-      2. 按钮（中性按钮）：统一圆角矩形，玻璃/磨砂表面；主题色主按
+      1. 卡片（面板容器）：中心实、越往外越透明的渐变玻璃 + 顶部
+         高光内阴影 + 玻璃边缘光 + 跟随鼠标的流动光斑（--glare-*）
+      2. 按钮（中性按钮）：统一圆角矩形玻璃/磨砂表面；主题色主按
          钮保持实色，仅统一圆角
     药丸（底部导航 pill）不属于按钮，保持 999px 药丸圆角。
+    磨砂模式：全不透明实底，无光斑无模糊，平面阴影。
     尺寸策略：宽高均随内容自适应（padding 控制），不写死。 */
 
  :root {
-   /* 玻璃：径向渐变 —— 中心近实、边缘透光（越往外越透明） */
-   --ui-card-surface: radial-gradient(120% 150% at 50% 35%,
-     rgba(255, 255, 255, 0.94) 55%,
-     rgba(255, 255, 255, 0.38) 100%);
-   --ui-btn-surface: rgba(255, 255, 255, 0.85);
-   --ui-blur: 16px;
+   --glare-x: 50vw;
+   --glare-y: 50vh;
+   /* 玻璃卡片：光斑层 + 中心实边缘透的径向渐变 */
+   --ui-card-surface:
+     radial-gradient(520px circle at var(--glare-x) var(--glare-y),
+       rgba(255, 255, 255, 0.42), transparent 46%),
+     radial-gradient(125% 160% at 50% 32%,
+       rgba(255, 255, 255, 0.93) 52%,
+       rgba(255, 255, 255, 0.34) 100%);
+   /* 玻璃按钮：光斑层 + 半透明白 */
+   --ui-btn-surface:
+     radial-gradient(260px circle at var(--glare-x) var(--glare-y),
+       rgba(255, 255, 255, 0.5), transparent 55%),
+     rgba(255, 255, 255, 0.72);
+   --ui-blur: 20px;
+   --ui-saturate: 1.5;
    --ui-radius-card: 14px;
    --ui-radius-btn: 10px;
+   /* 玻璃层次：顶部高光 + 边缘光 + 悬浮投影 */
+   --ui-shadow:
+     inset 0 1px 1px rgba(255, 255, 255, 0.75),
+     inset 0 -1px 1px rgba(255, 255, 255, 0.18),
+     inset 1px 0 1px rgba(255, 255, 255, 0.35),
+     0 10px 30px rgba(15, 23, 42, 0.10),
+     0 2px 6px rgba(15, 23, 42, 0.05);
+   --ui-shadow-hover:
+     inset 0 1px 1px rgba(255, 255, 255, 0.85),
+     inset 0 -1px 1px rgba(255, 255, 255, 0.22),
+     inset 1px 0 1px rgba(255, 255, 255, 0.4),
+     0 16px 40px rgba(15, 23, 42, 0.14),
+     0 4px 10px rgba(15, 23, 42, 0.07);
+   --ui-border: 1px solid rgba(255, 255, 255, 0.55);
+   --ui-btn-shadow:
+     inset 0 1px 1px rgba(255, 255, 255, 0.7),
+     0 3px 10px rgba(15, 23, 42, 0.08);
  }
 
  body.ui-frosted {
-   /* 磨砂：全不透明实底 */
+   /* 磨砂：全不透明实底，无光斑无模糊，平面阴影 */
    --ui-card-surface: #f1f2f5;
    --ui-btn-surface: #e9ebef;
    --ui-blur: 0px;
+   --ui-saturate: 1;
+   --ui-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+   --ui-shadow-hover: 0 3px 10px rgba(15, 23, 42, 0.09);
+   --ui-border: 1px solid rgba(0, 0, 0, 0.05);
+   --ui-btn-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
  }
 
- /* ── 卡片类（统一表面 + 统一圆角） ── */
+ /* ── 卡片类（统一柔光玻璃表面 + 统一圆角） ── */
  .app-container .group-card,
  .app-container .card,
  .app-container .home-greeting,
@@ -764,23 +812,36 @@ onMounted(async () => {
  .startup-root .welcome-card,
  .startup-root .nav-pill {
    background: var(--ui-card-surface);
-   backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
-   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
+   backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+   border: var(--ui-border);
    border-radius: var(--ui-radius-card);
+   box-shadow: var(--ui-shadow);
+   transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.25s ease;
+ }
+
+ .app-container .group-card:hover,
+ .app-container .card:hover,
+ .app-container .lang-card:hover,
+ .app-container .welcome-card:hover {
+   box-shadow: var(--ui-shadow-hover);
  }
 
  /* 对话框用更实的表面保证可读性（玻璃边缘不透到底） */
  .app-container .dialog-content,
  .startup-root .startup-backup-card {
    background: var(--ui-card-surface);
-   backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
-   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(1.1);
+   backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+   border: var(--ui-border);
    border-radius: var(--ui-radius-card);
+   box-shadow: var(--ui-shadow-hover);
  }
 
  /* ── 按钮类（中性按钮统一玻璃/磨砂表面 + 统一圆角矩形）── */
  .app-container .segmented,
  .app-container .seg-btn,
+ .app-container .back-btn,
  .app-container .btn-text.secondary,
  .app-container .dialog-button.secondary,
  .app-container .ghost-btn,
@@ -792,8 +853,43 @@ onMounted(async () => {
  .startup-root .danger-btn {
    border-radius: var(--ui-radius-btn);
    background: var(--ui-btn-surface);
-   backdrop-filter: blur(calc(var(--ui-blur) * 0.6));
-   -webkit-backdrop-filter: blur(calc(var(--ui-blur) * 0.6));
+   backdrop-filter: blur(calc(var(--ui-blur) * 0.5)) saturate(var(--ui-saturate));
+   -webkit-backdrop-filter: blur(calc(var(--ui-blur) * 0.5)) saturate(var(--ui-saturate));
+   border: var(--ui-border);
+   box-shadow: var(--ui-btn-shadow);
+   transition: box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+ }
+
+ .app-container .seg-btn:hover:not(.active),
+ .app-container .back-btn:hover,
+ .app-container .btn-text.secondary:hover,
+ .app-container .dialog-button.secondary:hover,
+ .app-container .ghost-btn:hover,
+ .app-container .naming-tag-btn:hover,
+ .app-container .naming-preset-btn:hover {
+   box-shadow: var(--ui-shadow-hover);
+   transform: translateY(-1px);
+ }
+
+ .app-container .seg-btn:active,
+ .app-container .back-btn:active,
+ .app-container .btn-text:active,
+ .app-container .ghost-btn:active {
+   transform: scale(0.96);
+ }
+
+ /* 分段按钮选中态：玻璃模式下用主题色淡玻璃（不再纯白突兀），
+    磨砂模式下保持实白 */
+ .app-container .seg-btn.active,
+ .startup-root .seg-btn.active {
+   background:
+     radial-gradient(240px circle at var(--glare-x) var(--glare-y),
+       rgba(255, 255, 255, 0.5), transparent 55%),
+     color-mix(in srgb, var(--theme-color) 16%, #ffffff);
+   box-shadow: var(--ui-btn-shadow);
+ }
+ body.ui-frosted .seg-btn.active {
+   background: #ffffff;
  }
 
  /* 主题色主按钮只统一圆角（保持实色） */
@@ -802,11 +898,6 @@ onMounted(async () => {
  .app-container .primary-btn,
  .startup-root .primary-btn {
    border-radius: var(--ui-radius-btn);
- }
-
- /* 磨砂模式下分段按钮选中态用实白（不透明一致） */
- body.ui-frosted .seg-btn.active {
-   background: #ffffff;
  }
 
  /* ── 文本自适应：按钮文字不撑破布局，超长省略 ── */
