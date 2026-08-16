@@ -2,46 +2,25 @@
   <div class="overlay-container page-transition">
     <!-- 头部区域 -->
     <div class="header">
-      <div class="header-left">
-        <button class="back-btn" @click="goBack" :aria-label="t('overlay.backAria')">
-          <i class="ri-arrow-left-line"></i>
+      <div class="header-section">
+        <button class="back-btn" @click="goBack" :aria-label="t('common.backToHome')">
+          <i class="ri-arrow-left-line back-icon" aria-hidden="true"></i>
+          <span>{{ t('common.back') }}</span>
         </button>
-        <h1 class="title">{{ t('overlay.title') }}</h1>
-      </div>
-      <div class="header-status" v-if="statusMsg" :class="statusMsg.type">
-        <i :class="statusMsg.type === 'success' ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'"></i>
-        {{ statusMsg.text }}
-      </div>
-    </div>
-
-    <!-- Developing 占位 -->
-    <div class="developing-overlay">
-      <div class="developing-card">
-        <div class="developing-icon">
-          <svg viewBox="0 0 200 200" fill="none">
-            <circle cx="100" cy="100" r="60" stroke="var(--theme-color)" stroke-width="3" opacity="0.2"/>
-            <circle cx="100" cy="100" r="40" stroke="var(--theme-color)" stroke-width="2" opacity="0.15"/>
-            <g stroke="var(--theme-color)" stroke-width="3" stroke-linecap="round" opacity="0.5">
-              <line x1="80" y1="88" x2="92" y2="100"/>
-              <line x1="92" y1="100" x2="80" y2="112"/>
-              <line x1="108" y1="88" x2="120" y2="100"/>
-              <line x1="120" y1="100" x2="108" y2="112"/>
-            </g>
-            <circle cx="100" cy="100" r="70" stroke="var(--theme-color)" stroke-width="1" opacity="0.1" stroke-dasharray="6 6">
-              <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="20s" repeatCount="indefinite"/>
-            </circle>
-          </svg>
-        </div>
-        <h2 class="developing-title">Developing</h2>
-        <p class="developing-desc">此功能正在开发中，敬请期待</p>
-        <div class="developing-badge">
-          <i class="ri-code-s-slash-line"></i>
-          <span>Coming Soon</span>
+        <div class="title-group">
+          <h1 class="title">{{ t('overlay.title') }}</h1>
+          <p class="page-subtitle">{{ t('overlay.subtitle') }}</p>
         </div>
       </div>
+      <transition name="header-status-toast">
+        <div v-if="statusMsg" class="header-status" :class="statusMsg.type">
+          <i :class="statusMsg.type === 'success' ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'"></i>
+          {{ statusMsg.text }}
+        </div>
+      </transition>
     </div>
 
-    <!-- 列表模式: 历史项目管理 (已禁用) -->
+    <!-- 列表模式: 历史项目管理 -->
     <div v-if="viewMode === 'list'" class="content">
       <div class="history-section">
         <div class="section-header">
@@ -143,9 +122,9 @@
     </div>
 
     <!-- 新建项目对话框 -->
-    <Transition name="dialog-fade">
+    <transition name="dialog-pop-quick">
       <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
-        <div class="simple-dialog">
+        <div class="simple-dialog dialog-content">
           <h3>{{ t('overlay.createTitle') }}</h3>
           <input
             v-model="newProjectName"
@@ -165,37 +144,37 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </transition>
 
     <!-- 对话框 -->
-    <Transition name="dialog-fade">
-      <ItemNameDialog 
-        v-if="showCustomNameDialog" 
+    <transition name="dialog-pop">
+      <ItemNameDialog
+        v-if="showCustomNameDialog"
         :projectName="currentOverlay.name"
-        @close="showCustomNameDialog = false" 
+        @close="showCustomNameDialog = false"
       />
-    </Transition>
-    
-    <Transition name="dialog-fade">
-      <ItemSizeDialog 
-        v-if="showItemSizeDialog" 
-        :projectName="currentOverlay.name"
-        @close="showItemSizeDialog = false" 
-      />
-    </Transition>
+    </transition>
 
-    <Transition name="dialog-fade">
-      <VisualDialog 
-        v-if="showVisualDialog" 
+    <transition name="dialog-pop">
+      <ItemSizeDialog
+        v-if="showItemSizeDialog"
         :projectName="currentOverlay.name"
-        @close="showVisualDialog = false" 
+        @close="showItemSizeDialog = false"
       />
-    </Transition>
+    </transition>
+
+    <transition name="dialog-pop">
+      <VisualDialog
+        v-if="showVisualDialog"
+        :projectName="currentOverlay.name"
+        @close="showVisualDialog = false"
+      />
+    </transition>
 
     <!-- 导入分享码对话框 -->
-    <Transition name="dialog-fade">
+    <transition name="dialog-pop-quick">
       <div v-if="showImportDialog" class="dialog-overlay" @click.self="showImportDialog = false">
-        <div class="simple-dialog">
+        <div class="simple-dialog dialog-content">
           <h3>{{ t('overlay.importTitle') }}</h3>
           <p class="dialog-desc">{{ t('overlay.importDesc') }}</p>
           <textarea
@@ -215,12 +194,12 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </transition>
 
     <!-- 导出分享码对话框 -->
-    <Transition name="dialog-fade">
+    <transition name="dialog-pop">
       <div v-if="showExportDialog" class="dialog-overlay" @click.self="showExportDialog = false">
-        <div class="simple-dialog">
+        <div class="simple-dialog dialog-content">
           <h3>{{ t('overlay.exportTitle') }}</h3>
           <p class="dialog-desc">{{ t('overlay.exportDesc') }}</p>
           <div class="share-code-box">
@@ -232,7 +211,7 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </transition>
   </div>
 </template>
 
@@ -480,63 +459,6 @@ onMounted(() => {
   position: relative;
 }
 
-/* Developing overlay */
-.developing-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.developing-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 48px 64px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 24px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.04);
-}
-.developing-icon {
-  width: 120px;
-  height: 120px;
-}
-.developing-icon svg {
-  width: 100%;
-  height: 100%;
-}
-.developing-title {
-  font-size: 28px;
-  font-weight: 800;
-  color: #1a1a2e;
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-.developing-desc {
-  font-size: 14px;
-  color: #9ca3af;
-  margin: 0;
-}
-.developing-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
-  color: var(--theme-color);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  margin-top: 8px;
-}
-
 .content {
   max-width: 1200px;
   margin: 0 auto;
@@ -551,6 +473,22 @@ onMounted(() => {
   z-index: 10;
 }
 
+/* Header layout (matches ConversionPage exactly):
+   ┌────────────────────────────────────────────────┐
+   │ [← 返回]  覆盖包制作                            │
+   │            创建自定义覆盖包,叠加到任意母包之上    │
+   └────────────────────────────────────────────────┘
+   Back button on the left; title + subtitle stacked
+   vertically in `.title-group` to the right. */
+.header-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.title-group { display: flex; flex-direction: column; min-width: 0; }
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -559,13 +497,26 @@ onMounted(() => {
 }
 
 .back-btn {
-  width: 44px; height: 44px; border-radius: 12px; border: none;
-  background: #f1f5f9; color: #64748b; cursor: pointer; transition: all 0.2s;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  padding: 10px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #111827;
+  transition: 0.3s;
 }
 
-.back-btn:hover { background: #e2e8f0; color: #0f172a; transform: translateX(-2px); }
+.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-4px); }
+
+.back-icon { font-size: 16px; line-height: 1; color: #111827; }
 
 .title { font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
+
+.page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
 
 .header-status {
   display: flex;
@@ -575,8 +526,11 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  animation: status-slide-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-status.success {
@@ -591,10 +545,8 @@ onMounted(() => {
   border: 1px solid #fee2e2;
 }
 
-@keyframes status-slide-in {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
+/* status enter/leave 走全局 CSS class 模式(`<transition name="header-status-toast">`,
+   见 App.vue 全局 .header-status-toast-* 规则)。 */
 
 .history-section { display: flex; flex-direction: column; gap: 24px; }
 
@@ -734,7 +686,11 @@ onMounted(() => {
 
 .simple-dialog {
   background: #fff; padding: 32px; border-radius: 24px; width: 400px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  /* 原来 0 25px 50px -12px rgba(0,0,0,0.25) — blur 50px 太大,leave 期间
+     opacity 渐变时 shadow 跟着渐变,大 blur 让 shadow "淡出拖尾" 看起来
+     持续时间比 dialog 本身还长。改紧凑点(blur 32, opacity 0.18),跟
+     leave 550ms 同步消失。 */
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.18);
 }
 
 .simple-dialog h3 { margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #0f172a; }
@@ -797,6 +753,14 @@ onMounted(() => {
 .ghost-btn { padding: 10px 20px; border-radius: 12px; border: none; background: transparent; color: #64748b; font-weight: 700; cursor: pointer; }
 .ghost-btn:hover { background: #f1f5f9; color: #0f172a; }
 
+.primary-btn {
+  padding: 10px 20px; border-radius: 12px; border: none;
+  background: var(--theme-color); color: #fff; font-weight: 700; cursor: pointer;
+  transition: all 0.2s;
+}
+.primary-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* 动画相关 */
 .page-transition { animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -807,8 +771,10 @@ onMounted(() => {
 }
 @keyframes card-in { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
-.dialog-fade-enter-active, .dialog-fade-leave-active { transition: all 0.3s ease; }
-.dialog-fade-enter-from, .dialog-fade-leave-to { opacity: 0; transform: scale(1.05); }
+/* dialog enter/leave 走全局 CSS class 模式(`<transition name="dialog-pop">`,
+   见 App.vue 全局 .dialog-pop-* 规则)。Vue 3 在 element insert 时直接加
+   enter-from class,跟 element 同一个 commit,第一帧 paint 一定看到 from 状态
+   → 杜绝「打开瞬间闪一下」。 */
 
 .spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

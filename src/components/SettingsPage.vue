@@ -1,16 +1,15 @@
 <template>
   <div class="fanhua-settings">
-    <div class="vortex-background">
-      <div class="vortex-ring r1"></div>
-    </div>
-
     <header class="settings-header">
       <div class="header-left">
-        <button class="back-btn" @click="backToHome">
+        <button class="back-btn" @click="goBack" :aria-label="t('common.backToHome')">
           <i class="ri-arrow-left-line back-icon" aria-hidden="true"></i>
-          <span>{{ t('common.home') }}</span>
+          <span>{{ t('common.back') }}</span>
         </button>
-        <h1 class="page-title">{{ t('settings.title') }}</h1>
+        <div class="title-group">
+          <h1 class="page-title">{{ t('settings.title') }}</h1>
+          <p class="page-subtitle">{{ t('settings.subtitle') }}</p>
+        </div>
       </div>
       <div class="header-search">
         <i class="ri-search-line search-icon"></i>
@@ -127,6 +126,39 @@
               <button class="btn-text" @click="showOutputDialog = true">{{ t('common.choose') }}</button>
             </div>
           </div>
+
+          <div class="setting-item" v-if="shouldShowItem('sourceHandling')">
+            <div class="item-icon">
+              <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.sourceHandling.label') }}</div>
+              <div class="desc">{{ t('settings.sourceHandling.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: sourceHandling === 'ask' }" @click="sourceHandling = 'ask'">{{ t('settings.sourceHandling.ask') }}</button>
+                <button class="seg-btn" :class="{ active: sourceHandling === 'delete' }" @click="sourceHandling = 'delete'">{{ t('settings.sourceHandling.delete') }}</button>
+                <button class="seg-btn" :class="{ active: sourceHandling === 'keep' }" @click="sourceHandling = 'keep'">{{ t('settings.sourceHandling.keep') }}</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="shouldShowItem('openOutputAfterConvert')">
+            <div class="item-icon">
+              <i class="ri-external-link-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.openOutputAfterConvert.label') }}</div>
+              <div class="desc">{{ t('settings.openOutputAfterConvert.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <label class="switch">
+                <input type="checkbox" v-model="openOutputAfterConvert" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -230,6 +262,25 @@
         </div>
       </section>
 
+      <!-- 高级设置 (工厂重置) -->
+      <section class="settings-group" v-if="shouldShowGroup('factoryReset')">
+        <h3 class="group-title">{{ t('settings.factoryReset.groupTitle') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('factoryReset')">
+            <div class="item-icon">
+              <i class="ri-restart-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.factoryReset.label') }}</div>
+              <div class="desc">{{ t('settings.factoryReset.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <button class="btn-text danger" @click="showFactoryResetDialog = true">{{ t('settings.factoryReset.btn') }}</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 版本设置 (新增) -->
       <section class="settings-group" v-if="shouldShowGroup('version')">
         <h3 class="group-title">{{ t('settings.groups.version') }}</h3>
@@ -279,7 +330,7 @@
     </main>
 
     <!-- 版本信息弹窗 (新增) -->
-    <transition name="dialog-pop">
+    <transition name="dialog-pop-quick">
       <div v-if="showVersionInfo" class="dialog-overlay" @click="showVersionInfo = false">
         <div class="dialog-content version-dialog" @click.stop>
           <div class="dialog-header">
@@ -290,6 +341,8 @@
             <div class="version-hero">
               <img src="/favicon-192.png" class="version-logo" alt="2-Pyramid logo" />
               <button class="version-tag version-tap-target" @click="onVersionTap">2-Pyramid v{{ currentVersion }}</button>
+              <div class="version-build">{{ appFullVersion }}</div>
+              <div v-if="appIsDev" class="version-build-mode">Dev build</div>
               <div v-if="devHint" class="dev-hint">{{ devHint }}</div>
             </div>
             <div class="changelog-area">
@@ -473,6 +526,34 @@
       </div>
     </transition>
 
+    <!-- Factory reset (delete user profile → next launch goes through OOBE) -->
+    <transition name="dialog-pop-quick">
+      <div v-if="showFactoryResetDialog" class="dialog-overlay" @click.self="showFactoryResetDialog = false">
+        <div class="dialog-content confirm-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.factoryReset.confirmTitle') }}</h3>
+            <button class="dialog-close" @click="showFactoryResetDialog = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <p>{{ t('settings.factoryReset.confirmBody') }}</p>
+            <label class="dialog-checkbox-row" @click.stop>
+              <input type="checkbox" v-model="factoryResetDeep" />
+              <span class="dialog-checkbox-text">{{ t('settings.factoryReset.deepLabel') }}</span>
+              <span class="dialog-checkbox-hint">{{ t('settings.factoryReset.deepHint') }}</span>
+            </label>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="showFactoryResetDialog = false">
+              {{ t('settings.factoryReset.cancelBtn') }}
+            </button>
+            <button class="btn-text danger" @click="confirmFactoryReset" :disabled="factoryResetBusy">
+              {{ factoryResetBusy ? t('common.loading') : t('settings.factoryReset.confirmBtn') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <transition name="dialog-pop">
       <div v-if="showLogWindow" class="dialog-overlay" @click="closeLogWindow">
         <div class="dialog-content log-dialog" @click.stop>
@@ -501,14 +582,31 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { useUpdater } from '../composables/useUpdater';
 import { useNotification, type NotificationMode } from '../composables/useNotification';
-import { useLanguage } from '../composables/useLanguage'
+import { useLanguage } from '../composables/useLanguage';
+import { useAppInfo } from '../composables/useAppInfo';
 const { t } = useI18n()
 const { locale, setLanguage } = useLanguage()
 
-const props = defineProps<{ devMode?: boolean; userName?: string }>();
-const emit = defineEmits(['switch-page', 'update:dev-mode', 'update:user-name', 'update:animation-speed', 'update:close-action', 'show-update-dialog']);
+const props = defineProps<{
+  devMode?: boolean;
+  userName?: string;
+  sourceHandling?: 'ask' | 'delete' | 'keep';
+  openOutputAfterConvert?: boolean;
+}>();
+const emit = defineEmits([
+  'switch-page',
+  'update:dev-mode',
+  'update:user-name',
+  'update:animation-speed',
+  'update:close-action',
+  'update:source-handling',
+  'update:open-output-after-convert',
+  'show-update-dialog',
+  'reset-to-oobe',
+]);
 
 const { notify, setNotificationEnabled, setNotificationMode } = useNotification();
+const { full: appFullVersion, isDev: appIsDev } = useAppInfo();
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
@@ -523,9 +621,14 @@ const animationSpeedOptions: { value: AnimationSpeed; labelKey: string }[] = [
   { value: 'fast', labelKey: 'settings.animationSpeed.fast' },
 ];
 const closeAction = ref<'ask' | 'close' | 'minimize'>('ask');
+const sourceHandling = ref<'ask' | 'delete' | 'keep'>(props.sourceHandling ?? 'ask');
+const openOutputAfterConvert = ref<boolean>(props.openOutputAfterConvert ?? true);
 const showThemeDialog = ref(false);
 const showResetDialog = ref(false);
 const showClearConfigDialog = ref(false);
+const showFactoryResetDialog = ref(false);
+const factoryResetDeep = ref(false);
+const factoryResetBusy = ref(false);
 const defaultThemeColor = '#007bff';
 const themeColor = ref('#007bff');
 const tempThemeColor = ref('#007bff');
@@ -612,6 +715,7 @@ const shouldShowItem = (itemId: string) => {
 };
 
 const backToHome = () => emit('switch-page', 'home');
+const goBack = backToHome;
 const checkUpdate = async () => {
   updateChecking.value = true;
   updateError.value = '';
@@ -743,6 +847,64 @@ const confirmClearConfig = async () => {
   }, 600);
 };
 
+/**
+ * User-facing factory reset. Unlike `confirmClearConfig` (dev-only,
+ * gated) this is the production entry point exposed in Settings →
+ * Advanced. It deletes the on-disk settings.json so the next launch
+ * falls back to defaults, then reloads the page so the freshly-empty
+ * state takes effect and OOBE fires on the next launch (or now, if
+ * the user reopens before that).
+ */
+const confirmFactoryReset = async () => {
+  factoryResetBusy.value = true;
+  const deep = factoryResetDeep.value;
+  factoryResetDeep.value = false; // reset for next open
+  console.log('[factory_reset] starting, deep=', deep);
+
+  try {
+    if (deep) {
+      const report = await invoke<{ config_path: string; logs_deleted: number; overlay_history_cleared: boolean }>(
+        'factory_reset_deep',
+      );
+      console.log('[factory_reset] deep result:', report);
+    } else {
+      const path = await invoke<string>('factory_reset');
+      console.log('[factory_reset] config deleted:', path);
+    }
+    // Also wipe localStorage keys we set ourselves so the next launch
+    // starts truly fresh. We don't clear everything (that would also
+    // nuke unrelated keys if the user has any), only the 2pyr-owned
+    // ones.
+    localStorage.removeItem('closeAction');
+    localStorage.removeItem('sourceHandling');
+    localStorage.removeItem('openOutputAfterConvert');
+    localStorage.removeItem('animationSpeed');
+    localStorage.removeItem('themeColor');
+    localStorage.removeItem('language');
+    showFactoryResetDialog.value = false;
+    factoryResetBusy.value = false;
+
+    // Tell App.vue to show the OOBE immediately. We do NOT try to
+    // exit or reload the app — in the destroy/recreate-window
+    // architecture the exit path is fragile (ExitRequested
+    // interception) and reload doesn't reset in-memory state. Showing
+    // OOBE right here is instant, reliable, and the user sees the
+    // effect immediately.
+    emit('reset-to-oobe');
+  } catch (e) {
+    console.error('[factory_reset] failed:', e);
+    await notify({
+      title: t('settings.factoryReset.failedTitle'),
+      body: String(e),
+      type: 'error',
+      source: 'system',
+    });
+    // Keep the dialog open so the user can retry without losing the
+    // “deep” checkbox state.
+    factoryResetBusy.value = false;
+  }
+};
+
 const closeLogWindow = () => {
   showLogWindow.value = false;
   if (logTimer) {
@@ -839,6 +1001,14 @@ onMounted(() => {
   if (savedCloseAction === 'ask' || savedCloseAction === 'close' || savedCloseAction === 'minimize') {
     closeAction.value = savedCloseAction;
   }
+  const savedSourceHandling = localStorage.getItem('sourceHandling');
+  if (savedSourceHandling === 'ask' || savedSourceHandling === 'delete' || savedSourceHandling === 'keep') {
+    sourceHandling.value = savedSourceHandling;
+  }
+  const savedOpenOutput = localStorage.getItem('openOutputAfterConvert');
+  if (savedOpenOutput === 'true' || savedOpenOutput === 'false') {
+    openOutputAfterConvert.value = savedOpenOutput === 'true';
+  }
 
   currentVersionFromConfig();
   loadUpdateChannel();
@@ -905,6 +1075,18 @@ watch(closeAction, (val) => {
   localStorage.setItem('closeAction', val);
   invoke('update_config', { patch: { closeAction: val } }).catch(() => {});
   emit('update:close-action', val);
+});
+
+watch(sourceHandling, (val) => {
+  localStorage.setItem('sourceHandling', val);
+  invoke('update_config', { patch: { sourceHandling: val } }).catch(() => {});
+  emit('update:source-handling', val);
+});
+
+watch(openOutputAfterConvert, (val) => {
+  localStorage.setItem('openOutputAfterConvert', String(val));
+  invoke('update_config', { patch: { openOutputAfterConvert: val } }).catch(() => {});
+  emit('update:open-output-after-convert', val);
 });
 
 watch(() => props.userName, (v) => {
@@ -1032,16 +1214,12 @@ const hexToHsv = (hex: string) => {
 <style scoped>
 .fanhua-settings {
   width: 100%; height: 100%; min-height: 0;
-  background: #fff; color: #1d1d1f;
+  /* Background gradient + aurora ::before are provided by App.vue's
+     `.page-shell > *` rule so all three pages render identically. */
+  color: #1d1d1f;
   display: flex; flex-direction: column; overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   position: relative;
-}
-
-.vortex-background { position: fixed; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
-.vortex-ring {
-  position: absolute; border: 1px solid rgba(0, 122, 255, 0.04);
-  border-radius: 50%; top: -100px; right: -100px; width: 600px; height: 600px;
 }
 
 .settings-header {
@@ -1060,6 +1238,13 @@ const hexToHsv = (hex: string) => {
   align-items: center;
   gap: 20px;
   justify-self: start;
+  min-width: 0;
+}
+
+/* Title + subtitle stack vertically (matches ConversionPage). */
+.header-left > .title-group {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
@@ -1113,6 +1298,8 @@ const hexToHsv = (hex: string) => {
   text-overflow: ellipsis;
 }
 
+.page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
+
 .settings-scroll-area {
   flex: 1;
   min-height: 0;
@@ -1156,6 +1343,27 @@ const hexToHsv = (hex: string) => {
 
 .version-tap-target:hover {
   color: var(--theme-color);
+}
+
+.version-build {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #64748b;
+  letter-spacing: 0.4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--theme-color) 8%, transparent);
+}
+
+.version-build-mode {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #f59e0b;
 }
 
 .dev-hint {
@@ -1217,21 +1425,21 @@ const hexToHsv = (hex: string) => {
 }
 
 .back-btn {
-  height: 38px;
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.05);
   border: none;
-  padding: 0 14px;
+  padding: 10px 18px;
   border-radius: 14px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-weight: 700;
-  transition: 0.2s;
+  font-weight: 600;
+  color: #111827;
+  transition: 0.3s;
   flex: 0 0 auto;
 }
 .back-icon { font-size: 16px; line-height: 1; color: #111827; }
-.back-btn:hover { background: rgba(0,0,0,0.1); transform: translateX(-2px); }
+.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-4px); }
 .settings-scroll-area::-webkit-scrollbar-track { background: transparent; }
 
 @media (max-width: 720px) {
@@ -1403,6 +1611,36 @@ const hexToHsv = (hex: string) => {
 .dialog-header h3 { font-size: 16px; margin: 0; }
 .dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #64748b; }
 .dialog-body { display: flex; flex-direction: column; gap: 8px; }
+
+/* Inline checkbox row inside a dialog (e.g. the factory-reset “deep
+   clean” toggle). The whole row is the hit target so the user can
+   click anywhere on the label, not just the small box. */
+.dialog-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dialog-checkbox-row:hover { background: rgba(0, 0, 0, 0.07); }
+.dialog-checkbox-row input[type="checkbox"] {
+  margin-top: 2px;
+  width: 16px; height: 16px;
+  cursor: pointer;
+  accent-color: var(--theme-color, #007bff);
+}
+.dialog-checkbox-text {
+  font-weight: 700; font-size: 13px; color: #0f172a;
+}
+.dialog-checkbox-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px; color: #64748b; line-height: 1.4;
+}
 .dialog-label { font-size: 12px; color: #64748b; }
 .dialog-input {
   border: 1px solid rgba(0,0,0,0.08);
@@ -1573,9 +1811,11 @@ const hexToHsv = (hex: string) => {
 .dialog-hint { font-size: 12px; color: #94a3b8; margin: 0; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 
-.dialog-pop-enter-active, .dialog-pop-leave-active { transition: all 0.25s ease; }
-.dialog-pop-enter-from { opacity: 0; transform: translateY(10px) scale(0.98); }
-.dialog-pop-leave-to { opacity: 0; transform: translateY(10px) scale(0.98); }
+/* .dialog-pop-* 规则已删,SettingsPage 的 dialog 走 App.vue 全局规则。
+   原因:scoped 0.25s transition: all 期间 dialog-overlay 整个在 transform,
+   backdrop-filter 跟着缩(「shader 收缩」),box-shadow 也跟着缩。
+   App.vue 全局用 overlay 只动 opacity、content 动 opacity+transform 的分层方案,
+   overlay 永远不 transform,backdrop-filter 区域稳定。 */
 
 .ri-spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

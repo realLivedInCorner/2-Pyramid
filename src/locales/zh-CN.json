@@ -7,6 +7,7 @@
     "saving": "保存中...",
     "back": "返回",
     "home": "主页",
+    "backToHome": "返回首页",
     "choose": "选择",
     "refresh": "刷新",
     "delete": "删除",
@@ -25,7 +26,9 @@
     "closeNotify": "关闭通知",
     "error": "错误",
     "success": "成功",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "on": "开",
+    "off": "关"
   },
   "home": {
     "subtitle": "多版本通用材质包转换器",
@@ -114,10 +117,16 @@
     "logExportSuccessTitle": "导出成功",
     "logExportSuccessBody": "日志已导出到 {path}",
     "logExportFailedTitle": "导出失败",
-    "logExportFailedBody": "导出日志文件时出现错误"
+    "logExportFailedBody": "导出日志文件时出现错误",
+    "converting": "正在转换中…",
+    "cancel": "取消转换",
+    "cancelling": "取消中…",
+    "cancelledText": "转换已取消",
+    "manyFilesWarning": "文件较多,可能需要等待较长时间"
   },
   "settings": {
     "title": "偏好设置",
+    "subtitle": "偏好与配置",
     "searchPlaceholder": "搜索设置项...",
     "groups": {
       "language": "语言 / Language",
@@ -261,10 +270,43 @@
       "clearConfigDoneBody": "应用正在重启…",
       "clearConfigErrorTitle": "清空失败",
       "clearConfigErrorBody": "{error}"
+    },
+    "sourceHandling": {
+      "label": "原包处理",
+      "desc": "转换完成后对原资源包的处理方式",
+      "ask": "询问",
+      "delete": "删除",
+      "keep": "保留",
+      "deleteTitle": "删除原资源包?",
+      "deleteBody": "转换已完成,确定要删除原资源包吗?此操作不可撤销。",
+      "deleteConfirm": "删除",
+      "deleteCancel": "保留",
+      "deleteFailedTitle": "删除失败"
+    },
+    "openOutputAfterConvert": {
+      "label": "转换后打开输出目录",
+      "desc": "转换成功后自动弹出资源管理器打开输出目录"
+    },
+    "factoryReset": {
+      "groupTitle": "高级",
+      "label": "删除用户配置文件",
+      "desc": "删除本机的 settings.json,下次启动应用会回到 OOBE 引导。不会删除覆盖包项目、日志等其他文件。",
+      "btn": "删除并重启",
+      "confirmTitle": "删除用户配置?",
+      "confirmBody": "将永久删除本应用的用户配置(settings.json)。下次启动应用会重新显示 OOBE 引导。此操作不可撤销。",
+      "confirmBtn": "删除",
+      "cancelBtn": "取消",
+      "successTitle": "已删除",
+      "successBody": "用户配置已删除,应用将重启。",
+      "failedTitle": "删除失败",
+      "deepLabel": "同时清理日志和覆盖包历史",
+      "deepHint": "额外删除 logs/ 目录和 settings.json 里的覆盖包历史。不会删除用户已创建的覆盖包项目。",
+      "successBodyDeep": "用户配置已删除(深度清理),应用将重启。"
     }
   },
   "overlay": {
     "title": "覆盖包制作",
+    "subtitle": "创建自定义覆盖包,叠加到任意母包之上",
     "backAria": "返回首页",
     "myProjects": "我的覆盖包",
     "importCode": "导入分享码",
@@ -354,6 +396,9 @@
     "minimizeToTray": "后台运行",
     "closeDirectly": "直接关闭",
     "rememberChoice": "记住我的选择",
+    "trayToastTitle": "已隐藏到系统托盘",
+    "trayToastBody": "程序仍在后台运行,需要彻底退出请按 Ctrl+Shift+Q",
+    "forceQuitHint": "按 Ctrl+Shift+Q 强制退出",
     "borderColor": {
       "title": "边框颜色选取",
       "borderMode": "边框模式",
@@ -561,11 +606,29 @@
       "closeActionDesc": "点击关闭按钮时的操作",
       "closeActionAsk": "每次询问",
       "closeActionClose": "直接关闭",
-      "closeActionMinimize": "后台到托盘"
+      "closeActionMinimize": "后台到托盘",
+      "sourceHandling": {
+        "label": "原包处理",
+        "desc": "转换完成后对原资源包的处理",
+        "ask": "询问",
+        "delete": "删除",
+        "keep": "保留"
+      },
+      "openOutputAfterConvert": {
+        "label": "转换后打开输出目录",
+        "desc": "成功后自动打开资源管理器到输出位置"
+      }
     },
     "step5": {
       "title": "一切就绪，{name}！",
       "desc": "您已准备好开始使用 2-Pyramid。随时拖入资源包开始转换吧！"
+    },
+    "importBackup": {
+      "cta": "导入上次的设置",
+      "previewTitle": "导入上次的设置?",
+      "previewBody": "检测到上次会话的备份。导入后会恢复以下设置并跳过 OOBE 直接进入主页。",
+      "confirmBtn": "导入并继续"
     }
-  }
+  },
+  "openBtn": "打开目录"
 }

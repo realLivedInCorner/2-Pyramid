@@ -22,10 +22,10 @@ set_version.py
 overlay_projects.json
 test*
 thumb*
-tools/
 
 # Temp
 temp_overlay/
+.BUILD_LAST_USED
 
 # Claude
 .claude/

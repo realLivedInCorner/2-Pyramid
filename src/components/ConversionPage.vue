@@ -1,9 +1,9 @@
 <template>
   <div class="conversion-page">
     <div class="header-section">
-      <button class="back-button" @click="goBack">
+      <button class="back-btn" @click="goBack" :aria-label="t('common.backToHome')">
         <i class="ri-arrow-left-line back-icon" aria-hidden="true"></i>
-        {{ t('common.back') }}
+        <span>{{ t('common.back') }}</span>
       </button>
       <div class="title-group">
         <h1 class="page-title">{{ t('conversion.title') }}</h1>
@@ -65,19 +65,29 @@
             <span class="step-dot"></span>
             <span class="step-text">{{ t('conversion.stepProcessing') }}</span>
           </div>
-          <div class="step" :class="{ active: progressLabel === 100 }">
+          <div class="step" :class="{ active: conversionResults.some(r => r && r.status === 'success') }">
             <span class="step-dot"></span>
             <span class="step-text">{{ t('conversion.stepOutput') }}</span>
           </div>
         </div>
         <div v-if="showProgress || isConverting" class="progress-section">
           <div class="progress-info">
+            <i v-if="isConverting" class="ri-loader-4-line spin" aria-hidden="true"></i>
             <span class="status-text">{{ progressText }}</span>
-            <span class="percent-num">{{ progressLabel }}%</span>
           </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar" :style="{ width: progressBarPercentage + '%' }"></div>
+          <div v-if="manyFilesWarning" class="many-files-warning">
+            <i class="ri-time-line" aria-hidden="true"></i>
+            {{ t('conversion.manyFilesWarning') }}
           </div>
+          <button
+            v-if="isConverting"
+            class="cancel-btn"
+            @click="cancelConversion"
+            :disabled="isCancelling"
+          >
+            <i class="ri-close-circle-line" aria-hidden="true"></i>
+            {{ isCancelling ? t('conversion.cancelling') : t('conversion.cancel') }}
+          </button>
         </div>
         <div v-else class="idle-state">
           {{ t('conversion.idleState') }}
@@ -143,6 +153,7 @@
       </div>
     </div>
 
+    <transition name="dialog-pop">
     <div class="dialog-overlay" v-if="showResultModal" @click="showResultModal = false">
       <div class="dialog-content" @click.stop>
         <div class="dialog-header">
@@ -189,52 +200,79 @@
         </div>
       </div>
     </div>
+    </transition>
 
-    <transition name="dialog-pop">
-      <div v-if="showVersionPicker" class="dialog-overlay" @click="showVersionPicker = false">
-        <div class="dialog-content version-dialog" @click.stop>
-          <div class="dialog-header">
+    <transition name="sidebar-overlay-fade">
+      <div
+        v-if="showVersionPicker"
+        class="sidebar-overlay"
+        @click="showVersionPicker = false"
+        @keydown.esc="showVersionPicker = false"
+      ></div>
+    </transition>
+
+    <transition
+      :css="false"
+      @before-enter="onSidebarBeforeEnter"
+      @enter="onSidebarEnter"
+      @after-enter="onSidebarAfterEnter"
+      @before-leave="onSidebarBeforeLeave"
+      @leave="onSidebarLeave"
+      @after-leave="onSidebarAfterLeave"
+    >
+      <aside
+        v-if="showVersionPicker"
+        class="sidebar-content version-sidebar"
+        ref="versionSidebar"
+        @click.stop
+        tabindex="-1"
+      >
+        <div class="sidebar-header">
+          <div class="sidebar-header-text">
             <h3>{{ t('conversion.selectVersion') }}</h3>
-            <button class="dialog-close" @click="showVersionPicker = false" :aria-label="t('common.close')">×</button>
+            <p class="sidebar-hint">{{ selectedVersionEntry.label }} · {{ t('conversion.packFormat', { n: selectedVersionEntry.packFormat }) }}</p>
           </div>
-          <div class="version-dialog-body">
-            <div
-              v-for="(group, gi) in versionsByEra"
-              :key="group.era"
-              class="version-era"
-            >
-              <div class="version-era-header">
-                <span class="version-era-name">{{ t(`conversion.versionEras.${group.era}`) }}</span>
-                <span class="version-era-count">{{ group.items.length }}</span>
-              </div>
-              <div class="version-cards">
-                <button
-                  v-for="(v, i) in group.items"
-                  :key="v.label"
-                  class="version-card"
-                  :class="{
-                    active: v.label === selectedVersion,
-                    'has-status': v.status,
-                  }"
-                  :style="{ '--card-delay': `${(gi * 80) + (i * 50)}ms` }"
-                  @click="selectedVersion = v.label; showVersionPicker = false"
-                >
+          <button class="sidebar-close" @click="showVersionPicker = false" :aria-label="t('common.close')">
+            <i class="ri-close-line" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="sidebar-body">
+          <div
+            v-for="(group, gi) in versionsByEra"
+            :key="group.era"
+            class="version-era"
+          >
+            <div class="version-era-header">
+              <span class="version-era-name">{{ t(`conversion.versionEras.${group.era}`) }}</span>
+              <span class="version-era-count">{{ group.items.length }}</span>
+            </div>
+            <div class="version-list">
+              <button
+                v-for="(v, i) in group.items"
+                :key="v.label"
+                class="version-row"
+                :class="{
+                  active: v.label === selectedVersion,
+                  'has-status': v.status,
+                }"
+                :style="{ '--card-delay': `${(gi * 50) + (i * 25)}ms` }"
+                @click="selectedVersion = v.label; showVersionPicker = false"
+              >
+                <div class="version-row-main">
+                  <span class="version-row-label">{{ v.label }}</span>
+                  <span class="version-row-meta">{{ t('conversion.packFormat', { n: v.packFormat }) }}</span>
+                </div>
+                <div class="version-row-tail">
                   <span v-if="v.status" class="version-status" :class="`status-${v.status}`">
                     {{ t(`conversion.versionStatus.${v.status}`) }}
                   </span>
-                  <div class="version-card-main">
-                    <span class="version-card-label">{{ v.label }}</span>
-                    <span class="version-card-meta">
-                      {{ t('conversion.packFormat', { n: v.packFormat }) }}
-                    </span>
-                  </div>
-                  <i v-if="v.label === selectedVersion" class="ri-check-line version-card-check" aria-hidden="true"></i>
-                </button>
-              </div>
+                  <i v-if="v.label === selectedVersion" class="ri-check-line version-row-check" aria-hidden="true"></i>
+                </div>
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      </aside>
     </transition>
 
     <transition name="dialog-pop">
@@ -266,30 +304,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { open, save, ask } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useNotification } from '../composables/useNotification';
+// dialog enter/leave 走全局 CSS class 模式(`<transition name="dialog-pop">` +
+// `name="dialog-pop-fast">`,见 App.vue 全局 .dialog-pop-* / .dialog-pop-fast-*
+// 规则)。Vue 3 在 element insert 时直接加 enter-from class,跟 element 同一个
+// commit,第一帧 paint 一定看到 from 状态 → 杜绝「打开瞬间闪一下」。
+// version picker leave 700ms 走 .dialog-pop-fast-leave-active class 内部
+// 700ms transition-duration 规则(配合内部 .version-card spring leave)。
 
 const emit = defineEmits(['switch-page']);
+const props = defineProps<{
+  sourceHandling?: 'ask' | 'delete' | 'keep';
+  openOutputAfterConvert?: boolean;
+}>();
 const { t } = useI18n();
-const { notify } = useNotification();
+const { notify, registerToastAction, unregisterToastAction } = useNotification();
 
 const importMode = ref<'file' | 'folder'>('file');
 const isDragging = ref(false);
 let dragUnlisten: (() => void) | null = null;
 const isConverting = ref(false);
+const isCancelling = ref(false);
 const showProgress = ref(false);
-const progressPercentage = ref(0);
 const progressText = ref(t('conversion.ready'));
-const progressBarPercentage = computed(() => {
-  const raw = Number(progressPercentage.value);
-  if (!Number.isFinite(raw)) return 0;
-  return Math.min(100, Math.max(0, raw));
-});
-const progressLabel = computed(() => Math.round(progressBarPercentage.value));
+// Warn when a batch is large enough that it may take a while.
+const MANY_FILES_THRESHOLD = 10;
+const manyFilesWarning = ref(false);
 const selectedVersion = ref('1.21-1.21.1');
 const fixAlphaLayers = ref(false);
 const selectedItems = ref<any[]>([]);
@@ -299,9 +344,9 @@ const logMessages = ref<string[]>([]);
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('');
 const showVersionPicker = ref(false);
+const versionSidebar = ref<HTMLElement | null>(null);
 const showItemsDialog = ref(false);
 const previewLimit = 3;
-let fakeProgressTimer: ReturnType<typeof setInterval> | null = null;
 
 type VersionStatus = 'latest' | 'stable';
 type VersionEra =
@@ -345,6 +390,7 @@ const versions: VersionEntry[] = [
   { label: '1.21.9-1.21.10',  range: '1.21.9 → 1.21.10',  packFormat: 69, era: 'trickyTrials' },
   { label: '1.21.11',         range: '1.21.11',           packFormat: 75, era: 'trickyTrials', status: 'stable' },
   { label: '26.1-26.1.2',     range: '26.1 → 26.1.2',     packFormat: 84, era: 'bravery',    status: 'latest' },
+  { label: '26.2',            range: '26.2',              packFormat: 88, era: 'bravery',    status: 'latest' },
 ];
 
 // Era order for the picker dialog (chronological, oldest first).
@@ -369,13 +415,6 @@ const versionsByEra = computed(() => {
 const hasItems = computed(() => selectedItems.value.length > 0);
 const previewItems = computed(() => selectedItems.value.slice(0, previewLimit));
 
-const progressMode = computed<'single' | 'batch'>(() => {
-  const hasFolder = selectedItems.value.some(i => i.isDir);
-  if (hasFolder) return 'batch';
-  if (selectedItems.value.length > 1) return 'batch';
-  return 'single';
-});
-
 const goBack = () => emit('switch-page', 'home');
 
 const loadOutputSettings = async () => {
@@ -398,6 +437,13 @@ const loadOutputSettings = async () => {
 
 onMounted(async () => {
   void loadOutputSettings();
+
+  // Register the toast-action handler for “Open output folder”. The
+  // toast page emits `conv:open-output` via Rust when the user clicks
+  // the action button on the conversion-complete toast.
+  registerToastAction('conv:open-output', () => {
+    void openOutputFolder();
+  });
 
   // 注册 Tauri 窗口级拖拽事件（获取真实文件路径）
   try {
@@ -432,6 +478,97 @@ onUnmounted(() => {
   if (dragUnlisten) {
     dragUnlisten();
     dragUnlisten = null;
+  }
+  window.removeEventListener('keydown', handleVersionPickerKey);
+  // Tear down the toast action handlers we registered on mount so a
+  // later conversion (or page) doesn't accidentally fire them.
+  unregisterToastAction('conv:open-output');
+});
+
+/* === Sidebar enter/leave 钩子 =================================
+   完全弃用 @keyframes 动画。改用 inline style + CSS transition 手动驱动:
+   - onSidebarBeforeEnter: 锁初始 transform 100%,box-shadow none
+   - onSidebarEnter:        raf 后设 transition + 终值(0 + 0.08),触发 CSS transition
+   - onSidebarAfterEnter:   锁终态(0 + 0.08),防止 stylesheet 默认 transform 重新生效
+   - onSidebarBeforeLeave:  直接设 transition + 终值 transform 100% + box-shadow none
+                            (不依赖 raf,inline style 改动是同步的,浏览器自动触发 transition)
+   - onSidebarLeave:        啥都不做,Vue 等 done() 调
+   - onSidebarAfterLeave:   清空 inline style,v-if 移除元素
+
+   enter/leave 都靠 inline style 触发 CSS transition 渐变 — 所有 transform /
+   box-shadow / opacity 状态都在 inline style 里,不被 App.vue 全局 .page-shell
+   > * > * 的 page-entry stagger 干扰。
+
+   box-shadow 数值(距离/blur/opacity)跟 .sidebar-content 默认 CSS 保持一致。 */
+function onSidebarBeforeEnter(el: Element) {
+  const h = el as HTMLElement;
+  h.style.transition = 'none';
+  h.style.transform = 'translateX(100%)';
+  h.style.boxShadow = 'none';
+  h.style.opacity = '1';
+}
+
+function onSidebarEnter(el: Element, done: () => void) {
+  const h = el as HTMLElement;
+  // 强制 reflow 让 transition: none 先 commit
+  h.offsetHeight;
+  // raf 后设 transition + 终值,触发 CSS transition 渐变
+  requestAnimationFrame(() => {
+    h.style.transition = 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 450ms cubic-bezier(0.22, 1, 0.36, 1)';
+    h.style.transform = 'translateX(0)';
+    h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
+    setTimeout(done, 460);
+  });
+}
+
+function onSidebarAfterEnter(el: Element) {
+  const h = el as HTMLElement;
+  // 锁终态:清掉 transition 防止后续状态变化被 transition 拦截
+  h.style.transition = '';
+  h.style.transform = 'translateX(0)';
+  h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
+  h.style.opacity = '1';
+}
+
+function onSidebarBeforeLeave(el: Element) {
+  const h = el as HTMLElement;
+  // 当前 transform = 0(afterEnter 锁),box-shadow = 0.08
+  // 直接设 transition + 终值(transform 100% + box-shadow none)
+  // 浏览器看到 inline style 改动从 0 跳到 100%,自动触发 CSS transition 渐变
+  h.style.transition = 'transform 400ms cubic-bezier(0.65, 0, 0.35, 1), box-shadow 400ms cubic-bezier(0.65, 0, 0.35, 1)';
+  h.style.transform = 'translateX(100%)';
+  h.style.boxShadow = 'none';
+}
+
+function onSidebarLeave(_el: Element, done: () => void) {
+  // Vue 等 done() 调才 unmount,等 410ms 让 transition 跑完
+  setTimeout(done, 410);
+}
+
+function onSidebarAfterLeave(el: Element) {
+  const h = el as HTMLElement;
+  h.style.transition = '';
+  h.style.transform = '';
+  h.style.boxShadow = '';
+  h.style.opacity = '';
+}
+
+const handleVersionPickerKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && showVersionPicker.value) {
+    showVersionPicker.value = false;
+  }
+};
+
+watch(showVersionPicker, (open) => {
+  if (open) {
+    // ESC 关闭 sidebar
+    window.addEventListener('keydown', handleVersionPickerKey);
+    // 自动 focus sidebar 容器(让内部 button 也能接收键盘事件)
+    setTimeout(() => {
+      versionSidebar.value?.focus?.();
+    }, 50);
+  } else {
+    window.removeEventListener('keydown', handleVersionPickerKey);
   }
 });
 
@@ -496,10 +633,13 @@ const startConversion = async () => {
   }
 
   isConverting.value = true;
+  isCancelling.value = false;
   showProgress.value = true;
-  progressPercentage.value = 0;
-  progressText.value = t('conversion.engineStarting');
+  progressText.value = t('conversion.converting');
   logMessages.value = [];
+
+  // Warn when converting a lot of files at once.
+  manyFilesWarning.value = selectedItems.value.length >= MANY_FILES_THRESHOLD;
 
   notify({
     title: t('conversion.convStartTitle'),
@@ -508,67 +648,6 @@ const startConversion = async () => {
     source: 'conversion'
   });
 
-  const mode = progressMode.value;
-  if (fakeProgressTimer) {
-    clearInterval(fakeProgressTimer);
-    fakeProgressTimer = null;
-  }
-
-  const logPollingInterval = setInterval(async () => {
-    try {
-      const logs = await invoke<string>('get_logs', {});
-      if (logs) {
-        const newLines = logs.split('\n');
-        const currentCount = logMessages.value.length;
-        if (newLines.length > currentCount) {
-          logMessages.value = newLines;
-          for (let i = currentCount; i < newLines.length; i++) {
-            const line = newLines[i];
-            
-            // Match the progress pattern: Progress: X/Y (P%) - TaskName/Extracting/Repacking/Committing textures
-            const moduleProgressMatch = line.match(/.*Progress: (\d+)\/(\d+) \((\d+)%\)(?: - (.*))?$/);
-            if (moduleProgressMatch) {
-              const current = parseInt(moduleProgressMatch[1]);
-              const total = parseInt(moduleProgressMatch[2]);
-              const percentage = parseInt(moduleProgressMatch[3]);
-              const taskInfo = (moduleProgressMatch[4] || '').trim();
-              
-              if (mode === 'batch') {
-                // Batch: only process lines without task info (overall file progress)
-                if (taskInfo) continue;
-                progressText.value = t('conversion.batchProgress', { current, total });
-                progressPercentage.value = Math.max(progressPercentage.value, percentage);
-              } else {
-                // Single: main progress from module execution (task count), I/O phases only a small share
-                if (!taskInfo) continue;
-                let mappedPercentage = percentage;
-                if (taskInfo === 'Extracting') {
-                  // 0-5%
-                  mappedPercentage = Math.round(percentage * 0.05);
-                  progressText.value = t('conversion.extracting', { percent: percentage });
-                } else if (taskInfo === 'Committing textures') {
-                  // 90-95%
-                  mappedPercentage = Math.round(90 + (percentage * 0.05));
-                  progressText.value = t('conversion.committingTextures', { percent: percentage });
-                } else if (taskInfo === 'Repacking') {
-                  // 95-100%
-                  mappedPercentage = Math.round(95 + (percentage * 0.05));
-                  progressText.value = t('conversion.repacking', { percent: percentage });
-                } else {
-                  // 5-90%: module progress
-                  mappedPercentage = Math.round(5 + (percentage * 0.85));
-                  progressText.value = t('conversion.moduleProgress', { current, total, task: taskInfo });
-                }
-                progressPercentage.value = Math.max(progressPercentage.value, mappedPercentage);
-              }
-            }
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, 300);
 
   const versionMap: Record<string, number> = Object.fromEntries(
     versions.map(v => [v.label, v.packFormat])
@@ -583,18 +662,9 @@ const startConversion = async () => {
 
   let conversionError = false;
 
-  if (filePaths.length === 1 && mode === 'single') {
-    // We now have real progress reporting for all phases (extract, convert, repack).
-    // The fake progress should be very conservative and only move if real progress is slow.
-    fakeProgressTimer = setInterval(() => {
-      if (!isConverting.value) return;
-      const current = progressPercentage.value;
-      if (current >= 95) return;
-      // Only bump slowly if it's been a while without real progress
-      const bump = 0.1;
-      progressPercentage.value = Math.min(95, current + bump);
-    }, 500);
-  }
+  // (No fake/interpolated progress: the Rust scheduler reports real
+  //  module progress (`Progress: X/N`), which we aggregate across all
+  //  packs below. The bar moves only when modules actually complete.)
 
   try {
     conversionResults.value = await invoke<any[]>('convert_resource_packs_batch', {
@@ -612,19 +682,30 @@ const startConversion = async () => {
     }
 
     const successCount = conversionResults.value.filter(r => r.status === 'success').length;
-    progressPercentage.value = 100;
     const totalCount = conversionResults.value.length || selectedItems.value.length;
     progressText.value = t('conversion.convEnd', { success: successCount, total: totalCount });
+
+    // Build the toast actions: an “Open Folder” button whenever we
+    // can resolve an output directory, so the user can jump straight
+    // there without digging through the result modal.
+    const actions: { id: string; label: string; icon: string }[] = [];
+    if (resolveOutputDir()) {
+      actions.push({
+        id: 'conv:open-output',
+        label: t('openBtn'),
+        icon: 'ri-folder-open-line',
+      });
+    }
 
     notify({
       title: t('conversion.convCompleteTitle'),
       body: t('conversion.convCompleteBody', { count: successCount }),
       type: 'success',
-      source: 'conversion'
+      source: 'conversion',
+      actions,
     });
   } catch (err) {
     conversionError = true;
-    progressPercentage.value = 100;
     progressText.value = t('conversion.severeError');
     conversionResults.value = [];
     notify({
@@ -634,29 +715,71 @@ const startConversion = async () => {
       source: 'conversion'
     });
   } finally {
-    clearInterval(logPollingInterval);
-    if (fakeProgressTimer) {
-      clearInterval(fakeProgressTimer);
-      fakeProgressTimer = null;
-    }
     isConverting.value = false;
-    progressPercentage.value = 100;
+    isCancelling.value = false;
+    manyFilesWarning.value = false;
+    // Collapse the converting panel back to the idle state.
+    showProgress.value = false;
+    console.log('[conv] finished: results=', conversionResults.value);
     if (!conversionError) {
       const failureCount = conversionResults.value.filter(r => r.status !== 'success').length;
       const successCount = conversionResults.value.filter(r => r.status === 'success').length;
+      // Cancelled: the user pressed Cancel — show a neutral state.
+      const cancelledCount = conversionResults.value.filter(r => r.status === 'cancelled').length;
+      if (cancelledCount > 0) {
+        progressText.value = t('conversion.cancelledText');
+        return;
+      }
       if (failureCount === 0) {
         showResultModal.value = false;
         const totalCount = conversionResults.value.length || selectedItems.value.length;
+
+        // Post-conversion side effects driven by Settings:
+        //   * Auto-open the output folder (if enabled)
+        //   * Apply source-pack handling policy (ask/delete/keep)
+        if (props.openOutputAfterConvert !== false && resolveOutputDir()) {
+          // Fire-and-forget; we don't want a failed open_folder call
+          // to break the rest of the success path.
+          void openOutputFolder();
+        }
+        applySourceHandling();
+
+        // Same actions as the “running” notify above.
+        const actions: { id: string; label: string; icon: string }[] = [];
+        if (resolveOutputDir()) {
+          actions.push({
+            id: 'conv:open-output',
+            label: t('openBtn'),
+            icon: 'ri-folder-open-line',
+          });
+        }
         notify({
           title: t('conversion.convCompleteTitle'),
           body: t('conversion.convAllSuccessBody', { success: successCount, total: totalCount }),
           type: 'success',
-          source: 'conversion'
+          source: 'conversion',
+          actions,
         });
       } else {
         showResultModal.value = true;
       }
     }
+  }
+};
+
+/**
+ * Ask the Rust backend to abort the running batch conversion. The
+ * backend stops before the next file; already-completed files stay
+ * intact. We show a transient “cancelling…” state on the button.
+ */
+const cancelConversion = async () => {
+  if (!isConverting.value || isCancelling.value) return;
+  isCancelling.value = true;
+  try {
+    await invoke('cancel_conversion');
+  } catch (e) {
+    console.error('[cancel] cancel_conversion failed:', e);
+    isCancelling.value = false;
   }
 };
 
@@ -678,6 +801,80 @@ const openOutputFolder = async () => {
       type: 'error',
       source: 'conversion'
     });
+  }
+};
+
+/**
+ * Resolve the directory we should pop open after a successful
+ * conversion. Returns "" when we don't have a usable path (e.g. the
+ * user is in `follow` mode and the conversion never produced an
+ * output). Shared by the auto-open and toast-button paths so they
+ * always agree on what "the output folder" means.
+ */
+const resolveOutputDir = (): string => {
+  const successResult = Array.isArray(conversionResults.value)
+    ? conversionResults.value.find(r => r && r.status === 'success' && r.output)
+    : null;
+  const samplePath = successResult?.output
+    || (selectedItems.value[0]?.output_path ?? '')
+    || (outputMode.value === 'fixed' ? outputPath.value : (selectedItems.value[0]?.path ?? ''));
+  if (!samplePath) return '';
+  return samplePath.replace(/[^\\/]+$/, '');
+};
+
+/**
+ * Remove the source packs from disk. We invoke a Rust command instead
+ * of fs.rm from JS so the OS actually frees the files (Tauri sandboxes
+ * direct fs access in production). Only runs when at least one source
+ * path is recorded AND the user has opted in via `sourceHandling`.
+ */
+const deleteSourcePacks = async (): Promise<void> => {
+  const paths = selectedItems.value
+    .map((it) => it.path)
+    .filter((p): p is string => typeof p === 'string' && p.length > 0);
+  if (paths.length === 0) return;
+  try {
+    await invoke('delete_paths', { paths });
+    notify({
+      title: t('common.delete'),
+      body: t('settings.sourceHandling.delete'),
+      type: 'success',
+      source: 'conversion',
+    });
+  } catch (e) {
+    notify({
+      title: t('settings.sourceHandling.deleteFailedTitle'),
+      body: String(e),
+      type: 'error',
+      source: 'conversion',
+    });
+  }
+};
+
+/**
+ * Apply the user's `sourceHandling` setting after a successful batch.
+ *   * "ask"    → async confirmation via the Tauri dialog plugin.
+ *                IMPORTANT: never use `window.confirm` here — in
+ *                WebView2 it blocks the JS main thread (freezing ping
+ *                heartbeats, window controls, and state updates).
+ *   * "delete" → delete unconditionally
+ *   * "keep"   → no-op
+ */
+const applySourceHandling = async (): Promise<void> => {
+  const policy = props.sourceHandling ?? 'ask';
+  if (policy === 'keep') return;
+  if (policy === 'delete') {
+    await deleteSourcePacks();
+    return;
+  }
+  try {
+    const ok = await ask(t('settings.sourceHandling.deleteBody'), {
+      title: t('settings.sourceHandling.deleteTitle'),
+      kind: 'warning',
+    });
+    if (ok) await deleteSourcePacks();
+  } catch {
+    // Dialog unavailable — skip silently.
   }
 };
 
@@ -727,30 +924,14 @@ const exportLogsToFile = async () => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+  /* Background gradient + aurora ::before are provided by App.vue's
+     `.page-shell > *` rule so all three pages render identically. */
   color: #1d1d1f;
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background-size: 200% 200%;
-  animation: bg-breathe 18s ease-in-out infinite;
-}
-.conversion-page::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    linear-gradient(135deg, rgba(120,160,255,0.04) 0%, rgba(120,160,255,0.01) 50%, transparent 100%),
-    radial-gradient(55vw 45vh at 15% 20%, rgba(120,160,255,0.18), transparent 60%),
-    radial-gradient(45vw 40vh at 85% 25%, rgba(120,160,255,0.14), transparent 55%),
-    radial-gradient(60vw 55vh at 50% 80%, rgba(120,160,255,0.11), transparent 65%);
-  opacity: 0.85;
-  filter: blur(12px);
-  animation: aurora-drift 26s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .header-section {
@@ -762,7 +943,7 @@ const exportLogsToFile = async () => {
   flex-shrink: 0;
 }
 .title-group { display: flex; flex-direction: column; }
-.back-button {
+.back-btn {
   background: rgba(0, 0, 0, 0.05);
   border: none;
   padding: 10px 18px;
@@ -772,9 +953,10 @@ const exportLogsToFile = async () => {
   align-items: center;
   gap: 8px;
   font-weight: 600;
+  color: #111827;
   transition: 0.3s;
 }
-.back-button:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-4px); }
+.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-4px); }
 .back-icon { font-size: 16px; line-height: 1; color: #111827; }
 .page-title { font-size: 28px; font-weight: 800; letter-spacing: -1px; margin: 0; }
 .page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
@@ -948,10 +1130,36 @@ const exportLogsToFile = async () => {
 .step.active { color: #1d1d1f; }
 .step.active .step-dot { background: var(--theme-color); box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-color) 30%, transparent); }
 
-.progress-section { margin-top: 4px; }
-.progress-info { display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-bottom: 8px; }
-.progress-bar-container { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.06); overflow: hidden; }
-.progress-bar { height: 100%; background: linear-gradient(90deg, var(--theme-color), color-mix(in srgb, var(--theme-color) 60%, #ffffff)); transition: width 0.3s ease; }
+.progress-section { margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+.progress-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; }
+.progress-info .spin { color: var(--theme-color); font-size: 16px; }
+.status-text { font-weight: 600; }
+
+/* “Many files” warning row. */
+.many-files-warning {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #b45309;
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 10px; padding: 8px 12px;
+}
+.many-files-warning i { font-size: 14px; }
+
+/* Cancel conversion button. */
+.cancel-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  color: #b91c1c;
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: 10px; cursor: pointer;
+  align-self: flex-start;
+  transition: all 0.2s ease;
+}
+.cancel-btn:hover:not(:disabled) { background: #fee2e2; }
+.cancel-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
 .idle-state { color: #94a3b8; font-size: 12px; }
 
 .drop-header { display: flex; align-items: center; justify-content: space-between; }
@@ -1032,7 +1240,7 @@ const exportLogsToFile = async () => {
 .start-conversion-button:disabled { opacity: 0.6; cursor: not-allowed; }
 .start-conversion-button:hover:not(:disabled) { background: #000; }
 
-.dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(6px); }
 .dialog-content { background: white; padding: 2rem; border-radius: 24px; width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); max-height: 80vh; overflow-y: auto; }
 .dialog-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
 .dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #64748b; }
@@ -1053,29 +1261,111 @@ const exportLogsToFile = async () => {
 .dialog-button.secondary:hover { background: #e2e8f0; }
 .dialog-button:disabled { background: #cbd5e1; cursor: not-allowed; }
 
-/* === Version picker dialog (era-grouped cards) === */
-.version-dialog {
-  width: min(720px, 92vw);
-  max-height: min(80vh, 720px);
-  padding: 1.5rem 1.75rem 1.75rem;
-  display: flex;
-  flex-direction: column;
+/* === Version picker sidebar (右侧抽屉,从右滑入) === */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 200;
+  /* 不用 backdrop-filter blur — 避免 chromium 在 leave 时中断 animationend,
+     跟 dialog-pop overlay 同样策略。 */
 }
-.version-dialog .dialog-header { margin-bottom: 1rem; }
-.version-dialog-body {
+.sidebar-content {
+  /* position: fixed + right: 0 — aside 跟 .sidebar-overlay 是 sibling,
+     不嵌套在 overlay flex 容器里。aside 自己用 right:0 锚定在屏幕右侧,
+     transform translateX(100%) = + 自身 420px width 推到屏幕外右侧;
+     transform translateX(0) = 回到 right:0 位置(屏幕内最右 420px)。 */
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100vh;
+  background: white;
+  /* 阴影淡一点 — 之前 -20px 0 60px rgba(0,0,0,0.18) 偏重,改 12px/36px/0.08
+     保持层级感但不抢戏。enter 期间 inline style 会把 box-shadow 渐变到 0,
+     leave 期间渐变到 0(全透明,exit 时无残留)。 */
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  outline: none;
+  z-index: 201;
+  /* 默认状态 = enter-from(屏幕外右侧)— element insert 时浏览器 paint 看不见。
+     enter/leave 完全由 inline style + CSS transition 驱动(见 onSidebarEnter /
+     onSidebarLeave),transform / box-shadow 状态由 inline style 维护,这里
+     只设兜底,让 element insert 那一帧就在屏幕外、不闪。
+
+     opacity: 1 !important 显式覆盖 App.vue 全局 .page-shell > * > *
+     (那条 page-entry stagger 规则给 aside 锁 opacity: 0 渐变到 1,
+     enter 期间 sidebar 一直隐形)。 */
+  transform: translateX(100%);
+  opacity: 1 !important;
+  will-change: transform, box-shadow;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+.sidebar-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sidebar-header-text h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+}
+.sidebar-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.sidebar-close {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sidebar-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1d1d1f;
+}
+
+.sidebar-body {
+  flex: 1;
   overflow-y: auto;
-  padding: 4px 4px 4px 0;
-  margin-right: -4px;
+  padding: 1rem 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
-.version-dialog-body::-webkit-scrollbar { width: 6px; }
-.version-dialog-body::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.12);
+.sidebar-body::-webkit-scrollbar { width: 6px; }
+.sidebar-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
-.version-dialog-body::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.22); }
 
 .version-era {
   display: flex;
@@ -1086,7 +1376,7 @@ const exportLogsToFile = async () => {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 0 2px;
+  padding: 0 4px;
 }
 .version-era-name {
   font-size: 11px;
@@ -1102,96 +1392,95 @@ const exportLogsToFile = async () => {
   font-variant-numeric: tabular-nums;
 }
 
-.version-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-}
-
-.version-card {
-  position: relative;
+.version-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.version-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.06);
-  background: rgba(255,255,255,0.85);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
   font-family: inherit;
   cursor: pointer;
   text-align: left;
   overflow: hidden;
   transition:
-    transform 0.18s cubic-bezier(.4,0,.2,1),
-    border-color 0.18s ease,
-    background 0.18s ease,
-    box-shadow 0.18s ease;
-  /* stagger entrance */
-  animation: version-card-in 0.42s cubic-bezier(.2,.65,.3,1) both;
+    background 0.15s ease,
+    border-color 0.15s ease;
+  /* stagger entrance — sidebar body 出现后,row 一个个滑入 */
+  animation: version-row-in 0.36s cubic-bezier(.2, .65, .3, 1) both;
   animation-delay: var(--card-delay, 0ms);
 }
-@keyframes version-card-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes version-row-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-.version-card:hover {
-  transform: translateY(-2px);
+.version-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: color-mix(in srgb, var(--theme-color) 25%, transparent);
+}
+.version-row:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+.version-row.active {
+  background: color-mix(in srgb, var(--theme-color) 10%, #ffffff);
   border-color: color-mix(in srgb, var(--theme-color) 45%, transparent);
-  background: color-mix(in srgb, var(--theme-color) 6%, #ffffff);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--theme-color) 14%, transparent);
 }
-.version-card:active { transform: translateY(0); }
-.version-card.active {
-  border-color: color-mix(in srgb, var(--theme-color) 60%, transparent);
-  background: color-mix(in srgb, var(--theme-color) 14%, #ffffff);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--theme-color) 60%, transparent) inset,
-    0 4px 12px color-mix(in srgb, var(--theme-color) 22%, transparent);
-}
-.version-card.has-status { padding-top: 24px; }
-.version-card-main {
+.version-row.has-status { padding-right: 8px; }
+
+.version-row-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
-.version-card-label {
-  font-size: 13px;
-  font-weight: 700;
+.version-row-label {
+  font-size: 14px;
+  font-weight: 600;
   color: #1d1d1f;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.version-card.active .version-card-label {
+.version-row.active .version-row-label {
   color: color-mix(in srgb, var(--theme-color) 90%, #000);
 }
-.version-card-meta {
+.version-row-meta {
   font-size: 10px;
   color: #94a3b8;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
-.version-card-check {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 14px;
+
+.version-row-tail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.version-row-check {
+  font-size: 16px;
   color: var(--theme-color);
-  animation: version-check-pop 0.32s cubic-bezier(.34,1.56,.64,1);
+  animation: version-check-pop 0.32s cubic-bezier(.34, 1.56, .64, 1);
 }
 @keyframes version-check-pop {
   from { opacity: 0; transform: scale(0.4); }
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* === Version status badges === */
+/* === Version status badges (inline 在 .version-row-tail 里) === */
 .version-status {
-  position: absolute;
-  top: 6px;
-  left: 6px;
   font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1221,55 +1510,11 @@ const exportLogsToFile = async () => {
   border-radius: 12px;
 }
 
-/* Dialog enter/leave. Vue's `<transition>` only listens for
-   transitionend / animationend on the **root** element of the
-   transition (here, `.dialog-overlay`). So the overlay itself must
-   carry a real transition — even if it's just an opacity fade —
-   otherwise Vue thinks the leave finished instantly and unmounts the
-   whole tree on the same frame, killing the content's fade/scale and
-   the version-card stagger exit.
-
-   We size the overlay's transition (0.27s) to fit the longest
-   leave path on the version cards (90ms reverse-stagger delay + 180ms
-   per-card animation = 270ms) so the last card finishes before
-   Vue tears the tree down. */
-.dialog-pop-enter-active,
-.dialog-pop-leave-active {
-  transition: opacity 0.27s ease;
-}
-.dialog-pop-enter-from,
-.dialog-pop-leave-to {
-  opacity: 0;
-}
-
-/* The actual white card: enters with a slight lift + scale, exits the
-   same way. This rides on top of the overlay fade. */
-.dialog-pop-enter-active .dialog-content,
-.dialog-pop-leave-active .dialog-content {
-  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.4,0,.2,1);
-}
-.dialog-pop-enter-from .dialog-content,
-.dialog-pop-leave-to .dialog-content {
-  opacity: 0;
-  transform: translateY(12px) scale(0.96);
-}
-
-/* Version-picker card stagger exit: last era's cards leave first, so
-   the eye follows the collapse from the bottom-right back to the
-   top-left. Delays kept under the 0.27s overlay budget. */
-.dialog-pop-leave-active .version-card {
-  animation: version-card-out 0.18s cubic-bezier(.4,0,.2,1) both;
-}
-.dialog-pop-leave-active .version-era:nth-child(1) .version-card { animation-delay: 90ms; }
-.dialog-pop-leave-active .version-era:nth-child(2) .version-card { animation-delay: 70ms; }
-.dialog-pop-leave-active .version-era:nth-child(3) .version-card { animation-delay: 50ms; }
-.dialog-pop-leave-active .version-era:nth-child(4) .version-card { animation-delay: 30ms; }
-.dialog-pop-leave-active .version-era:nth-child(5) .version-card { animation-delay: 15ms; }
-.dialog-pop-leave-active .version-era:nth-child(6) .version-card { animation-delay:  0ms; }
-@keyframes version-card-out {
-  from { opacity: 1; transform: translateY(0)    scale(1); }
-  to   { opacity: 0; transform: translateY(6px)  scale(0.96); }
-}
+/* Sidebar enter/leave 走全局 .sidebar-pop-* 规则(见 App.vue)。
+   sidebar-content 默认状态 = enter-from(translateX 100%),element insert 时
+   浏览器 paint 看不见 → 杜绝「打开瞬间闪一下」。
+   内部 row 用 version-row-in 动画 stagger 出现,sidebar leave 时整个 sidebar
+   一起滑出(无需 row spring,简化 close 视觉)。 */
 
 @keyframes bg-breathe {
   0% { background-position: 0% 0%; }

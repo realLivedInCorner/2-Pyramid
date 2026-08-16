@@ -12,19 +12,24 @@
     "2pyr": "tauri dev",
     "build:com-shell": "cargo build --manifest-path src-tauri/Cargo.toml -p two_pyramid_shell --release",
     "buildproject": "npm run build:com-shell && tauri build",
-    "build2pyr": "npm run build:com-shell && tauri build"
+    "build2pyr": "npm run build:com-shell && tauri build",
+    "bump:build": "echo 'Release builds auto-bump BUILD from 20000. This script is for manual override:' && python tools/bump_build.py",
+    "bump:build:show": "python tools/bump_build.py --show",
+    "bump:build:set": "python tools/bump_build.py --set",
+    "bump:build:reset": "python tools/bump_build.py --reset"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "^2",
-    "@tauri-apps/plugin-notification": "^2",
-    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "2.7.2",
+    "@tauri-apps/plugin-notification": "2.3.3",
+    "@tauri-apps/plugin-opener": "2.5.4",
     "remixicon": "^4.6.0",
     "vue": "^3.5.13",
     "vue-i18n": "^10.0.7"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@types/node": "^22.10.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "sharp": "^0.35.1",
     "typescript": "~5.6.2",
