@@ -1,6 +1,6 @@
 <template>
   <div class="dialog-overlay">
-    <div class="dialog-container">
+    <div class="dialog-container dialog-content">
       <div class="dialog-header">
         <h2 class="dialog-title">{{ t('dialog.itemName.title') }}</h2>
         <div class="header-actions">
@@ -478,7 +478,10 @@ onMounted(async () => {
   height: 85vh;
   background: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  /* 原来 0 25px 50px -12px rgba(0,0,0,0.25) — blur 50px 太大,leave 期间
+     shadow 跟着 opacity 渐变时 "淡出拖尾" 比 dialog 本身还久。改紧凑点
+     跟 550ms leave 同步消失。 */
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -233,6 +233,14 @@ impl GuiSurgeon {
         // in 1.21+ sprite-based UI. All cleanup is deferred to the end of the
         // conversion pipeline so that no file is deleted before every task has
         // had a chance to read it (e.g. fix_ui_survival needs inventory.png).
+        //
+        // IMPORTANT: do NOT include `container/inventory.png` here. The 1.21
+        // vanilla resource pack still ships an `inventory.png` (a 256x256
+        // simplified panel that the client uses as a backwards-compatible
+        // rendering surface for the survival inventory background). If we
+        // delete it, resource packs that previously had a 1.20.1-style
+        // `inventory.png` will be missing it post-conversion and the
+        // survival/creative inventory GUI fails to render.
         let cleanup_files: &[&str] = &[
             "assets/minecraft/textures/gui/container/anvil.png",
             "assets/minecraft/textures/gui/container/beacon.png",
@@ -240,7 +248,6 @@ impl GuiSurgeon {
             "assets/minecraft/textures/gui/container/blast_furnace.png",
             "assets/minecraft/textures/gui/container/smoker.png",
             "assets/minecraft/textures/gui/container/brewing_stand.png",
-            "assets/minecraft/textures/gui/container/inventory.png",
             "assets/minecraft/textures/gui/container/horse.png",
             "assets/minecraft/textures/gui/container/enchanting_table.png",
             "assets/minecraft/textures/gui/container/stonecutter.png",

@@ -23,13 +23,16 @@ fn main() {
     // 检查是否有 --nogui 参数
     if args.contains(&"--nogui".to_string()) {
         // 启动无头模式
-        eprintln!("[2-Pyramid Dev2.0.0]Checking Environment.....");
-        eprintln!("[2-Pyramid Dev2.0.0]Checked Successfully, Starting 2-Pyramid Hurray Engine");
-        eprintln!("[2-Pyramid Dev2.0.0]Processing NGUI Conifg");
-        eprintln!("[2-Pyramid Dev2.0.0]Loaded Setting Module");
-        eprintln!("[2-Pyramid Dev2.0.0]Loaded Minecraft ResourcePack Convert Module");
-        eprintln!("[2-Pyramid Dev2.0.0]All Prepared");
-        eprintln!("[2-Pyramid Dev2.0.0]Launched 2-Pyramid Dev2.0.0 NGUI Successfully");
+        let ver = env!("CARGO_PKG_VERSION");
+        let build = env!("BUILD_NUMBER");
+        let stamp = format!("{}+{}", ver, build);
+        eprintln!("[2-Pyramid {}]Checking Environment.....", stamp);
+        eprintln!("[2-Pyramid {}]Checked Successfully, Starting 2-Pyramid Hurray Engine", stamp);
+        eprintln!("[2-Pyramid {}]Processing NGUI Conifg", stamp);
+        eprintln!("[2-Pyramid {}]Loaded Setting Module", stamp);
+        eprintln!("[2-Pyramid {}]Loaded Minecraft ResourcePack Convert Module", stamp);
+        eprintln!("[2-Pyramid {}]All Prepared", stamp);
+        eprintln!("[2-Pyramid {}]Launched 2-Pyramid {} NGUI Successfully", stamp, stamp);
         eprintln!("Time:%time_total_start%");
         eprintln!("Help Doc");
         eprintln!("--convert [location] [Version]");

@@ -70,9 +70,11 @@ impl ConversionMaps {
         forward.insert((64, 69), vec!["generate_copper_ingot".to_string(), "generate_copper_block".to_string(), "generate_copper_tools".to_string(), "generate_copper_armor_models".to_string()]);
         forward.insert((69, 75), vec![]);
         forward.insert((75, 84), vec![]);
+        forward.insert((84, 88), vec![]);
         forward.insert((84, 1000), vec![]);
 
         reverse.insert((1000, 84), vec![]);
+        reverse.insert((88, 84), vec![]);
         reverse.insert((84, 75), vec![]);
         reverse.insert((75, 69), vec![]);
         reverse.insert((69, 64), vec![]);
@@ -324,6 +326,9 @@ impl Scheduler {
         let mut failures = Vec::new();
 
         for task in tasks {
+            if let Some(progress) = &progress {
+                progress.start_task(&task.name);
+            }
             if let Err(reason) = (task.task)(context) {
                 let wrapped = EngineError::Task {
                     task: task.name.clone(),
@@ -441,8 +446,26 @@ impl Scheduler {
 
 struct ProgressTracker {
     total: usize,
-    done: AtomicUsize,
+    /// Arc-shared so the live-ticker thread can read it without
+    /// taking the tracker's other locks.
+    done: std::sync::Arc<AtomicUsize>,
+    /// Instant the current task started executing. `None` between
+    /// tasks. Used by the live ticker to compute fraction. Arc-
+    /// shared for the same reason as `done`.
+    current_started: std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>,
+    /// Live progress reporter: while a task is in flight, a
+    /// background thread ticks every `TICK` ms and emits
+    /// `Progress: ...` lines with a fractional value (e.g. 3.4/10
+    /// for "task 3 is 40% done"). Without this the frontend would
+    /// only see a single `Progress:` jump per task boundary, which
+    /// makes the bar feel frozen for 30-module packs.
+    live_handle: std::sync::Mutex<Option<LiveHandle>>,
     prefix: String,
+}
+
+struct LiveHandle {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    join: Option<std::thread::JoinHandle<()>>,
 }
 
 impl ProgressTracker {
@@ -455,12 +478,28 @@ impl ProgressTracker {
         };
         Self {
             total: total.max(1),
-            done: AtomicUsize::new(0),
+            done: std::sync::Arc::new(AtomicUsize::new(0)),
+            current_started: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            live_handle: std::sync::Mutex::new(None),
             prefix,
         }
     }
 
+    /// Mark `task_name` as in-flight and start the live ticker.
+    /// Called right *before* executing the task so the frontend
+    /// sees smooth motion between bumps.
+    fn start_task(&self, task_name: &str) {
+        // Stash the new start time.
+        if let Ok(mut g) = self.current_started.lock() {
+            *g = Some(std::time::Instant::now());
+        }
+        self.spawn_live_ticker(task_name.to_string());
+    }
+
     fn bump(&self, task_name: &str) {
+        // Stop the live ticker for the just-finished task and emit a
+        // final integer Progress line.
+        self.stop_live_ticker();
         let current = self.done.fetch_add(1, Ordering::SeqCst) + 1;
         let percent = (current * 100) / self.total;
         log_info!(
@@ -471,5 +510,72 @@ impl ProgressTracker {
             percent,
             task_name
         );
+    }
+
+    fn stop_live_ticker(&self) {
+        let handle = self.live_handle.lock().ok().and_then(|mut g| g.take());
+        if let Some(mut h) = handle {
+            h.stop.store(true, Ordering::SeqCst);
+            if let Some(j) = h.join.take() {
+                let _ = j.join();
+            }
+        }
+    }
+
+    fn spawn_live_ticker(&self, task_name: String) {
+        // Stop any in-flight ticker (defensive — start_task should
+        // only run between bumps, but be safe).
+        self.stop_live_ticker();
+
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let done = std::sync::Arc::clone(&self.done);
+        let started = std::sync::Arc::clone(&self.current_started);
+        let total = self.total;
+        let prefix = self.prefix.clone();
+        let stop_clone = stop.clone();
+
+        // We don't know each task's true duration, so we use a
+        // conservative 1500 ms estimate. The fractional component
+        // is clamped to [0, 0.95] so we never *reach* the next task
+        // boundary — that's the integer bump's job. Wrong estimates
+        // only affect the bar's slope, not its final position.
+        const TICK_MS: u64 = 200;
+        const ESTIMATED_TASK_MS: u128 = 1500;
+
+        let join = std::thread::Builder::new()
+            .name("progress-ticker".into())
+            .spawn(move || {
+                while !stop_clone.load(Ordering::Relaxed) {
+                    std::thread::sleep(std::time::Duration::from_millis(TICK_MS));
+                    if stop_clone.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let done_now = done.load(Ordering::Relaxed);
+                    let elapsed_ms = started
+                        .lock()
+                        .ok()
+                        .and_then(|g| g.map(|i| i.elapsed().as_millis()))
+                        .unwrap_or(0);
+                    let within = (elapsed_ms as f64 / ESTIMATED_TASK_MS as f64).min(0.95);
+                    let fractional = done_now as f64 + within;
+                    let percent = ((fractional / total as f64) * 100.0) as u32;
+                    log_info!(
+                        "{}Progress: {:.1}/{} ({}%) - {}",
+                        prefix,
+                        fractional,
+                        total,
+                        percent,
+                        task_name
+                    );
+                }
+            })
+            .expect("failed to spawn progress ticker thread");
+
+        if let Ok(mut g) = self.live_handle.lock() {
+            *g = Some(LiveHandle {
+                stop,
+                join: Some(join),
+            });
+        }
     }
 }
