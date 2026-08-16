@@ -135,7 +135,6 @@
       "convert": "转换设置",
       "notification": "通知设置",
       "animation": "动画设置",
-      "closeAction": "窗口行为",
       "version": "版本与信息",
       "dev": "开发者选项"
     },
@@ -208,15 +207,6 @@
       "slow": "慢",
       "normal": "优雅",
       "fast": "快"
-    },
-    "closeAction": {
-      "label": "关闭行为",
-      "desc": "点击关闭按钮时的行为",
-      "searchLabel": "关闭行为",
-      "searchDesc": "点击关闭按钮时的行为",
-      "ask": "询问",
-      "close": "关闭",
-      "minimize": "后台"
     },
     "updateChannel": {
       "label": "更新通道",
@@ -391,14 +381,10 @@
     }
   },
   "dialog": {
-    "close2Pyramid": "关闭 2-Pyramid",
-    "closePrompt": "您希望如何处理窗口？",
-    "minimizeToTray": "后台运行",
-    "closeDirectly": "直接关闭",
-    "rememberChoice": "记住我的选择",
-    "trayToastTitle": "已隐藏到系统托盘",
-    "trayToastBody": "程序仍在后台运行,需要彻底退出请按 Ctrl+Shift+Q",
-    "forceQuitHint": "按 Ctrl+Shift+Q 强制退出",
+    "convRunningTitle": "转换仍在进行",
+    "convRunningBody": "转换任务尚未完成，关闭应用将中断转换，可能产生不完整的资源包。确定要退出吗？",
+    "convRunningConfirm": "仍要退出",
+    "convRunningCancel": "继续转换",
     "borderColor": {
       "title": "边框颜色选取",
       "borderMode": "边框模式",
@@ -602,11 +588,6 @@
       "outputModeFixed": "固定目录",
       "notification": "通知",
       "notificationDesc": "转换完成时接收通知",
-      "closeAction": "关闭行为",
-      "closeActionDesc": "点击关闭按钮时的操作",
-      "closeActionAsk": "每次询问",
-      "closeActionClose": "直接关闭",
-      "closeActionMinimize": "后台到托盘",
       "sourceHandling": {
         "label": "原包处理",
         "desc": "转换完成后对原资源包的处理",
