@@ -227,14 +227,12 @@
       "dialogTitle": "Output Naming Template",
       "searchLabel": "Output Naming Template",
       "searchDesc": "Custom output file name",
-      "placeholder": "e.g. [Name] [Ver]",
+      "placeholder": "e.g. [Ver][Name]",
       "tags": "Insert placeholder",
-      "presets": "Presets",
       "preview": "Preview",
-      "presetDefault": "Default: [Ver]Welcome to 2-Pyramid",
-      "presetNameVer": "Name + Version",
-      "presetVerTime": "[Ver] + Timestamp",
-      "presetWelcome": "Welcome to 2-Pyramid",
+      "nameDesc": "Source pack name",
+      "verDesc": "Target version",
+      "timeDesc": "Timestamp",
       "defaultName": "Welcome to 2-Pyramid"
     },
     "conversionHistory": {
