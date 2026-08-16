@@ -158,6 +158,22 @@ pub fn run() {
 
             Ok(())
         })
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            // Closing the main window must exit the WHOLE app. Tauri
+            // only shuts the process down once ALL windows are gone —
+            // a lingering toast notification window (up to 10s) would
+            // otherwise keep the process alive in the background after
+            // the user already "closed" the app. Force a full exit as
+            // soon as the main window is destroyed; exit(0) tears down
+            // every remaining webview window as well.
+            if window.label() == "main" {
+                if let tauri::WindowEvent::Destroyed = event {
+                    crate::log_info!("main window destroyed → exiting process");
+                    window.app_handle().exit(0);
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler!(
             get_logs,
             set_dev_mode,
