@@ -189,12 +189,39 @@
               <div class="label">{{ t('settings.outputNaming.label') }}</div>
               <div class="desc">{{ t('settings.outputNaming.desc') }}</div>
             </div>
-            <div class="item-action">
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: outputNaming === 'default' }" @click="outputNaming = 'default'">{{ t('settings.outputNaming.default') }}</button>
-                <button class="seg-btn" :class="{ active: outputNaming === 'timestamp' }" @click="outputNaming = 'timestamp'">{{ t('settings.outputNaming.timestamp') }}</button>
-                <button class="seg-btn" :class="{ active: outputNaming === 'overwrite' }" @click="outputNaming = 'overwrite'">{{ t('settings.outputNaming.overwrite') }}</button>
-              </div>
+          </div>
+
+          <div class="naming-editor" v-if="shouldShowItem('outputNaming')">
+            <input
+              v-model="namingTemplate"
+              class="naming-input"
+              :placeholder="t('settings.outputNaming.placeholder')"
+              spellcheck="false"
+              maxlength="200"
+            />
+            <div class="naming-row">
+              <span class="naming-hint-label">{{ t('settings.outputNaming.tags') }}</span>
+              <button
+                v-for="tag in namingTags"
+                :key="tag.token"
+                class="naming-tag-btn"
+                :title="tag.label"
+                @click="insertNamingTag(tag.token)"
+              >{{ tag.token }}</button>
+            </div>
+            <div class="naming-row">
+              <span class="naming-hint-label">{{ t('settings.outputNaming.presets') }}</span>
+              <button
+                v-for="p in namingPresets"
+                :key="p.template"
+                class="naming-preset-btn"
+                :class="{ active: namingTemplate === p.template }"
+                @click="namingTemplate = p.template"
+              >{{ p.label }}</button>
+            </div>
+            <div class="naming-preview">
+              {{ t('settings.outputNaming.preview') }}:
+              <b>{{ namingPreview }}</b>
             </div>
           </div>
         </div>
@@ -667,7 +694,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -720,8 +747,33 @@ const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-rig
 // 批量转换并行资源包数
 const conversionThreads = ref(2);
 const conversionThreadsOptions = [1, 2, 4];
-// 输出文件命名规则
-const outputNaming = ref<'default' | 'timestamp' | 'overwrite'>('default');
+// 输出文件命名模板（占位符：[Name] [Ver] [Time] [Date]）
+const namingTemplate = ref('[Name] [Ver]');
+const namingTags = [
+  { token: '[Name]', label: 'Name' },
+  { token: '[Ver]', label: 'Version' },
+  { token: '[Time]', label: 'Time' },
+  { token: '[Date]', label: 'Date' },
+];
+const namingPresets = [
+  { label: t('settings.outputNaming.presetNameVer'), template: '[Name] [Ver]' },
+  { label: t('settings.outputNaming.presetVerName'), template: '[Ver] [Name]' },
+  { label: t('settings.outputNaming.presetNameOnly'), template: '[Name]' },
+  { label: t('settings.outputNaming.presetNameTime'), template: '[Name] [Time]' },
+];
+const namingPreview = computed(() => {
+  const render = (tpl: string) => tpl
+    .replace(/\[Name\]/g, 'Vanilla Orange Edit')
+    .replace(/\[Ver\]/g, 'Java 1.20-1.20.1')
+    .replace(/\[Time\]/g, '20260816-101234')
+    .replace(/\[Date\]/g, '2026-08-16');
+  const rendered = render(namingTemplate.value).trim();
+  return (rendered || 'Vanilla Orange Edit') + '.zip';
+});
+const insertNamingTag = (token: string) => {
+  const current = namingTemplate.value.trimEnd();
+  namingTemplate.value = current ? `${current} ${token}` : token;
+};
 // 转换历史
 interface HistoryEntry {
   input: string;
@@ -1139,8 +1191,14 @@ onMounted(() => {
       if (typeof cfg?.conversion_threads === 'number' && [1, 2, 4].includes(cfg.conversion_threads)) {
         conversionThreads.value = cfg.conversion_threads;
       }
-      if (cfg?.output_naming === 'default' || cfg?.output_naming === 'timestamp' || cfg?.output_naming === 'overwrite') {
-        outputNaming.value = cfg.output_naming;
+      if (typeof cfg?.output_naming === 'string' && cfg.output_naming.length > 0) {
+        // 迁移旧值（default/timestamp/overwrite）到模板语义
+        const legacy: Record<string, string> = {
+          default: '[Name] [Ver]',
+          timestamp: '[Name] [Time]',
+          overwrite: '[Name]',
+        };
+        namingTemplate.value = legacy[cfg.output_naming] ?? cfg.output_naming;
       }
     })
     .catch(() => {});
@@ -1241,7 +1299,7 @@ watch(conversionThreads, (val) => {
   invoke('update_config', { patch: { conversionThreads: val } }).catch(() => {});
 });
 
-watch(outputNaming, (val) => {
+watch(namingTemplate, (val) => {
   invoke('update_config', { patch: { outputNaming: val } }).catch(() => {});
 });
 
@@ -1709,6 +1767,73 @@ const hexToHsv = (hex: string) => {
 }
 .history-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 .history-empty { padding: 20px 0; text-align: center; color: #94a3b8; font-size: 13px; }
+
+/* 输出命名模板编辑器 */
+.naming-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 4px 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+.naming-input {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #1a1a2e;
+  outline: none;
+}
+.naming-input:focus { border-color: var(--theme-color); }
+.naming-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.naming-hint-label { font-size: 12px; color: #94a3b8; min-width: 76px; }
+.naming-tag-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px dashed rgba(0, 0, 0, 0.18);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ui-monospace, Consolas, monospace;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.naming-tag-btn:hover { border-color: var(--theme-color); color: var(--theme-color); background: color-mix(in srgb, var(--theme-color) 6%, transparent); }
+.naming-preset-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.naming-preset-btn:hover { background: rgba(0, 0, 0, 0.06); }
+.naming-preset-btn.active {
+  border-color: var(--theme-color);
+  color: var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
+  font-weight: 600;
+}
+.naming-preview {
+  font-size: 12.5px;
+  color: #64748b;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  word-break: break-all;
+}
+.naming-preview b { color: #0f172a; }
 
 .inline-input {
   padding: 7px 14px;

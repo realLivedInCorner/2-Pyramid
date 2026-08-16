@@ -222,13 +222,18 @@
       "searchDesc": "同时转换的资源包数量"
     },
     "outputNaming": {
-      "label": "输出命名规则",
-      "desc": "转换结果文件的命名方式",
-      "searchLabel": "输出命名规则",
-      "searchDesc": "转换结果文件的命名方式",
-      "default": "默认",
-      "timestamp": "时间戳",
-      "overwrite": "覆盖"
+      "label": "输出命名模板",
+      "desc": "自定义输出文件名，使用占位符组合",
+      "searchLabel": "输出命名模板",
+      "searchDesc": "自定义输出文件名",
+      "placeholder": "例如：[Name] [Ver]",
+      "tags": "插入占位符",
+      "presets": "预设",
+      "preview": "预览",
+      "presetNameVer": "原名 + 版本",
+      "presetVerName": "版本 + 原名",
+      "presetNameOnly": "仅原名",
+      "presetNameTime": "原名 + 时间戳"
     },
     "conversionHistory": {
       "groupTitle": "转换历史",
