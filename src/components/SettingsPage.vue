@@ -769,21 +769,23 @@ const namingTemplate = ref(`[Ver]${namingWelcome}`);
 const showNamingDialog = ref(false);
 const namingDraft = ref(`[Ver]${namingWelcome}`);
 const namingTags = [
+  { token: '[Name]', label: 'Name' },
   { token: '[Ver]', label: 'Version' },
   { token: '[Time]', label: 'Time' },
 ];
 const namingPresets = [
   { label: t('settings.outputNaming.presetDefault'), template: `[Ver]${namingWelcome}` },
+  { label: t('settings.outputNaming.presetNameVer'), template: '[Name] [Ver]' },
   { label: t('settings.outputNaming.presetVerTime'), template: '[Ver] [Time]' },
   { label: t('settings.outputNaming.presetWelcome'), template: namingWelcome },
 ];
 const namingPreview = computed(() => {
   const render = (tpl: string) => tpl
+    // [Name] 是原材质包名；预览里用欢迎文案演示
+    .replace(/\[Name\]/g, namingWelcome)
     .replace(/\[Ver\]/g, '[Java 1.20-1.20.1]')
-    .replace(/\[Time\]/g, '20260816-101234')
-    .replace(/\[Date\]/g, '2026-08-16');
+    .replace(/\[Time\]/g, '20260816-101234');
   const rendered = render(namingDraft.value).trim();
-  // 模板渲染结果为空时，用默认名演示
   return (rendered || namingWelcome) + '.zip';
 });
 const openNamingDialog = () => {
