@@ -299,6 +299,8 @@
       "logPath": "Log file: {path}",
       "clearConfig": "Reset All Configuration",
       "clearConfigDesc": "Delete settings.json + wipe localStorage — for QA regression tests",
+      "actionMonitor": "Action Monitor",
+      "actionMonitorDesc": "Log every click (element + coordinates) for UI diagnostics",
       "clearConfigConfirmTitle": "Reset every setting?",
       "clearConfigConfirmBody": "This wipes the Tauri settings.json and all app keys in localStorage, then restarts the app.",
       "clearConfigConfirmOk": "Wipe and restart",

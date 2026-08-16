@@ -24,6 +24,33 @@ pub fn get_dev_mode() -> bool {
     GLOBAL_LOGGER.is_dev_mode()
 }
 
+// ── Action monitor（开发者诊断）───────────────────────────────────
+//
+// 启用后，前端在捕获阶段记录每一次点击（元素描述 + 坐标）并通过
+// `log_action` 写入日志，用于排查「按钮点了没反应」之类的问题。
+// 两种启用方式：
+//   1. 启动参数 `--action-monitor`
+//   2. 设置页开发者选项里的「动作监视」开关
+pub static ACTION_MONITOR: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[tauri::command]
+pub fn set_action_monitor(enabled: bool) -> bool {
+    ACTION_MONITOR.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    crate::log_info!("OKAY set_action_monitor [enabled={}]", enabled);
+    ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn is_action_monitor() -> bool {
+    ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn log_action(element: String, x: f64, y: f64) {
+    crate::log_info!("[ACTION] ({:.0}, {:.0}) {}", x, y, element);
+}
+
 #[tauri::command]
 pub fn log_notification(notification_type: String, title: String, body: String) {
     use crate::logger::GLOBAL_LOGGER;
