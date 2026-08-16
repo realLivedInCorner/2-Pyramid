@@ -326,6 +326,7 @@
     "codeCopied": "Share code copied to clipboard",
     "copyFailed": "Copy failed, please select and copy manually",
     "deleteConfirm": "Are you sure you want to delete project \"{name}\"? This cannot be undone.",
+    "deleteConfirmBtn": "Delete",
     "deleteTitle": "Confirm Delete",
     "deleteSuccess": "Project \"{name}\" deleted",
     "deleteFailed": "Delete failed: {error}",
