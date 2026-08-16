@@ -771,12 +771,10 @@ const namingDraft = ref(`[Ver]${namingWelcome}`);
 const namingTags = [
   { token: '[Ver]', label: 'Version' },
   { token: '[Time]', label: 'Time' },
-  { token: '[Date]', label: 'Date' },
 ];
 const namingPresets = [
   { label: t('settings.outputNaming.presetDefault'), template: `[Ver]${namingWelcome}` },
   { label: t('settings.outputNaming.presetVerTime'), template: '[Ver] [Time]' },
-  { label: t('settings.outputNaming.presetVerDate'), template: '[Ver] [Date]' },
   { label: t('settings.outputNaming.presetWelcome'), template: namingWelcome },
 ];
 const namingPreview = computed(() => {
