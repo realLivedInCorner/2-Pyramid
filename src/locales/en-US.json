@@ -221,6 +221,26 @@
       "searchLabel": "Conversion Threads",
       "searchDesc": "How many packs convert in parallel"
     },
+    "outputNaming": {
+      "label": "Output Naming",
+      "desc": "How converted output files are named",
+      "searchLabel": "Output Naming",
+      "searchDesc": "How converted output files are named",
+      "default": "Default",
+      "timestamp": "Timestamp",
+      "overwrite": "Overwrite"
+    },
+    "conversionHistory": {
+      "groupTitle": "Conversion History",
+      "label": "Recent conversions",
+      "desc": "Review recent conversion tasks and results",
+      "searchLabel": "Conversion History",
+      "searchDesc": "Review recent conversion tasks and results",
+      "clear": "Clear history",
+      "openOutput": "Open output",
+      "empty": "No conversions recorded yet",
+      "cleared": "Conversion history cleared"
+    },
     "animationSpeed": {
       "label": "Animation Speed",
       "desc": "Controls page transition and stagger speed",

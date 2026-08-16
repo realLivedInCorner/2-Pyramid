@@ -180,6 +180,59 @@
               </div>
             </div>
           </div>
+
+          <div class="setting-item" v-if="shouldShowItem('outputNaming')">
+            <div class="item-icon">
+              <i class="ri-file-text-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.outputNaming.label') }}</div>
+              <div class="desc">{{ t('settings.outputNaming.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: outputNaming === 'default' }" @click="outputNaming = 'default'">{{ t('settings.outputNaming.default') }}</button>
+                <button class="seg-btn" :class="{ active: outputNaming === 'timestamp' }" @click="outputNaming = 'timestamp'">{{ t('settings.outputNaming.timestamp') }}</button>
+                <button class="seg-btn" :class="{ active: outputNaming === 'overwrite' }" @click="outputNaming = 'overwrite'">{{ t('settings.outputNaming.overwrite') }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 转换历史 -->
+      <section class="settings-group" v-if="shouldShowGroup('conversionHistory')">
+        <h3 class="group-title">{{ t('settings.conversionHistory.groupTitle') }}</h3>
+        <div class="group-card">
+          <div class="setting-item" v-if="shouldShowItem('conversionHistory')">
+            <div class="item-icon">
+              <i class="ri-history-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.conversionHistory.label') }}</div>
+              <div class="desc">{{ t('settings.conversionHistory.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <button class="btn-text" @click="clearConversionHistory" :disabled="historyEntries.length === 0">
+                {{ t('settings.conversionHistory.clear') }}
+              </button>
+            </div>
+          </div>
+          <div class="history-list" v-if="historyEntries.length > 0">
+            <div class="history-item" v-for="(h, i) in historyEntries" :key="i">
+              <i class="history-status" :class="h.status === 'success' ? 'ok' : h.status === 'cancelled' ? 'cancelled' : 'fail'" aria-hidden="true"></i>
+              <div class="history-info">
+                <div class="history-name">{{ historyFileName(h.input) }}</div>
+                <div class="history-meta">{{ h.time }} · {{ h.duration_s.toFixed(1) }}s</div>
+              </div>
+              <button
+                v-if="h.status === 'success' && h.output"
+                class="btn-text"
+                @click="openHistoryOutput(h.output)"
+              >{{ t('settings.conversionHistory.openOutput') }}</button>
+            </div>
+          </div>
+          <div class="history-empty" v-else>{{ t('settings.conversionHistory.empty') }}</div>
         </div>
       </section>
 
@@ -667,6 +720,43 @@ const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-rig
 // 批量转换并行资源包数
 const conversionThreads = ref(2);
 const conversionThreadsOptions = [1, 2, 4];
+// 输出文件命名规则
+const outputNaming = ref<'default' | 'timestamp' | 'overwrite'>('default');
+// 转换历史
+interface HistoryEntry {
+  input: string;
+  output: string | null;
+  status: string;
+  error: string | null;
+  time: string;
+  duration_s: number;
+}
+const historyEntries = ref<HistoryEntry[]>([]);
+
+const loadConversionHistory = () => {
+  invoke<HistoryEntry[]>('get_conversion_history')
+    .then((entries) => { historyEntries.value = entries ?? []; })
+    .catch(() => {});
+};
+
+const clearConversionHistory = async () => {
+  try {
+    await invoke('clear_conversion_history');
+    historyEntries.value = [];
+    notify({
+      title: t('settings.conversionHistory.groupTitle'),
+      body: t('settings.conversionHistory.cleared'),
+      type: 'success',
+      source: 'system',
+    });
+  } catch { /* ignore */ }
+};
+
+const openHistoryOutput = (path: string) => {
+  invoke('open_folder', { path }).catch(() => {});
+};
+
+const historyFileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 const showThemeDialog = ref(false);
 const showResetDialog = ref(false);
 const showClearConfigDialog = ref(false);
@@ -735,6 +825,8 @@ const settingItems = [
   { id: 'toastDuration', group: 'notification', label: t('settings.toastDuration.label'), desc: t('settings.toastDuration.desc') },
   { id: 'toastPosition', group: 'notification', label: t('settings.toastPosition.label'), desc: t('settings.toastPosition.desc') },
   { id: 'conversionThreads', group: 'convert', label: t('settings.conversionThreads.label'), desc: t('settings.conversionThreads.desc') },
+  { id: 'outputNaming', group: 'convert', label: t('settings.outputNaming.label'), desc: t('settings.outputNaming.desc') },
+  { id: 'conversionHistory', group: 'conversionHistory', label: t('settings.conversionHistory.label'), desc: t('settings.conversionHistory.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
@@ -1047,6 +1139,9 @@ onMounted(() => {
       if (typeof cfg?.conversion_threads === 'number' && [1, 2, 4].includes(cfg.conversion_threads)) {
         conversionThreads.value = cfg.conversion_threads;
       }
+      if (cfg?.output_naming === 'default' || cfg?.output_naming === 'timestamp' || cfg?.output_naming === 'overwrite') {
+        outputNaming.value = cfg.output_naming;
+      }
     })
     .catch(() => {});
 
@@ -1061,6 +1156,7 @@ onMounted(() => {
 
   currentVersionFromConfig();
   loadUpdateChannel();
+  loadConversionHistory();
 
   // Load version from Tauri app metadata (matches Python script's version bump)
   getVersion().then(v => { currentVersion.value = v; }).catch(() => {});
@@ -1143,6 +1239,10 @@ watch(toastPosition, (val) => {
 
 watch(conversionThreads, (val) => {
   invoke('update_config', { patch: { conversionThreads: val } }).catch(() => {});
+});
+
+watch(outputNaming, (val) => {
+  invoke('update_config', { patch: { outputNaming: val } }).catch(() => {});
 });
 
 watch(() => props.userName, (v) => {
@@ -1576,6 +1676,39 @@ const hexToHsv = (hex: string) => {
   font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .btn-text.secondary { background: rgba(0,0,0,0.06); color: #334155; }
+.btn-text:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 转换历史列表 */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.history-status {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.history-status.ok { background: #10b981; }
+.history-status.fail { background: #ef4444; }
+.history-status.cancelled { background: #94a3b8; }
+.history-info { flex: 1; min-width: 0; }
+.history-name {
+  font-size: 13px; font-weight: 600; color: #1e293b;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.history-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.history-empty { padding: 20px 0; text-align: center; color: #94a3b8; font-size: 13px; }
 
 .inline-input {
   padding: 7px 14px;

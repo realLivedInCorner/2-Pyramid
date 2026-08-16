@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use chrono::Local;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json::{json, Value};
@@ -218,7 +219,23 @@ pub fn build_output_path(
         .and_then(|s| s.to_str())
         .unwrap_or("resource_pack");
     let cleaned_base = strip_version_prefix(base_name);
-    let mut file_name = format!("[{}]{}.zip", label, cleaned_base);
+
+    // Naming style is user-configurable:
+    //   * "default"   → `[tag]name.zip`, numeric suffix on collision
+    //   * "timestamp" → `[tag]name_YYYYMMDD-HHMMSS.zip`
+    //   * "overwrite" → `[tag]name.zip`, replaces an existing file
+    let naming = crate::commands::read_config_file()
+        .ok()
+        .and_then(|c| c.output_naming)
+        .unwrap_or_else(|| "default".to_string());
+
+    let mut file_name = match naming.as_str() {
+        "timestamp" => {
+            let stamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
+            format!("[{}]{}_{}.zip", label, cleaned_base, stamp)
+        }
+        _ => format!("[{}]{}.zip", label, cleaned_base),
+    };
 
     let output_dir = if let Some(override_dir) = output_dir_override {
         Path::new(override_dir).to_path_buf()
@@ -239,11 +256,15 @@ pub fn build_output_path(
         .map_err(|e| format!("failed to create output directory {}: {}", output_dir.display(), e))?;
 
     let mut output_path = output_dir.join(&file_name);
-    let mut counter = 1;
-    while output_path.exists() {
-        file_name = format!("[{}]{}_{}.zip", label, cleaned_base, counter);
-        output_path = output_dir.join(&file_name);
-        counter += 1;
+    // "overwrite" replaces an existing file; the other styles never
+    // clobber — append a numeric suffix until the path is free.
+    if naming != "overwrite" {
+        let mut counter = 1;
+        while output_path.exists() {
+            file_name = format!("[{}]{}_{}.zip", label, cleaned_base, counter);
+            output_path = output_dir.join(&file_name);
+            counter += 1;
+        }
     }
 
     Ok(output_path)
