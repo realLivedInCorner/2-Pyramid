@@ -643,6 +643,21 @@
           </div>
           <div class="item-arrow">→</div>
         </div>
+        <div class="setting-item">
+          <div class="item-icon">
+            <i class="ri-radar-line" aria-hidden="true"></i>
+          </div>
+          <div class="item-info">
+            <div class="label">{{ t('settings.devMode.actionMonitor') }}</div>
+            <div class="desc">{{ t('settings.devMode.actionMonitorDesc') }}</div>
+          </div>
+          <div class="item-action">
+            <label class="switch">
+              <input type="checkbox" v-model="actionMonitorEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -742,6 +757,7 @@ const emit = defineEmits([
   'update:animation-speed',
   'update:source-handling',
   'update:open-output-after-convert',
+  'update:action-monitor',
   'show-update-dialog',
   'reset-to-oobe',
 ]);
@@ -846,6 +862,8 @@ const showThemeDialog = ref(false);
 const showResetDialog = ref(false);
 const showClearConfigDialog = ref(false);
 const showFactoryResetDialog = ref(false);
+// 动作监视（开发者诊断）：记录前端所有点击行为到日志
+const actionMonitorEnabled = ref(false);
 const factoryResetDeep = ref(false);
 const factoryResetBusy = ref(false);
 const defaultThemeColor = '#007bff';
@@ -1256,6 +1274,16 @@ onMounted(() => {
       devModeEnabled.value = !!enabled;
     })
     .catch(() => {});
+  invoke<boolean>('is_action_monitor')
+    .then((enabled) => {
+      actionMonitorEnabled.value = !!enabled;
+    })
+    .catch(() => {});
+});
+
+watch(actionMonitorEnabled, (val) => {
+  invoke('set_action_monitor', { enabled: val }).catch(() => {});
+  emit('update:action-monitor', val);
 });
 
 watch(showVersionInfo, (open) => {

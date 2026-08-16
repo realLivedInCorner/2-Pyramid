@@ -1,5 +1,5 @@
 <script setup lang="ts"> 
- import { ref, onMounted, onUnmounted, computed } from "vue";
+ import { ref, onMounted, onUnmounted, computed, watch } from "vue";
  import { invoke } from "@tauri-apps/api/core";
  import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -193,6 +193,48 @@ async function doMarkerCheck() {
    lastError: '',
  };
 
+ // ── Action monitor（开发者诊断）───────────────────────────────
+ // 启用后（启动参数 --action-monitor 或设置页开关），捕获阶段监听
+ // 每一次点击，把元素描述 + 坐标写入后端日志 [ACTION] 行。
+ const actionMonitor = ref(false);
+ let actionMonitorUnlisten: (() => void) | null = null;
+
+ function describeClickTarget(el: HTMLElement): string {
+   const id = el.id ? `#${el.id}` : '';
+   const cls = typeof el.className === 'string' && el.className
+     ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}`
+     : '';
+   const text = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+   return `${el.tagName.toLowerCase()}${id}${cls}${text ? ` "${text}"` : ''}`;
+ }
+
+ function installActionMonitor() {
+   if (actionMonitorUnlisten) return;
+   const handler = (e: MouseEvent) => {
+     const el = e.target as HTMLElement | null;
+     if (!el) return;
+     invoke('log_action', {
+       element: describeClickTarget(el),
+       x: e.clientX,
+       y: e.clientY,
+     }).catch(() => {});
+   };
+   document.addEventListener('click', handler, true);
+   actionMonitorUnlisten = () => document.removeEventListener('click', handler, true);
+ }
+
+ function uninstallActionMonitor() {
+   if (actionMonitorUnlisten) {
+     actionMonitorUnlisten();
+     actionMonitorUnlisten = null;
+   }
+ }
+
+ watch(actionMonitor, (enabled) => {
+   if (enabled) installActionMonitor();
+   else uninstallActionMonitor();
+ });
+
  const minimizeWindow = async () => {
    windowDiag.lastOp = 'min';
    windowDiag.getCalls++;
@@ -324,8 +366,7 @@ onMounted(async () => {
        const [cfg, dev] = await Promise.all([
          invoke<any>("get_config"),
          invoke<boolean>("get_dev_mode").catch(() => false),
-       ]);
-       if (cfg?.palette?.theme_color) {
+       ]);       if (cfg?.palette?.theme_color) {
          applyThemeColor(cfg.palette.theme_color);
        }
        if (typeof cfg?.notification_enabled === 'boolean') {
@@ -337,8 +378,7 @@ onMounted(async () => {
        if (typeof cfg?.toast_duration_ms === 'number') {
          setToastDuration(cfg.toast_duration_ms);
        }
-       if (cfg?.user_name) {
-         userName.value = cfg.user_name;
+       if (cfg?.user_name) {         userName.value = cfg.user_name;
        }
        if (!cfg?.initialized) {
          showOOBE.value = true;
@@ -347,6 +387,11 @@ onMounted(async () => {
      } catch {
        showOOBE.value = true;
      }
+
+   // 动作监视：启动参数 --action-monitor 或设置页开关启用
+   invoke<boolean>('is_action_monitor')
+     .then((v) => { if (v) actionMonitor.value = true; })
+     .catch(() => {});
   
    document.addEventListener("contextmenu", (e) => {
      e.preventDefault();
@@ -407,6 +452,7 @@ onMounted(async () => {
     try { focusUnlisten(); } catch { /* ignore */ }
     focusUnlisten = null;
   }
+  uninstallActionMonitor();
  });
 
  /// User clicked “Delete user profile” in Settings. The Rust side has
@@ -482,6 +528,7 @@ onMounted(async () => {
                @update:user-name="(v: string) => userName = v"
                @update:source-handling="(v: 'ask' | 'delete' | 'keep') => sourceHandling = v"
                @update:open-output-after-convert="(v: boolean) => openOutputAfterConvert = v"
+               @update:action-monitor="(v: boolean) => actionMonitor = v"
                @show-update-dialog="onSettingsCheckUpdate"
                @reset-to-oobe="onFactoryResetToOobe"
              />

@@ -42,6 +42,9 @@ use self::commands::{
     import_last_backup,
     get_conversion_history,
     clear_conversion_history,
+    set_action_monitor,
+    is_action_monitor,
+    log_action,
     force_quit,
     ping,
     show_toast,
@@ -95,6 +98,13 @@ pub fn run() {
     log_info!("Started at: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
     log_info!("========================================");
     log_debug!("Debug logging enabled");
+
+    // `--action-monitor` 启动参数：记录前端所有点击行为（开发者诊断）。
+    // 也可以之后在设置页开发者选项里开关。
+    if std::env::args().any(|a| a == "--action-monitor") {
+        crate::commands::misc::ACTION_MONITOR.store(true, std::sync::atomic::Ordering::Relaxed);
+        log_info!("action monitor enabled via --action-monitor");
+    }
 
     match tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -218,6 +228,9 @@ pub fn run() {
             import_last_backup,
             get_conversion_history,
             clear_conversion_history,
+            set_action_monitor,
+            is_action_monitor,
+            log_action,
             force_quit,
             ping,
             show_toast,
