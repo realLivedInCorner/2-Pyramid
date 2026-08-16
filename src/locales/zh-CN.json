@@ -612,6 +612,7 @@
     "back": "返回",
     "next": "下一步",
     "getStarted": "开始使用",
+    "asideTagline": "多版本 Minecraft 资源包转换工具",
     "step1": {
       "title": "选择语言",
       "desc": "请选择您喜欢的语言",
@@ -621,11 +622,13 @@
     "step2": {
       "title": "怎么称呼您？",
       "desc": "告诉我们您的名字，让体验更个性化",
-      "placeholder": "输入您的名字"
+      "placeholder": "输入您的名字",
+      "hint": "名字将显示在主页的问候语中，之后可随时在设置中修改"
     },
     "step3": {
       "title": "欢迎，{name}！",
-      "desc": "很高兴认识您。2-Pyramid 是一款多版本 Minecraft 资源包转换工具，让版本迁移变得轻松简单。"
+      "desc": "很高兴认识您。2-Pyramid 是一款多版本 Minecraft 资源包转换工具，让版本迁移变得轻松简单。",
+      "card": "很高兴见到您，{name}！接下来只需几个简单选项，马上就能开始使用。"
     },
     "step4": {
       "title": "快速设置",
@@ -650,7 +653,8 @@
     },
     "step5": {
       "title": "一切就绪，{name}！",
-      "desc": "您已准备好开始使用 2-Pyramid。随时拖入资源包开始转换吧！"
+      "desc": "您已准备好开始使用 2-Pyramid。随时拖入资源包开始转换吧！",
+      "card": "一切准备就绪，{name}！点击「开始使用」进入 2-Pyramid。"
     },
     "importBackup": {
       "cta": "导入上次的设置",
