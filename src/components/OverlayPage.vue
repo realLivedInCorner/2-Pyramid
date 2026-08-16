@@ -798,7 +798,11 @@ onMounted(() => {
   animation: card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(var(--index) * 0.1s);
 }
+.staggered-fade-leave-active {
+  animation: card-out 0.25s ease both;
+}
 @keyframes card-in { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes card-out { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(0.92) translateY(-8px); } }
 
 /* dialog enter/leave 走全局 CSS class 模式(`<transition name="dialog-pop">`,
    见 App.vue 全局 .dialog-pop-* 规则)。Vue 3 在 element insert 时直接加
