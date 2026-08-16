@@ -234,7 +234,8 @@
       "presetNameVer": "原名 + 版本",
       "presetVerName": "版本 + 原名",
       "presetNameOnly": "仅原名",
-      "presetNameTime": "原名 + 时间戳"
+      "presetNameTime": "原名 + 时间戳",
+      "defaultName": "欢迎来到2-Pyramid"
     },
     "conversionHistory": {
       "groupTitle": "转换历史",
