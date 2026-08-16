@@ -24,6 +24,18 @@ const notificationMode = ref<'system' | 'app' | 'both'>('both')
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>('ask')
 const openOutputAfterConvert = ref<boolean>(true)
 
+// 左侧介绍区的标题/描述随步骤切换
+const stepMeta = computed(() => {
+  const metas = [
+    { title: t('oobe.step1.title'), desc: t('oobe.step1.desc') },
+    { title: t('oobe.step2.title'), desc: t('oobe.step2.desc') },
+    { title: t('oobe.step3.title', { name: userName.value }), desc: t('oobe.step3.desc') },
+    { title: t('oobe.step4.title'), desc: t('oobe.step4.desc') },
+    { title: t('oobe.step5.title', { name: userName.value }), desc: t('oobe.step5.desc') },
+  ]
+  return metas[step.value] ?? metas[0]
+})
+
 // ── Backup import (OOBE) ─────────────────────────────────────────
 //
 // When the user previously picked “Delete user profile” from
@@ -124,131 +136,61 @@ async function finish() {
 
 <template>
   <div class="startup-root">
-    <div class="startup-aurora"></div>
-    <div class="startup-blob blob-1"></div>
-    <div class="startup-blob blob-2"></div>
-    <div class="startup-blob blob-3"></div>
-    <div class="startup-grid"></div>
+    <!-- ═══ 左侧介绍区 ═══ -->
+    <aside class="startup-aside">
+      <div class="aside-glow glow-1"></div>
+      <div class="aside-glow glow-2"></div>
+      <div class="aside-grid"></div>
 
-    <!-- Logo + App name -->
-    <div class="startup-brand">
-      <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g stroke="#000" stroke-linecap="round">
-          <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
-          <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
-          <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
-          <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
-        </g>
-      </svg>
-      <span class="startup-brand-name">2-Pyramid</span>
-    </div>
-
-    <div class="startup-card">
-      <!-- Progress bar -->
-      <div class="startup-progress">
-        <div class="startup-progress-bar" :style="{ width: ((step + 1) / totalSteps * 100) + '%' }"></div>
+      <div class="startup-brand">
+        <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#fff" stroke-linecap="round">
+            <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
+            <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
+            <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
+            <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
+          </g>
+        </svg>
+        <span class="startup-brand-name">2-Pyramid</span>
       </div>
 
-      <Transition name="startup-slide" mode="out-in">
-        <!-- Step 1: Language -->
-        <div v-if="step === 0" class="startup-step" key="lang">
-          <div class="startup-illustration">
-            <svg viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="72" stroke="var(--theme-color)" stroke-width="3" opacity="0.15"/>
-              <circle cx="100" cy="100" r="56" stroke="var(--theme-color)" stroke-width="2" opacity="0.25"/>
-              <ellipse cx="100" cy="100" rx="30" ry="70" stroke="var(--theme-color)" stroke-width="2" opacity="0.3"/>
-              <line x1="28" y1="75" x2="172" y2="75" stroke="var(--theme-color)" stroke-width="1.5" opacity="0.25"/>
-              <line x1="28" y1="125" x2="172" y2="125" stroke="var(--theme-color)" stroke-width="1.5" opacity="0.25"/>
-              <circle cx="100" cy="100" r="72" stroke="var(--theme-color)" stroke-width="3" opacity="0.15" stroke-dasharray="8 4">
+      <div class="aside-body">
+        <Transition name="aside-fade" mode="out-in">
+          <div class="aside-illustration" :key="step">
+            <svg v-if="step === 0" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="100" r="72" stroke="#fff" stroke-width="2" opacity="0.2"/>
+              <circle cx="100" cy="100" r="56" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
+              <ellipse cx="100" cy="100" rx="30" ry="70" stroke="#fff" stroke-width="1.5" opacity="0.35"/>
+              <line x1="28" y1="75" x2="172" y2="75" stroke="#fff" stroke-width="1" opacity="0.3"/>
+              <line x1="28" y1="125" x2="172" y2="125" stroke="#fff" stroke-width="1" opacity="0.3"/>
+              <circle cx="100" cy="100" r="72" stroke="#fff" stroke-width="2" opacity="0.2" stroke-dasharray="8 4">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="40s" repeatCount="indefinite"/>
               </circle>
-              <text x="60" y="98" font-size="28" font-weight="700" fill="var(--theme-color)" opacity="0.8">A</text>
-              <text x="118" y="108" font-size="22" font-weight="600" fill="var(--theme-color)" opacity="0.6">文</text>
+              <text x="60" y="98" font-size="28" font-weight="700" fill="#fff" opacity="0.9">A</text>
+              <text x="118" y="108" font-size="22" font-weight="600" fill="#fff" opacity="0.7">文</text>
             </svg>
-          </div>
-          <h2 class="startup-title">{{ t('oobe.step1.title') }}</h2>
-          <p class="startup-desc">{{ t('oobe.step1.desc') }}</p>
-          <div class="lang-cards">
-            <button class="lang-card" :class="{ active: selectedLang === 'zh-CN' }" @click="selectLang('zh-CN')">
-              <span class="lang-check"><i class="ri-check-line"></i></span>
-              <span class="lang-flag">
-                <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#DE2910"/><path d="M12 6L13.8 11.4H19.5L14.8 14.9L16.6 20.3L12 16.8L7.4 20.3L9.2 14.9L4.5 11.4H10.2L12 6Z" fill="#FFDE00"/></svg>
-              </span>
-              <span class="lang-name">{{ t('oobe.step1.zh') }}</span>
-            </button>
-            <button class="lang-card" :class="{ active: selectedLang === 'en-US' }" @click="selectLang('en-US')">
-              <span class="lang-check"><i class="ri-check-line"></i></span>
-              <span class="lang-flag">
-                <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="#fff" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="#C8102E" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="#fff" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="#C8102E" stroke-width="6"/></svg>
-              </span>
-              <span class="lang-name">{{ t('oobe.step1.en') }}</span>
-            </button>
-          </div>
-
-          <!-- “导入上次的设置” entry point. Only shown when the
-               backend reports an existing backup (i.e. the user just
-               hit “Delete user profile” on the previous session).
-               Clicking it opens the preview card; confirming applies
-               the backup and skips straight to the home page. -->
-          <button
-            v-if="backupInfo?.exists"
-            class="startup-restore-btn"
-            type="button"
-            @click="showBackupPreview = true"
-          >
-            <i class="ri-history-line" aria-hidden="true"></i>
-            <span>{{ t('oobe.importBackup.cta') }}</span>
-          </button>
-        </div>
-
-        <!-- Step 2: User Name -->
-        <div v-else-if="step === 1" class="startup-step" key="name">
-          <div class="startup-illustration">
-            <svg viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="72" r="32" stroke="var(--theme-color)" stroke-width="3" opacity="0.6"/>
-              <path d="M45 165C45 130 68 108 100 108C132 108 155 130 155 165" stroke="var(--theme-color)" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-              <circle cx="100" cy="100" r="85" stroke="var(--theme-color)" stroke-width="1.5" opacity="0.1" stroke-dasharray="6 6">
+            <svg v-else-if="step === 1" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="72" r="32" stroke="#fff" stroke-width="2.5" opacity="0.7"/>
+              <path d="M45 165C45 130 68 108 100 108C132 108 155 130 155 165" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+              <circle cx="100" cy="100" r="85" stroke="#fff" stroke-width="1.2" opacity="0.15" stroke-dasharray="6 6">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="-360 100 100" dur="30s" repeatCount="indefinite"/>
               </circle>
             </svg>
-          </div>
-          <h2 class="startup-title">{{ t('oobe.step2.title') }}</h2>
-          <p class="startup-desc">{{ t('oobe.step2.desc') }}</p>
-          <input
-            v-model="userName"
-            class="startup-input"
-            :placeholder="t('oobe.step2.placeholder')"
-            autofocus
-            @keydown.enter="canNext && nextStep()"
-          />
-        </div>
-
-        <!-- Step 3: Welcome -->
-        <div v-else-if="step === 2" class="startup-step" key="welcome">
-          <div class="startup-illustration">
-            <svg viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="60" fill="var(--theme-color)" opacity="0.08"/>
-              <path d="M70 105L90 125L135 75" stroke="var(--theme-color)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
-              <circle cx="100" cy="100" r="78" stroke="var(--theme-color)" stroke-width="1.5" opacity="0.15" stroke-dasharray="4 8">
+            <svg v-else-if="step === 2" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="100" r="60" fill="#fff" opacity="0.1"/>
+              <path d="M70 105L90 125L135 75" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+              <circle cx="100" cy="100" r="78" stroke="#fff" stroke-width="1.2" opacity="0.2" stroke-dasharray="4 8">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="20s" repeatCount="indefinite"/>
               </circle>
-              <circle cx="55" cy="45" r="4" fill="var(--theme-color)" opacity="0.3"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/></circle>
-              <circle cx="150" cy="50" r="3" fill="var(--theme-color)" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2.5s" repeatCount="indefinite"/></circle>
-              <circle cx="145" cy="155" r="3.5" fill="var(--theme-color)" opacity="0.35"><animate attributeName="opacity" values="0.35;0.85;0.35" dur="1.8s" repeatCount="indefinite"/></circle>
-              <circle cx="50" cy="150" r="3" fill="var(--theme-color)" opacity="0.3"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="2.2s" repeatCount="indefinite"/></circle>
+              <circle cx="55" cy="45" r="4" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite"/></circle>
+              <circle cx="150" cy="50" r="3" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/></circle>
+              <circle cx="145" cy="155" r="3.5" fill="#fff" opacity="0.45"><animate attributeName="opacity" values="0.45;0.95;0.45" dur="1.8s" repeatCount="indefinite"/></circle>
+              <circle cx="50" cy="150" r="3" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.4;0.8;0.4" dur="2.2s" repeatCount="indefinite"/></circle>
             </svg>
-          </div>
-          <h2 class="startup-title startup-title-big">{{ t('oobe.step3.title', { name: userName }) }}</h2>
-          <p class="startup-desc">{{ t('oobe.step3.desc') }}</p>
-        </div>
-
-        <!-- Step 4: Settings -->
-        <div v-else-if="step === 3" class="startup-step" key="settings">
-          <div class="startup-illustration startup-illustration-small">
-            <svg viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="28" stroke="var(--theme-color)" stroke-width="3" opacity="0.5"/>
-              <circle cx="100" cy="100" r="12" fill="var(--theme-color)" opacity="0.2"/>
-              <g stroke="var(--theme-color)" stroke-width="2.5" opacity="0.4">
+            <svg v-else-if="step === 3" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="100" r="28" stroke="#fff" stroke-width="2.5" opacity="0.6"/>
+              <circle cx="100" cy="100" r="12" fill="#fff" opacity="0.25"/>
+              <g stroke="#fff" stroke-width="2" opacity="0.5">
                 <line x1="100" y1="58" x2="100" y2="45" stroke-linecap="round"/>
                 <line x1="100" y1="155" x2="100" y2="142" stroke-linecap="round"/>
                 <line x1="58" y1="100" x2="45" y2="100" stroke-linecap="round"/>
@@ -258,178 +200,215 @@ async function finish() {
                 <line x1="130" y1="70" x2="139" y2="61" stroke-linecap="round"/>
                 <line x1="70" y1="130" x2="61" y2="139" stroke-linecap="round"/>
               </g>
-              <circle cx="100" cy="100" r="50" stroke="var(--theme-color)" stroke-width="1" opacity="0.1" stroke-dasharray="4 4">
+              <circle cx="100" cy="100" r="50" stroke="#fff" stroke-width="1" opacity="0.15" stroke-dasharray="4 4">
                 <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="15s" repeatCount="indefinite"/>
               </circle>
             </svg>
-          </div>
-          <h2 class="startup-title">{{ t('oobe.step4.title') }}</h2>
-          <p class="startup-desc">{{ t('oobe.step4.desc') }}</p>
-
-          <div class="startup-settings">
-            <!-- Output Mode -->
-            <div class="startup-setting-row">
-              <div class="item-icon">
-                <i class="ri-route-line" aria-hidden="true"></i>
-              </div>
-              <div class="startup-setting-info">
-                <span class="startup-setting-label">{{ t('oobe.step4.outputMode') }}</span>
-                <span class="startup-setting-desc">{{ t('oobe.step4.outputModeDesc') }}</span>
-              </div>
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: outputMode === 'follow' }" @click="outputMode = 'follow'">{{ t('oobe.step4.outputModeFollow') }}</button>
-                <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('oobe.step4.outputModeFixed') }}</button>
-              </div>
-            </div>
-
-            <!-- Notification -->
-            <div class="startup-setting-row">
-              <div class="item-icon">
-                <i class="ri-notification-3-line" aria-hidden="true"></i>
-              </div>
-              <div class="startup-setting-info">
-                <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
-                <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" v-model="notificationEnabled" />
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <!-- Notification Mode -->
-            <div class="startup-setting-row" v-if="notificationEnabled">
-              <div class="item-icon">
-                <i class="ri-window-line" aria-hidden="true"></i>
-              </div>
-              <div class="startup-setting-info">
-                <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
-                <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
-              </div>
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
-                <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
-                <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
-              </div>
-            </div>
-
-            <!-- Close Action 设置已移除：关闭窗口现在始终直接退出应用 -->
-
-            <!-- Source Pack Handling (post-conversion) -->
-            <div class="startup-setting-row">
-              <div class="item-icon">
-                <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
-              </div>
-              <div class="startup-setting-info">
-                <span class="startup-setting-label">{{ t('oobe.step4.sourceHandling.label') }}</span>
-                <span class="startup-setting-desc">{{ t('oobe.step4.sourceHandling.desc') }}</span>
-              </div>
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: sourceHandling === 'ask' }" @click="sourceHandling = 'ask'">{{ t('oobe.step4.sourceHandling.ask') }}</button>
-                <button class="seg-btn" :class="{ active: sourceHandling === 'delete' }" @click="sourceHandling = 'delete'">{{ t('oobe.step4.sourceHandling.delete') }}</button>
-                <button class="seg-btn" :class="{ active: sourceHandling === 'keep' }" @click="sourceHandling = 'keep'">{{ t('oobe.step4.sourceHandling.keep') }}</button>
-              </div>
-            </div>
-
-            <!-- Open Output Folder After Convert -->
-            <div class="startup-setting-row">
-              <div class="item-icon">
-                <i class="ri-external-link-line" aria-hidden="true"></i>
-              </div>
-              <div class="startup-setting-info">
-                <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
-                <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" v-model="openOutputAfterConvert" />
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 5: Final Welcome -->
-        <div v-else-if="step === 4" class="startup-step" key="done">
-          <div class="startup-illustration">
-            <svg viewBox="0 0 200 200" fill="none">
-              <path d="M100 30L110 70H150L118 92L128 132L100 110L72 132L82 92L50 70H90L100 30Z" fill="var(--theme-color)" opacity="0.15"/>
-              <path d="M100 50L107 75H133L112 90L119 115L100 100L81 115L88 90L67 75H93L100 50Z" stroke="var(--theme-color)" stroke-width="2" opacity="0.5"/>
-              <circle cx="100" cy="100" r="85" stroke="var(--theme-color)" stroke-width="1" opacity="0.1"/>
-              <circle cx="50" cy="40" r="3" fill="var(--theme-color)" opacity="0.4"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite"/></circle>
-              <circle cx="155" cy="35" r="2.5" fill="var(--theme-color)" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite"/></circle>
-              <circle cx="160" cy="160" r="3" fill="var(--theme-color)" opacity="0.3"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="2s" repeatCount="indefinite"/></circle>
-              <circle cx="40" cy="165" r="2" fill="var(--theme-color)" opacity="0.45"><animate attributeName="opacity" values="0.45;1;0.45" dur="1.6s" repeatCount="indefinite"/></circle>
-              <circle cx="100" cy="25" r="2.5" fill="var(--theme-color)" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.2s" repeatCount="indefinite"/></circle>
+            <svg v-else viewBox="0 0 200 200" fill="none">
+              <path d="M100 30L110 70H150L118 92L128 132L100 110L72 132L82 92L50 70H90L100 30Z" fill="#fff" opacity="0.2"/>
+              <path d="M100 50L107 75H133L112 90L119 115L100 100L81 115L88 90L67 75H93L100 50Z" stroke="#fff" stroke-width="2" opacity="0.6"/>
+              <circle cx="100" cy="100" r="85" stroke="#fff" stroke-width="1" opacity="0.15"/>
+              <circle cx="50" cy="40" r="3" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/></circle>
+              <circle cx="155" cy="35" r="2.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite"/></circle>
+              <circle cx="160" cy="160" r="3" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite"/></circle>
+              <circle cx="40" cy="165" r="2" fill="#fff" opacity="0.55"><animate attributeName="opacity" values="0.55;1;0.55" dur="1.6s" repeatCount="indefinite"/></circle>
+              <circle cx="100" cy="25" r="2.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.6;1;0.6" dur="2.2s" repeatCount="indefinite"/></circle>
             </svg>
           </div>
-          <h2 class="startup-title startup-title-big">{{ t('oobe.step5.title', { name: userName }) }}</h2>
-          <p class="startup-desc">{{ t('oobe.step5.desc') }}</p>
-        </div>
-      </Transition>
+        </Transition>
 
-      <!-- Backup import preview dialog. Shown only when the user
-           tapped the “import previous settings” CTA on step 0 and
-           `backupInfo.exists` was true. Confirming runs
-           `import_last_backup` on Rust and emits `complete` so App.vue
-           closes the OOBE overlay. -->
-      <transition name="startup-slide">
-        <div v-if="showBackupPreview" class="startup-backup-overlay" @click.self="showBackupPreview = false">
-          <div class="startup-backup-card">
-            <div class="startup-backup-head">
-              <i class="ri-history-line" aria-hidden="true"></i>
-              <h3>{{ t('oobe.importBackup.previewTitle') }}</h3>
-              <button class="startup-backup-close" @click="showBackupPreview = false" :aria-label="t('common.close')">×</button>
+        <Transition name="aside-fade" mode="out-in">
+          <div class="aside-text" :key="step">
+            <h2 class="aside-title">{{ stepMeta.title }}</h2>
+            <p class="aside-desc">{{ stepMeta.desc }}</p>
+          </div>
+        </Transition>
+      </div>
+
+      <div class="aside-foot">
+        <span class="aside-foot-dot"></span>
+        <span>2-Pyramid · {{ t('oobe.asideTagline') }}</span>
+      </div>
+    </aside>
+
+    <!-- ═══ 右侧操作区 ═══ -->
+    <main class="startup-panel">
+      <div class="panel-brand">
+        <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#1a1a2e" stroke-linecap="round">
+            <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
+            <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
+            <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
+            <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
+          </g>
+        </svg>
+        <span class="panel-brand-name">2-Pyramid</span>
+      </div>
+
+      <div class="panel-steps">
+        <template v-for="i in totalSteps" :key="i">
+          <span v-if="i > 1" class="startup-step-line" :class="{ done: i - 2 < step }"></span>
+          <span class="startup-step-dot" :class="{ active: i - 1 === step, done: i - 1 < step }">
+            <i v-if="i - 1 < step" class="ri-check-line"></i>
+            <template v-else>{{ i }}</template>
+          </span>
+        </template>
+      </div>
+
+      <div class="panel-content">
+        <Transition name="startup-slide" mode="out-in">
+          <!-- Step 1: Language -->
+          <div v-if="step === 0" class="startup-step" key="lang">
+            <div class="lang-cards">
+              <button class="lang-card" :class="{ active: selectedLang === 'zh-CN' }" @click="selectLang('zh-CN')">
+                <span class="lang-check"><i class="ri-check-line"></i></span>
+                <span class="lang-flag">
+                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#DE2910"/><path d="M12 6L13.8 11.4H19.5L14.8 14.9L16.6 20.3L12 16.8L7.4 20.3L9.2 14.9L4.5 11.4H10.2L12 6Z" fill="#FFDE00"/></svg>
+                </span>
+                <span class="lang-name">{{ t('oobe.step1.zh') }}</span>
+              </button>
+              <button class="lang-card" :class="{ active: selectedLang === 'en-US' }" @click="selectLang('en-US')">
+                <span class="lang-check"><i class="ri-check-line"></i></span>
+                <span class="lang-flag">
+                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="#fff" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="#C8102E" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="#fff" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="#C8102E" stroke-width="6"/></svg>
+                </span>
+                <span class="lang-name">{{ t('oobe.step1.en') }}</span>
+              </button>
             </div>
-            <p class="startup-backup-desc">{{ t('oobe.importBackup.previewBody') }}</p>
 
-            <ul class="startup-backup-list" v-if="backupInfo?.summary">
-              <li v-if="backupInfo.summary.user_name">
-                <span class="label">{{ t('settings.userName.label') }}</span>
-                <span class="value">{{ backupInfo.summary.user_name }}</span>
-              </li>
-              <li v-if="backupInfo.summary.output_mode">
-                <span class="label">{{ t('settings.outputMode.label') }}</span>
-                <span class="value">{{ t(`settings.outputMode.${backupInfo.summary.output_mode}`, backupInfo.summary.output_mode) }}</span>
-              </li>
-              <li v-if="backupInfo.summary.source_handling">
-                <span class="label">{{ t('settings.sourceHandling.label') }}</span>
-                <span class="value">{{ t(`settings.sourceHandling.${backupInfo.summary.source_handling}`, backupInfo.summary.source_handling) }}</span>
-              </li>
-              <li v-if="backupInfo.summary.open_output_after_convert !== null">
-                <span class="label">{{ t('settings.openOutputAfterConvert.label') }}</span>
-                <span class="value">{{ backupInfo.summary.open_output_after_convert ? t('common.on') : t('common.off') }}</span>
-              </li>
-            </ul>
+            <button
+              v-if="backupInfo?.exists"
+              class="startup-restore-btn"
+              type="button"
+              @click="showBackupPreview = true"
+            >
+              <i class="ri-history-line" aria-hidden="true"></i>
+              <span>{{ t('oobe.importBackup.cta') }}</span>
+            </button>
+          </div>
 
-            <div class="startup-backup-foot">
-              <button class="startup-btn startup-btn-ghost" @click="showBackupPreview = false" :disabled="importing">
-                {{ t('common.cancel') }}
-              </button>
-              <button class="startup-btn startup-btn-primary" @click="importBackup" :disabled="importing">
-                {{ importing ? t('common.loading') : t('oobe.importBackup.confirmBtn') }}
-              </button>
+          <!-- Step 2: User Name -->
+          <div v-else-if="step === 1" class="startup-step" key="name">
+            <div class="name-field">
+              <i class="ri-user-line name-field-icon" aria-hidden="true"></i>
+              <input
+                v-model="userName"
+                class="startup-input"
+                :placeholder="t('oobe.step2.placeholder')"
+                autofocus
+                @keydown.enter="canNext && nextStep()"
+              />
+            </div>
+            <p class="field-hint">{{ t('oobe.step2.hint') }}</p>
+          </div>
+
+          <!-- Step 3: Welcome -->
+          <div v-else-if="step === 2" class="startup-step" key="welcome">
+            <div class="welcome-card">
+              <i class="ri-hand-heart-line" aria-hidden="true"></i>
+              <p>{{ t('oobe.step3.card', { name: userName }) }}</p>
             </div>
           </div>
-        </div>
-      </transition>
+
+          <!-- Step 4: Settings -->
+          <div v-else-if="step === 3" class="startup-step" key="settings">
+            <div class="startup-settings">
+              <!-- Output Mode -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-route-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('oobe.step4.outputMode') }}</span>
+                  <span class="startup-setting-desc">{{ t('oobe.step4.outputModeDesc') }}</span>
+                </div>
+                <div class="segmented">
+                  <button class="seg-btn" :class="{ active: outputMode === 'follow' }" @click="outputMode = 'follow'">{{ t('oobe.step4.outputModeFollow') }}</button>
+                  <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('oobe.step4.outputModeFixed') }}</button>
+                </div>
+              </div>
+
+              <!-- Notification -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-notification-3-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
+                  <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="notificationEnabled" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <!-- Notification Mode -->
+              <div class="startup-setting-row" v-if="notificationEnabled">
+                <div class="item-icon">
+                  <i class="ri-window-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
+                </div>
+                <div class="segmented">
+                  <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
+                  <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
+                  <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
+                </div>
+              </div>
+
+              <!-- Source Pack Handling (post-conversion) -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('oobe.step4.sourceHandling.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('oobe.step4.sourceHandling.desc') }}</span>
+                </div>
+                <div class="segmented">
+                  <button class="seg-btn" :class="{ active: sourceHandling === 'ask' }" @click="sourceHandling = 'ask'">{{ t('oobe.step4.sourceHandling.ask') }}</button>
+                  <button class="seg-btn" :class="{ active: sourceHandling === 'delete' }" @click="sourceHandling = 'delete'">{{ t('oobe.step4.sourceHandling.delete') }}</button>
+                  <button class="seg-btn" :class="{ active: sourceHandling === 'keep' }" @click="sourceHandling = 'keep'">{{ t('oobe.step4.sourceHandling.keep') }}</button>
+                </div>
+              </div>
+
+              <!-- Open Output Folder After Convert -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-external-link-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="openOutputAfterConvert" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 5: Final -->
+          <div v-else class="startup-step" key="done">
+            <div class="welcome-card">
+              <i class="ri-rocket-2-line" aria-hidden="true"></i>
+              <p>{{ t('oobe.step5.card', { name: userName }) }}</p>
+            </div>
+          </div>
+        </Transition>
+      </div>
 
       <!-- Navigation -->
-      <div class="startup-nav">
+      <div class="panel-nav">
         <button v-if="step > 0 && step < totalSteps - 1" class="startup-btn startup-btn-ghost" @click="prevStep">
           <i class="ri-arrow-left-s-line"></i>
           {{ t('oobe.back') }}
         </button>
-        <div v-else class="startup-nav-spacer"></div>
-
-        <div class="startup-steps">
-          <template v-for="i in totalSteps" :key="i">
-            <span v-if="i > 1" class="startup-step-line" :class="{ done: i - 2 < step }"></span>
-            <span class="startup-step-dot" :class="{ active: i - 1 === step, done: i - 1 < step }">
-              <i v-if="i - 1 < step" class="ri-check-line"></i>
-              <template v-else>{{ i }}</template>
-            </span>
-          </template>
-        </div>
+        <div v-else class="panel-nav-spacer"></div>
 
         <button
           v-if="step >= 1 && step < totalSteps - 1"
@@ -448,9 +427,55 @@ async function finish() {
           {{ t('oobe.getStarted') }}
           <i class="ri-rocket-2-line"></i>
         </button>
-        <div v-else class="startup-nav-spacer"></div>
+        <div v-else class="panel-nav-spacer"></div>
       </div>
-    </div>
+    </main>
+
+    <!-- Backup import preview dialog. Shown only when the user
+         tapped the “import previous settings” CTA on step 0 and
+         `backupInfo.exists` was true. Confirming runs
+         `import_last_backup` on Rust and emits `complete` so App.vue
+         closes the OOBE overlay. -->
+    <transition name="startup-slide">
+      <div v-if="showBackupPreview" class="startup-backup-overlay" @click.self="showBackupPreview = false">
+        <div class="startup-backup-card">
+          <div class="startup-backup-head">
+            <i class="ri-history-line" aria-hidden="true"></i>
+            <h3>{{ t('oobe.importBackup.previewTitle') }}</h3>
+            <button class="startup-backup-close" @click="showBackupPreview = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <p class="startup-backup-desc">{{ t('oobe.importBackup.previewBody') }}</p>
+
+          <ul class="startup-backup-list" v-if="backupInfo?.summary">
+            <li v-if="backupInfo.summary.user_name">
+              <span class="label">{{ t('settings.userName.label') }}</span>
+              <span class="value">{{ backupInfo.summary.user_name }}</span>
+            </li>
+            <li v-if="backupInfo.summary.output_mode">
+              <span class="label">{{ t('settings.outputMode.label') }}</span>
+              <span class="value">{{ t(`settings.outputMode.${backupInfo.summary.output_mode}`, backupInfo.summary.output_mode) }}</span>
+            </li>
+            <li v-if="backupInfo.summary.source_handling">
+              <span class="label">{{ t('settings.sourceHandling.label') }}</span>
+              <span class="value">{{ t(`settings.sourceHandling.${backupInfo.summary.source_handling}`, backupInfo.summary.source_handling) }}</span>
+            </li>
+            <li v-if="backupInfo.summary.open_output_after_convert !== null">
+              <span class="label">{{ t('settings.openOutputAfterConvert.label') }}</span>
+              <span class="value">{{ backupInfo.summary.open_output_after_convert ? t('common.on') : t('common.off') }}</span>
+            </li>
+          </ul>
+
+          <div class="startup-backup-foot">
+            <button class="startup-btn startup-btn-ghost" @click="showBackupPreview = false" :disabled="importing">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="startup-btn startup-btn-primary" @click="importBackup" :disabled="importing">
+              {{ importing ? t('common.loading') : t('oobe.importBackup.confirmBtn') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -460,218 +485,236 @@ async function finish() {
   inset: 0;
   z-index: 10000;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(160deg, #f6f8fd 0%, #eef2fb 45%, #e7ecf9 100%);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
 
-/* Layered aurora — soft, wide colour washes that slowly drift. */
-.startup-aurora {
-  position: absolute;
-  inset: -30%;
-  background:
-    radial-gradient(1100px 600px at 22% 20%, color-mix(in srgb, var(--theme-color) 18%, transparent), transparent 62%),
-    radial-gradient(900px 520px at 78% 25%, color-mix(in srgb, var(--theme-color) 14%, transparent), transparent 60%),
-    radial-gradient(1000px 600px at 60% 85%, color-mix(in srgb, var(--theme-color) 12%, transparent), transparent 62%),
-    radial-gradient(700px 450px at 35% 70%, color-mix(in srgb, #818cf8 10%, transparent), transparent 60%);
-  opacity: 0.75;
-  filter: blur(70px);
-  animation: startup-aurora 24s ease-in-out infinite;
-  pointer-events: none;
+/* ═══ 左侧介绍区 ═══ */
+.startup-aside {
+  position: relative;
+  flex: 0 0 42%;
+  display: flex;
+  flex-direction: column;
+  padding: 36px 44px 28px;
+  color: #fff;
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--theme-color) 88%, #1e1b4b) 0%,
+    color-mix(in srgb, var(--theme-color) 45%, #1e1b4b) 55%,
+    #12102e 100%);
+  overflow: hidden;
 }
 
-@keyframes startup-aurora {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(40px, -25px, 0) scale(1.04); }
-  66% { transform: translate3d(-30px, 20px, 0) scale(0.98); }
-}
-
-/* Floating colour blobs for depth. */
-.startup-blob {
+.aside-glow {
   position: absolute;
   border-radius: 50%;
-  filter: blur(50px);
-  opacity: 0.5;
+  filter: blur(70px);
   pointer-events: none;
-  animation: blob-drift 18s ease-in-out infinite;
 }
-.blob-1 {
-  width: 420px; height: 420px;
-  top: -120px; right: -80px;
-  background: color-mix(in srgb, var(--theme-color) 22%, transparent);
+.glow-1 {
+  width: 480px; height: 480px;
+  top: -140px; right: -140px;
+  background: color-mix(in srgb, #818cf8 45%, transparent);
+  opacity: 0.55;
 }
-.blob-2 {
-  width: 360px; height: 360px;
-  bottom: -100px; left: -60px;
-  background: color-mix(in srgb, #6366f1 18%, transparent);
-  animation-delay: -6s;
-}
-.blob-3 {
-  width: 240px; height: 240px;
-  top: 40%; left: 12%;
-  background: color-mix(in srgb, #22d3ee 14%, transparent);
-  animation-delay: -12s;
+.glow-2 {
+  width: 380px; height: 380px;
+  bottom: -120px; left: -100px;
+  background: color-mix(in srgb, #22d3ee 30%, transparent);
+  opacity: 0.4;
+  animation: glow-drift 14s ease-in-out infinite;
 }
 
-@keyframes blob-drift {
+@keyframes glow-drift {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(30px, -30px, 0); }
+  50% { transform: translate3d(30px, -24px, 0); }
 }
 
-/* Faint dot-grid overlay for texture. */
-.startup-grid {
+.aside-grid {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
   background-size: 26px 26px;
-  opacity: 0.35;
+  opacity: 0.4;
   pointer-events: none;
 }
 
-/* Brand */
 .startup-brand {
-  position: absolute;
-  top: 28px;
-  left: 32px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  z-index: 1;
 }
 
 .startup-logo {
-  width: 56px;
-  height: 56px;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
 }
 
 .startup-brand-name {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
-  color: #1a1a2e;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
+  color: #fff;
 }
 
-/* Card — premium glassmorphism with a top highlight strip. */
-.startup-card {
+.aside-body {
   position: relative;
-  width: 520px;
-  max-width: 92vw;
-  max-height: 88vh;
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.72) 100%);
-  backdrop-filter: blur(40px) saturate(1.5);
-  -webkit-backdrop-filter: blur(40px) saturate(1.5);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow:
-    0 24px 70px rgba(15, 23, 42, 0.10),
-    0 4px 16px rgba(15, 23, 42, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: card-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes card-in {
-  from { opacity: 0; transform: translateY(24px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Top highlight strip (theme gradient). */
-.startup-card::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--theme-color) 85%, #fff),
-    color-mix(in srgb, var(--theme-color) 45%, #fff),
-    color-mix(in srgb, #6366f1 80%, #fff));
-  opacity: 0.9;
-}
-
-/* Progress — gradient bar with glow. */
-.startup-progress {
-  height: 3px;
-  background: rgba(0, 0, 0, 0.06);
-  flex-shrink: 0;
-}
-
-.startup-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--theme-color), color-mix(in srgb, var(--theme-color) 55%, #fff));
-  border-radius: 0 3px 3px 0;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--theme-color) 45%, transparent);
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Step container */
-.startup-step {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 40px 20px;
-  overflow-y: auto;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 8px;
   min-height: 0;
 }
 
-/* Illustration */
-.startup-illustration {
-  width: 160px;
-  height: 160px;
-  margin-bottom: 24px;
+.aside-illustration {
+  width: 180px;
+  height: 180px;
+  margin-bottom: 28px;
   flex-shrink: 0;
 }
 
-.startup-illustration-small {
-  width: 110px;
-  height: 110px;
-  margin-bottom: 16px;
-}
-
-.startup-illustration svg {
+.aside-illustration svg {
   width: 100%;
   height: 100%;
 }
 
-/* Text */
-.startup-title {
-  font-size: 23px;
-  font-weight: 800;
-  color: #111827;
-  margin: 0 0 8px;
-  text-align: center;
-  letter-spacing: -0.4px;
-  background: linear-gradient(120deg, #111827, color-mix(in srgb, var(--theme-color) 70%, #111827));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.startup-title-big {
+.aside-title {
+  margin: 0 0 12px;
   font-size: 30px;
+  font-weight: 800;
   letter-spacing: -0.6px;
+  line-height: 1.25;
+  color: #fff;
 }
 
-.startup-desc {
+.aside-desc {
+  margin: 0;
   font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 28px;
-  text-align: center;
-  line-height: 1.7;
-  max-width: 380px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 340px;
 }
 
-/* Language cards */
+.aside-foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.aside-foot-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+}
+
+/* 左侧文案淡入 */
+.aside-fade-enter-active,
+.aside-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.aside-fade-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.aside-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+/* ═══ 右侧操作区 ═══ */
+.startup-panel {
+  flex: 1 1 58%;
+  display: flex;
+  flex-direction: column;
+  background: #fbfcfe;
+  min-width: 0;
+}
+
+.panel-brand {
+  display: none;
+}
+
+.panel-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 26px 24px 0;
+  flex-shrink: 0;
+}
+
+.startup-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  background: rgba(0, 0, 0, 0.07);
+  color: #94a3b8;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.startup-step-dot i { font-size: 14px; }
+
+.startup-step-dot.active {
+  background: var(--theme-color);
+  color: #fff;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--theme-color) 40%, transparent);
+}
+
+.startup-step-dot.done {
+  background: color-mix(in srgb, var(--theme-color) 18%, transparent);
+  color: var(--theme-color);
+}
+
+.startup-step-line {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(0, 0, 0, 0.09);
+  transition: background 0.3s ease;
+}
+
+.startup-step-line.done {
+  background: color-mix(in srgb, var(--theme-color) 45%, transparent);
+}
+
+.panel-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 48px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.startup-step {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 语言卡 */
 .lang-cards {
   display: flex;
   gap: 16px;
   width: 100%;
-  max-width: 360px;
 }
 
 .lang-card {
@@ -681,8 +724,8 @@ async function finish() {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 22px 16px 18px;
-  background: rgba(255, 255, 255, 0.62);
+  padding: 26px 16px 20px;
+  background: #fff;
   border: 2px solid rgba(0, 0, 0, 0.07);
   border-radius: 18px;
   cursor: pointer;
@@ -693,7 +736,6 @@ async function finish() {
 
 .lang-card:hover {
   border-color: color-mix(in srgb, var(--theme-color) 45%, transparent);
-  background: rgba(255, 255, 255, 0.92);
   transform: translateY(-3px);
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
 }
@@ -706,7 +748,6 @@ async function finish() {
     0 8px 24px color-mix(in srgb, var(--theme-color) 14%, transparent);
 }
 
-/* Check badge — scales in when selected. */
 .lang-check {
   position: absolute;
   top: 10px;
@@ -755,33 +796,78 @@ async function finish() {
   color: #374151;
 }
 
-/* Input */
+/* 名字输入 */
+.name-field {
+  position: relative;
+  width: 100%;
+}
+
+.name-field-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
 .startup-input {
   width: 100%;
-  max-width: 320px;
-  padding: 14px 20px;
+  padding: 15px 20px 15px 46px;
   font-size: 16px;
   font-family: inherit;
   border: 2px solid rgba(0, 0, 0, 0.1);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.7);
+  background: #fff;
   color: #1a1a2e;
   outline: none;
   transition: all 0.25s ease;
-  text-align: center;
 }
 
 .startup-input:focus {
   border-color: var(--theme-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 15%, transparent);
-  background: #fff;
 }
 
 .startup-input::placeholder {
   color: #9ca3af;
 }
 
-/* Settings rows — settings-page-style cards with icon squares */
+.field-hint {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* 欢迎/完成卡片 */
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 28px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  text-align: center;
+}
+
+.welcome-card i {
+  font-size: 40px;
+  color: var(--theme-color);
+}
+
+.welcome-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #475569;
+}
+
+/* 设置行 —— 与设置页同款卡片 */
 .startup-settings {
   width: 100%;
   display: flex;
@@ -805,7 +891,6 @@ async function finish() {
   box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
 }
 
-/* Icon square — matches the Settings page item-icon */
 .item-icon {
   flex: 0 0 36px;
   width: 36px;
@@ -838,7 +923,7 @@ async function finish() {
   color: #9ca3af;
 }
 
-/* Segmented control */
+/* 分段按钮 */
 .segmented {
   display: flex;
   background: rgba(0, 0, 0, 0.05);
@@ -871,7 +956,7 @@ async function finish() {
   color: #374151;
 }
 
-/* Toggle switch */
+/* 开关 */
 .switch {
   position: relative;
   width: 44px;
@@ -915,72 +1000,24 @@ async function finish() {
   transform: translateX(20px);
 }
 
-/* Navigation */
-.startup-nav {
+/* 底部导航 */
+.panel-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px 28px;
+  padding: 18px 48px 30px;
   flex-shrink: 0;
 }
 
-.startup-nav-spacer {
-  width: 80px;
+.panel-nav-spacer {
+  width: 90px;
 }
 
-/* Numbered step indicator with connector lines */
-.startup-steps {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.startup-step-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: inherit;
-  background: rgba(0, 0, 0, 0.07);
-  color: #94a3b8;
-  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.startup-step-dot i { font-size: 13px; }
-
-.startup-step-dot.active {
-  background: var(--theme-color);
-  color: #fff;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--theme-color) 40%, transparent);
-}
-
-.startup-step-dot.done {
-  background: color-mix(in srgb, var(--theme-color) 18%, transparent);
-  color: var(--theme-color);
-}
-
-.startup-step-line {
-  width: 14px;
-  height: 2px;
-  border-radius: 1px;
-  background: rgba(0, 0, 0, 0.09);
-  transition: background 0.3s ease;
-}
-
-.startup-step-line.done {
-  background: color-mix(in srgb, var(--theme-color) 45%, transparent);
-}
-
-/* Buttons */
 .startup-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 24px;
+  padding: 11px 26px;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -1021,11 +1058,11 @@ async function finish() {
 }
 
 .startup-btn-finish {
-  padding: 12px 28px;
+  padding: 12px 30px;
   font-size: 15px;
 }
 
-/* Transitions — smoother 3D-feel step change */
+/* 步骤切换动画 */
 .startup-slide-enter-active,
 .startup-slide-leave-active {
   transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1033,21 +1070,17 @@ async function finish() {
 
 .startup-slide-enter-from {
   opacity: 0;
-  transform: translateX(46px) scale(0.99);
+  transform: translateX(40px);
 }
 
 .startup-slide-leave-to {
   opacity: 0;
-  transform: translateX(-46px) scale(0.99);
+  transform: translateX(-40px);
 }
 
-/* ── Backup import (step 0 CTA + preview dialog) ─────────────────
-   The CTA is a subtle ghost-style link beneath the language cards.
-   The preview dialog overlays the whole startup screen with a
-   centred card so the user can sanity-check what they're about to
-   restore before confirming. */
+/* 恢复入口 */
 .startup-restore-btn {
-  margin-top: 22px;
+  margin-top: 24px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1068,6 +1101,7 @@ async function finish() {
   color: var(--theme-color, #007bff);
 }
 
+/* ═══ 备份导入对话框 ═══ */
 .startup-backup-overlay {
   position: fixed;
   inset: 0;
@@ -1136,5 +1170,35 @@ async function finish() {
 }
 .startup-backup-foot .startup-btn:disabled {
   opacity: 0.55; cursor: not-allowed;
+}
+
+/* ═══ 窄屏响应式：左侧收起，右侧全宽 ═══ */
+@media (max-width: 900px) {
+  .startup-aside {
+    display: none;
+  }
+  .panel-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 24px 0;
+    flex-shrink: 0;
+  }
+  .panel-brand .startup-logo {
+    width: 32px;
+    height: 32px;
+  }
+  .panel-brand-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1a1a2e;
+    letter-spacing: -0.4px;
+  }
+  .panel-content {
+    padding: 20px 24px;
+  }
+  .panel-nav {
+    padding: 16px 24px 24px;
+  }
 }
 </style>

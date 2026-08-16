@@ -612,6 +612,7 @@
     "back": "Back",
     "next": "Next",
     "getStarted": "Get Started",
+    "asideTagline": "Multi-version Minecraft resource pack converter",
     "step1": {
       "title": "Choose Your Language",
       "desc": "Select your preferred language",
@@ -621,11 +622,13 @@
     "step2": {
       "title": "What Should We Call You?",
       "desc": "Tell us your name to personalize your experience",
-      "placeholder": "Enter your name"
+      "placeholder": "Enter your name",
+      "hint": "Your name appears in the home page greeting and can be changed anytime in Settings"
     },
     "step3": {
       "title": "Welcome, {name}!",
-      "desc": "Great to meet you. 2-Pyramid is a multi-version Minecraft resource pack converter that makes version migration effortless."
+      "desc": "Great to meet you. 2-Pyramid is a multi-version Minecraft resource pack converter that makes version migration effortless.",
+      "card": "Great to see you, {name}! Just a few quick options and you're ready to go."
     },
     "step4": {
       "title": "Quick Settings",
@@ -650,7 +653,8 @@
     },
     "step5": {
       "title": "All Set, {name}!",
-      "desc": "You're ready to start using 2-Pyramid. Drag in a resource pack anytime to begin converting!"
+      "desc": "You're ready to start using 2-Pyramid. Drag in a resource pack anytime to begin converting!",
+      "card": "Everything is ready, {name}! Click \"Get Started\" to enter 2-Pyramid."
     },
     "importBackup": {
       "cta": "Import previous settings",
