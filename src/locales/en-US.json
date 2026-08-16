@@ -234,7 +234,8 @@
       "presetNameVer": "Name + Version",
       "presetVerName": "Version + Name",
       "presetNameOnly": "Name only",
-      "presetNameTime": "Name + Timestamp"
+      "presetNameTime": "Name + Timestamp",
+      "defaultName": "Welcome to 2-Pyramid"
     },
     "conversionHistory": {
       "groupTitle": "Conversion History",
