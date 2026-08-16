@@ -20,12 +20,22 @@ static CONVERSION_CANCELLED: AtomicBool = AtomicBool::new(false);
 /// guard so every exit path (success, error, cancelled) resets it.
 static CONVERSION_RUNNING: AtomicBool = AtomicBool::new(false);
 
-/// How many packs are converted in parallel during a batch. 2 is a
-/// deliberate balance: packs are IO-heavy (unzip → transform → rezip)
-/// so a single worker starves the disk, while too many workers blow up
-/// memory (every pack is fully extracted into its own tempdir) and
-/// fight with the hurray engine's internal rayon pool.
-const CONCURRENT_PACKS: usize = 2;
+/// Default parallelism for batch conversion, overridable per-user via
+/// the `conversion_threads` config setting (1–4). 2 is a deliberate
+/// balance: packs are IO-heavy (unzip → transform → rezip) so a single
+/// worker starves the disk, while too many workers blow up memory
+/// (every pack is fully extracted into its own tempdir) and fight with
+/// the hurray engine's internal rayon pool.
+const DEFAULT_CONCURRENT_PACKS: usize = 2;
+
+/// Read the user-configured batch parallelism (clamped to 1–4).
+fn concurrent_packs() -> usize {
+    crate::commands::config::read_config_file()
+        .ok()
+        .and_then(|c| c.conversion_threads)
+        .map(|n| n.clamp(1, 4) as usize)
+        .unwrap_or(DEFAULT_CONCURRENT_PACKS)
+}
 
 /// RAII guard that keeps `CONVERSION_RUNNING` true for the lifetime of
 /// one conversion command, then clears it on drop — even if the
@@ -155,7 +165,8 @@ pub async fn convert_resource_packs_batch(
 
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
-    log_info!("Files to process: {} (parallelism: {})", file_paths.len(), CONCURRENT_PACKS);
+    let parallelism = concurrent_packs();
+    log_info!("Files to process: {} (parallelism: {})", file_paths.len(), parallelism);
     log_info!("Target pack_format: {} ({})", target_format, pack_format_label_for_output(target_format));
     log_info!("{}", "=".repeat(60));
 
@@ -244,13 +255,15 @@ pub async fn convert_resource_packs_batch(
             }
         };
 
-        // Parallel path: bounded pool of CONCURRENT_PACKS workers.
-        // rayon preserves the input order in the collected Vec, so the
-        // frontend can still pair results with items 1:1. If the pool
-        // cannot be built for any reason we fall back to serial
-        // execution so the batch never hard-fails on a pool error.
+        // Parallel path: bounded pool sized by the user's
+        // `conversion_threads` setting. rayon preserves the input
+        // order in the collected Vec, so the frontend can still pair
+        // results with items 1:1. If the pool cannot be built for any
+        // reason we fall back to serial execution so the batch never
+        // hard-fails on a pool error.
+        let pool_size = parallelism.max(1);
         match rayon::ThreadPoolBuilder::new()
-            .num_threads(CONCURRENT_PACKS)
+            .num_threads(pool_size)
             .thread_name(|i| format!("pack-conv-{}", i))
             .build()
         {

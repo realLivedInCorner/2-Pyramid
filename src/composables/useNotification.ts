@@ -52,6 +52,9 @@ const currentNotification = ref<NotificationItem | null>(null);
 const currentPage = ref<string>('home');
 const notificationEnabled = ref(true);
 const notificationMode = ref<NotificationMode>('both');
+// Desktop toast auto-dismiss duration (ms). Default 8000; synced from
+// the user's settings by App.vue via `setToastDuration`.
+const toastDuration = ref(8000);
 let nextId = 0;
 let showTimer: ReturnType<typeof setTimeout> | null = null;
 let queue: NotificationItem[] = [];
@@ -167,10 +170,10 @@ export function useNotification() {
             title,
             body,
             kind: type,
-            // Long enough to actually read the text. Toasts carrying
-            // action buttons stay even longer so the user has time to
-            // notice and click them.
-            durationMs: actions.length > 0 ? 10000 : 8000,
+            // User-configured duration. Toasts carrying action buttons
+            // stay at least 10s so the user has time to notice and
+            // click them.
+            durationMs: actions.length > 0 ? Math.max(toastDuration.value, 10000) : toastDuration.value,
             actions,
           },
         });
@@ -233,6 +236,12 @@ export function useNotification() {
     notificationMode.value = mode;
   };
 
+  const setToastDuration = (ms: number) => {
+    if (Number.isFinite(ms) && ms >= 4000 && ms <= 15000) {
+      toastDuration.value = ms;
+    }
+  };
+
   const dismiss = () => {
     dismissCurrent();
   };
@@ -275,6 +284,7 @@ export function useNotification() {
     setCurrentPage,
     setNotificationEnabled,
     setNotificationMode,
+    setToastDuration,
     dismiss,
     clearAll,
     registerToastAction,

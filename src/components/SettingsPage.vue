@@ -159,6 +159,27 @@
               </label>
             </div>
           </div>
+
+          <div class="setting-item" v-if="shouldShowItem('conversionThreads')">
+            <div class="item-icon">
+              <i class="ri-cpu-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.conversionThreads.label') }}</div>
+              <div class="desc">{{ t('settings.conversionThreads.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button
+                  v-for="opt in conversionThreadsOptions"
+                  :key="opt"
+                  class="seg-btn"
+                  :class="{ active: conversionThreads === opt }"
+                  @click="conversionThreads = opt"
+                >{{ opt }}</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -208,6 +229,45 @@
               <div class="desc">{{ t('settings.testNotification.desc') }}</div>
             </div>
             <div class="item-arrow">→</div>
+          </div>
+
+          <div class="setting-item" v-if="shouldShowItem('toastDuration')">
+            <div class="item-icon">
+              <i class="ri-timer-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.toastDuration.label') }}</div>
+              <div class="desc">{{ t('settings.toastDuration.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button
+                  v-for="opt in toastDurationOptions"
+                  :key="opt"
+                  class="seg-btn"
+                  :class="{ active: toastDuration === opt }"
+                  @click="toastDuration = opt"
+                >{{ opt / 1000 }}s</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="shouldShowItem('toastPosition')">
+            <div class="item-icon">
+              <i class="ri-layout-masonry-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.toastPosition.label') }}</div>
+              <div class="desc">{{ t('settings.toastPosition.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: toastPosition === 'top-left' }" @click="toastPosition = 'top-left'">{{ t('settings.toastPosition.topLeft') }}</button>
+                <button class="seg-btn" :class="{ active: toastPosition === 'top-right' }" @click="toastPosition = 'top-right'">{{ t('settings.toastPosition.topRight') }}</button>
+                <button class="seg-btn" :class="{ active: toastPosition === 'bottom-left' }" @click="toastPosition = 'bottom-left'">{{ t('settings.toastPosition.bottomLeft') }}</button>
+                <button class="seg-btn" :class="{ active: toastPosition === 'bottom-right' }" @click="toastPosition = 'bottom-right'">{{ t('settings.toastPosition.bottomRight') }}</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -583,7 +643,7 @@ const emit = defineEmits([
   'reset-to-oobe',
 ]);
 
-const { notify, setNotificationEnabled, setNotificationMode } = useNotification();
+const { notify, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
 const { full: appFullVersion, isDev: appIsDev } = useAppInfo();
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
@@ -600,6 +660,13 @@ const animationSpeedOptions: { value: AnimationSpeed; labelKey: string }[] = [
 ];
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>(props.sourceHandling ?? 'ask');
 const openOutputAfterConvert = ref<boolean>(props.openOutputAfterConvert ?? true);
+// Toast 通知自定义：显示时长（秒）与屏幕角落位置
+const toastDuration = ref(8000);
+const toastDurationOptions = [4000, 6000, 8000, 10000, 12000];
+const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('top-right');
+// 批量转换并行资源包数
+const conversionThreads = ref(2);
+const conversionThreadsOptions = [1, 2, 4];
 const showThemeDialog = ref(false);
 const showResetDialog = ref(false);
 const showClearConfigDialog = ref(false);
@@ -665,6 +732,9 @@ const settingItems = [
   { id: 'notification', group: 'notification', label: t('settings.notification.label'), desc: t('settings.notification.desc') },
   { id: 'notificationMode', group: 'notification', label: t('settings.notificationMode.label'), desc: t('settings.notificationMode.desc') },
   { id: 'testNotification', group: 'notification', label: t('settings.testNotification.label'), desc: t('settings.testNotification.desc') },
+  { id: 'toastDuration', group: 'notification', label: t('settings.toastDuration.label'), desc: t('settings.toastDuration.desc') },
+  { id: 'toastPosition', group: 'notification', label: t('settings.toastPosition.label'), desc: t('settings.toastPosition.desc') },
+  { id: 'conversionThreads', group: 'convert', label: t('settings.conversionThreads.label'), desc: t('settings.conversionThreads.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
@@ -967,6 +1037,16 @@ onMounted(() => {
       if (cfg?.notification_mode === 'system' || cfg?.notification_mode === 'app' || cfg?.notification_mode === 'both') {
         notificationMode.value = cfg.notification_mode;
       }
+      if (typeof cfg?.toast_duration_ms === 'number' && cfg.toast_duration_ms >= 4000 && cfg.toast_duration_ms <= 15000) {
+        toastDuration.value = cfg.toast_duration_ms;
+        setToastDuration(cfg.toast_duration_ms);
+      }
+      if (cfg?.toast_position === 'top-left' || cfg?.toast_position === 'top-right' || cfg?.toast_position === 'bottom-left' || cfg?.toast_position === 'bottom-right') {
+        toastPosition.value = cfg.toast_position;
+      }
+      if (typeof cfg?.conversion_threads === 'number' && [1, 2, 4].includes(cfg.conversion_threads)) {
+        conversionThreads.value = cfg.conversion_threads;
+      }
     })
     .catch(() => {});
 
@@ -1050,6 +1130,19 @@ watch(openOutputAfterConvert, (val) => {
   localStorage.setItem('openOutputAfterConvert', String(val));
   invoke('update_config', { patch: { openOutputAfterConvert: val } }).catch(() => {});
   emit('update:open-output-after-convert', val);
+});
+
+watch(toastDuration, (val) => {
+  setToastDuration(val);
+  invoke('update_config', { patch: { toastDurationMs: val } }).catch(() => {});
+});
+
+watch(toastPosition, (val) => {
+  invoke('update_config', { patch: { toastPosition: val } }).catch(() => {});
+});
+
+watch(conversionThreads, (val) => {
+  invoke('update_config', { patch: { conversionThreads: val } }).catch(() => {});
 });
 
 watch(() => props.userName, (v) => {
