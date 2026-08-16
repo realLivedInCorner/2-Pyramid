@@ -230,9 +230,9 @@
       "placeholder": "e.g. [Ver][Name]",
       "tags": "Insert placeholder",
       "preview": "Preview",
-      "nameDesc": "Source pack name",
-      "verDesc": "Target version",
-      "timeDesc": "Timestamp",
+      "nameDesc": "原材质包名 / Source pack name",
+      "verDesc": "目标版本 / Target version",
+      "timeDesc": "时间戳 / Timestamp",
       "defaultName": "Welcome to 2-Pyramid"
     },
     "conversionHistory": {
