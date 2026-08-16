@@ -231,11 +231,11 @@
       "tags": "插入占位符",
       "presets": "预设",
       "preview": "预览",
-      "presetNameVer": "原名 + 版本",
-      "presetVerName": "版本 + 原名",
-      "presetNameOnly": "仅原名",
-      "presetNameTime": "原名 + 时间戳",
-      "defaultName": "欢迎来到2-Pyramid"
+      "presetDefault": "默认：[Ver]欢迎使用2-Pyramid",
+      "presetVerTime": "[Ver] + 时间戳",
+      "presetVerDate": "[Ver] + 日期",
+      "presetWelcome": "欢迎使用2-Pyramid",
+      "defaultName": "欢迎使用2-Pyramid"
     },
     "conversionHistory": {
       "groupTitle": "转换历史",

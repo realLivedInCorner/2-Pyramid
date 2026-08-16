@@ -210,18 +210,18 @@ pub fn build_output_path_for_batch(
 /// Render the user's output-naming template.
 ///
 /// Supported placeholders:
-///   * `[Name]` — source pack name (version prefix stripped)
-///   * `[Ver]`  — target version label, e.g. "Java 1.20-1.20.1"
+///   * `[Ver]`  — target version label in brackets, e.g. `[Java 1.20-1.20.1]`
 ///   * `[Time]` — timestamp `YYYYMMDD-HHMMSS`
 ///   * `[Date]` — date `YYYY-MM-DD`
+///   * `[Name]` — source pack name (kept for legacy templates)
 ///
 /// Unknown text passes through verbatim (sanitised for the filesystem),
-/// so `[Name] [Ver]` → `Vanilla Orange Edit Java 1.20-1.20.1`. An
-/// empty/whitespace-only template falls back to the pack name alone.
+/// so `[Ver]欢迎使用2-Pyramid` → `[Java 1.20-1.20.1]欢迎使用2-Pyramid`.
+/// An empty/whitespace-only template falls back to the pack name alone.
 fn apply_naming_template(template: &str, name: &str, version: &str, time: &str, date: &str) -> String {
     let rendered = template
+        .replace("[Ver]", &format!("[{}]", version))
         .replace("[Name]", name)
-        .replace("[Ver]", version)
         .replace("[Time]", time)
         .replace("[Date]", date);
     let trimmed = sanitize_filename_component(rendered.trim());
@@ -258,16 +258,16 @@ pub fn build_output_path(
 
     // User-configurable naming template. Legacy values from before the
     // template system are migrated on read:
-    //   "default" / empty → "[Name] [Ver]"
-    //   "timestamp"       → "[Name] [Time]"
+    //   "default" / empty → "[Ver]欢迎使用2-Pyramid"
+    //   "timestamp"       → "[Ver] [Time]"
     //   "overwrite"       → "[Name]"
     let naming = crate::commands::read_config_file()
         .ok()
         .and_then(|c| c.output_naming)
         .unwrap_or_default();
     let template = match naming.as_str() {
-        "" | "default" => "[Name] [Ver]".to_string(),
-        "timestamp" => "[Name] [Time]".to_string(),
+        "" | "default" => "[Ver]欢迎使用2-Pyramid".to_string(),
+        "timestamp" => "[Ver] [Time]".to_string(),
         "overwrite" => "[Name]".to_string(),
         other => other.to_string(),
     };

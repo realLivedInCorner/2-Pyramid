@@ -231,10 +231,10 @@
       "tags": "Insert placeholder",
       "presets": "Presets",
       "preview": "Preview",
-      "presetNameVer": "Name + Version",
-      "presetVerName": "Version + Name",
-      "presetNameOnly": "Name only",
-      "presetNameTime": "Name + Timestamp",
+      "presetDefault": "Default: [Ver]Welcome to 2-Pyramid",
+      "presetVerTime": "[Ver] + Timestamp",
+      "presetVerDate": "[Ver] + Date",
+      "presetWelcome": "Welcome to 2-Pyramid",
       "defaultName": "Welcome to 2-Pyramid"
     },
     "conversionHistory": {

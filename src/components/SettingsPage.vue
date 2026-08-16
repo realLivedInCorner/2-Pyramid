@@ -495,7 +495,7 @@
     </transition>
 
     <transition name="dialog-pop">
-      <div v-if="showNamingDialog" class="dialog-overlay" @click="showNamingDialog = false">
+      <div v-if="showNamingDialog" class="dialog-overlay">
         <div class="dialog-content naming-dialog" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.outputNaming.dialogTitle') }}</h3>
@@ -763,32 +763,30 @@ const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-rig
 // 批量转换并行资源包数
 const conversionThreads = ref(2);
 const conversionThreadsOptions = [1, 2, 4];
-// 输出文件命名模板（占位符：[Name] [Ver] [Time] [Date]）
-const namingTemplate = ref('[Name] [Ver]');
+// 输出文件命名模板（占位符：[Ver] [Time] [Date]）
+const namingWelcome = t('settings.outputNaming.defaultName');
+const namingTemplate = ref(`[Ver]${namingWelcome}`);
 const showNamingDialog = ref(false);
-const namingDraft = ref('[Name] [Ver]');
+const namingDraft = ref(`[Ver]${namingWelcome}`);
 const namingTags = [
-  { token: '[Name]', label: 'Name' },
   { token: '[Ver]', label: 'Version' },
   { token: '[Time]', label: 'Time' },
   { token: '[Date]', label: 'Date' },
 ];
 const namingPresets = [
-  { label: t('settings.outputNaming.presetNameVer'), template: '[Name] [Ver]' },
-  { label: t('settings.outputNaming.presetVerName'), template: '[Ver] [Name]' },
-  { label: t('settings.outputNaming.presetNameOnly'), template: '[Name]' },
-  { label: t('settings.outputNaming.presetNameTime'), template: '[Name] [Time]' },
+  { label: t('settings.outputNaming.presetDefault'), template: `[Ver]${namingWelcome}` },
+  { label: t('settings.outputNaming.presetVerTime'), template: '[Ver] [Time]' },
+  { label: t('settings.outputNaming.presetVerDate'), template: '[Ver] [Date]' },
+  { label: t('settings.outputNaming.presetWelcome'), template: namingWelcome },
 ];
 const namingPreview = computed(() => {
   const render = (tpl: string) => tpl
-    // 名字留空：实际转换时自动填入对应材质包的名字
-    .replace(/\[Name\]/g, '')
-    .replace(/\[Ver\]/g, 'Java 1.20-1.20.1')
+    .replace(/\[Ver\]/g, '[Java 1.20-1.20.1]')
     .replace(/\[Time\]/g, '20260816-101234')
     .replace(/\[Date\]/g, '2026-08-16');
   const rendered = render(namingDraft.value).trim();
-  // 模板渲染结果为空时，用默认示例名演示（欢迎来到2-Pyramid）
-  return (rendered || t('settings.outputNaming.defaultName')) + '.zip';
+  // 模板渲染结果为空时，用默认名演示
+  return (rendered || namingWelcome) + '.zip';
 });
 const openNamingDialog = () => {
   namingDraft.value = namingTemplate.value;
@@ -1222,8 +1220,8 @@ onMounted(() => {
       if (typeof cfg?.output_naming === 'string' && cfg.output_naming.length > 0) {
         // 迁移旧值（default/timestamp/overwrite）到模板语义
         const legacy: Record<string, string> = {
-          default: '[Name] [Ver]',
-          timestamp: '[Name] [Time]',
+          default: `[Ver]${namingWelcome}`,
+          timestamp: '[Ver] [Time]',
           overwrite: '[Name]',
         };
         namingTemplate.value = legacy[cfg.output_naming] ?? cfg.output_naming;
