@@ -136,9 +136,9 @@ async function finish() {
 
 <template>
   <div class="startup-root">
-    <!-- ═══ 左侧品牌窄栏（与主区同底色，仅图标 + 小字） ═══ -->
-    <aside class="startup-aside">
-      <div class="aside-inner">
+    <!-- ═══ 顶部：品牌（左） + 步骤指示器（右），同一底色无分割 ═══ -->
+    <header class="startup-top">
+      <div class="top-brand">
         <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
           <g stroke="currentColor" stroke-linecap="round">
             <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
@@ -147,23 +147,10 @@ async function finish() {
             <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
           </g>
         </svg>
-        <span class="aside-name">2-Pyramid</span>
-        <p class="aside-tagline">{{ t('oobe.asideTagline') }}</p>
-      </div>
-    </aside>
-
-    <!-- ═══ 右侧主区 ═══ -->
-    <main class="startup-panel">
-      <div class="panel-brand">
-        <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <g stroke="currentColor" stroke-linecap="round">
-            <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
-            <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
-            <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
-            <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
-          </g>
-        </svg>
-        <span class="panel-brand-name">2-Pyramid</span>
+        <div class="top-brand-text">
+          <span class="top-brand-name">2-Pyramid</span>
+          <span class="top-brand-tagline">{{ t('oobe.asideTagline') }}</span>
+        </div>
       </div>
 
       <div class="panel-steps">
@@ -175,7 +162,10 @@ async function finish() {
           </span>
         </template>
       </div>
+    </header>
 
+    <!-- ═══ 内容区 ═══ -->
+    <main class="startup-panel">
       <div class="panel-content">
         <Transition name="startup-slide" mode="out-in">
           <!-- Step 1: Language -->
@@ -419,69 +409,72 @@ async function finish() {
   inset: 0;
   z-index: 10000;
   display: flex;
+  flex-direction: column;
   background: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
 
-/* ═══ 左侧品牌窄栏（与主区同底色） ═══ */
-.startup-aside {
-  flex: 0 0 220px;
+/* ═══ 顶部品牌 + 步骤指示器 ═══ */
+.startup-top {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 36px 0;
+  flex-shrink: 0;
+}
+
+.top-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--theme-color);
   min-width: 0;
 }
 
-.aside-inner {
+.startup-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.top-brand-text {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-  color: var(--theme-color);
-  padding: 24px;
+  gap: 1px;
+  min-width: 0;
 }
 
-.startup-logo {
-  width: 52px;
-  height: 52px;
-}
-
-.aside-name {
-  font-size: 17px;
+.top-brand-name {
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.4px;
   color: #1a1a2e;
+  line-height: 1.2;
 }
 
-.aside-tagline {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.6;
+.top-brand-tagline {
+  font-size: 11.5px;
   color: #94a3b8;
-  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ═══ 右侧主区 ═══ */
+/* ═══ 主内容区 ═══ */
 .startup-panel {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.panel-brand {
-  display: none;
+  min-height: 0;
 }
 
 .panel-steps {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  padding: 26px 24px 0;
   flex-shrink: 0;
 }
 
@@ -1044,28 +1037,13 @@ async function finish() {
   opacity: 0.55; cursor: not-allowed;
 }
 
-/* ═══ 窄屏响应式：左侧品牌栏收起 ═══ */
+/* ═══ 窄屏响应式 ═══ */
 @media (max-width: 900px) {
-  .startup-aside {
+  .startup-top {
+    padding: 18px 24px 0;
+  }
+  .top-brand-tagline {
     display: none;
-  }
-  .panel-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 22px 24px 0;
-    flex-shrink: 0;
-    color: var(--theme-color);
-  }
-  .panel-brand .startup-logo {
-    width: 32px;
-    height: 32px;
-  }
-  .panel-brand-name {
-    font-size: 15px;
-    font-weight: 800;
-    color: #1a1a2e;
-    letter-spacing: -0.4px;
   }
   .panel-content {
     padding: 20px 24px 8px;
