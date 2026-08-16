@@ -3,6 +3,16 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 
+// ── 日志规范（2026-08 约定）───────────────────────────────────────
+//
+// 1. 转换 / 打包流水线（converters、hurray、invoke_conversion、
+//    overlay_package）保持详细日志：进度、模块完成、批量统计。
+// 2. 其他简单操作成功后只输出一条：
+//        log_info!("OKAY <operation> [<关键参数>]")
+//    时间戳由日志框架统一前缀（即「OKAY + 时间」）。
+// 3. 错误 / 警告永远保留完整信息 —— 排查问题全靠它们。
+// 4. 生命周期事件（启动、退出、工厂重置、单实例）保留简短 INFO。
+
 /// Log level — controls filtering and display priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
