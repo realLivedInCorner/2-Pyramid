@@ -202,6 +202,25 @@
     </div>
     </transition>
 
+    <!-- 删除源资源包确认对话框（自绘，替代原生 ask 弹窗） -->
+    <transition name="dialog-pop">
+      <div class="dialog-overlay" v-if="showDeleteSourceDialog" @click="showDeleteSourceDialog = false">
+        <div class="dialog-content" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.sourceHandling.deleteTitle') }}</h3>
+            <button class="close-btn" @click="showDeleteSourceDialog = false">×</button>
+          </div>
+          <div class="dialog-body">
+            <p>{{ t('settings.sourceHandling.deleteBody') }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="dialog-button secondary" @click="showDeleteSourceDialog = false">{{ t('common.cancel') }}</button>
+            <button class="dialog-button danger" @click="confirmDeleteSource">{{ t('settings.sourceHandling.delete') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <transition name="sidebar-overlay-fade">
       <div
         v-if="showVersionPicker"
@@ -306,7 +325,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { open, save, ask } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useNotification } from '../composables/useNotification';
@@ -853,29 +872,28 @@ const deleteSourcePacks = async (): Promise<void> => {
 
 /**
  * Apply the user's `sourceHandling` setting after a successful batch.
- *   * "ask"    → async confirmation via the Tauri dialog plugin.
- *                IMPORTANT: never use `window.confirm` here — in
- *                WebView2 it blocks the JS main thread (freezing ping
- *                heartbeats, window controls, and state updates).
+ *   * "ask"    → custom-drawn confirm dialog (NOT the OS-native
+ *                plugin-dialog `ask` and NOT `window.confirm`, which
+ *                blocks the WebView2 JS main thread)
  *   * "delete" → delete unconditionally
  *   * "keep"   → no-op
  */
-const applySourceHandling = async (): Promise<void> => {
+const showDeleteSourceDialog = ref(false);
+
+const applySourceHandling = (): void => {
   const policy = props.sourceHandling ?? 'ask';
   if (policy === 'keep') return;
   if (policy === 'delete') {
-    await deleteSourcePacks();
+    void deleteSourcePacks();
     return;
   }
-  try {
-    const ok = await ask(t('settings.sourceHandling.deleteBody'), {
-      title: t('settings.sourceHandling.deleteTitle'),
-      kind: 'warning',
-    });
-    if (ok) await deleteSourcePacks();
-  } catch {
-    // Dialog unavailable — skip silently.
-  }
+  showDeleteSourceDialog.value = true;
+};
+
+/// User confirmed the source-pack deletion on the custom dialog.
+const confirmDeleteSource = (): void => {
+  showDeleteSourceDialog.value = false;
+  void deleteSourcePacks();
 };
 
 const exportLogsToFile = async () => {
@@ -1259,6 +1277,8 @@ const exportLogsToFile = async () => {
 .dialog-button:hover:not(:disabled) { background: color-mix(in srgb, var(--theme-color) 85%, #000); transform: translateY(-1px); }
 .dialog-button.secondary { background: #f1f5f9; color: #475569; }
 .dialog-button.secondary:hover { background: #e2e8f0; }
+.dialog-button.danger { background: #ef4444; }
+.dialog-button.danger:hover:not(:disabled) { background: #dc2626; }
 .dialog-button:disabled { background: #cbd5e1; cursor: not-allowed; }
 
 /* === Version picker sidebar (右侧抽屉,从右滑入) === */
