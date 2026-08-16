@@ -386,10 +386,30 @@ pub fn import_last_backup() -> Result<String, String> {
 
 #[tauri::command]
 pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
-    crate::log_debug!("update_config called");
+    // 收敛为一条 OKAY 日志（字段值不值得逐条刷屏；错误路径照常记 Error）
+    let changed: Vec<&'static str> = [
+        patch.output_mode.as_ref().map(|_| "output_mode"),
+        patch.output_path.as_ref().map(|_| "output_path"),
+        patch.palette.as_ref().map(|_| "palette"),
+        patch.overlay_history.as_ref().map(|_| "overlay_history"),
+        patch.update_channel.as_ref().map(|_| "update_channel"),
+        patch.initialized.as_ref().map(|_| "initialized"),
+        patch.user_name.as_ref().map(|_| "user_name"),
+        patch.notification_enabled.as_ref().map(|_| "notification_enabled"),
+        patch.notification_mode.as_ref().map(|_| "notification_mode"),
+        patch.source_handling.as_ref().map(|_| "source_handling"),
+        patch.open_output_after_convert.as_ref().map(|_| "open_output_after_convert"),
+        patch.toast_duration_ms.as_ref().map(|_| "toast_duration_ms"),
+        patch.toast_position.as_ref().map(|_| "toast_position"),
+        patch.conversion_threads.as_ref().map(|_| "conversion_threads"),
+        patch.output_naming.as_ref().map(|_| "output_naming"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
     let mut cfg = read_config_file()?;
     if let Some(v) = patch.output_mode {
-        crate::log_info!("config: output_mode = {}", v);
         cfg.output_mode = Some(v);
     }
     if let Some(v) = patch.output_path {
@@ -405,49 +425,39 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         cfg.update_channel = Some(v);
     }
     if let Some(v) = patch.initialized {
-        crate::log_info!("config: initialized = {}", v);
         cfg.initialized = Some(v);
     }
     if let Some(v) = patch.user_name {
-        crate::log_info!("config: user_name = {}", v);
         cfg.user_name = Some(v);
     }
     if let Some(v) = patch.notification_enabled {
-        crate::log_info!("config: notification_enabled = {}", v);
         cfg.notification_enabled = Some(v);
     }
     if let Some(v) = patch.notification_mode {
-        crate::log_info!("config: notification_mode = {}", v);
         cfg.notification_mode = Some(v);
     }
     if let Some(v) = patch.source_handling {
-        crate::log_info!("config: source_handling = {}", v);
         cfg.source_handling = Some(v);
     }
     if let Some(v) = patch.open_output_after_convert {
-        crate::log_info!("config: open_output_after_convert = {}", v);
         cfg.open_output_after_convert = Some(v);
     }
     if let Some(v) = patch.toast_duration_ms {
-        crate::log_info!("config: toast_duration_ms = {}", v);
         cfg.toast_duration_ms = Some(v.clamp(4000, 15000));
     }
     if let Some(v) = patch.toast_position {
-        crate::log_info!("config: toast_position = {}", v);
         cfg.toast_position = Some(v);
     }
     if let Some(v) = patch.conversion_threads {
-        crate::log_info!("config: conversion_threads = {}", v);
         cfg.conversion_threads = Some(v.clamp(1, 4));
     }
     if let Some(v) = patch.output_naming {
-        crate::log_info!("config: output_naming = {}", v);
         // Free-form template with [Name]/[Ver]/[Time]/[Date] placeholders;
         // just cap the length so a runaway paste can't bloat the file.
         let capped: String = v.chars().take(200).collect();
         cfg.output_naming = Some(capped);
     }
     write_config_file(&cfg)?;
-    crate::log_info!("config: saved to {:?}", config_path());
+    crate::log_info!("OKAY update_config [{}]", changed.join(", "));
     serde_json::to_value(cfg).map_err(|e| format!("Failed to read config: {}", e))
 }

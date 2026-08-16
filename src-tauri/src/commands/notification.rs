@@ -264,7 +264,7 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
     }
 
     crate::log_info!(
-        "toast: shown (label={}, title={:?})",
+        "OKAY toast [label={}, title={:?}]",
         label,
         payload.title
     );
