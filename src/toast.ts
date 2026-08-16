@@ -30,6 +30,7 @@ function readQuery(): {
   body: string;
   kind: string;
   durationMs: number;
+  label: string;
   actions: ToastAction[];
 } {
   const p = new URLSearchParams(window.location.search);
@@ -52,6 +53,7 @@ function readQuery(): {
     body: p.get("body") ?? "",
     kind: (p.get("kind") ?? "info").toLowerCase(),
     durationMs: Math.max(1000, parseInt(p.get("duration") ?? "4500", 10) || 4500),
+    label: p.get("label") ?? "",
     actions,
   };
 }
@@ -141,10 +143,26 @@ async function dismissToast(): Promise<void> {
   const card = document.getElementById("toast")!;
   card.classList.add("leaving");
   await new Promise((r) => setTimeout(r, 240));
+  // Close this very window. `getCurrentWindow().close()` can fail
+  // silently in some IPC states; fall back to the Rust `dismiss_toast`
+  // command (which closes by label) so the toast never lingers as a
+  // white ghost window after its content has faded out.
+  const label = readQuery().label;
   try {
     await getCurrentWindow().close();
   } catch {
     /* ignore: window may already be gone */
+  }
+  if (label) {
+    // Give the close above a beat; if the window is still alive
+    // (close failed), ask Rust to close it by label.
+    setTimeout(async () => {
+      try {
+        await invoke("dismiss_toast", { label });
+      } catch {
+        /* ignore */
+      }
+    }, 300);
   }
 }
 
