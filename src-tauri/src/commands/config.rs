@@ -17,6 +17,13 @@ pub struct AppConfig {
     /// Whether to pop the OS file explorer open on the output folder
     /// after a successful conversion.
     pub open_output_after_convert: Option<bool>,
+    /// Desktop toast auto-dismiss time in milliseconds (4000–15000).
+    pub toast_duration_ms: Option<u64>,
+    /// Desktop toast corner: "top-right" (default) / "top-left" /
+    /// "bottom-right" / "bottom-left".
+    pub toast_position: Option<String>,
+    /// How many resource packs a batch converts in parallel (1–4).
+    pub conversion_threads: Option<u32>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -41,6 +48,12 @@ pub struct ConfigPatch {
     pub source_handling: Option<String>,
     #[serde(alias = "openOutputAfterConvert")]
     pub open_output_after_convert: Option<bool>,
+    #[serde(alias = "toastDurationMs")]
+    pub toast_duration_ms: Option<u64>,
+    #[serde(alias = "toastPosition")]
+    pub toast_position: Option<String>,
+    #[serde(alias = "conversionThreads")]
+    pub conversion_threads: Option<u32>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -409,6 +422,18 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     if let Some(v) = patch.open_output_after_convert {
         crate::log_info!("config: open_output_after_convert = {}", v);
         cfg.open_output_after_convert = Some(v);
+    }
+    if let Some(v) = patch.toast_duration_ms {
+        crate::log_info!("config: toast_duration_ms = {}", v);
+        cfg.toast_duration_ms = Some(v.clamp(4000, 15000));
+    }
+    if let Some(v) = patch.toast_position {
+        crate::log_info!("config: toast_position = {}", v);
+        cfg.toast_position = Some(v);
+    }
+    if let Some(v) = patch.conversion_threads {
+        crate::log_info!("config: conversion_threads = {}", v);
+        cfg.conversion_threads = Some(v.clamp(1, 4));
     }
     write_config_file(&cfg)?;
     crate::log_info!("config: saved to {:?}", config_path());
