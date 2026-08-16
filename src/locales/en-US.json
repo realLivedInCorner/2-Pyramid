@@ -7,6 +7,7 @@
     "saving": "Saving...",
     "back": "Back",
     "home": "Home",
+    "backToHome": "Back to Home",
     "choose": "Choose",
     "refresh": "Refresh",
     "delete": "Delete",
@@ -25,7 +26,9 @@
     "closeNotify": "Close notification",
     "error": "Error",
     "success": "Success",
-    "unknownError": "Unknown Error"
+    "unknownError": "Unknown Error",
+    "on": "On",
+    "off": "Off"
   },
   "home": {
     "subtitle": "The Nextgen Multi-Version Universal Resource Pack Converter",
@@ -114,10 +117,16 @@
     "logExportSuccessTitle": "Export Successful",
     "logExportSuccessBody": "Log exported to {path}",
     "logExportFailedTitle": "Export Failed",
-    "logExportFailedBody": "An error occurred while exporting the log file"
+    "logExportFailedBody": "An error occurred while exporting the log file",
+    "converting": "Converting…",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling…",
+    "cancelledText": "Conversion cancelled",
+    "manyFilesWarning": "Many files — this may take a while"
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "Preferences & Configuration",
     "searchPlaceholder": "Search settings...",
     "groups": {
       "language": "Language",
@@ -261,10 +270,43 @@
       "clearConfigDoneBody": "Restarting…",
       "clearConfigErrorTitle": "Reset failed",
       "clearConfigErrorBody": "{error}"
+    },
+    "sourceHandling": {
+      "label": "Source Pack Handling",
+      "desc": "What to do with the original pack after conversion",
+      "ask": "Ask",
+      "delete": "Delete",
+      "keep": "Keep",
+      "deleteTitle": "Delete source pack?",
+      "deleteBody": "Conversion finished. Delete the source pack? This cannot be undone.",
+      "deleteConfirm": "Delete",
+      "deleteCancel": "Keep",
+      "deleteFailedTitle": "Delete failed"
+    },
+    "openOutputAfterConvert": {
+      "label": "Open Output Folder After Convert",
+      "desc": "Automatically open the output folder in Explorer when conversion succeeds"
+    },
+    "factoryReset": {
+      "groupTitle": "Advanced",
+      "label": "Delete user profile",
+      "desc": "Delete the local settings.json. The next launch will return to the OOBE wizard. Overlay projects, logs and other files are not touched.",
+      "btn": "Delete and restart",
+      "confirmTitle": "Delete user profile?",
+      "confirmBody": "Permanently delete this app's user profile (settings.json). The next launch will show the OOBE wizard again. This cannot be undone.",
+      "confirmBtn": "Delete",
+      "cancelBtn": "Cancel",
+      "successTitle": "Deleted",
+      "successBody": "User profile deleted. The app will now restart.",
+      "failedTitle": "Delete failed",
+      "deepLabel": "Also clear logs and overlay history",
+      "deepHint": "Additionally removes the logs/ directory and the overlay history inside settings.json. User-built overlay projects are not touched.",
+      "successBodyDeep": "User profile deleted (deep clean). The app will now restart."
     }
   },
   "overlay": {
     "title": "Overlay Pack Creator",
+    "subtitle": "Build custom overlay packs and layer them onto any parent pack",
     "backAria": "Back to Home",
     "myProjects": "My Projects",
     "importCode": "Import Code",
@@ -354,6 +396,9 @@
     "minimizeToTray": "Minimize to Tray",
     "closeDirectly": "Close Directly",
     "rememberChoice": "Remember my choice",
+    "trayToastTitle": "Hidden to system tray",
+    "trayToastBody": "Still running in the background. Press Ctrl+Shift+Q to quit.",
+    "forceQuitHint": "Press Ctrl+Shift+Q to force quit",
     "borderColor": {
       "title": "Border Color",
       "borderMode": "Border Mode",
@@ -561,11 +606,29 @@
       "closeActionDesc": "What happens when you click the close button",
       "closeActionAsk": "Ask Every Time",
       "closeActionClose": "Close Directly",
-      "closeActionMinimize": "Background to Tray"
+      "closeActionMinimize": "Background to Tray",
+      "sourceHandling": {
+        "label": "Source Pack Handling",
+        "desc": "What to do with the source pack after conversion",
+        "ask": "Ask",
+        "delete": "Delete",
+        "keep": "Keep"
+      },
+      "openOutputAfterConvert": {
+        "label": "Open Output Folder After Convert",
+        "desc": "Open the output folder automatically on success"
+      }
     },
     "step5": {
       "title": "All Set, {name}!",
       "desc": "You're ready to start using 2-Pyramid. Drag in a resource pack anytime to begin converting!"
+    },
+    "importBackup": {
+      "cta": "Import previous settings",
+      "previewTitle": "Import previous settings?",
+      "previewBody": "A backup from your last session was found. Importing will restore these settings and skip OOBE, taking you straight to the home page.",
+      "confirmBtn": "Import and continue"
     }
-  }
+  },
+  "openBtn": "Open Folder"
 }

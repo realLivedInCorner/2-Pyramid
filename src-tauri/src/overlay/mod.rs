@@ -288,6 +288,43 @@ pub fn replace_outline_placeholders(
     Ok(())
 }
 
+/// 处理 `no_shadow` (Python `process_core_shadow`)：从 overlay 模板的 `core_inventory/`
+/// 目录复制**全部文件**到目标 shaders/core 目录，覆盖同名文件。
+///
+/// Python 端参考实现 (`overlay.py:process_core_shadow`) 的语义是复制整个 `core_inventory`
+/// 目录下的所有文件；旧 Rust 实现只复制 `rendertype_gui.vsh` 单文件，对齐后改为全量复制。
+///
+/// 返回成功复制的文件数；若 `core_inventory` 目录不存在则返回 0（不报错）。
+pub fn process_core_shadow(overlay_dir: &Path, target_dir: &Path) -> Result<usize, String> {
+    let core_inventory_dir = overlay_dir.join("core_inventory");
+    if !core_inventory_dir.exists() {
+        crate::log_info!("core_inventory dir not found, skip: {}", core_inventory_dir.display());
+        return Ok(0);
+    }
+
+    fs::create_dir_all(target_dir).map_err(|e| format!("创建 shaders/core 目录失败: {}", e))?;
+
+    let mut copied = 0usize;
+    for entry in fs::read_dir(&core_inventory_dir)
+        .map_err(|e| format!("读取 {} 失败: {}", core_inventory_dir.display(), e))?
+    {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let src = entry.path();
+        if !src.is_file() {
+            continue;
+        }
+        let Some(file_name) = src.file_name() else {
+            continue;
+        };
+        let dest = target_dir.join(file_name);
+        fs::copy(&src, &dest)
+            .map_err(|e| format!("复制 {} -> {} 失败: {}", src.display(), dest.display(), e))?;
+        copied += 1;
+        crate::log_info!("core_shadow copied: {} -> {}", src.display(), dest.display());
+    }
+    Ok(copied)
+}
+
 /// 解压母包到 workspace，返回 workspace 根路径
 pub fn process_parent_pack_workspace(
     temp_dir: &Path,
@@ -327,4 +364,312 @@ pub fn process_parent_pack_workspace(
 
     crate::log_info!("parent pack extracted to workspace: {}", extract_dir.display());
     Ok(extract_dir)
+}
+
+// ── 单元测试 ────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    // ── fix_json_placeholders ──
+
+    #[test]
+    fn fix_placeholders_replaces_at_and_hash_arrays() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("model.json");
+        fs::write(&path, r#"{ "display": { "thirdperson": { "scale": [@, @, @] } } }"#).unwrap();
+
+        fix_json_placeholders(&path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(
+            content.contains("[1.0, 1.0, 1.0]"),
+            "expected placeholder to be replaced, got: {}",
+            content
+        );
+    }
+
+    #[test]
+    fn fix_placeholders_handles_hash_placeholder() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("model.json");
+        fs::write(&path, r#"{ "scale": [#, #, #] }"#).unwrap();
+
+        fix_json_placeholders(&path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("[1.0, 1.0, 1.0]"));
+    }
+
+    #[test]
+    fn fix_placeholders_is_noop_when_no_marker() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("clean.json");
+        let original = r#"{ "display": { "scale": [1.0, 1.0, 1.0] } }"#;
+        fs::write(&path, original).unwrap();
+
+        fix_json_placeholders(&path).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert_eq!(content, original);
+    }
+
+    #[test]
+    fn fix_placeholders_handles_missing_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("does_not_exist.json");
+        // 不应报错
+        let result = fix_json_placeholders(&path);
+        assert!(result.is_ok());
+    }
+
+    // ── apply_scale_to_json_files ──
+
+    #[test]
+    fn apply_scale_updates_thirdperson_and_ground() {
+        let dir = tempdir().unwrap();
+        let model_path = dir.path().join("diamond_sword.json");
+        fs::write(
+            &model_path,
+            r#"{
+                "display": {
+                    "thirdperson_righthand": { "scale": [1.0, 1.0, 1.0] },
+                    "ground": { "scale": [1.0, 1.0, 1.0] }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let config = serde_json::json!({
+            "diamond_sword": {
+                "handheld_scale": "2.5x",
+                "dropped_scale": "1.5x"
+            }
+        });
+        apply_scale_to_json_files(dir.path(), &config).unwrap();
+
+        let updated: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&model_path).unwrap()).unwrap();
+        let tp = &updated["display"]["thirdperson_righthand"]["scale"];
+        let gd = &updated["display"]["ground"]["scale"];
+        assert_eq!(tp[0].as_f64().unwrap(), 2.5);
+        assert_eq!(tp[1].as_f64().unwrap(), 2.5);
+        assert_eq!(tp[2].as_f64().unwrap(), 2.5);
+        assert_eq!(gd[0].as_f64().unwrap(), 1.5);
+    }
+
+    #[test]
+    fn apply_scale_creates_missing_scale_field() {
+        let dir = tempdir().unwrap();
+        let model_path = dir.path().join("stick.json");
+        // 没有 scale 字段,只有 display
+        fs::write(
+            &model_path,
+            r#"{ "display": { "thirdperson_righthand": { "rotation": [0, 90, 0] } } }"#,
+        )
+        .unwrap();
+
+        let config = serde_json::json!({
+            "stick": { "handheld_scale": "1.2x", "dropped_scale": "1x" }
+        });
+        apply_scale_to_json_files(dir.path(), &config).unwrap();
+
+        let updated: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&model_path).unwrap()).unwrap();
+        assert!(updated["display"]["thirdperson_righthand"]["scale"].is_array());
+    }
+
+    #[test]
+    fn apply_scale_skips_unconfigured_item() {
+        let dir = tempdir().unwrap();
+        let model_path = dir.path().join("unrelated.json");
+        let original = r#"{ "display": { "scale": [1.0, 1.0, 1.0] } }"#;
+        fs::write(&model_path, original).unwrap();
+
+        let config = serde_json::json!({ "other_item": { "handheld_scale": "2x" } });
+        apply_scale_to_json_files(dir.path(), &config).unwrap();
+
+        let content = fs::read_to_string(&model_path).unwrap();
+        assert_eq!(content, original);
+    }
+
+    #[test]
+    fn apply_scale_compass_normalizes_suffix() {
+        // compass_00 / compass_15 等后缀 → 都用 "compass" 的配置
+        let dir = tempdir().unwrap();
+        let model = dir.path().join("compass_15.json");
+        fs::write(
+            &model,
+            r#"{ "display": { "thirdperson_righthand": { "scale": [1.0, 1.0, 1.0] } } }"#,
+        )
+        .unwrap();
+
+        let config = serde_json::json!({
+            "compass": { "handheld_scale": "1.8x", "dropped_scale": "1.8x" }
+        });
+        apply_scale_to_json_files(dir.path(), &config).unwrap();
+
+        let updated: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&model).unwrap()).unwrap();
+        let tp = &updated["display"]["thirdperson_righthand"]["scale"];
+        assert_eq!(tp[0].as_f64().unwrap(), 1.8);
+    }
+
+    #[test]
+    fn apply_scale_returns_ok_for_missing_dir() {
+        let dir = tempdir().unwrap();
+        let ghost = dir.path().join("not_here");
+        let config = serde_json::json!({});
+        assert!(apply_scale_to_json_files(&ghost, &config).is_ok());
+    }
+
+    // ── replace_outline_placeholders ──
+
+    #[test]
+    fn replace_outline_vsh_uses_rgba_and_thickness() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("rendertype_gui.vsh");
+        fs::write(
+            &path,
+            r#"
+                in vec4 color;
+                void main() {
+                    vec4 outlineColor = vec4(#, #, #, #);
+                    gl_Position = vec4(0.0);
+                    #define BORDER_LINE_WIDTH @
+                }
+            "#,
+        )
+        .unwrap();
+
+        let color = serde_json::json!({"r": 0.5, "g": 0.6, "b": 0.7, "a": 0.8});
+        replace_outline_placeholders(&path, &color, 4.0).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("vec4(0.5, 0.6, 0.7, 0.8)"));
+        assert!(content.contains("#define BORDER_LINE_WIDTH 4"));
+        // vec4 颜色占位符应已被替换
+        assert!(!content.contains("vec4(#, #, #, #)"));
+    }
+
+    #[test]
+    fn replace_outline_fsh_only_replaces_color_not_thickness() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("rendertype_gui.fsh");
+        fs::write(&path, "out vec4 frag; void main() { frag = vec4(*, *, *, *); }").unwrap();
+
+        let color = serde_json::json!({"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0});
+        replace_outline_placeholders(&path, &color, 9.0).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("vec4(1, 0, 0, 1)"));
+        // fsh 不应被注入 thickness
+        assert!(!content.contains("BORDER_LINE_WIDTH"));
+    }
+
+    #[test]
+    fn replace_outline_json_uses_array_form() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("rendertype_gui.json");
+        fs::write(&path, r#"{ "blend": { "color": [%, %, %, %], "width": [@] } }"#).unwrap();
+
+        let color = serde_json::json!({"r": 0.1, "g": 0.2, "b": 0.3, "a": 0.4});
+        replace_outline_placeholders(&path, &color, 3.5).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("[0.1, 0.2, 0.3, 0.4]"));
+        assert!(content.contains("[3.5]"));
+    }
+
+    // ── process_core_shadow ──
+
+    #[test]
+    fn process_core_shadow_copies_all_files() {
+        let overlay = tempdir().unwrap();
+        let core_inv = overlay.path().join("core_inventory");
+        fs::create_dir_all(&core_inv).unwrap();
+        fs::write(core_inv.join("rendertype_gui.vsh"), "// vsh content").unwrap();
+        fs::write(core_inv.join("rendertype_gui.fsh"), "// fsh content").unwrap();
+        fs::write(core_inv.join("rendertype_gui.json"), "{}").unwrap();
+
+        let target = tempdir().unwrap();
+        let target_dir = target.path().join("shaders").join("core");
+        let copied = process_core_shadow(overlay.path(), &target_dir).unwrap();
+
+        assert_eq!(copied, 3);
+        assert!(target_dir.join("rendertype_gui.vsh").exists());
+        assert!(target_dir.join("rendertype_gui.fsh").exists());
+        assert!(target_dir.join("rendertype_gui.json").exists());
+        // 复制的是实际内容,不是空
+        let vsh = fs::read_to_string(target_dir.join("rendertype_gui.vsh")).unwrap();
+        assert_eq!(vsh, "// vsh content");
+    }
+
+    #[test]
+    fn process_core_shadow_returns_zero_when_source_missing() {
+        let overlay = tempdir().unwrap();
+        let target = tempdir().unwrap();
+        let copied = process_core_shadow(overlay.path(), target.path()).unwrap();
+        assert_eq!(copied, 0);
+        // 仍然创建了 target_dir
+        assert!(target.path().exists());
+    }
+
+    #[test]
+    fn process_core_shadow_overwrites_existing_files() {
+        let overlay = tempdir().unwrap();
+        let core_inv = overlay.path().join("core_inventory");
+        fs::create_dir_all(&core_inv).unwrap();
+        fs::write(core_inv.join("rendertype_gui.vsh"), "new content").unwrap();
+
+        let target = tempdir().unwrap();
+        let target_dir = target.path().join("core");
+        fs::create_dir_all(&target_dir).unwrap();
+        fs::write(target_dir.join("rendertype_gui.vsh"), "old content").unwrap();
+
+        process_core_shadow(overlay.path(), &target_dir).unwrap();
+        let overwritten = fs::read_to_string(target_dir.join("rendertype_gui.vsh")).unwrap();
+        assert_eq!(overwritten, "new content");
+    }
+
+    // ── process_parent_pack_workspace ──
+
+    #[test]
+    fn process_parent_pack_extracts_zip_to_workspace() {
+        use std::io::Write;
+
+        let src = tempdir().unwrap();
+        let zip_path = src.path().join("ParentPack.zip");
+        {
+            let zip_file = fs::File::create(&zip_path).unwrap();
+            let mut zip = zip::ZipWriter::new(zip_file);
+            let options = zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("pack.mcmeta", options).unwrap();
+            zip.write_all(br#"{"pack":{"pack_format":15}}"#).unwrap();
+            zip.start_file("assets/minecraft/lang/en_us.json", options).unwrap();
+            zip.write_all(br#"{"item.apple":"Apple"}"#).unwrap();
+            zip.finish().unwrap();
+        }
+
+        let project = tempdir().unwrap();
+        let ws = process_parent_pack_workspace(project.path(), &zip_path.to_string_lossy()).unwrap();
+
+        // workspace 在 project/workspace/ParentPack/
+        assert!(ws.is_dir());
+        assert!(ws.join("pack.mcmeta").exists());
+        assert!(ws.join("assets/minecraft/lang/en_us.json").exists());
+        // 临时 zip 应被删
+        assert!(!ws.parent().unwrap().join("ParentPack.zip").exists());
+    }
+
+    #[test]
+    fn process_parent_pack_errors_on_missing_zip() {
+        let project = tempdir().unwrap();
+        let result = process_parent_pack_workspace(project.path(), "Z:/this/does/not/exist.zip");
+        assert!(result.is_err());
+    }
 }
