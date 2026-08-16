@@ -117,6 +117,13 @@ function selectLang(lang: SupportedLocale) {
   nextStep()
 }
 
+function quitApp() {
+  // 退出整个应用（与主界面的 Ctrl+Shift+Q 同路径）
+  invoke('force_quit').catch((e) => {
+    console.error('[StartupPage] force_quit failed:', e)
+  })
+}
+
 async function finish() {
   console.log('[StartupPage] finish() called')
   try {
@@ -383,6 +390,14 @@ async function finish() {
       <!-- 底部药丸导航 -->
       <div class="panel-nav">
         <div class="nav-pill">
+          <button
+            class="startup-btn startup-btn-quit"
+            :title="t('oobe.quit')"
+            :aria-label="t('oobe.quit')"
+            @click="quitApp"
+          >
+            <i class="ri-logout-box-r-line"></i>
+          </button>
           <button
             v-if="step > 0 && step < totalSteps - 1"
             class="startup-btn startup-btn-ghost"
@@ -1040,6 +1055,27 @@ async function finish() {
 
 .startup-btn-ghost:active {
   transform: scale(0.96);
+}
+
+/* 退出按钮 —— 圆形图标，悬停变红 */
+.startup-btn-quit {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  justify-content: center;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 17px;
+}
+
+.startup-btn-quit:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  transform: scale(1.06);
+}
+
+.startup-btn-quit:active {
+  transform: scale(0.94);
 }
 
 .startup-btn-finish {
