@@ -1,5 +1,6 @@
 mod config;
 mod conversion;
+mod history;
 pub mod misc;
 pub mod notification;
 mod overlay;
@@ -19,6 +20,7 @@ pub use config::{AppConfig, read_config_file, write_config_file};
 // publicly so that `tauri::generate_handler!` in `lib.rs` can find them.
 pub use config::{get_config, update_config, clear_config, factory_reset, factory_reset_deep, get_last_backup_info, import_last_backup, BackupInfo, BackupSummary, FactoryResetReport, __cmd__get_config, __cmd__update_config, __cmd__clear_config, __cmd__factory_reset, __cmd__factory_reset_deep, __cmd__get_last_backup_info, __cmd__import_last_backup};
 pub use conversion::{test_command, convert_zip, convert_resource_pack, convert_resource_packs_batch, cancel_conversion, is_conversion_running};
+pub use history::{get_conversion_history, clear_conversion_history, HistoryEntry};
 pub use misc::{get_logs, set_dev_mode, get_dev_mode, log_notification, export_logs, get_log_path, open_folder, write_file, create_dir, delete_paths, DeleteResult, get_app_info, AppInfo, force_quit, ping};
 pub use notification::{show_toast, dismiss_toast, dismiss_all_toasts, focus_main_window, run_toast_action};
 pub use overlay::{get_overlay_projects, delete_overlay_project, overlay_init, import_lang_from_parent, get_overlay_lang, save_overlay_lang, read_lang_file, get_overlay_json, save_overlay_json, export_overlay_share_code, import_overlay_share_code, overlay_package, get_overlay_settings, save_overlay_settings, overlay_set_parent_pack};

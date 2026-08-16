@@ -290,6 +290,24 @@ pub async fn convert_resource_packs_batch(
             let success_count = results.iter().filter(|r| r["status"] == "success").count();
             let error_count = results.iter().filter(|r| r["status"] == "error").count();
 
+            // Record the journal entries (one per input file). Done here
+            // on the async runtime after the pool has finished so the
+            // file writes never race with the rayon workers.
+            for r in &results {
+                let duration_s = r["time"]
+                    .as_str()
+                    .and_then(|t| t.parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                crate::commands::history::record_entry(crate::commands::history::HistoryEntry {
+                    input: r["input"].as_str().unwrap_or_default().to_string(),
+                    output: r["output"].as_str().map(String::from),
+                    status: r["status"].as_str().unwrap_or("error").to_string(),
+                    error: r["error"].as_str().map(String::from),
+                    time: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                    duration_s,
+                });
+            }
+
             log_info!("{}", "=".repeat(60));
             log_info!("Batch conversion complete");
             log_info!("Results: {} success, {} failed, {} total", success_count, error_count, results.len());

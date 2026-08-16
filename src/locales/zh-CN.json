@@ -221,6 +221,26 @@
       "searchLabel": "转换并发数",
       "searchDesc": "同时转换的资源包数量"
     },
+    "outputNaming": {
+      "label": "输出命名规则",
+      "desc": "转换结果文件的命名方式",
+      "searchLabel": "输出命名规则",
+      "searchDesc": "转换结果文件的命名方式",
+      "default": "默认",
+      "timestamp": "时间戳",
+      "overwrite": "覆盖"
+    },
+    "conversionHistory": {
+      "groupTitle": "转换历史",
+      "label": "最近转换记录",
+      "desc": "查看最近的转换任务与结果",
+      "searchLabel": "转换历史",
+      "searchDesc": "查看最近的转换任务与结果",
+      "clear": "清空历史",
+      "openOutput": "打开输出",
+      "empty": "暂无转换记录",
+      "cleared": "转换历史已清空"
+    },
     "animationSpeed": {
       "label": "动画速率",
       "desc": "控制页面切换和元素依次出现的速度",
