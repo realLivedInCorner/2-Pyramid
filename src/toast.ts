@@ -139,31 +139,43 @@ async function runAction(actionId: string): Promise<void> {
   }
 }
 
-async function dismissToast(): Promise<void> {
+async function dismissToast(animate: boolean = true): Promise<void> {
+  const label = readQuery().label;
+
+  const closeWindow = async (): Promise<void> => {
+    // Close this very window. `getCurrentWindow().close()` can fail
+    // silently in some IPC states; fall back to the Rust
+    // `dismiss_toast` command (which closes by label) so the toast
+    // never lingers as a white ghost window.
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      /* ignore: window may already be gone */
+    }
+    if (label) {
+      // Give the close above a beat; if the window is still alive
+      // (close failed), ask Rust to close it by label.
+      setTimeout(async () => {
+        try {
+          await invoke("dismiss_toast", { label });
+        } catch {
+          /* ignore */
+        }
+      }, 300);
+    }
+  };
+
+  if (!animate) {
+    // User clicked the close button: text and window disappear
+    // together — no fade-out-before-close sequence.
+    await closeWindow();
+    return;
+  }
+
   const card = document.getElementById("toast")!;
   card.classList.add("leaving");
   await new Promise((r) => setTimeout(r, 240));
-  // Close this very window. `getCurrentWindow().close()` can fail
-  // silently in some IPC states; fall back to the Rust `dismiss_toast`
-  // command (which closes by label) so the toast never lingers as a
-  // white ghost window after its content has faded out.
-  const label = readQuery().label;
-  try {
-    await getCurrentWindow().close();
-  } catch {
-    /* ignore: window may already be gone */
-  }
-  if (label) {
-    // Give the close above a beat; if the window is still alive
-    // (close failed), ask Rust to close it by label.
-    setTimeout(async () => {
-      try {
-        await invoke("dismiss_toast", { label });
-      } catch {
-        /* ignore */
-      }
-    }, 300);
-  }
+  await closeWindow();
 }
 
 function wireCardClick(): void {
@@ -176,7 +188,8 @@ function wireCardClick(): void {
 function wireCloseButton(): void {
   document.getElementById("toast-close")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    dismissToast();
+    // Close immediately: the text and the window vanish together.
+    dismissToast(false);
   });
 }
 

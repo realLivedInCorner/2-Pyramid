@@ -28,8 +28,8 @@ use tauri::{
 
 /// Width / height of a single toast in DIPs. Compact notification
 /// size (like a Windows 11 banner), not a modal panel.
-const TOAST_W: f64 = 320.0;
-const TOAST_H: f64 = 88.0;
+const TOAST_W: f64 = 340.0;
+const TOAST_H: f64 = 96.0;
 /// Gap between stacked toasts and from screen edges.
 const TOAST_GAP: f64 = 10.0;
 /// Toast hugs the corner of the screen ("顶格"): a small 12px margin
@@ -172,6 +172,11 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
             format!("failed to build toast window: {}", e)
         })?;
 
+    // Sweep leftovers and evict overflow BEFORE measuring the stack so
+    // the new toast anchors at the true top of the chosen corner.
+    sweep_invisible_toasts(&app);
+    evict_overflow(&app);
+
     // Anchor to the user-configured corner of the primary monitor.
     let mut anchor: Option<(f64, f64)> = None;
     if let Some(monitor) = app.primary_monitor().map_err(|e| {
@@ -187,13 +192,11 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         let mon_x = mon_pos.x as f64 / scale;
         let mon_y = mon_pos.y as f64 / scale;
 
-        // Count existing live toasts so we can stack the new one below
-        // them. The stack grows downward. NOTE: `count_live_toasts`
-        // already sees the window we just built (it is registered the
-        // moment build() succeeds), so subtract 1 — otherwise the very
-        // first toast is pushed down one slot and every stack position
-        // is off by one.
-        let stack_offset = count_live_toasts(&app).saturating_sub(1) as f64;
+        // Count existing VISIBLE toasts so we can stack the new one
+        // below them. The stack grows downward. Only visible windows
+        // count — closing/leftover windows were swept above, so the
+        // very first toast sits at the corner slot.
+        let stack_offset = count_live_toasts(&app) as f64;
 
         let position = crate::commands::config::read_config_file()
             .ok()
@@ -228,9 +231,6 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
     } else {
         crate::log_warn!("toast: no primary monitor; using default position");
     }
-
-    // Evict oldest if we're over the stack limit.
-    evict_overflow(&app);
 
     window.show().map_err(|e| {
         crate::log_error!("toast: show failed: {}", e);
@@ -347,10 +347,23 @@ fn dismiss_all_toasts_inner(app: &AppHandle) {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
+/// Close every toast window that is not visible. These are leftovers —
+/// a close in progress, or a toast whose JS never dismissed it. If we
+/// didn't sweep them they would keep pushing the next toast's stack
+/// position away from the corner (observed: toasts appearing far from
+/// the top-right despite the 12px margin).
+fn sweep_invisible_toasts(app: &AppHandle) {
+    for (_, w) in app.webview_windows() {
+        if w.label().starts_with("toast-") && !w.is_visible().unwrap_or(false) {
+            let _ = w.close();
+        }
+    }
+}
+
 fn count_live_toasts(app: &AppHandle) -> usize {
     app.webview_windows()
-        .keys()
-        .filter(|l| l.starts_with("toast-"))
+        .values()
+        .filter(|w| w.label().starts_with("toast-") && w.is_visible().unwrap_or(false))
         .count()
 }
 
