@@ -415,6 +415,30 @@ async function finish() {
   overflow: hidden;
 }
 
+/* 进入动画：品牌、内容、导航依次上浮淡入（工厂重置后平滑过渡） */
+.startup-top {
+  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+.panel-content {
+  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+
+.panel-nav {
+  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+@keyframes oobe-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ═══ 顶部品牌 + 步骤指示器 ═══ */
 .startup-top {
   display: flex;
