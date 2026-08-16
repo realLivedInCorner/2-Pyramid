@@ -91,6 +91,16 @@
               </div>
             </div>
           </div>
+          <div class="setting-item clickable" @click="openBackgroundDialog" v-if="shouldShowItem('background')">
+            <div class="item-icon">
+              <i class="ri-image-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.background.label') }}</div>
+              <div class="desc">{{ t('settings.background.desc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
         </div>
       </section>
 
@@ -550,6 +560,89 @@
       </div>
     </transition>
 
+    <!-- 更换背景对话框 -->
+    <transition name="dialog-pop">
+      <div v-if="showBackgroundDialog" class="dialog-overlay">
+        <div class="dialog-content background-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.background.dialogTitle') }}</h3>
+            <button class="dialog-close" @click="closeBackgroundDialog" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <!-- 预览区 -->
+            <div class="bg-preview" :style="bgPreviewStyle">
+              <div v-if="!bgDraftPreview" class="bg-preview-empty">
+                <i class="ri-image-add-line" aria-hidden="true"></i>
+                <span>{{ t('settings.background.noImage') }}</span>
+              </div>
+            </div>
+            <div class="dialog-input-row">
+              <button class="btn-text" @click="pickBackgroundImage" :disabled="bgSyncing">
+                {{ t('settings.background.choose') }}
+              </button>
+              <button
+                v-if="currentBackgroundPath"
+                class="btn-text danger"
+                @click="removeBackground"
+                :disabled="bgSyncing"
+              >
+                {{ t('settings.background.remove') }}
+              </button>
+            </div>
+
+            <!-- 展示方式 -->
+            <div class="bg-row">
+              <span class="bg-row-label">{{ t('settings.background.fit') }}</span>
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: bgDraftFit === 'cover' }" @click="bgDraftFit = 'cover'">{{ t('settings.background.fitCover') }}</button>
+                <button class="seg-btn" :class="{ active: bgDraftFit === 'contain' }" @click="bgDraftFit = 'contain'">{{ t('settings.background.fitContain') }}</button>
+                <button class="seg-btn" :class="{ active: bgDraftFit === 'stretch' }" @click="bgDraftFit = 'stretch'">{{ t('settings.background.fitStretch') }}</button>
+                <button class="seg-btn" :class="{ active: bgDraftFit === 'tile' }" @click="bgDraftFit = 'tile'">{{ t('settings.background.fitTile') }}</button>
+              </div>
+            </div>
+
+            <!-- 透色强度 -->
+            <div class="bg-row">
+              <span class="bg-row-label">{{ t('settings.background.opacity') }}</span>
+              <input
+                type="range"
+                min="20"
+                max="100"
+                step="5"
+                v-model.number="bgDraftOpacity"
+                class="bg-range"
+              />
+              <span class="bg-opacity-val">{{ bgDraftOpacity }}%</span>
+            </div>
+
+            <!-- 自取色 -->
+            <div class="bg-row">
+              <span class="bg-row-label">{{ t('settings.background.extractColor') }}</span>
+              <label class="switch">
+                <input type="checkbox" v-model="bgExtractColor" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <p class="dialog-hint">{{ t('settings.background.extractColorDesc') }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text secondary" @click="closeBackgroundDialog" :disabled="bgSyncing">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="btn-text" @click="submitBackground" :disabled="bgSyncing || !bgDraftFile">
+              {{ t('settings.background.apply') }}
+            </button>
+          </div>
+
+          <!-- Syncing 遮罩：提交处理中，中央旋转圆圈 -->
+          <div v-if="bgSyncing" class="bg-syncing">
+            <i class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
+            <span>Syncing...</span>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <transition name="dialog-pop">
       <div v-if="showThemeDialog" class="dialog-overlay" @click="showThemeDialog = false">
         <div class="dialog-content theme-dialog" @click.stop>
@@ -736,6 +829,7 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { useUpdater } from '../composables/useUpdater';
 import { useNotification, type NotificationMode } from '../composables/useNotification';
@@ -758,6 +852,7 @@ const emit = defineEmits([
   'update:source-handling',
   'update:open-output-after-convert',
   'update:action-monitor',
+  'update:background',
   'show-update-dialog',
   'reset-to-oobe',
 ]);
@@ -864,6 +959,134 @@ const showClearConfigDialog = ref(false);
 const showFactoryResetDialog = ref(false);
 // 动作监视（开发者诊断）：记录前端所有点击行为到日志
 const actionMonitorEnabled = ref(false);
+
+// ── 自定义背景 ────────────────────────────────────────────────
+const showBackgroundDialog = ref(false);
+const bgDraftFile = ref<string | null>(null);
+const bgDraftPreview = ref('');
+const bgDraftFit = ref<'cover' | 'contain' | 'stretch' | 'tile'>('cover');
+const bgDraftOpacity = ref(80); // 百分比 20–100
+const bgExtractColor = ref(true);
+const bgSyncing = ref(false);
+const currentBackgroundPath = ref<string | null>(null);
+const currentBackgroundFit = ref<'cover' | 'contain' | 'stretch' | 'tile'>('cover');
+const currentBackgroundOpacity = ref(1);
+
+const bgPreviewStyle = computed(() => {
+  if (!bgDraftPreview.value) return {};
+  return {
+    backgroundImage: `url(${bgDraftPreview.value})`,
+    backgroundSize: bgDraftFit.value === 'stretch' ? '100% 100%' : bgDraftFit.value,
+    backgroundRepeat: bgDraftFit.value === 'tile' ? 'repeat' : 'no-repeat',
+    backgroundPosition: 'center',
+    opacity: bgDraftOpacity.value / 100,
+  };
+});
+
+const openBackgroundDialog = () => {
+  bgDraftFile.value = null;
+  bgDraftPreview.value = '';
+  bgDraftFit.value = currentBackgroundFit.value;
+  bgDraftOpacity.value = Math.round(currentBackgroundOpacity.value * 100);
+  bgExtractColor.value = true;
+  bgSyncing.value = false;
+  showBackgroundDialog.value = true;
+};
+
+const closeBackgroundDialog = () => {
+  if (bgSyncing.value) return;
+  showBackgroundDialog.value = false;
+};
+
+const pickBackgroundImage = async () => {
+  try {
+    const selected = await open({
+      multiple: false,
+      filters: [{
+        name: t('settings.background.filter'),
+        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'],
+      }],
+    });
+    if (selected && typeof selected === 'string') {
+      bgDraftFile.value = selected;
+      bgDraftPreview.value = convertFileSrc(selected);
+    }
+  } catch (e) {
+    console.error('[background] pick failed:', e);
+  }
+};
+
+const submitBackground = async () => {
+  if (!bgDraftFile.value || bgSyncing.value) return;
+  bgSyncing.value = true;
+  try {
+    const result = await invoke<{ background_path: string | null; theme_color: string | null }>(
+      'set_background',
+      {
+        filePath: bgDraftFile.value,
+        fit: bgDraftFit.value,
+        opacity: bgDraftOpacity.value / 100,
+        extractColor: bgExtractColor.value,
+      },
+    );
+    currentBackgroundPath.value = result.background_path;
+    currentBackgroundFit.value = bgDraftFit.value;
+    currentBackgroundOpacity.value = bgDraftOpacity.value / 100;
+    if (result.theme_color) {
+      themeColor.value = result.theme_color;
+      tempThemeColor.value = result.theme_color;
+    }
+    emit('update:background', {
+      path: result.background_path,
+      fit: bgDraftFit.value,
+      opacity: bgDraftOpacity.value / 100,
+      themeColor: result.theme_color,
+    });
+    showBackgroundDialog.value = false;
+    notify({
+      title: t('settings.background.dialogTitle'),
+      body: t('settings.background.success'),
+      type: 'success',
+      source: 'system',
+    });
+  } catch (e) {
+    notify({
+      title: t('settings.background.dialogTitle'),
+      body: t('settings.background.failed', { error: String(e) }),
+      type: 'error',
+      source: 'system',
+    });
+  } finally {
+    bgSyncing.value = false;
+  }
+};
+
+const removeBackground = async () => {
+  if (bgSyncing.value) return;
+  bgSyncing.value = true;
+  try {
+    await invoke('clear_background');
+    currentBackgroundPath.value = null;
+    bgDraftFile.value = null;
+    bgDraftPreview.value = '';
+    emit('update:background', { path: null, fit: 'cover', opacity: 1, themeColor: null });
+    notify({
+      title: t('settings.background.dialogTitle'),
+      body: t('settings.background.removed'),
+      type: 'success',
+      source: 'system',
+    });
+  } catch (e) {
+    notify({
+      title: t('settings.background.dialogTitle'),
+      body: t('settings.background.failed', { error: String(e) }),
+      type: 'error',
+      source: 'system',
+    });
+  } finally {
+    bgSyncing.value = false;
+  }
+};
 const factoryResetDeep = ref(false);
 const factoryResetBusy = ref(false);
 const defaultThemeColor = '#007bff';
@@ -921,6 +1144,7 @@ const settingItems = [
   { id: 'language', group: 'language', label: t('settings.language.label'), desc: t('settings.language.desc') },
   { id: 'userName', group: 'personal', label: t('settings.userName.label'), desc: t('settings.userName.desc', { name: localUserName.value || '—' }) },
   { id: 'theme', group: 'global', label: t('settings.theme.label'), desc: t('settings.theme.searchDesc') },
+  { id: 'background', group: 'global', label: t('settings.background.label'), desc: t('settings.background.desc') },
   { id: 'outputMode', group: 'convert', label: t('settings.outputMode.label'), desc: t('settings.outputMode.desc') },
   { id: 'notification', group: 'notification', label: t('settings.notification.label'), desc: t('settings.notification.desc') },
   { id: 'notificationMode', group: 'notification', label: t('settings.notificationMode.label'), desc: t('settings.notificationMode.desc') },
@@ -1238,6 +1462,15 @@ onMounted(() => {
       }
       if (cfg?.toast_position === 'top-left' || cfg?.toast_position === 'top-right' || cfg?.toast_position === 'bottom-left' || cfg?.toast_position === 'bottom-right') {
         toastPosition.value = cfg.toast_position;
+      }
+      if (typeof cfg?.background_image === 'string' && cfg.background_image.length > 0) {
+        currentBackgroundPath.value = cfg.background_image;
+      }
+      if (cfg?.background_fit === 'cover' || cfg?.background_fit === 'contain' || cfg?.background_fit === 'stretch' || cfg?.background_fit === 'tile') {
+        currentBackgroundFit.value = cfg.background_fit;
+      }
+      if (typeof cfg?.background_opacity === 'number') {
+        currentBackgroundOpacity.value = cfg.background_opacity;
       }
       if (typeof cfg?.conversion_threads === 'number' && [1, 2, 4].includes(cfg.conversion_threads)) {
         conversionThreads.value = cfg.conversion_threads;
@@ -1799,6 +2032,79 @@ const hexToHsv = (hex: string) => {
 
 /* 转换历史列表（对话框内） */
 .history-dialog { width: 520px; max-width: 92vw; }
+
+/* 背景更换对话框 */
+.background-dialog {
+  width: 520px;
+  max-width: 92vw;
+  position: relative;
+}
+.background-dialog .dialog-body {
+  gap: 14px;
+}
+.bg-preview {
+  width: 100%;
+  height: 180px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.bg-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.bg-preview-empty i { font-size: 30px; }
+.bg-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bg-row-label {
+  flex: 0 0 76px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+.bg-range {
+  flex: 1 1 auto;
+  accent-color: var(--theme-color);
+}
+.bg-opacity-val {
+  flex: 0 0 42px;
+  text-align: right;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Syncing 遮罩：中央旋转圆圈 + Syncing... */
+.bg-syncing {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.bg-syncing i {
+  font-size: 26px;
+  color: var(--theme-color);
+}
 .history-list {
   display: flex;
   flex-direction: column;

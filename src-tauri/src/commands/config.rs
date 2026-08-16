@@ -27,6 +27,12 @@ pub struct AppConfig {
     /// Output file naming template with `[Name]` / `[Ver]` / `[Time]` /
     /// `[Date]` placeholders, e.g. `[Name] [Ver]`.
     pub output_naming: Option<String>,
+    /// Custom background image path (managed via set_background).
+    pub background_image: Option<String>,
+    /// Background display fit: "cover" / "contain" / "stretch" / "tile".
+    pub background_fit: Option<String>,
+    /// Background layer opacity (0.1–1.0).
+    pub background_opacity: Option<f64>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
