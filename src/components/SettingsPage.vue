@@ -101,6 +101,21 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
+          <div class="setting-item" v-if="shouldShowItem('uiStyle')">
+            <div class="item-icon">
+              <i class="ri-contrast-2-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.uiStyle.label') }}</div>
+              <div class="desc">{{ t('settings.uiStyle.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: uiStyle === 'glass' }" @click="uiStyle = 'glass'">{{ t('settings.uiStyle.glass') }}</button>
+                <button class="seg-btn" :class="{ active: uiStyle === 'frosted' }" @click="uiStyle = 'frosted'">{{ t('settings.uiStyle.frosted') }}</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -853,6 +868,7 @@ const emit = defineEmits([
   'update:open-output-after-convert',
   'update:action-monitor',
   'update:background',
+  'update:ui-style',
   'show-update-dialog',
   'reset-to-oobe',
 ]);
@@ -971,6 +987,8 @@ const bgSyncing = ref(false);
 const currentBackgroundPath = ref<string | null>(null);
 const currentBackgroundFit = ref<'cover' | 'contain' | 'stretch' | 'tile'>('cover');
 const currentBackgroundOpacity = ref(1);
+// 控件表面样式：玻璃 / 磨砂
+const uiStyle = ref<'glass' | 'frosted'>('glass');
 
 const bgPreviewStyle = computed(() => {
   if (!bgDraftPreview.value) return {};
@@ -1145,6 +1163,7 @@ const settingItems = [
   { id: 'userName', group: 'personal', label: t('settings.userName.label'), desc: t('settings.userName.desc', { name: localUserName.value || '—' }) },
   { id: 'theme', group: 'global', label: t('settings.theme.label'), desc: t('settings.theme.searchDesc') },
   { id: 'background', group: 'global', label: t('settings.background.label'), desc: t('settings.background.desc') },
+  { id: 'uiStyle', group: 'global', label: t('settings.uiStyle.label'), desc: t('settings.uiStyle.desc') },
   { id: 'outputMode', group: 'convert', label: t('settings.outputMode.label'), desc: t('settings.outputMode.desc') },
   { id: 'notification', group: 'notification', label: t('settings.notification.label'), desc: t('settings.notification.desc') },
   { id: 'notificationMode', group: 'notification', label: t('settings.notificationMode.label'), desc: t('settings.notificationMode.desc') },
@@ -1472,6 +1491,9 @@ onMounted(() => {
       if (typeof cfg?.background_opacity === 'number') {
         currentBackgroundOpacity.value = cfg.background_opacity;
       }
+      if (cfg?.ui_style === 'glass' || cfg?.ui_style === 'frosted') {
+        uiStyle.value = cfg.ui_style;
+      }
       if (typeof cfg?.conversion_threads === 'number' && [1, 2, 4].includes(cfg.conversion_threads)) {
         conversionThreads.value = cfg.conversion_threads;
       }
@@ -1591,6 +1613,11 @@ watch(toastPosition, (val) => {
 
 watch(conversionThreads, (val) => {
   invoke('update_config', { patch: { conversionThreads: val } }).catch(() => {});
+});
+
+watch(uiStyle, (val) => {
+  invoke('update_config', { patch: { uiStyle: val } }).catch(() => {});
+  emit('update:ui-style', val);
 });
 
 watch(namingTemplate, (val) => {

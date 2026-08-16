@@ -184,6 +184,14 @@
       "removed": "Background removed",
       "failed": "Failed to change background: {error}"
     },
+    "uiStyle": {
+      "label": "Control Style",
+      "desc": "Translucency of cards and controls",
+      "searchLabel": "Control Style",
+      "searchDesc": "Translucency of cards and controls",
+      "glass": "Glass",
+      "frosted": "Frosted"
+    },
     "outputMode": {
       "label": "Output Directory Strategy",
       "desc": "Choose fixed directory or follow source pack",
