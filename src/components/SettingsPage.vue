@@ -239,28 +239,7 @@
         </div>
       </section>
 
-      <!-- 关闭行为设置 -->
-      <section class="settings-group" v-if="shouldShowGroup('closeAction')">
-        <h3 class="group-title">{{ t('settings.groups.closeAction') }}</h3>
-        <div class="group-card">
-          <div class="setting-item" v-if="shouldShowItem('closeAction')">
-            <div class="item-icon">
-              <i class="ri-close-circle-line" aria-hidden="true"></i>
-            </div>
-            <div class="item-info">
-              <div class="label">{{ t('settings.closeAction.label') }}</div>
-              <div class="desc">{{ t('settings.closeAction.desc') }}</div>
-            </div>
-            <div class="item-action">
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: closeAction === 'ask' }" @click="closeAction = 'ask'">{{ t('settings.closeAction.ask') }}</button>
-                <button class="seg-btn" :class="{ active: closeAction === 'close' }" @click="closeAction = 'close'">{{ t('settings.closeAction.close') }}</button>
-                <button class="seg-btn" :class="{ active: closeAction === 'minimize' }" @click="closeAction = 'minimize'">{{ t('settings.closeAction.minimize') }}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <!-- 关闭行为设置已移除：关闭窗口现在始终直接退出应用 -->
 
       <!-- 高级设置 (工厂重置) -->
       <section class="settings-group" v-if="shouldShowGroup('factoryReset')">
@@ -598,7 +577,6 @@ const emit = defineEmits([
   'update:dev-mode',
   'update:user-name',
   'update:animation-speed',
-  'update:close-action',
   'update:source-handling',
   'update:open-output-after-convert',
   'show-update-dialog',
@@ -620,7 +598,6 @@ const animationSpeedOptions: { value: AnimationSpeed; labelKey: string }[] = [
   { value: 'normal', labelKey: 'settings.animationSpeed.normal' },
   { value: 'fast', labelKey: 'settings.animationSpeed.fast' },
 ];
-const closeAction = ref<'ask' | 'close' | 'minimize'>('ask');
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>(props.sourceHandling ?? 'ask');
 const openOutputAfterConvert = ref<boolean>(props.openOutputAfterConvert ?? true);
 const showThemeDialog = ref(false);
@@ -690,7 +667,6 @@ const settingItems = [
   { id: 'testNotification', group: 'notification', label: t('settings.testNotification.label'), desc: t('settings.testNotification.desc') },
   { id: 'contextMenu', group: 'contextMenu', label: t('settings.contextMenu.label'), desc: t('settings.contextMenu.desc') },
   { id: 'refreshContextMenu', group: 'contextMenu', label: t('settings.refreshContextMenu.label'), desc: t('settings.refreshContextMenu.desc') },
-  { id: 'closeAction', group: 'closeAction', label: t('settings.closeAction.label'), desc: t('settings.closeAction.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
@@ -875,7 +851,6 @@ const confirmFactoryReset = async () => {
     // starts truly fresh. We don't clear everything (that would also
     // nuke unrelated keys if the user has any), only the 2pyr-owned
     // ones.
-    localStorage.removeItem('closeAction');
     localStorage.removeItem('sourceHandling');
     localStorage.removeItem('openOutputAfterConvert');
     localStorage.removeItem('animationSpeed');
@@ -997,10 +972,6 @@ onMounted(() => {
     })
     .catch(() => {});
 
-  const savedCloseAction = localStorage.getItem('closeAction');
-  if (savedCloseAction === 'ask' || savedCloseAction === 'close' || savedCloseAction === 'minimize') {
-    closeAction.value = savedCloseAction;
-  }
   const savedSourceHandling = localStorage.getItem('sourceHandling');
   if (savedSourceHandling === 'ask' || savedSourceHandling === 'delete' || savedSourceHandling === 'keep') {
     sourceHandling.value = savedSourceHandling;
@@ -1069,12 +1040,6 @@ watch(notificationMode, (val) => {
 watch(animationSpeed, (val) => {
   localStorage.setItem('animationSpeed', val);
   emit('update:animation-speed', val);
-});
-
-watch(closeAction, (val) => {
-  localStorage.setItem('closeAction', val);
-  invoke('update_config', { patch: { closeAction: val } }).catch(() => {});
-  emit('update:close-action', val);
 });
 
 watch(sourceHandling, (val) => {

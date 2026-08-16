@@ -18,7 +18,6 @@ const userName = ref('')
 const outputMode = ref<'follow' | 'fixed'>('follow')
 const notificationEnabled = ref(true)
 const notificationMode = ref<'system' | 'app' | 'both'>('both')
-const closeAction = ref<'ask' | 'close' | 'minimize'>('ask')
 // Post-conversion source-pack handling + auto-open output folder.
 // Default `ask` is the safest choice for first-time users: the app
 // will prompt before deleting any of their packs.
@@ -41,7 +40,6 @@ interface BackupInfo {
     user_name: string | null
     output_mode: string | null
     notification_mode: string | null
-    close_action: string | null
     source_handling: string | null
     open_output_after_convert: boolean | null
     theme_color: string | null
@@ -107,7 +105,6 @@ async function finish() {
         outputMode: outputMode.value,
         notificationEnabled: notificationEnabled.value,
         notificationMode: notificationMode.value,
-        closeAction: closeAction.value,
         sourceHandling: sourceHandling.value,
         openOutputAfterConvert: openOutputAfterConvert.value,
       }
@@ -116,7 +113,6 @@ async function finish() {
     localStorage.setItem('outputMode', outputMode.value)
     localStorage.setItem('notificationEnabled', String(notificationEnabled.value))
     localStorage.setItem('notificationMode', notificationMode.value)
-    localStorage.setItem('closeAction', closeAction.value)
     localStorage.setItem('sourceHandling', sourceHandling.value)
     localStorage.setItem('openOutputAfterConvert', String(openOutputAfterConvert.value))
   } catch (e) {
@@ -308,18 +304,7 @@ async function finish() {
               </div>
             </div>
 
-            <!-- Close Action -->
-            <div class="startup-setting-row">
-              <div class="startup-setting-info">
-                <span class="startup-setting-label">{{ t('oobe.step4.closeAction') }}</span>
-                <span class="startup-setting-desc">{{ t('oobe.step4.closeActionDesc') }}</span>
-              </div>
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: closeAction === 'ask' }" @click="closeAction = 'ask'">{{ t('oobe.step4.closeActionAsk') }}</button>
-                <button class="seg-btn" :class="{ active: closeAction === 'close' }" @click="closeAction = 'close'">{{ t('oobe.step4.closeActionClose') }}</button>
-                <button class="seg-btn" :class="{ active: closeAction === 'minimize' }" @click="closeAction = 'minimize'">{{ t('oobe.step4.closeActionMinimize') }}</button>
-              </div>
-            </div>
+            <!-- Close Action 设置已移除：关闭窗口现在始终直接退出应用 -->
 
             <!-- Source Pack Handling (post-conversion) -->
             <div class="startup-setting-row">
@@ -390,10 +375,6 @@ async function finish() {
               <li v-if="backupInfo.summary.output_mode">
                 <span class="label">{{ t('settings.outputMode.label') }}</span>
                 <span class="value">{{ t(`settings.outputMode.${backupInfo.summary.output_mode}`, backupInfo.summary.output_mode) }}</span>
-              </li>
-              <li v-if="backupInfo.summary.close_action">
-                <span class="label">{{ t('settings.closeAction.label') }}</span>
-                <span class="value">{{ t(`settings.closeAction.${backupInfo.summary.close_action}`, backupInfo.summary.close_action) }}</span>
               </li>
               <li v-if="backupInfo.summary.source_handling">
                 <span class="label">{{ t('settings.sourceHandling.label') }}</span>
