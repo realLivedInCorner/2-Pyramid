@@ -1,48 +1,120 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+// 流程步骤：0 介绍 / 1 安装位置 / 2 安装中 / 3 完成
+const step = ref(0);
+const totalSteps = 4;
+
+const uninstallMode = ref(false);
 const dir = ref("");
 const version = ref("2.0.0");
+const githubUrl = ref("");
 const busy = ref(false);
-const state = ref<"idle" | "installing" | "done" | "error">("idle");
-const message = ref("");
+const failed = ref(false);
+const resultMessage = ref("");
 const installed = ref(false);
+
+// 安装进度
+const progressCurrent = ref(0);
+const progressTotal = ref(0);
+const progressName = ref("");
+const progressPercent = ref(0);
+let unlistenProgress: UnlistenFn | null = null;
 
 onMounted(async () => {
   try {
-    dir.value = await invoke<string>("get_default_dir");
+    uninstallMode.value = await invoke<boolean>("is_uninstall_mode");
+    dir.value = uninstallMode.value
+      ? ((await invoke<string | null>("get_installed_dir")) ?? await invoke<string>("get_default_dir"))
+      : await invoke<string>("get_default_dir");
     version.value = await invoke<string>("get_version");
+    githubUrl.value = await invoke<string>("get_github_url");
     installed.value = await invoke<boolean>("is_installed");
   } catch (e) {
-    message.value = String(e);
+    console.error("[installer] init failed:", e);
+  }
+  if (!uninstallMode.value) {
+    unlistenProgress = await listen<{ current: number; total: number; name: string }>(
+      "install-progress",
+      (event) => {
+        progressCurrent.value = event.payload.current;
+        progressTotal.value = event.payload.total;
+        progressName.value = event.payload.name;
+        progressPercent.value = event.payload.total > 0
+          ? Math.round((event.payload.current / event.payload.total) * 100)
+          : 0;
+      },
+    );
+  }
+});
+
+onUnmounted(() => {
+  if (unlistenProgress) {
+    unlistenProgress();
+    unlistenProgress = null;
   }
 });
 
 const browse = async () => {
   try {
     const selected = await open({ directory: true, multiple: false });
-    if (selected && typeof selected === "string") {
-      dir.value = selected;
-    }
+    if (selected && typeof selected === "string") dir.value = selected;
   } catch { /* ignore */ }
+};
+
+const openGithub = async () => {
+  try {
+    if (githubUrl.value) await openUrl(githubUrl.value);
+  } catch (e) {
+    console.error("[installer] open github failed:", e);
+  }
+};
+
+const next = () => {
+  if (step.value < totalSteps - 1) step.value++;
+};
+
+const prev = () => {
+  if (step.value > 0) step.value--;
 };
 
 const doInstall = async () => {
   if (!dir.value.trim() || busy.value) return;
   busy.value = true;
-  state.value = "installing";
-  message.value = "";
+  failed.value = false;
+  progressCurrent.value = 0;
+  progressTotal.value = 0;
+  progressName.value = "";
+  progressPercent.value = 0;
+  step.value = 2;
   try {
-    const result = await invoke<string>("install", { dir: dir.value.trim() });
-    message.value = result;
-    state.value = "done";
+    resultMessage.value = await invoke<string>("install", { dir: dir.value.trim(), createShortcut: false });
     installed.value = true;
+    step.value = 3;
   } catch (e) {
-    message.value = String(e);
-    state.value = "error";
+    failed.value = true;
+    resultMessage.value = String(e);
+  } finally {
+    busy.value = false;
+  }
+};
+
+const doUninstall = async () => {
+  if (busy.value) return;
+  busy.value = true;
+  failed.value = false;
+  try {
+    resultMessage.value = await invoke<string>("uninstall", { dir: dir.value.trim() });
+    installed.value = false;
+    step.value = 3;
+  } catch (e) {
+    failed.value = true;
+    resultMessage.value = String(e);
   } finally {
     busy.value = false;
   }
@@ -53,24 +125,8 @@ const doLaunch = async () => {
     await invoke("launch_app", { dir: dir.value.trim() });
     closeWindow();
   } catch (e) {
-    message.value = String(e);
-  }
-};
-
-const doUninstall = async () => {
-  if (busy.value) return;
-  busy.value = true;
-  state.value = "installing";
-  try {
-    const result = await invoke<string>("uninstall", { dir: dir.value.trim() });
-    message.value = result;
-    state.value = "done";
-    installed.value = false;
-  } catch (e) {
-    message.value = String(e);
-    state.value = "error";
-  } finally {
-    busy.value = false;
+    failed.value = true;
+    resultMessage.value = String(e);
   }
 };
 
@@ -86,7 +142,8 @@ const closeWindow = async () => {
     <div class="drag-region" data-tauri-drag-region="true"></div>
     <button class="window-close" @click="closeWindow" aria-label="关闭">×</button>
 
-    <header class="brand">
+    <!-- 顶部品牌 -->
+    <header class="top-brand">
       <svg class="logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g stroke="currentColor" stroke-linecap="round">
           <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
@@ -95,51 +152,163 @@ const closeWindow = async () => {
           <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
         </g>
       </svg>
-      <div class="brand-text">
-        <h1>2-Pyramid</h1>
-        <p>安装器 · v{{ version }}</p>
+      <div class="top-brand-text">
+        <span class="top-brand-name">2-Pyramid</span>
+        <span class="top-brand-tag">{{ uninstallMode ? '卸载程序' : '安装程序' }} · v{{ version }}</span>
       </div>
     </header>
 
+    <!-- 步骤指示器（卸载模式隐藏） -->
+    <div class="steps" v-if="!uninstallMode">
+      <template v-for="i in totalSteps" :key="i">
+        <span v-if="i > 1" class="step-line" :class="{ done: i - 2 < step }"></span>
+        <span class="step-dot" :class="{ active: i - 1 === step, done: i - 1 < step }">
+          <i v-if="i - 1 < step" class="ri-check-line"></i>
+          <template v-else>{{ i }}</template>
+        </span>
+      </template>
+    </div>
+
+    <!-- 内容区 -->
     <main class="content">
-      <div class="card">
-        <label class="field-label">安装位置</label>
-        <div class="field-row">
-          <input v-model="dir" class="dir-input" spellcheck="false" />
-          <button class="btn ghost" @click="browse">浏览</button>
-        </div>
-        <p class="hint">默认安装到当前用户目录，无需管理员权限。</p>
-
-        <button
-          class="btn primary install-btn"
-          :disabled="busy || !dir.trim()"
-          @click="doInstall"
-        >
-          <i v-if="state === 'installing'" class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
-          {{ state === 'installing' ? '安装中…' : '安装 2-Pyramid' }}
-        </button>
-
-        <div v-if="state === 'done'" class="status ok">
-          <i class="ri-checkbox-circle-line" aria-hidden="true"></i>
-          <span>{{ message }}</span>
-          <div class="status-actions">
-            <button class="btn primary small" @click="doLaunch">启动 2-Pyramid</button>
-            <button class="btn ghost small" @click="closeWindow">关闭</button>
+      <!-- 安装模式：步骤 0 介绍 -->
+      <div v-if="!uninstallMode && step === 0" class="panel">
+        <div class="panel-title">欢迎使用 2-Pyramid</div>
+        <p class="panel-desc">
+          2-Pyramid 是一款多版本 Minecraft 资源包转换工具，
+          支持将传统资源包一键转换为任意 Minecraft 版本。
+        </p>
+        <div class="feature-row">
+          <div class="feature">
+            <i class="ri-swap-box-line" aria-hidden="true"></i>
+            <b>一键转换</b>
+            <span>26 个 Minecraft 版本目标</span>
+          </div>
+          <div class="feature">
+            <i class="ri-palette-line" aria-hidden="true"></i>
+            <b>深度定制</b>
+            <span>背景、主题色、控件皮肤</span>
+          </div>
+          <div class="feature">
+            <i class="ri-stack-line" aria-hidden="true"></i>
+            <b>覆盖包系统</b>
+            <span>叠加任意母包之上</span>
           </div>
         </div>
-        <div v-else-if="state === 'error'" class="status err">
-          <i class="ri-error-warning-line" aria-hidden="true"></i>
-          <span>{{ message }}</span>
+        <div class="github-card">
+          <i class="ri-github-fill" aria-hidden="true"></i>
+          <div class="github-text">
+            <b>开源项目</b>
+            <span>2-Pyramid 完全开源，欢迎 Star / Issue / PR</span>
+          </div>
+          <button class="btn ghost" @click="openGithub">访问 GitHub</button>
         </div>
       </div>
 
-      <div class="card uninstall-card" v-if="installed && state !== 'done'">
-        <p class="hint">检测到已安装的 2-Pyramid。如需移除（用户数据保留）：</p>
-        <button class="btn danger" :disabled="busy" @click="doUninstall">卸载</button>
+      <!-- 安装模式：步骤 1 安装位置 -->
+      <div v-else-if="!uninstallMode && step === 1" class="panel">
+        <div class="panel-title">选择安装位置</div>
+        <p class="panel-desc">默认安装到当前用户目录，无需管理员权限。</p>
+        <label class="field-label">安装目录</label>
+        <div class="field-row">
+          <input v-model="dir" class="dir-input" spellcheck="false" />
+          <button class="btn ghost" @click="browse"><i class="ri-folder-open-line"></i> 浏览</button>
+        </div>
+        <p class="hint">
+          安装内容：主程序、转换引擎与内置资源（约几十 MB）。
+          卸载时用户数据（转换记录、设置）将保留。
+        </p>
+      </div>
+
+      <!-- 安装模式：步骤 2 安装中 -->
+      <div v-else-if="!uninstallMode && step === 2" class="panel">
+        <div class="panel-title">正在安装</div>
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+          </div>
+          <div class="progress-meta">
+            <span>{{ progressPercent }}%</span>
+            <span class="progress-file">{{ progressName }}</span>
+          </div>
+        </div>
+        <div v-if="failed" class="status err">
+          <i class="ri-error-warning-line" aria-hidden="true"></i>
+          <span>{{ resultMessage }}</span>
+        </div>
+      </div>
+
+      <!-- 完成（安装/卸载共用） -->
+      <div v-else-if="step === 3" class="panel">
+        <div class="panel-title">{{ failed ? '出错了' : (uninstallMode ? '卸载完成' : '安装完成') }}</div>
+        <div :class="failed ? 'status err' : 'status ok'">
+          <i :class="failed ? 'ri-error-warning-line' : 'ri-checkbox-circle-line'" aria-hidden="true"></i>
+          <span>{{ resultMessage }}</span>
+        </div>
+        <div v-if="!uninstallMode && !failed" class="status-actions">
+          <button class="btn primary" @click="doLaunch"><i class="ri-rocket-2-line"></i> 启动 2-Pyramid</button>
+          <button class="btn ghost" @click="closeWindow">关闭</button>
+        </div>
+        <div v-else-if="failed" class="status-actions">
+          <button v-if="step === 2" class="btn ghost" @click="prev">返回重试</button>
+          <button class="btn ghost" @click="closeWindow">关闭</button>
+        </div>
+        <div v-else class="status-actions">
+          <button class="btn ghost" @click="closeWindow">关闭</button>
+        </div>
+      </div>
+
+      <!-- 卸载模式主面板 -->
+      <div v-else class="panel">
+        <div class="panel-title">卸载 2-Pyramid</div>
+        <p class="panel-desc">
+          将从以下位置移除 2-Pyramid 的全部程序文件。
+          用户数据（转换记录、设置、背景等）将被保留。
+        </p>
+        <label class="field-label">安装目录</label>
+        <div class="field-row">
+          <input v-model="dir" class="dir-input" spellcheck="false" readonly />
+        </div>
       </div>
     </main>
 
-    <footer class="foot">2-Pyramid Studio · 便携释放式安装器</footer>
+    <!-- 底部药丸导航 -->
+    <footer class="foot">
+      <div class="nav-pill">
+        <button
+          v-if="!uninstallMode && step > 0 && step < 3"
+          class="pill-btn ghost"
+          :disabled="busy"
+          @click="prev"
+        ><i class="ri-arrow-left-s-line"></i> 上一步</button>
+
+        <button
+          v-if="!uninstallMode && step === 0"
+          class="pill-btn primary"
+          @click="next"
+        >下一步 <i class="ri-arrow-right-s-line"></i></button>
+
+        <button
+          v-else-if="!uninstallMode && step === 1"
+          class="pill-btn primary"
+          :disabled="busy || !dir.trim()"
+          @click="doInstall"
+        ><i class="ri-install-line"></i> 安装</button>
+
+        <button
+          v-else-if="!uninstallMode && step === 2"
+          class="pill-btn primary"
+          disabled
+        ><i class="ri-loader-4-line ri-spin"></i> 安装中…</button>
+
+        <button
+          v-else-if="uninstallMode && step !== 3"
+          class="pill-btn danger"
+          :disabled="busy || !installed"
+          @click="doUninstall"
+        ><i class="ri-delete-bin-line"></i> 卸载</button>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -155,7 +324,7 @@ html, body, #app {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(165deg, #f6f8fd 0%, #eef2fb 50%, #e8edf9 100%);
+  background: linear-gradient(165deg, #f6f8fd 0%, #eef2fb 55%, #e8edf9 100%);
   color: #1a1a2e;
   overflow: hidden;
   position: relative;
@@ -170,128 +339,272 @@ html, body, #app {
 
 .window-close {
   position: fixed;
-  top: 8px; right: 12px;
-  width: 30px; height: 30px;
+  top: 10px; right: 14px;
+  width: 32px; height: 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
   color: #64748b;
   font-size: 18px;
   cursor: pointer;
   -webkit-app-region: no-drag;
+  transition: all 0.15s;
 }
-.window-close:hover { background: rgba(0, 0, 0, 0.07); color: #0f172a; }
+.window-close:hover { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
 
-.brand {
+/* 顶部品牌 */
+.top-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 40px 36px 0;
+  gap: 12px;
+  padding: 28px 40px 0;
 }
 
-.logo {
-  width: 52px;
-  height: 52px;
-  color: #007bff;
+.logo { width: 42px; height: 42px; color: #007bff; }
+
+.top-brand-text { display: flex; flex-direction: column; gap: 1px; }
+.top-brand-name { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
+.top-brand-tag { font-size: 12px; color: #94a3b8; }
+
+/* 步骤指示器 */
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px 24px 0;
 }
 
-.brand-text h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; }
-.brand-text p { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
+.step-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 700;
+  background: rgba(0, 0, 0, 0.07);
+  color: #94a3b8;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.step-dot i { font-size: 14px; }
+.step-dot.active {
+  background: #007bff;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 123, 255, 0.4);
+}
+.step-dot.done { background: rgba(0, 123, 255, 0.18); color: #007bff; }
 
+.step-line {
+  width: 34px; height: 2px;
+  border-radius: 1px;
+  background: rgba(0, 0, 0, 0.09);
+  transition: background 0.3s ease;
+}
+.step-line.done { background: rgba(0, 123, 255, 0.45); }
+
+/* 内容 */
 .content {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 24px 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 48px;
+  min-height: 0;
   overflow-y: auto;
 }
 
-.card {
+.panel {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.panel-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #111827; }
+.panel-desc { font-size: 14px; color: #6b7280; line-height: 1.7; max-width: 480px; }
+
+.feature-row { display: flex; gap: 14px; width: 100%; margin-top: 8px; }
+
+.feature {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 16px;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
+.feature i { font-size: 26px; color: #007bff; }
+.feature b { font-size: 14px; }
+.feature span { font-size: 12px; color: #94a3b8; }
 
-.field-label { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+.github-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  text-align: left;
+}
+.github-card > i { font-size: 30px; color: #1a1a2e; }
+.github-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.github-text b { font-size: 14px; }
+.github-text span { font-size: 12.5px; color: #94a3b8; }
 
-.field-row { display: flex; gap: 10px; }
+.field-label { width: 100%; text-align: left; font-size: 13px; font-weight: 700; }
+
+.field-row { display: flex; gap: 10px; width: 100%; }
 
 .dir-input {
   flex: 1;
-  padding: 11px 14px;
+  padding: 12px 15px;
   font-size: 13.5px;
   font-family: inherit;
   border: 1.5px solid rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
+  border-radius: 11px;
   background: rgba(255, 255, 255, 0.9);
   color: #1a1a2e;
   outline: none;
 }
 .dir-input:focus { border-color: #007bff; }
 
+.hint { width: 100%; text-align: left; font-size: 12.5px; color: #94a3b8; line-height: 1.6; }
+
+/* 进度 */
+.progress-wrap { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+
+.progress-track {
+  width: 100%; height: 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #007bff, #60a5fa);
+  transition: width 0.25s ease;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.progress-file {
+  flex: 1;
+  margin-left: 16px;
+  font-weight: 500;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 状态 */
+.status {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.status.ok { background: #ecfdf5; color: #15803d; }
+.status.ok i { font-size: 30px; }
+.status.err { background: #fef2f2; color: #b91c1c; }
+.status.err i { font-size: 30px; }
+
+.status-actions { display: flex; gap: 12px; margin-top: 6px; }
+
+/* 按钮 */
 .btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  padding: 11px 20px;
-  font-size: 14px;
+  padding: 10px 18px;
+  font-size: 13.5px;
   font-weight: 700;
   font-family: inherit;
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
 .btn.primary { background: #007bff; color: #fff; box-shadow: 0 4px 14px rgba(0, 123, 255, 0.35); }
-.btn.primary:hover:not(:disabled) { transform: translateY(-1px); }
-
+.btn.primary:hover:not(:disabled) { transform: scale(1.04); }
 .btn.ghost { background: rgba(0, 0, 0, 0.05); color: #475569; }
-.btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.08); }
+.btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.09); }
 
-.btn.danger { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
-.btn.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.18); }
-
-.btn.small { padding: 8px 14px; font-size: 13px; }
-
-.install-btn { width: 100%; padding: 13px; font-size: 15px; }
-
-.install-btn .ri-spin { font-size: 16px; }
-
-.hint { font-size: 12px; color: #94a3b8; line-height: 1.5; }
-
-.status {
+/* 底部药丸 */
+.foot {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  padding: 8px 24px 26px;
+}
+
+.nav-pill {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 600;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
 }
-.status.ok { background: #ecfdf5; color: #15803d; }
-.status.ok i { font-size: 26px; }
-.status.err { background: #fef2f2; color: #b91c1c; }
-
-.status-actions { display: flex; gap: 10px; margin-top: 4px; }
-
-.uninstall-card { align-items: flex-start; }
-
-.foot {
-  padding: 14px 36px 20px;
-  font-size: 11.5px;
-  color: #b0b7c3;
-  text-align: center;
+.nav-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
 }
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 26px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pill-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pill-btn.primary { background: #007bff; color: #fff; box-shadow: 0 4px 14px rgba(0, 123, 255, 0.35); }
+.pill-btn.primary:hover:not(:disabled) { transform: scale(1.05); }
+.pill-btn.ghost { background: rgba(0, 0, 0, 0.05); color: #6b7280; }
+.pill-btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.09); transform: scale(1.05); }
+.pill-btn.danger { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.pill-btn.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); transform: scale(1.05); }
+
+.ri-spin { display: inline-block; }
 </style>
