@@ -13,9 +13,11 @@
     "windows": [
       {
         "title": "2-Pyramid 安装器",
-        "width": 620,
-        "height": 720,
-        "resizable": false,
+        "width": 1200,
+        "height": 750,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
         "center": true,
         "decorations": false
       }
