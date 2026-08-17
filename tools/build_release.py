@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""2-Pyramid 自建发布流水线（自制释放式安装器）。
+"""2-Pyramid 自建发布流水线（Windows 专用）。
 
 流程：
   1. 递增 BUILD 版本号（可 --no-bump 跳过）
@@ -7,9 +7,13 @@
   3. 编译 COM server（two_pyramid_shell.dll，release）
   4. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）
   5. 收集产物到 release/staging/（exe、dll、UImage、overlay）
-  6. 把 staging 打成 payload.zip 交给自制安装器内嵌
-  7. 编译自制安装器（2pyr-installer，release）
-  8. 输出单文件安装包 release/2-Pyramid-Setup-{version}.exe
+  6. 把 staging 打成 payload.zip，内嵌进独立安装器项目
+     （installer-app —— Tauri 2 + Vue 3，自定义安装界面与注册表逻辑）
+  7. 编译安装器项目（tauri build --no-bundle，便携版）
+  8. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
+
+便携版不对外发布，只作为安装器内嵌 payload。
+仅支持 Windows 平台。
 
 用法：
   python tools/build_release.py            # 完整构建 + 安装器
@@ -28,7 +32,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TAURI_DIR = ROOT / "src-tauri"
-INSTALLER_DIR = TAURI_DIR / "installer"
+INSTALLER_APP = ROOT / "installer-app"
 STAGING = ROOT / "release" / "staging"
 OUTPUT = ROOT / "release"
 
@@ -82,7 +86,7 @@ def collect_staging() -> None:
             sys.exit(1)
         shutil.copy2(src, dst)
 
-    # 运行期资源（tauri --no-bundle 不会复制到 exe 旁）
+    # 外部依赖资源（tauri --no-bundle 不会复制到 exe 旁）
     for asset in ("UImage", "overlay"):
         src_dir = TAURI_DIR / asset
         if src_dir.is_dir():
@@ -90,9 +94,9 @@ def collect_staging() -> None:
 
 
 def make_payload_zip() -> Path:
-    """把 staging 打成 payload.zip（供安装器内嵌）。"""
-    print(f"\n==> 生成 payload.zip")
-    payload = INSTALLER_DIR / "payload.zip"
+    """把 staging 打成 payload.zip，放入安装器项目（内嵌发布）。"""
+    print(f"\n==> 生成 payload.zip -> installer-app/src-tauri/")
+    payload = INSTALLER_APP / "src-tauri" / "payload.zip"
     if payload.exists():
         payload.unlink()
     with zipfile.ZipFile(payload, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -104,24 +108,27 @@ def make_payload_zip() -> Path:
 
 
 def build_installer(version: str) -> None:
-    print("\n==> 编译自制安装器 (2pyr-installer, release)")
-    # payload.zip 必须在编译前就位（include_bytes! 嵌入）
+    print("\n==> 编译安装器项目 (installer-app, tauri build --no-bundle)")
     make_payload_zip()
-    run(["cargo", "build", "--release", "-p", "two-pyr-installer"], TAURI_DIR, "cargo build installer")
+    run(
+        ["npx", "tauri", "build", "--no-bundle"],
+        INSTALLER_APP,
+        "tauri build installer-app",
+    )
 
-    installer_exe = TAURI_DIR / "target" / "release" / "two-pyr-installer.exe"
+    installer_exe = INSTALLER_APP / "src-tauri" / "target" / "release" / "two-pyr-installer-app.exe"
     if not installer_exe.exists():
         print("[FAILED] 安装器未编译成功", file=sys.stderr)
         sys.exit(1)
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    final = OUTPUT / f"2-Pyramid-Setup-{version}.exe"
+    final = OUTPUT / f"2-Pyramid-Installer-{version}.exe"
     shutil.copy2(installer_exe, final)
     print(f"\n✅ 安装器已生成: {final}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="2-Pyramid 发布流水线（自制释放式安装器）")
+    parser = argparse.ArgumentParser(description="2-Pyramid 发布流水线（Windows，便携版内嵌安装器）")
     parser.add_argument("--no-bump", action="store_true", help="不递增 BUILD 版本")
     parser.add_argument("--skip-installer", action="store_true", help="只构建产物，不生成安装器")
     args = parser.parse_args()
@@ -131,7 +138,7 @@ def main() -> None:
     if not args.no_bump:
         bump_build()
 
-    run(["npm", "run", "build"], ROOT, "前端构建")
+    run(["npm", "run", "build"], ROOT, "主项目前端构建")
     run(
         ["cargo", "build", "--release", "-p", "two_pyramid_shell"],
         TAURI_DIR,
