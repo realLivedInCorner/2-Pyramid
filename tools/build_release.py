@@ -39,7 +39,9 @@ OUTPUT = ROOT / "release"
 
 def run(cmd: list[str], cwd: Path, label: str) -> None:
     print(f"\n==> {label}: {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=str(cwd), shell=False)
+    # Windows 上 npm/npx 是 .cmd 包装器，必须经 shell 才能被
+    # CreateProcess 找到（本项目仅支持 Windows）
+    result = subprocess.run(cmd, cwd=str(cwd), shell=True)
     if result.returncode != 0:
         print(f"[FAILED] {label} (exit {result.returncode})", file=sys.stderr)
         sys.exit(1)
