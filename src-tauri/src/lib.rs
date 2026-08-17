@@ -145,7 +145,12 @@ pub fn run() {
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
             )
-            .title("2-Pyramid")
+            // beta 渠道在窗口标题上带 Beta 标识（任务栏悬停可见）
+            .title(if option_env!("2PYR_CHANNEL") == Some("beta") {
+                "2-Pyramid (Beta)"
+            } else {
+                "2-Pyramid"
+            })
             .inner_size(1200.0, 750.0)
             .min_inner_size(800.0, 600.0)
             .decorations(false)
