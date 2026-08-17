@@ -27,6 +27,9 @@ thumb*
 temp_overlay/
 .BUILD_LAST_USED
 
+# Release artifacts (build pipeline output)
+release/
+
 # Claude
 .claude/
 
