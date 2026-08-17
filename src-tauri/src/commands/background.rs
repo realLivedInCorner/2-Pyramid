@@ -126,6 +126,25 @@ pub fn clear_background() -> Result<(), String> {
     Ok(())
 }
 
+/// 仅更新背景展示设置（fit / 透色强度），不更换图片。
+/// 用于用户在更换背景对话框里只调整透色/展示方式而无需重选图片。
+#[tauri::command]
+pub fn update_background_settings(fit: String, opacity: f64) -> Result<(), String> {
+    let normalized_fit = match fit.as_str() {
+        "contain" | "stretch" | "tile" => fit,
+        _ => "cover".to_string(),
+    };
+    let mut cfg = crate::commands::read_config_file()?;
+    if cfg.background_image.is_none() {
+        return Err("尚未设置背景图片".to_string());
+    }
+    cfg.background_fit = Some(normalized_fit);
+    cfg.background_opacity = Some(opacity.clamp(0.1, 1.0));
+    crate::commands::write_config_file(&cfg)?;
+    crate::log_info!("OKAY update_background_settings [opacity={:.2}]", opacity);
+    Ok(())
+}
+
 /// 按路径读取图片并返回完整 data URL（`data:image/<mime>;base64,...`）。
 /// 前端直接内联显示，不依赖 asset 协议 / CSP 探测，行为在 dev 与
 /// 生产环境一致。大小上限 50MB，仅接受图片扩展名。
