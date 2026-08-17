@@ -293,10 +293,10 @@ fn launch_installer(path: &str) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to launch MSI installer: {}", e))?;
     } else {
-        // 自建 Inno Setup 安装器：静默安装 + 禁止重启 + 忽略弹窗。
-        // CloseApplications=yes 会在安装时自动关闭仍在运行的应用。
+        // 自制释放式安装器（2pyr-installer）：--silent 静默安装，
+        // 默认释放到 %LOCALAPPDATA%\2-Pyramid 并写入右键菜单注册表。
         Command::new(path)
-            .args(["/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES"])
+            .arg("--silent")
             .spawn()
             .map_err(|e| format!("Failed to launch installer: {}", e))?;
     }
