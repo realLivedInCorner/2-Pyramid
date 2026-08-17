@@ -1,0 +1,12 @@
+[package]
+name = "two-pyr-installer"
+version = "0.1.0"
+edition = "2021"
+
+# 自制安装器：内嵌 payload.zip（由 build_release.py 生成），运行时
+# 释放到安装目录并写入注册表。不依赖任何第三方打包工具。
+
+[dependencies]
+zip = "0.6"
+winreg = "0.52"
+dirs = "5"
