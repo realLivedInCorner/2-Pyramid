@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""2-Pyramid 自建发布流水线。
+"""2-Pyramid 自建发布流水线（自制释放式安装器）。
 
 流程：
   1. 递增 BUILD 版本号（可 --no-bump 跳过）
@@ -7,36 +7,30 @@
   3. 编译 COM server（two_pyramid_shell.dll，release）
   4. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）
   5. 收集产物到 release/staging/（exe、dll、UImage、overlay）
-  6. 调用 Inno Setup 编译器 ISCC.exe 生成安装器
-     输出 release/2-Pyramid-Setup-{version}.exe
+  6. 把 staging 打成 payload.zip 交给自制安装器内嵌
+  7. 编译自制安装器（2pyr-installer，release）
+  8. 输出单文件安装包 release/2-Pyramid-Setup-{version}.exe
 
 用法：
-  python tools/build_release.py            # 完整构建 + 打包
+  python tools/build_release.py            # 完整构建 + 安装器
   python tools/build_release.py --no-bump  # 不递增 BUILD
-  python tools/build_release.py --skip-installer  # 只构建产物不打包
+  python tools/build_release.py --skip-installer  # 只出 staging 产物
 
-需要：Node.js、Rust 工具链、Inno Setup 6（https://jrsoftware.org/isinfo.php）
+需要：Node.js、Rust 工具链。不依赖任何第三方打包工具。
 """
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TAURI_DIR = ROOT / "src-tauri"
+INSTALLER_DIR = TAURI_DIR / "installer"
 STAGING = ROOT / "release" / "staging"
 OUTPUT = ROOT / "release"
-
-# Inno Setup 编译器的常见安装位置
-ISCC_CANDIDATES = [
-    os.environ.get("ISCC", ""),
-    r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-    r"C:\Program Files\Inno Setup 6\ISCC.exe",
-    str(Path(os.environ.get("LOCALAPPDATA", "")) / r"Programs\Inno Setup 6\ISCC.exe"),
-]
 
 
 def run(cmd: list[str], cwd: Path, label: str) -> None:
@@ -62,19 +56,6 @@ def bump_build() -> None:
     print(f"==> BUILD {current} -> {new}")
 
 
-def find_iscc() -> str:
-    for candidate in ISCC_CANDIDATES:
-        if candidate and Path(candidate).is_file():
-            return candidate
-    print(
-        "[FAILED] 未找到 Inno Setup 编译器 ISCC.exe。\n"
-        "请安装 Inno Setup 6: https://jrsoftware.org/isinfo.php\n"
-        "或设置环境变量 ISCC 指向 ISCC.exe。",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-
 def read_version() -> str:
     cargo = TAURI_DIR / "Cargo.toml"
     for line in cargo.read_text(encoding="utf-8").splitlines():
@@ -84,7 +65,7 @@ def read_version() -> str:
     return "2.0.0"
 
 
-def collect_staging(version: str) -> None:
+def collect_staging() -> None:
     print(f"\n==> 收集产物 -> {STAGING}")
     if STAGING.exists():
         shutil.rmtree(STAGING)
@@ -108,8 +89,39 @@ def collect_staging(version: str) -> None:
             shutil.copytree(src_dir, STAGING / asset)
 
 
+def make_payload_zip() -> Path:
+    """把 staging 打成 payload.zip（供安装器内嵌）。"""
+    print(f"\n==> 生成 payload.zip")
+    payload = INSTALLER_DIR / "payload.zip"
+    if payload.exists():
+        payload.unlink()
+    with zipfile.ZipFile(payload, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(STAGING.rglob("*")):
+            if path.is_file():
+                zf.write(path, path.relative_to(STAGING))
+    print(f"    {payload} ({payload.stat().st_size} bytes)")
+    return payload
+
+
+def build_installer(version: str) -> None:
+    print("\n==> 编译自制安装器 (2pyr-installer, release)")
+    # payload.zip 必须在编译前就位（include_bytes! 嵌入）
+    make_payload_zip()
+    run(["cargo", "build", "--release", "-p", "two-pyr-installer"], TAURI_DIR, "cargo build installer")
+
+    installer_exe = TAURI_DIR / "target" / "release" / "two-pyr-installer.exe"
+    if not installer_exe.exists():
+        print("[FAILED] 安装器未编译成功", file=sys.stderr)
+        sys.exit(1)
+
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    final = OUTPUT / f"2-Pyramid-Setup-{version}.exe"
+    shutil.copy2(installer_exe, final)
+    print(f"\n✅ 安装器已生成: {final}")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="2-Pyramid 发布流水线")
+    parser = argparse.ArgumentParser(description="2-Pyramid 发布流水线（自制释放式安装器）")
     parser.add_argument("--no-bump", action="store_true", help="不递增 BUILD 版本")
     parser.add_argument("--skip-installer", action="store_true", help="只构建产物，不生成安装器")
     args = parser.parse_args()
@@ -125,35 +137,19 @@ def main() -> None:
         TAURI_DIR,
         "编译 COM server (release)",
     )
-    # tauri build --no-bundle：编译主程序 + 嵌入前端，不调用打包器
     run(
         ["npx", "tauri", "build", "--no-bundle"],
         ROOT,
         "编译主程序 (tauri build --no-bundle)",
     )
 
-    collect_staging(version)
+    collect_staging()
 
     if args.skip_installer:
         print(f"\n完成（跳过安装器打包）。产物位于 {STAGING}")
         return
 
-    iscc = find_iscc()
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        iscc,
-        f"/DMyAppVersion={version}",
-        f"/DStagingDir={STAGING}",
-        str(ROOT / "installer" / "installer.iss"),
-    ]
-    run(cmd, ROOT, "Inno Setup 打包")
-
-    installer = OUTPUT / f"2-Pyramid-Setup-{version}.exe"
-    if installer.is_file():
-        print(f"\n✅ 安装器已生成: {installer}")
-    else:
-        print("[FAILED] 安装器未生成", file=sys.stderr)
-        sys.exit(1)
+    build_installer(version)
 
 
 if __name__ == "__main__":
