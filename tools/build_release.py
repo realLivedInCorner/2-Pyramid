@@ -152,16 +152,22 @@ def main() -> None:
     args = parser.parse_args()
 
     version = read_version()
-    print(f"==> 2-Pyramid 发布流水线 · 版本 {version} · 渠道 {'beta' if args.beta else 'stable（正式版）'}")
+    channel = "beta" if args.beta else "stable"
+    # 主程序与前端同样渠道感知：2PYR_CHANNEL 进入 Rust 编译期
+    # （option_env!，窗口标题 / AppInfo.channel），VITE_CHANNEL 进入
+    # vite（index.html 的 %VITE_BETA_MARK% 替换）
+    channel_env = {"2PYR_CHANNEL": channel, "VITE_CHANNEL": channel}
+    print(f"==> 2-Pyramid 发布流水线 · 版本 {version} · 渠道 {channel}（{'测试' if args.beta else '正式'}版）")
 
     if not args.no_bump:
         bump_build()
 
-    run(["npm", "run", "build"], ROOT, "主项目前端构建")
+    run(["npm", "run", "build"], ROOT, "主项目前端构建", env=channel_env)
     run(
         ["npx", "tauri", "build", "--no-bundle"],
         ROOT,
         "编译主程序 (tauri build --no-bundle)",
+        env=channel_env,
     )
 
     collect_staging()

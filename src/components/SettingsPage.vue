@@ -435,6 +435,7 @@
               <button class="version-tag version-tap-target" @click="onVersionTap">2-Pyramid v{{ currentVersion }}</button>
               <div class="version-build">{{ appFullVersion }}</div>
               <div v-if="appIsDev" class="version-build-mode">Dev build</div>
+              <div v-if="appIsBeta" class="version-build-mode beta">Beta 版本 · 测试渠道</div>
               <div v-if="devHint" class="dev-hint">{{ devHint }}</div>
             </div>
             <div class="changelog-area">
@@ -878,7 +879,7 @@ const emit = defineEmits([
 ]);
 
 const { notify, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
-const { full: appFullVersion, isDev: appIsDev } = useAppInfo();
+const { full: appFullVersion, isDev: appIsDev, isBeta: appIsBeta } = useAppInfo();
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
@@ -1926,6 +1927,16 @@ const hexToHsv = (hex: string) => {
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #f59e0b;
+}
+
+.version-build-mode.beta {
+  display: inline-block;
+  text-transform: none;
+  letter-spacing: 0.4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #ea580c;
+  background: rgba(249, 115, 22, 0.12);
 }
 
 .dev-hint {

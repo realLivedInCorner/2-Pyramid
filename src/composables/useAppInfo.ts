@@ -14,6 +14,8 @@ export interface AppInfo {
   full: string;
   /** True when compiled without `--release`. */
   isDev: boolean;
+  /** 构建渠道：stable（正式版）/ beta（测试版）。 */
+  channel: string;
 }
 
 // Module-level singletons so every component shares the same fetch/cache.
@@ -36,6 +38,7 @@ async function load(): Promise<void> {
       build: "?",
       full: "0.0.0+?",
       isDev: true,
+      channel: "stable",
     };
   } finally {
     loading.value = false;
@@ -55,7 +58,9 @@ export function useAppInfo() {
   const version = computed(() => appInfo.value?.version ?? "0.0.0");
   const build = computed(() => appInfo.value?.build ?? "?");
   const isDev = computed(() => appInfo.value?.isDev ?? true);
+  const channel = computed(() => appInfo.value?.channel ?? "stable");
+  const isBeta = computed(() => channel.value === "beta");
   const error = computed(() => loadError.value);
 
-  return { appInfo, full, version, build, isDev, error, load };
+  return { appInfo, full, version, build, isDev, channel, isBeta, error, load };
 }
