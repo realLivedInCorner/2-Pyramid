@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "vite --port 1421",
     "devUrl": "http://localhost:1421",
-    "beforeBuildCommand": "npm run build && cargo build --manifest-path src-tauri/Cargo.toml -p two_pyramid_shell --release",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -35,8 +35,7 @@
     ],
     "resources": [
       "UImage/**/*",
-      "overlay/**/*",
-      "target/release/two_pyramid_shell.dll"
+      "overlay/**/*"
     ]
   },
   "plugins": {

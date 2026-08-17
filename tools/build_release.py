@@ -4,13 +4,12 @@
 流程：
   1. 递增 BUILD 版本号（可 --no-bump 跳过）
   2. 前端构建（vue-tsc + vite）
-  3. 编译 COM server（two_pyramid_shell.dll，release）
-  4. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）
-  5. 收集产物到 release/staging/（exe、dll、UImage、overlay）
-  6. 把 staging 打成 payload.zip，内嵌进独立安装器项目
+  3. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）
+  4. 收集产物到 release/staging/（exe、UImage、overlay）
+  5. 把 staging 打成 payload.zip，内嵌进独立安装器项目
      （installer-app —— Tauri 2 + Vue 3，自定义安装界面与注册表逻辑）
-  7. 编译安装器项目（tauri build --no-bundle，便携版）
-  8. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
+  6. 编译安装器项目（tauri build --no-bundle，便携版）
+  7. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
 
 便携版不对外发布，只作为安装器内嵌 payload。
 仅支持 Windows 平台。
@@ -80,7 +79,6 @@ def collect_staging() -> None:
     target = TAURI_DIR / "target" / "release"
     files = [
         (target / "2-pyramid.exe", STAGING / "2-pyramid.exe"),
-        (target / "two_pyramid_shell.dll", STAGING / "two_pyramid_shell.dll"),
     ]
     for src, dst in files:
         if not src.exists():
@@ -141,11 +139,6 @@ def main() -> None:
         bump_build()
 
     run(["npm", "run", "build"], ROOT, "主项目前端构建")
-    run(
-        ["cargo", "build", "--release", "-p", "two_pyramid_shell"],
-        TAURI_DIR,
-        "编译 COM server (release)",
-    )
     run(
         ["npx", "tauri", "build", "--no-bundle"],
         ROOT,
