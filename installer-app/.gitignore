@@ -1,3 +1,5 @@
 node_modules
 dist-installer
 target
+# 构建时由 build_release.py 生成的真实 payload（几十 MB），不入库
+payload.zip
