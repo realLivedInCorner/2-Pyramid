@@ -15,6 +15,8 @@
     "buildrelease": "python tools/build_release.py",
     "buildrelease:nobump": "python tools/build_release.py --no-bump",
     "buildrelease:noinstaller": "python tools/build_release.py --skip-installer",
+    "betabuild": "python tools/build_release.py --beta",
+    "betabuild:nobump": "python tools/build_release.py --beta --no-bump",
     "bump:build": "echo 'Release builds auto-bump BUILD from 20000. This script is for manual override:' && python tools/bump_build.py",
     "bump:build:show": "python tools/bump_build.py --show",
     "bump:build:set": "python tools/bump_build.py --set",

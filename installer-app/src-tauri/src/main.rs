@@ -8,8 +8,9 @@
 //!   * install(dir, shortcuts) —— 释放 payload（emit 实时进度）、
 //!     释放 uninstaller.exe、按需创建桌面/开始菜单/任务栏快捷方式、
 //!     写安装信息与卸载注册表
-//!   * uninstall(dir) —— 删除文件与全部注册表（用户数据 ~/.2pyr 保留）
-//!   * launch_app / get_default_dir / get_version / is_installed
+//!   * uninstall(dir) —— 删除文件与全部注册表（用户数据 ~/.2pyr 保留）；
+//!     卸载器自身在安装目录内时派出独立清理进程，于退出后删除自身
+//!   * launch_app / get_default_dir / get_version / get_channel / is_installed
 //!   * is_uninstall_mode —— 以 --uninstall 启动时前端展示卸载流程
 //!
 //! 静默模式：`installer.exe --silent [--dir <path>]` 直接安装后退出
@@ -28,6 +29,40 @@ const APP_NAME: &str = "2-Pyramid";
 const EXE_NAME: &str = "2-pyramid.exe";
 const UNINSTALLER_NAME: &str = "uninstall.exe";
 const GITHUB_URL: &str = "https://github.com/realLivedInCorner/2-Pyramid";
+
+// 构建渠道：stable（正式版）/ beta（测试版）。
+// 发布流水线在编译安装器时通过环境变量 2PYR_CHANNEL 注入。
+const CHANNEL: &str = match option_env!("2PYR_CHANNEL") {
+    Some(v) => v,
+    None => "stable",
+};
+
+fn is_beta() -> bool {
+    CHANNEL == "beta"
+}
+
+/// 安装信息注册表键（beta 与正式版隔离，可并存）。
+fn app_reg_path() -> &'static str {
+    if is_beta() { r"Software\2-Pyramid-Beta" } else { r"Software\2-Pyramid" }
+}
+
+/// 控制面板「卸载程序」注册表键。
+fn uninstall_reg_path() -> &'static str {
+    if is_beta() {
+        r"Software\Microsoft\Windows\CurrentVersion\Uninstall\2-Pyramid Beta"
+    } else {
+        r"Software\Microsoft\Windows\CurrentVersion\Uninstall\2-Pyramid"
+    }
+}
+
+fn display_name() -> &'static str {
+    if is_beta() { "2-Pyramid Beta" } else { "2-Pyramid" }
+}
+
+/// 快捷方式文件名（含扩展名）。
+fn shortcut_file_name() -> &'static str {
+    if is_beta() { "2-Pyramid Beta.lnk" } else { "2-Pyramid.lnk" }
+}
 
 // ── 进度事件载荷 ─────────────────────────────────────────────────
 
@@ -59,9 +94,12 @@ impl ShortcutOptions {
 // ── 核心逻辑（silent 模式与 GUI 命令共用） ────────────────────────
 
 fn default_install_dir() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(APP_NAME)
+    let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    if is_beta() {
+        base.join("2-Pyramid-Beta")
+    } else {
+        base.join(APP_NAME)
+    }
 }
 
 /// 解压 payload.zip。`on_file` 在每释放一个文件后回调（用于进度上报）。
@@ -117,22 +155,29 @@ fn write_registry(dir: &Path) -> Result<(), String> {
     let uninstaller = format!("{}\\{}", dir_str, UNINSTALLER_NAME);
     // 带 --uninstall 参数：卸载器双击 / 控制面板卸载时直接进入卸载流程
     let uninstall_cmd = format!("\"{}\" --uninstall", uninstaller);
+    // 控制面板显示版本：正式版保持原样，beta 附加渠道标记
+    let version: &str = env!("CARGO_PKG_VERSION");
+    let display_version = if is_beta() {
+        format!("{} (beta)", version)
+    } else {
+        version.to_string()
+    };
 
     // 安装信息
     let (key, _) = hkcu
-        .create_subkey(r"Software\2-Pyramid")
+        .create_subkey(app_reg_path())
         .map_err(|e| format!("写注册表失败: {}", e))?;
     key.set_value("InstallDir", &dir_str).map_err(|e| format!("写注册表失败: {}", e))?;
-    let version: &str = env!("CARGO_PKG_VERSION");
     key.set_value("Version", &version).map_err(|e| format!("写注册表失败: {}", e))?;
+    key.set_value("Channel", &CHANNEL).map_err(|e| format!("写注册表失败: {}", e))?;
     key.set_value("UninstallString", &uninstall_cmd).map_err(|e| format!("写注册表失败: {}", e))?;
 
     // 控制面板「卸载程序」入口
     let (ukey, _) = hkcu
-        .create_subkey(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\2-Pyramid")
+        .create_subkey(uninstall_reg_path())
         .map_err(|e| format!("写卸载注册表失败: {}", e))?;
-    ukey.set_value("DisplayName", &"2-Pyramid").map_err(|e| format!("写卸载注册表失败: {}", e))?;
-    ukey.set_value("DisplayVersion", &version).map_err(|e| format!("写卸载注册表失败: {}", e))?;
+    ukey.set_value("DisplayName", &display_name()).map_err(|e| format!("写卸载注册表失败: {}", e))?;
+    ukey.set_value("DisplayVersion", &display_version).map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("Publisher", &"2-Pyramid Studio").map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("UninstallString", &uninstall_cmd).map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("InstallLocation", &dir_str).map_err(|e| format!("写卸载注册表失败: {}", e))?;
@@ -147,8 +192,8 @@ fn delete_registry() {
     use winreg::RegKey;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let _ = hkcu.delete_subkey_all(r"Software\2-Pyramid");
-    let _ = hkcu.delete_subkey_all(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\2-Pyramid");
+    let _ = hkcu.delete_subkey_all(app_reg_path());
+    let _ = hkcu.delete_subkey_all(uninstall_reg_path());
 }
 
 fn registry_install_dir() -> Option<PathBuf> {
@@ -156,7 +201,7 @@ fn registry_install_dir() -> Option<PathBuf> {
     use winreg::RegKey;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let key = hkcu.open_subkey(r"Software\2-Pyramid").ok()?;
+    let key = hkcu.open_subkey(app_reg_path()).ok()?;
     let dir: String = key.get_value("InstallDir").ok()?;
     Some(PathBuf::from(dir))
 }
@@ -215,11 +260,13 @@ fn create_shortcuts(dir: &Path, opts: &ShortcutOptions) -> String {
         );
         let exe_s = ps_quote(&exe.to_string_lossy());
         let dir_s = ps_quote(&dir.to_string_lossy());
+        let lnk_s = ps_quote(shortcut_file_name());
         if opts.desktop {
             script.push_str(&format!(
-                "$p=Join-Path ([Environment]::GetFolderPath('Desktop')) '2-Pyramid.lnk'\n\
+                "$p=Join-Path ([Environment]::GetFolderPath('Desktop')) {lnk}\n\
                  $s=$ws.CreateShortcut($p)\n$s.TargetPath={exe}\n$s.WorkingDirectory={work}\n\
                  $s.Description='2-Pyramid'\n$s.Save()\n",
+                lnk = lnk_s,
                 exe = exe_s,
                 work = dir_s,
             ));
@@ -227,9 +274,10 @@ fn create_shortcuts(dir: &Path, opts: &ShortcutOptions) -> String {
         }
         if opts.start_menu {
             script.push_str(&format!(
-                "$p=Join-Path ([Environment]::GetFolderPath('Programs')) '2-Pyramid.lnk'\n\
+                "$p=Join-Path ([Environment]::GetFolderPath('Programs')) {lnk}\n\
                  $s=$ws.CreateShortcut($p)\n$s.TargetPath={exe}\n$s.WorkingDirectory={work}\n\
                  $s.Description='2-Pyramid'\n$s.Save()\n",
+                lnk = lnk_s,
                 exe = exe_s,
                 work = dir_s,
             ));
@@ -263,7 +311,7 @@ fn create_shortcuts(dir: &Path, opts: &ShortcutOptions) -> String {
 /// 卸载时清理快捷方式（.lnk 直接删除；任务栏固定尽力解除）。
 fn remove_shortcuts(dir: &Path) {
     if let Some(desktop) = dirs::desktop_dir() {
-        let _ = std::fs::remove_file(desktop.join("2-Pyramid.lnk"));
+        let _ = std::fs::remove_file(desktop.join(shortcut_file_name()));
     }
     if let Some(data_dir) = dirs::data_dir() {
         let _ = std::fs::remove_file(
@@ -272,7 +320,7 @@ fn remove_shortcuts(dir: &Path) {
                 .join("Windows")
                 .join("Start Menu")
                 .join("Programs")
-                .join("2-Pyramid.lnk"),
+                .join(shortcut_file_name()),
         );
     }
     if dir.join(EXE_NAME).exists() {
@@ -314,13 +362,82 @@ where
     ))
 }
 
+/// 派生独立的清理进程：轮询删除正在运行的卸载器自身，
+/// 待本进程退出（文件锁释放）后删掉它并移除安装目录。
+/// 使用 DETACHED_PROCESS，父进程退出后继续运行。
+fn spawn_self_delete_helper(self_path: &Path, dir: &Path) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+
+    let tmp = std::env::temp_dir().join(format!("2pyr-cleanup-{}.cmd", std::process::id()));
+    // % 在批处理中是变量引用符，需要加倍转义
+    let self_s = self_path.to_string_lossy().replace('%', "%%");
+    let dir_s = dir.to_string_lossy().replace('%', "%%");
+    let script = format!(
+        "@echo off\r\n\
+         cd /d \"%TEMP%\"\r\n\
+         :retry\r\n\
+         del /f /q \"{self}\" >nul 2>&1\r\n\
+         if exist \"{self}\" (\r\n\
+           ping -n 2 127.0.0.1 >nul\r\n\
+           goto retry\r\n\
+         )\r\n\
+         rmdir /q /s \"{dir}\" >nul 2>&1\r\n\
+         del /f /q \"%~f0\" >nul 2>&1\r\n",
+        self = self_s,
+        dir = dir_s,
+    );
+    if std::fs::write(&tmp, script).is_ok() {
+        let _ = std::process::Command::new("cmd.exe")
+            .arg("/c")
+            .arg(&tmp)
+            .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
+            .spawn();
+    }
+}
+
 fn uninstall_impl(dir: &Path) -> Result<String, String> {
     delete_registry();
     remove_shortcuts(dir);
-    if dir.exists() {
-        std::fs::remove_dir_all(dir).map_err(|e| format!("删除安装目录失败: {}", e))?;
+
+    let self_path = std::env::current_exe().ok();
+    // Windows 路径不区分大小写；自身位于安装目录内则走“退出时清理自身”分支
+    let self_inside = self_path
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(|d| d.to_string_lossy().eq_ignore_ascii_case(&dir.to_string_lossy()))
+        .unwrap_or(false);
+
+    // 逐项删除安装目录内容：跳过自身（正在运行的 exe 被系统锁定），
+    // 其余文件/目录尽力删除，锁定失败不中断卸载流程。
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if self_path.as_ref() == Some(&path) {
+                continue;
+            }
+            if path.is_dir() {
+                let _ = std::fs::remove_dir_all(&path);
+            } else {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
     }
-    Ok("卸载完成（用户数据 ~/.2pyr 已保留）".to_string())
+
+    if self_inside {
+        // 自身在安装目录内：派出清理进程，待退出时删除自身与目录
+        if let Some(sp) = &self_path {
+            spawn_self_delete_helper(sp, dir);
+        }
+        Ok("卸载完成：程序文件已移除，用户数据已保留。\n关闭窗口后，卸载程序会自行清理残留。".to_string())
+    } else {
+        // 自身不在安装目录内（如 --uninstall 启动的原始安装包）：直接删除目录
+        if dir.exists() {
+            std::fs::remove_dir_all(dir).map_err(|e| format!("删除安装目录失败: {}", e))?;
+        }
+        Ok("卸载完成（用户数据 ~/.2pyr 已保留）".to_string())
+    }
 }
 
 // ── Tauri 命令 ───────────────────────────────────────────────────
@@ -333,6 +450,12 @@ fn get_default_dir() -> String {
 #[tauri::command]
 fn get_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// 构建渠道：stable（正式版）/ beta（测试版）。
+#[tauri::command]
+fn get_channel() -> String {
+    CHANNEL.to_string()
 }
 
 #[tauri::command]
@@ -425,6 +548,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_default_dir,
             get_version,
+            get_channel,
             get_github_url,
             is_installed,
             is_uninstall_mode,

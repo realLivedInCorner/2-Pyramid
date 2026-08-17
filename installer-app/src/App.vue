@@ -13,6 +13,7 @@ const totalSteps = 4;
 const uninstallMode = ref(false);
 const dir = ref("");
 const version = ref("2.0.0");
+const channel = ref("stable");
 const githubUrl = ref("");
 const busy = ref(false);
 const failed = ref(false);
@@ -38,6 +39,7 @@ onMounted(async () => {
       ? ((await invoke<string | null>("get_installed_dir")) ?? await invoke<string>("get_default_dir"))
       : await invoke<string>("get_default_dir");
     version.value = await invoke<string>("get_version");
+    channel.value = await invoke<string>("get_channel");
     githubUrl.value = await invoke<string>("get_github_url");
     installed.value = await invoke<boolean>("is_installed");
   } catch (e) {
@@ -166,7 +168,10 @@ const closeWindow = async () => {
       </svg>
       <div class="top-brand-text">
         <span class="top-brand-name">2-Pyramid</span>
-        <span class="top-brand-tag">{{ uninstallMode ? '卸载程序' : '安装程序' }} · v{{ version }}</span>
+        <span class="top-brand-tag">
+          {{ uninstallMode ? '卸载程序' : '安装程序' }} · v{{ version }}
+          <em v-if="channel === 'beta'" class="beta-badge">Beta</em>
+        </span>
       </div>
     </header>
 
@@ -288,21 +293,30 @@ const closeWindow = async () => {
           <button class="btn ghost" @click="closeWindow">关闭</button>
         </div>
         <div v-else class="status-actions">
-          <button class="btn ghost" @click="closeWindow">关闭</button>
+          <button class="btn primary" @click="closeWindow"><i class="ri-check-line"></i> 完成</button>
         </div>
       </div>
 
       <!-- 卸载模式主面板 -->
       <div v-else class="panel">
-        <div class="panel-title">卸载 2-Pyramid</div>
+        <div class="panel-title">卸载 {{ channel === 'beta' ? '2-Pyramid Beta' : '2-Pyramid' }}</div>
         <p class="panel-desc">
-          将从以下位置移除 2-Pyramid 的全部程序文件。
+          将从以下位置移除全部程序文件与快捷方式。
           用户数据（转换记录、设置、背景等）将被保留。
         </p>
         <label class="field-label">安装目录</label>
         <div class="field-row">
           <input v-model="dir" class="dir-input" spellcheck="false" readonly />
         </div>
+        <div v-if="busy" class="status working">
+          <i class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
+          <span>正在卸载，请稍候…</span>
+        </div>
+        <div v-else-if="failed" class="status err">
+          <i class="ri-error-warning-line" aria-hidden="true"></i>
+          <span>{{ resultMessage }}</span>
+        </div>
+        <p v-else class="hint">点击下方「卸载」开始。完成后关闭窗口，卸载程序会自行清理残留。</p>
       </div>
     </main>
 
@@ -340,7 +354,7 @@ const closeWindow = async () => {
           class="pill-btn danger"
           :disabled="busy || !installed"
           @click="doUninstall"
-        ><i class="ri-delete-bin-line"></i> 卸载</button>
+        ><i :class="busy ? 'ri-loader-4-line ri-spin' : 'ri-delete-bin-line'"></i> {{ busy ? '卸载中…' : '卸载' }}</button>
       </div>
     </footer>
   </div>
@@ -399,6 +413,18 @@ html, body, #app {
 .top-brand-text { display: flex; flex-direction: column; gap: 1px; }
 .top-brand-name { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
 .top-brand-tag { font-size: 12px; color: #94a3b8; }
+
+.beta-badge {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.14);
+  color: #ea580c;
+  vertical-align: 1px;
+}
 
 /* 步骤指示器 */
 .steps {
@@ -597,9 +623,18 @@ html, body, #app {
   font-weight: 600;
 }
 .status.ok { background: #ecfdf5; color: #15803d; }
-.status.ok i { font-size: 30px; }
+.status.ok i { font-size: 30px; animation: status-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .status.err { background: #fef2f2; color: #b91c1c; }
 .status.err i { font-size: 30px; }
+.status.working { background: #eff6ff; color: #2563eb; }
+.status.working i { font-size: 30px; }
+.status span { white-space: pre-line; line-height: 1.6; }
+
+@keyframes status-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 .status-actions { display: flex; gap: 12px; margin-top: 6px; }
 
