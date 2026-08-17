@@ -296,15 +296,12 @@
     },
     "versionInfo": {
       "label": "版本详情",
-      "desc": "查看当前软件版本及更新日志",
+      "desc": "查看当前软件版本与构建号",
       "searchLabel": "版本详情",
-      "searchDesc": "查看当前软件版本及更新日志",
+      "searchDesc": "查看当前软件版本与构建号",
       "dialogTitle": "版本信息",
-      "changelogTitle": "最近更新 (v2.0.1)",
-      "changelog1": "全新 Overlay 覆盖包管理系统，支持多项目切换",
-      "changelog2": "优化 Rust 后端并行计算，转换速度提升 300%",
-      "changelog3": "深度定制 Minecraft 样式预览功能",
-      "changelog4": "改进无边框窗口交互体验"
+      "mainVersion": "主版本",
+      "buildNumber": "构建号"
     },
     "checkUpdate": {
       "label": "检查更新",

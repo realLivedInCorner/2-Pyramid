@@ -60,6 +60,14 @@ fn inject_build_number(profile: &str) -> String {
     let current = read_build_number(&build_file);
 
     if profile == "release" {
+        // 发布流水线 --no-bump 时置 2PYR_NO_BUMP=1：跳过递增，
+        // 只返回当前值（不写文件），保证整个构建链不再有任何 bump。
+        if std::env::var("2PYR_NO_BUMP").is_ok() {
+            return current
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| BUILD_START.to_string());
+        }
+
         // First build (no file or below floor) -> seed at BUILD_START.
         // Otherwise bump and persist.
         let new_value = match current {

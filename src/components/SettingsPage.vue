@@ -432,20 +432,21 @@
           <div class="dialog-body">
             <div class="version-hero">
               <img src="/favicon-192.png" class="version-logo" alt="2-Pyramid logo" />
-              <button class="version-tag version-tap-target" @click="onVersionTap">2-Pyramid v{{ currentVersion }}</button>
-              <div class="version-build">{{ appFullVersion }}</div>
-              <div v-if="appIsDev" class="version-build-mode">Dev build</div>
-              <div v-if="appIsBeta" class="version-build-mode beta">Beta 版本 · 测试渠道</div>
+              <div class="version-title-row">
+                <button class="version-tag version-tap-target" @click="onVersionTap">2-Pyramid v{{ currentVersion }}</button>
+                <span v-if="appIsBeta" class="version-build-mode beta">Beta 版本 · 测试渠道</span>
+              </div>
               <div v-if="devHint" class="dev-hint">{{ devHint }}</div>
             </div>
-            <div class="changelog-area">
-              <h4>{{ t('settings.versionInfo.changelogTitle') }}</h4>
-              <ul>
-                <li>{{ t('settings.versionInfo.changelog1') }}</li>
-                <li>{{ t('settings.versionInfo.changelog2') }}</li>
-                <li>{{ t('settings.versionInfo.changelog3') }}</li>
-                <li>{{ t('settings.versionInfo.changelog4') }}</li>
-              </ul>
+            <div class="version-facts">
+              <div class="fact-row">
+                <span class="fact-label">{{ t('settings.versionInfo.mainVersion') }}</span>
+                <span class="fact-value">{{ currentVersion }}</span>
+              </div>
+              <div class="fact-row">
+                <span class="fact-label">{{ t('settings.versionInfo.buildNumber') }}</span>
+                <span class="fact-value">{{ appBuildNumber }}</span>
+              </div>
             </div>
           </div>
           <div class="dialog-footer">
@@ -879,7 +880,7 @@ const emit = defineEmits([
 ]);
 
 const { notify, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
-const { full: appFullVersion, isDev: appIsDev, isBeta: appIsBeta } = useAppInfo();
+const { build: appBuildNumber, isBeta: appIsBeta } = useAppInfo();
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
@@ -1908,16 +1909,48 @@ const hexToHsv = (hex: string) => {
   color: var(--theme-color);
 }
 
-.version-build {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.version-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 版本次要信息：主版本 / 构建号 两行 */
+.version-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+}
+
+.fact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+}
+
+.fact-row + .fact-row {
+  border-top: 1px solid #eef2f7;
+}
+
+.fact-label {
+  font-size: 13px;
+  font-weight: 700;
   color: #64748b;
-  letter-spacing: 0.4px;
-  padding: 3px 10px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--theme-color) 8%, transparent);
+}
+
+.fact-value {
+  font-size: 13px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #0f172a;
+  letter-spacing: 0.3px;
 }
 
 .version-build-mode {
@@ -1966,35 +1999,6 @@ const hexToHsv = (hex: string) => {
   font-size: 12px;
   font-weight: 700;
   color: #ef4444;
-}
-
-.changelog-area h4 {
-  font-size: 14px;
-  font-weight: 700;
-  color: #64748b;
-  margin-bottom: 12px;
-}
-
-.changelog-area ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.changelog-area li {
-  font-size: 14px;
-  color: #475569;
-  line-height: 1.5;
-  display: flex;
-  gap: 8px;
-}
-
-.changelog-area li::before {
-  content: "•";
-  color: var(--theme-color);
-  font-weight: bold;
 }
 
 .back-btn {

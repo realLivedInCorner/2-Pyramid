@@ -296,15 +296,12 @@
     },
     "versionInfo": {
       "label": "Version Info",
-      "desc": "View current version and changelog",
+      "desc": "View current version and build number",
       "searchLabel": "Version Info",
-      "searchDesc": "View current version and changelog",
+      "searchDesc": "View current version and build number",
       "dialogTitle": "Version Information",
-      "changelogTitle": "Recent Updates (v2.0.1)",
-      "changelog1": "New Overlay pack management system with multi-project support",
-      "changelog2": "Optimized Rust backend parallel computing, 300% faster conversion",
-      "changelog3": "Deeply customized Minecraft-style preview",
-      "changelog4": "Improved frameless window interaction experience"
+      "mainVersion": "Main Version",
+      "buildNumber": "Build Number"
     },
     "checkUpdate": {
       "label": "Check for Updates",
