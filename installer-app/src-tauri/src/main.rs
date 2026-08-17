@@ -307,7 +307,7 @@ where
     write_registry(dir)?;
     let shortcut_note = create_shortcuts(dir, &shortcuts);
     Ok(format!(
-        "安装完成，共释放 {} 个文件到 {}\n快捷方式：{}",
+        "安装完成，共释放 {} 个文件到 {}（快捷方式：{}）",
         count,
         dir.display(),
         shortcut_note
