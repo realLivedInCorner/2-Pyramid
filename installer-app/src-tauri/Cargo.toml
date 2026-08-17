@@ -1,0 +1,19 @@
+[package]
+name = "two-pyr-installer-app"
+version = "2.0.0"
+edition = "2021"
+
+# 独立安装器项目：同主项目技术栈（Tauri 2 + Rust），自定义安装界面
+# 与注册表逻辑。内嵌 payload.zip，负责把主程序便携版释放到安装目录。
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+zip = "0.6"
+winreg = "0.52"
+dirs = "5"

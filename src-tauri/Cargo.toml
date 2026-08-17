@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "com_server", "installer"]
+members = [".", "com_server"]
 resolver = "2"
 
 [package]
