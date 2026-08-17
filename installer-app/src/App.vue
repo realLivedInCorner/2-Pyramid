@@ -19,6 +19,11 @@ const failed = ref(false);
 const resultMessage = ref("");
 const installed = ref(false);
 
+// 快捷方式选项：桌面 / 开始菜单 / 任务栏(快捷栏，尽力而为)
+const shortcutDesktop = ref(true);
+const shortcutStartMenu = ref(true);
+const shortcutTaskbar = ref(false);
+
 // 安装进度
 const progressCurrent = ref(0);
 const progressTotal = ref(0);
@@ -93,7 +98,14 @@ const doInstall = async () => {
   progressPercent.value = 0;
   step.value = 2;
   try {
-    resultMessage.value = await invoke<string>("install", { dir: dir.value.trim(), createShortcut: false });
+    resultMessage.value = await invoke<string>("install", {
+      dir: dir.value.trim(),
+      shortcuts: {
+        desktop: shortcutDesktop.value,
+        startMenu: shortcutStartMenu.value,
+        taskbar: shortcutTaskbar.value,
+      },
+    });
     installed.value = true;
     step.value = 3;
   } catch (e) {
@@ -214,6 +226,28 @@ const closeWindow = async () => {
           <input v-model="dir" class="dir-input" spellcheck="false" />
           <button class="btn ghost" @click="browse"><i class="ri-folder-open-line"></i> 浏览</button>
         </div>
+
+        <label class="field-label">快捷方式</label>
+        <div class="shortcut-options">
+          <label class="check-row">
+            <input type="checkbox" v-model="shortcutDesktop" />
+            <i class="ri-computer-line" aria-hidden="true"></i>
+            <span>创建桌面快捷方式</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" v-model="shortcutStartMenu" />
+            <i class="ri-menu-line" aria-hidden="true"></i>
+            <span>加入开始菜单</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" v-model="shortcutTaskbar" />
+            <i class="ri-window-line" aria-hidden="true"></i>
+            <span>加入快捷栏（任务栏）</span>
+          </label>
+        </div>
+        <p class="hint">
+          任务栏固定受 Windows 版本限制，未成功时可手动固定（开始菜单 → 右键 → 固定到任务栏）。
+        </p>
         <p class="hint">
           安装内容：主程序、转换引擎与内置资源（约几十 MB）。
           卸载时用户数据（转换记录、设置）将保留。
@@ -467,6 +501,35 @@ html, body, #app {
 .field-label { width: 100%; text-align: left; font-size: 13px; font-weight: 700; }
 
 .field-row { display: flex; gap: 10px; width: 100%; }
+
+.shortcut-options {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px 16px;
+  border: 1.5px dashed rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+.check-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #007bff;
+  cursor: pointer;
+  margin: 0;
+}
+.check-row i { font-size: 15px; color: #007bff; }
 
 .dir-input {
   flex: 1;

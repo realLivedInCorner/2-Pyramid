@@ -5,8 +5,9 @@
 //! 实时进度 → 完成），并注册控制面板卸载入口。
 //!
 //! Rust 侧命令：
-//!   * install(dir, create_shortcut) —— 释放 payload（emit 实时进度）、
-//!     释放 uninstaller.exe、写安装信息与卸载注册表
+//!   * install(dir, shortcuts) —— 释放 payload（emit 实时进度）、
+//!     释放 uninstaller.exe、按需创建桌面/开始菜单/任务栏快捷方式、
+//!     写安装信息与卸载注册表
 //!   * uninstall(dir) —— 删除文件与全部注册表（用户数据 ~/.2pyr 保留）
 //!   * launch_app / get_default_dir / get_version / is_installed
 //!   * is_uninstall_mode —— 以 --uninstall 启动时前端展示卸载流程
@@ -16,7 +17,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -35,6 +36,24 @@ struct InstallProgress {
     current: usize,
     total: usize,
     name: String,
+}
+
+// ── 快捷方式选项 ─────────────────────────────────────────────────
+
+/// 安装界面三个快捷方式勾选项：桌面 / 开始菜单 / 任务栏（快捷栏）。
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ShortcutOptions {
+    desktop: bool,
+    start_menu: bool,
+    taskbar: bool,
+}
+
+impl ShortcutOptions {
+    /// 静默更新模式：不创建任何快捷方式（避免覆盖用户已删除的入口）。
+    fn none() -> Self {
+        Self { desktop: false, start_menu: false, taskbar: false }
+    }
 }
 
 // ── 核心逻辑（silent 模式与 GUI 命令共用） ────────────────────────
@@ -96,6 +115,8 @@ fn write_registry(dir: &Path) -> Result<(), String> {
     let dir_str = dir.to_string_lossy().to_string();
     let exe = format!("{}\\{}", dir_str, EXE_NAME);
     let uninstaller = format!("{}\\{}", dir_str, UNINSTALLER_NAME);
+    // 带 --uninstall 参数：卸载器双击 / 控制面板卸载时直接进入卸载流程
+    let uninstall_cmd = format!("\"{}\" --uninstall", uninstaller);
 
     // 安装信息
     let (key, _) = hkcu
@@ -104,7 +125,7 @@ fn write_registry(dir: &Path) -> Result<(), String> {
     key.set_value("InstallDir", &dir_str).map_err(|e| format!("写注册表失败: {}", e))?;
     let version: &str = env!("CARGO_PKG_VERSION");
     key.set_value("Version", &version).map_err(|e| format!("写注册表失败: {}", e))?;
-    key.set_value("UninstallString", &uninstaller).map_err(|e| format!("写注册表失败: {}", e))?;
+    key.set_value("UninstallString", &uninstall_cmd).map_err(|e| format!("写注册表失败: {}", e))?;
 
     // 控制面板「卸载程序」入口
     let (ukey, _) = hkcu
@@ -113,7 +134,7 @@ fn write_registry(dir: &Path) -> Result<(), String> {
     ukey.set_value("DisplayName", &"2-Pyramid").map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("DisplayVersion", &version).map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("Publisher", &"2-Pyramid Studio").map_err(|e| format!("写卸载注册表失败: {}", e))?;
-    ukey.set_value("UninstallString", &uninstaller).map_err(|e| format!("写卸载注册表失败: {}", e))?;
+    ukey.set_value("UninstallString", &uninstall_cmd).map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("InstallLocation", &dir_str).map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("DisplayIcon", &exe).map_err(|e| format!("写卸载注册表失败: {}", e))?;
     ukey.set_value("NoModify", &1u32).map_err(|e| format!("写卸载注册表失败: {}", e))?;
@@ -140,12 +161,139 @@ fn registry_install_dir() -> Option<PathBuf> {
     Some(PathBuf::from(dir))
 }
 
-fn create_desktop_shortcut(_dir: &Path) {
-    // 快捷方式创建（预留）：当前版本暂不实现，静默跳过。
-    // 将来可通过 WScript.Shell COM 或 IShellLink 创建 .lnk。
+// ── 快捷方式创建（PowerShell WScript.Shell / Shell.Application） ─
+
+/// UTF-16LE 编码（PowerShell -EncodedCommand 要求）。
+fn utf16le(s: &str) -> Vec<u8> {
+    s.encode_utf16().flat_map(|u| u.to_le_bytes()).collect()
 }
 
-fn install_impl<F>(dir: &Path, create_shortcut: bool, mut on_progress: F) -> Result<String, String>
+/// 标准 Base64（不引入额外 crate，离线构建友好）。
+fn b64_encode(data: &[u8]) -> String {
+    const T: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(T[(n >> 18) as usize & 63] as char);
+        out.push(T[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+/// 运行一段 PowerShell 脚本（无窗口、无交互，失败静默）。
+fn run_powershell(script: &str) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let encoded = b64_encode(&utf16le(script));
+    let _ = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-EncodedCommand",
+            &encoded,
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status();
+}
+
+/// 按选项创建快捷方式。返回描述性摘要（用于安装完成文案）。
+fn create_shortcuts(dir: &Path, opts: &ShortcutOptions) -> String {
+    let mut created: Vec<&str> = Vec::new();
+    let exe = dir.join(EXE_NAME);
+
+    // 桌面 / 开始菜单：WScript.Shell 生成 .lnk，稳定可靠
+    if opts.desktop || opts.start_menu {
+        let mut script = String::from(
+            "$ErrorActionPreference='SilentlyContinue'\n$ws=New-Object -ComObject WScript.Shell\n",
+        );
+        let exe_s = ps_quote(&exe.to_string_lossy());
+        let dir_s = ps_quote(&dir.to_string_lossy());
+        if opts.desktop {
+            script.push_str(&format!(
+                "$p=Join-Path ([Environment]::GetFolderPath('Desktop')) '2-Pyramid.lnk'\n\
+                 $s=$ws.CreateShortcut($p)\n$s.TargetPath={exe}\n$s.WorkingDirectory={work}\n\
+                 $s.Description='2-Pyramid'\n$s.Save()\n",
+                exe = exe_s,
+                work = dir_s,
+            ));
+            created.push("桌面");
+        }
+        if opts.start_menu {
+            script.push_str(&format!(
+                "$p=Join-Path ([Environment]::GetFolderPath('Programs')) '2-Pyramid.lnk'\n\
+                 $s=$ws.CreateShortcut($p)\n$s.TargetPath={exe}\n$s.WorkingDirectory={work}\n\
+                 $s.Description='2-Pyramid'\n$s.Save()\n",
+                exe = exe_s,
+                work = dir_s,
+            ));
+            created.push("开始菜单");
+        }
+        run_powershell(&script);
+    }
+
+    // 任务栏固定：通过 Shell.Application InvokeVerb('taskbarpin') 尽力而为。
+    // Windows 10/11 对程序化固定限制较多，失败时静默跳过。
+    if opts.taskbar {
+        let script = format!(
+            "$ErrorActionPreference='SilentlyContinue'\n\
+             $shell=New-Object -ComObject Shell.Application\n\
+             $folder=$shell.Namespace({})\n\
+             if($folder -ne $null){{$item=$folder.ParseName('{}');if($item -ne $null){{$item.InvokeVerb('taskbarpin')}}}}",
+            ps_quote(&dir.to_string_lossy()),
+            EXE_NAME,
+        );
+        run_powershell(&script);
+        created.push("任务栏(尽力而为)");
+    }
+
+    if created.is_empty() {
+        "未创建".to_string()
+    } else {
+        created.join("、")
+    }
+}
+
+/// 卸载时清理快捷方式（.lnk 直接删除；任务栏固定尽力解除）。
+fn remove_shortcuts(dir: &Path) {
+    if let Some(desktop) = dirs::desktop_dir() {
+        let _ = std::fs::remove_file(desktop.join("2-Pyramid.lnk"));
+    }
+    if let Some(data_dir) = dirs::data_dir() {
+        let _ = std::fs::remove_file(
+            data_dir
+                .join("Microsoft")
+                .join("Windows")
+                .join("Start Menu")
+                .join("Programs")
+                .join("2-Pyramid.lnk"),
+        );
+    }
+    if dir.join(EXE_NAME).exists() {
+        let script = format!(
+            "$ErrorActionPreference='SilentlyContinue'\n\
+             $shell=New-Object -ComObject Shell.Application\n\
+             $folder=$shell.Namespace({})\n\
+             if($folder -ne $null){{$item=$folder.ParseName('{}');if($item -ne $null){{$item.InvokeVerb('taskbarunpin')}}}}",
+            ps_quote(&dir.to_string_lossy()),
+            EXE_NAME,
+        );
+        run_powershell(&script);
+    }
+}
+
+/// PowerShell 单引号字符串字面量转义。
+fn ps_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
+
+fn install_impl<F>(dir: &Path, shortcuts: ShortcutOptions, mut on_progress: F) -> Result<String, String>
 where
     F: FnMut(usize, usize, &str),
 {
@@ -157,14 +305,18 @@ where
     }
     deploy_uninstaller(dir)?;
     write_registry(dir)?;
-    if create_shortcut {
-        create_desktop_shortcut(dir);
-    }
-    Ok(format!("安装完成，共释放 {} 个文件到 {}", count, dir.display()))
+    let shortcut_note = create_shortcuts(dir, &shortcuts);
+    Ok(format!(
+        "安装完成，共释放 {} 个文件到 {}\n快捷方式：{}",
+        count,
+        dir.display(),
+        shortcut_note
+    ))
 }
 
 fn uninstall_impl(dir: &Path) -> Result<String, String> {
     delete_registry();
+    remove_shortcuts(dir);
     if dir.exists() {
         std::fs::remove_dir_all(dir).map_err(|e| format!("删除安装目录失败: {}", e))?;
     }
@@ -200,15 +352,26 @@ fn get_installed_dir() -> Option<String> {
     registry_install_dir().map(|d| d.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-fn is_uninstall_mode() -> bool {
-    std::env::args().any(|a| a == "--uninstall")
+/// 以 uninstall.exe 文件名运行（安装时释放的自身副本）时视为卸载器。
+fn is_uninstaller_binary() -> bool {
+    std::env::current_exe()
+        .map(|p| {
+            p.file_name()
+                .map(|n| n.to_string_lossy() == UNINSTALLER_NAME)
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
 }
 
 #[tauri::command]
-fn install(app: AppHandle, dir: String, create_shortcut: bool) -> Result<String, String> {
+fn is_uninstall_mode() -> bool {
+    std::env::args().any(|a| a == "--uninstall") || is_uninstaller_binary()
+}
+
+#[tauri::command]
+fn install(app: AppHandle, dir: String, shortcuts: ShortcutOptions) -> Result<String, String> {
     let path = PathBuf::from(dir);
-    install_impl(&path, create_shortcut, |current, total, name| {
+    install_impl(&path, shortcuts, |current, total, name| {
         let _ = app.emit(
             "install-progress",
             InstallProgress {
@@ -250,7 +413,7 @@ fn main() {
             .and_then(|i| args.get(i + 1))
             .map(PathBuf::from)
             .unwrap_or_else(default_install_dir);
-        match install_impl(&dir, false, |_, _, _| {}) {
+        match install_impl(&dir, ShortcutOptions::none(), |_, _, _| {}) {
             Ok(_) => std::process::exit(0),
             Err(_) => std::process::exit(1),
         }

@@ -644,7 +644,11 @@
             <button class="btn-text secondary" @click="closeBackgroundDialog" :disabled="bgSyncing">
               {{ t('common.cancel') }}
             </button>
-            <button class="btn-text" @click="submitBackground" :disabled="bgSyncing || !bgDraftFile">
+            <button
+              class="btn-text"
+              @click="submitBackground"
+              :disabled="bgSyncing || (!bgDraftFile && !currentBackgroundPath)"
+            >
               {{ t('settings.background.apply') }}
             </button>
           </div>
@@ -1009,6 +1013,12 @@ const openBackgroundDialog = () => {
   bgExtractColor.value = true;
   bgSyncing.value = false;
   showBackgroundDialog.value = true;
+  // 已有背景时直接加载预览，便于只调透色/展示方式
+  if (currentBackgroundPath.value) {
+    resolveImageUrl(currentBackgroundPath.value)
+      .then((url) => { bgDraftPreview.value = url; })
+      .catch(() => {});
+  }
 };
 
 const closeBackgroundDialog = () => {
@@ -1035,31 +1045,48 @@ const pickBackgroundImage = async () => {
 };
 
 const submitBackground = async () => {
-  if (!bgDraftFile.value || bgSyncing.value) return;
+  // 既没有新图片、也没有已设置的背景 → 无操作
+  if (bgSyncing.value || (!bgDraftFile.value && !currentBackgroundPath.value)) return;
   bgSyncing.value = true;
   try {
-    const result = await invoke<{ background_path: string | null; theme_color: string | null }>(
-      'set_background',
-      {
-        filePath: bgDraftFile.value,
+    if (bgDraftFile.value) {
+      const result = await invoke<{ background_path: string | null; theme_color: string | null }>(
+        'set_background',
+        {
+          filePath: bgDraftFile.value,
+          fit: bgDraftFit.value,
+          opacity: bgDraftOpacity.value / 100,
+          extractColor: bgExtractColor.value,
+        },
+      );
+      currentBackgroundPath.value = result.background_path;
+      currentBackgroundFit.value = bgDraftFit.value;
+      currentBackgroundOpacity.value = bgDraftOpacity.value / 100;
+      if (result.theme_color) {
+        themeColor.value = result.theme_color;
+        tempThemeColor.value = result.theme_color;
+      }
+      emit('update:background', {
+        path: result.background_path,
         fit: bgDraftFit.value,
         opacity: bgDraftOpacity.value / 100,
-        extractColor: bgExtractColor.value,
-      },
-    );
-    currentBackgroundPath.value = result.background_path;
-    currentBackgroundFit.value = bgDraftFit.value;
-    currentBackgroundOpacity.value = bgDraftOpacity.value / 100;
-    if (result.theme_color) {
-      themeColor.value = result.theme_color;
-      tempThemeColor.value = result.theme_color;
+        themeColor: result.theme_color,
+      });
+    } else {
+      // 仅调整透色强度 / 展示方式，无需重选图片
+      await invoke('update_background_settings', {
+        fit: bgDraftFit.value,
+        opacity: bgDraftOpacity.value / 100,
+      });
+      currentBackgroundFit.value = bgDraftFit.value;
+      currentBackgroundOpacity.value = bgDraftOpacity.value / 100;
+      emit('update:background', {
+        path: currentBackgroundPath.value,
+        fit: bgDraftFit.value,
+        opacity: bgDraftOpacity.value / 100,
+        themeColor: null,
+      });
     }
-    emit('update:background', {
-      path: result.background_path,
-      fit: bgDraftFit.value,
-      opacity: bgDraftOpacity.value / 100,
-      themeColor: result.theme_color,
-    });
     showBackgroundDialog.value = false;
     notify({
       title: t('settings.background.dialogTitle'),
