@@ -800,7 +800,6 @@ onMounted(async () => {
  .app-container .card,
  .app-container .home-greeting,
  .app-container .engine-indicator,
- .app-container .action-dock,
  .app-container .home-header,
  .app-container .startup-setting-row,
  .app-container .naming-row-inline,
@@ -809,13 +808,25 @@ onMounted(async () => {
  .startup-root .startup-setting-row,
  .startup-root .naming-row-inline,
  .startup-root .lang-card,
- .startup-root .welcome-card,
- .startup-root .nav-pill {
+ .startup-root .welcome-card {
    background: var(--ui-card-surface);
    backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
    -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
    border: var(--ui-border);
    border-radius: var(--ui-radius-card);
+   box-shadow: var(--ui-shadow);
+   transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.25s ease;
+ }
+
+ /* 药丸（主页 dock / OOBE 底部导航）同样走玻璃表面，但保持全圆
+    药丸形 —— 药丸不属于卡片/按钮的统一圆角体系 */
+ .app-container .action-dock,
+ .startup-root .nav-pill {
+   background: var(--ui-card-surface);
+   backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+   -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+   border: var(--ui-border);
+   border-radius: 999px;
    box-shadow: var(--ui-shadow);
    transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.25s ease;
  }
@@ -838,8 +849,16 @@ onMounted(async () => {
    box-shadow: var(--ui-shadow-hover);
  }
 
- /* ── 按钮类（中性按钮统一玻璃/磨砂表面 + 统一圆角矩形）── */
+ /* 分段按钮底板：只做浅色底板，不套玻璃皮肤（避免与 seg-btn
+    玻璃叠成"嵌套两层按钮"的观感） */
  .app-container .segmented,
+ .startup-root .segmented {
+   background: rgba(0, 0, 0, 0.045);
+   border-radius: calc(var(--ui-radius-btn) + 2px);
+   padding: 3px;
+ }
+
+ /* ── 按钮类（中性按钮统一玻璃/磨砂表面 + 统一圆角矩形）── */
  .app-container .seg-btn,
  .app-container .back-btn,
  .app-container .btn-text.secondary,
@@ -848,6 +867,8 @@ onMounted(async () => {
  .app-container .danger-btn,
  .app-container .naming-tag-btn,
  .app-container .naming-preset-btn,
+ .app-container .dialog-close,
+ .app-container .close-btn,
  .startup-root .seg-btn,
  .startup-root .ghost-btn,
  .startup-root .danger-btn {
@@ -897,6 +918,11 @@ onMounted(async () => {
  .app-container .dialog-button,
  .app-container .primary-btn,
  .startup-root .primary-btn {
+   border-radius: var(--ui-radius-btn);
+ }
+
+ /* 窗口控制按钮：统一圆角矩形（小图标按钮） */
+ .window-button {
    border-radius: var(--ui-radius-btn);
  }
 
