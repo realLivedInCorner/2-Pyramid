@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "com_server"]
+members = ["."]
 resolver = "2"
 
 [package]

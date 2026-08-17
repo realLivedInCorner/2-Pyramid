@@ -4702,15 +4702,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "two-pyr-installer"
-version = "0.1.0"
-dependencies = [
- "dirs 5.0.1",
- "winreg 0.52.0",
- "zip",
-]
-
-[[package]]
 name = "two-pyramid"
 version = "2.0.0"
 dependencies = [
@@ -4737,14 +4728,6 @@ dependencies = [
  "walkdir",
  "winreg 0.52.0",
  "zip",
-]
-
-[[package]]
-name = "two_pyramid_shell"
-version = "2.0.0"
-dependencies = [
- "windows",
- "windows-core 0.61.2",
 ]
 
 [[package]]
