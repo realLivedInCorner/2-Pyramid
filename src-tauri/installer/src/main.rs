@@ -3,7 +3,7 @@
 //! 内嵌 `payload.zip`（构建流水线生成，含 2-pyramid.exe /
 //! two_pyramid_shell.dll / UImage / overlay），双击运行后：
 //!   1. 释放文件到安装目录（默认 %LOCALAPPDATA%\2-Pyramid，每用户免管理员）
-//!   2. 写入注册表（.zip 右键菜单「转换版本至(C)」）
+//!   2. 写入注册表（安装信息 HKCU\Software\2-Pyramid —— 右键菜单已移除）
 //!   3. 输出安装结果
 //!
 //! 参数：
@@ -17,7 +17,6 @@ use std::path::{Path, PathBuf};
 const PAYLOAD: &[u8] = include_bytes!("../payload.zip");
 const APP_NAME: &str = "2-Pyramid";
 const EXE_NAME: &str = "2-pyramid.exe";
-const RIGHT_CLICK_LABEL: &str = "转换版本至(&C)";
 
 fn log(silent: bool, msg: &str) {
     if !silent {
@@ -65,39 +64,20 @@ fn extract_payload(dest: &Path) -> Result<usize, String> {
     Ok(count)
 }
 
-/// 写 .zip 右键菜单注册表（HKCU，映射到当前用户）。
-fn write_registry(exe_path: &Path) -> Result<(), String> {
+/// 写安装信息注册表（HKCU\Software\2-Pyramid：安装目录、版本信息）。
+/// 右键菜单已移除，不再注册 .zip shell 扩展。
+fn write_registry(dir: &Path) -> Result<(), String> {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let exe = exe_path.to_string_lossy();
-
-    let base = r"Software\Classes\.zip\shell\2-Pyramid";
     let (key, _) = hkcu
-        .create_subkey(base)
+        .create_subkey(r"Software\2-Pyramid")
         .map_err(|e| format!("写注册表失败: {}", e))?;
-    key.set_value("", &RIGHT_CLICK_LABEL).map_err(|e| format!("写注册表失败: {}", e))?;
-    key.set_value("Icon", &format!("{},0", exe)).map_err(|e| format!("写注册表失败: {}", e))?;
-    let (cmd, _) = hkcu
-        .create_subkey(&format!(r"{}\command", base))
+    key.set_value("InstallDir", &dir.to_string_lossy().to_string())
         .map_err(|e| format!("写注册表失败: {}", e))?;
-    cmd.set_value("", &format!(r#""{}" --convert "%1""#, exe))
+    key.set_value("Version", env!("CARGO_PKG_VERSION"))
         .map_err(|e| format!("写注册表失败: {}", e))?;
-
-    // Win10/11 SystemFileAssociations 兼容
-    let sfa = r"Software\Classes\SystemFileAssociations\.zip\shell\2-Pyramid";
-    let (key, _) = hkcu
-        .create_subkey(sfa)
-        .map_err(|e| format!("写注册表失败: {}", e))?;
-    key.set_value("", &RIGHT_CLICK_LABEL).map_err(|e| format!("写注册表失败: {}", e))?;
-    key.set_value("Icon", &format!("{},0", exe)).map_err(|e| format!("写注册表失败: {}", e))?;
-    let (cmd, _) = hkcu
-        .create_subkey(&format!(r"{}\command", sfa))
-        .map_err(|e| format!("写注册表失败: {}", e))?;
-    cmd.set_value("", &format!(r#""{}" --convert "%1""#, exe))
-        .map_err(|e| format!("写注册表失败: {}", e))?;
-
     Ok(())
 }
 
@@ -106,8 +86,7 @@ fn delete_registry() {
     use winreg::RegKey;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let _ = hkcu.delete_subkey_all(r"Software\Classes\.zip\shell\2-Pyramid");
-    let _ = hkcu.delete_subkey_all(r"Software\Classes\SystemFileAssociations\.zip\shell\2-Pyramid");
+    let _ = hkcu.delete_subkey_all(r"Software\2-Pyramid");
 }
 
 fn install(dir: &Path, silent: bool) -> Result<(), String> {
@@ -121,8 +100,8 @@ fn install(dir: &Path, silent: bool) -> Result<(), String> {
     if !exe.exists() {
         return Err(format!("payload 中缺少 {}", EXE_NAME));
     }
-    write_registry(&exe)?;
-    log(silent, "右键菜单已注册");
+    write_registry(dir)?;
+    log(silent, "安装信息已写入注册表");
 
     log(silent, &format!("✅ 安装完成: {}", exe.display()));
     Ok(())
@@ -131,7 +110,7 @@ fn install(dir: &Path, silent: bool) -> Result<(), String> {
 fn uninstall(dir: &Path, silent: bool) -> Result<(), String> {
     log(silent, &format!("卸载 {}", dir.display()));
     delete_registry();
-    log(silent, "右键菜单已移除");
+    log(silent, "安装信息注册表已移除");
 
     if dir.exists() {
         std::fs::remove_dir_all(dir).map_err(|e| format!("删除安装目录失败: {}", e))?;

@@ -130,9 +130,7 @@ pub fn run() {
             // instance then brings its main window to the foreground.
             //
             // Implemented with plain std (no extra crate, no network
-            // access needed at build time). `run_silent` (context-menu
-            // conversion) deliberately skips this so silent conversions
-            // can run alongside the main app.
+            // access needed at build time).
             install_single_instance(app);
 
             // Create the main window in code (not via tauri.conf.json)
@@ -359,98 +357,3 @@ fn install_single_instance(app: &tauri::App) {
     }
 }
 
-/// Context menu silent conversion: no main window, notification only
-pub fn run_silent(file_path: String, format: u32) {
-    use crate::{log_info, log_error};
-    use crate::converters::version_converter::convert_resource_pack;
-
-    log_info!("Silent conversion: {} -> pack_format {}", file_path, format);
-
-    match tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
-        .setup(move |app| {
-            let handle = app.handle();
-
-            // Immediately hide window to avoid flicker
-            {
-                use tauri::Manager as _;
-                handle.webview_windows().iter().for_each(|(_, w)| {
-                    let _ = w.hide();
-                });
-            }
-
-            // Resolve resource paths
-            crate::resource_resolver::cache_resource_from_app(&handle, "UImage");
-            crate::resource_resolver::cache_resource_from_app(&handle, "overlay");
-
-            // Backward compat: ensure overlay/UImage at exe level for old MSI installs
-            if let Err(e) = crate::resource_resolver::ensure_resources_at_exe_level() {
-                crate::log_info!("ensure_resources_at_exe_level: {}", e);
-            }
-
-            let handle_clone = handle.clone();
-            let file_clone = file_path.clone();
-
-            tauri::async_runtime::spawn(async move {
-                use tauri_plugin_notification::NotificationExt;
-                use std::path::Path;
-
-                // Execute conversion in blocking thread
-                let result = tokio::task::spawn_blocking(move || {
-                    convert_resource_pack(&file_clone, format)
-                }).await;
-
-                match result {
-                    Ok(Ok(output)) => {
-                        log_info!("Silent conversion done: {}", output);
-                        let filename = Path::new(&output)
-                            .file_name()
-                            .map(|n| n.to_string_lossy().to_string())
-                            .unwrap_or_else(|| output.clone());
-                        let _ = handle_clone
-                            .notification()
-                            .builder()
-                            .title("2-Pyramid - Conversion Complete")
-                            .body(&filename)
-                            .show();
-                    }
-                    Ok(Err(e)) => {
-                        log_error!("Silent conversion failed: {}", e);
-                        let _ = handle_clone
-                            .notification()
-                            .builder()
-                            .title("2-Pyramid - Conversion Failed")
-                            .body(&e)
-                            .show();
-                    }
-                    Err(e) => {
-                        log_error!("Silent conversion join error: {}", e);
-                        let _ = handle_clone
-                            .notification()
-                            .builder()
-                            .title("2-Pyramid - Conversion Failed")
-                            .body(&e.to_string())
-                            .show();
-                    }
-                }
-
-                // Wait for notification to be sent before exiting
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                handle_clone.exit(0);
-            });
-
-            Ok(())
-        })
-        .build(tauri::generate_context!())
-    {
-        Ok(app) => {
-            app.run(|_, _| {});
-        }
-        Err(e) => {
-            log_error!("Silent app build failed: {}", e);
-            std::process::exit(1);
-        }
-    }
-}
