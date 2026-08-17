@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "2-Pyramid Installer",
+  "version": "2.0.0",
+  "identifier": "com.2pyrstudio.2pyrinstaller",
+  "build": {
+    "beforeDevCommand": "vite --port 1422",
+    "devUrl": "http://localhost:1422",
+    "beforeBuildCommand": "vite build",
+    "frontendDist": "../dist-installer"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "2-Pyramid 安装器",
+        "width": 620,
+        "height": 720,
+        "resizable": false,
+        "center": true,
+        "decorations": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}
