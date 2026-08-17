@@ -1,0 +1,10 @@
+{
+  "identifier": "default",
+  "description": "Installer window permissions",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "dialog:default"
+  ]
+}
