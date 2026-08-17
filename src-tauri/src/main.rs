@@ -6,19 +6,7 @@ use std::env;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    // 右键菜单静默转换: 2-pyramid.exe --convert "path\to\file.zip" --format N
-    let convert_idx = args.iter().position(|a| a == "--convert");
-    let format_idx = args.iter().position(|a| a == "--format");
-
-    if let (Some(ci), Some(fi)) = (convert_idx, format_idx) {
-        if ci + 1 < args.len() && fi + 1 < args.len() {
-            let file_path = args[ci + 1].clone();
-            if let Ok(format_num) = args[fi + 1].parse::<u32>() {
-                two_pyramid_lib::run_silent(file_path, format_num);
-                return;
-            }
-        }
-    }
+    // （右键菜单静默转换入口已移除 —— 安装器不再注册 .zip 右键菜单）
 
     // 检查是否有 --nogui 参数
     if args.contains(&"--nogui".to_string()) {
