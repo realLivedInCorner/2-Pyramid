@@ -211,6 +211,9 @@ pub struct AppInfo {
     pub full: String,
     /// True when built without `--release`.
     pub is_dev: bool,
+    /// 构建渠道：stable（正式版）/ beta（测试版）。
+    /// 由发布流水线在编译时经环境变量 2PYR_CHANNEL 注入。
+    pub channel: String,
 }
 
 #[tauri::command]
@@ -233,12 +236,17 @@ pub fn get_app_info() -> AppInfo {
     };
 
     let is_dev = cfg!(debug_assertions);
+    const CHANNEL: &str = match option_env!("2PYR_CHANNEL") {
+        Some(v) => v,
+        None => "stable",
+    };
 
     AppInfo {
         version,
         build,
         full,
         is_dev,
+        channel: CHANNEL.to_string(),
     }
 }
 
