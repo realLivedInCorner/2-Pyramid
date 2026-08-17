@@ -5,6 +5,8 @@
   "permissions": [
     "core:default",
     "core:window:allow-close",
-    "dialog:default"
+    "core:event:default",
+    "dialog:default",
+    "opener:default"
   ]
 }
