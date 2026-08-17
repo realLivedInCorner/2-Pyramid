@@ -2,14 +2,16 @@
 """2-Pyramid 自建发布流水线（Windows 专用）。
 
 流程：
-  1. 递增 BUILD 版本号（可 --no-bump 跳过）
-  2. 前端构建（vue-tsc + vite）
-  3. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）
-  4. 收集产物到 release/staging/（exe、UImage、overlay）
-  5. 把 staging 打成 payload.zip，内嵌进独立安装器项目
+  1. 前端构建（vue-tsc + vite）
+  2. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）。
+     BUILD 构建号由主程序 build.rs 在 release 编译时自动递增——
+     这是唯一的递增点（历史版本里 Python 也会 bump 一次，导致
+     每次构建号 +2；现已移除）
+  3. 收集产物到 release/staging/（exe、UImage、overlay）
+  4. 把 staging 打成 payload.zip，内嵌进独立安装器项目
      （installer-app —— Tauri 2 + Vue 3，自定义安装界面与注册表逻辑）
-  6. 编译安装器项目（tauri build --no-bundle，便携版）
-  7. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
+  5. 编译安装器项目（tauri build --no-bundle，便携版）
+  6. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
      （--beta 时输出 2-Pyramid-Installer-{version}-beta.{BUILD}.exe，
        安装器以 beta 渠道编译：独立注册表键、Beta 标识、可并存）
 
@@ -19,7 +21,7 @@
 用法：
   python tools/build_release.py              # 正式版完整构建 + 安装器
   python tools/build_release.py --beta       # beta 渠道构建 + 安装器
-  python tools/build_release.py --no-bump    # 不递增 BUILD
+  python tools/build_release.py --no-bump    # 不递增 BUILD（2PYR_NO_BUMP=1）
   python tools/build_release.py --skip-installer  # 只出 staging 产物
 
 需要：Node.js、Rust 工具链。不依赖任何第三方打包工具。
@@ -62,14 +64,6 @@ def read_build() -> int:
         except ValueError:
             return 0
     return 0
-
-
-def bump_build() -> None:
-    """递增仓库根 BUILD 文件（与 tools/bump_build.py 的格式一致）。"""
-    current = read_build()
-    new = current + 1
-    BUILD_FILE.write_text(f"{new}\n", encoding="utf-8")
-    print(f"==> BUILD {current} -> {new}")
 
 
 def read_version() -> str:
@@ -155,12 +149,13 @@ def main() -> None:
     channel = "beta" if args.beta else "stable"
     # 主程序与前端同样渠道感知：2PYR_CHANNEL 进入 Rust 编译期
     # （option_env!，窗口标题 / AppInfo.channel），VITE_CHANNEL 进入
-    # vite（index.html 的 %VITE_BETA_MARK% 替换）
+    # vite（index.html 的 %VITE_BETA_MARK% 替换）。
+    # BUILD 递增交给主程序 build.rs（release 编译期唯一递增点）；
+    # --no-bump 时经 2PYR_NO_BUMP=1 让 build.rs 只读不写。
     channel_env = {"2PYR_CHANNEL": channel, "VITE_CHANNEL": channel}
+    if args.no_bump:
+        channel_env["2PYR_NO_BUMP"] = "1"
     print(f"==> 2-Pyramid 发布流水线 · 版本 {version} · 渠道 {channel}（{'测试' if args.beta else '正式'}版）")
-
-    if not args.no_bump:
-        bump_build()
 
     run(["npm", "run", "build"], ROOT, "主项目前端构建", env=channel_env)
     run(
