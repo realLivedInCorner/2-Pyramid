@@ -362,39 +362,47 @@ where
     ))
 }
 
-/// 派生独立的清理进程：轮询删除正在运行的卸载器自身，
-/// 待本进程退出（文件锁释放）后删掉它并移除安装目录。
-/// 使用 DETACHED_PROCESS，父进程退出后继续运行。
-fn spawn_self_delete_helper(self_path: &Path, dir: &Path) {
+/// 无窗口、不等待地启动一段 PowerShell 脚本（DETACHED，
+/// 父进程退出后脚本继续运行）。
+fn run_powershell_detached(script: &str) {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
+    let encoded = b64_encode(&utf16le(script));
+    let _ = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-EncodedCommand",
+            &encoded,
+        ])
+        .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
+        .spawn();
+}
 
-    let tmp = std::env::temp_dir().join(format!("2pyr-cleanup-{}.cmd", std::process::id()));
-    // % 在批处理中是变量引用符，需要加倍转义
-    let self_s = self_path.to_string_lossy().replace('%', "%%");
-    let dir_s = dir.to_string_lossy().replace('%', "%%");
+/// 派生独立的清理进程：用进程句柄 WaitForExit 阻塞等待本卸载器
+/// 退出（事件驱动，不做任何轮询，也不会产生 ping 之类的网络
+/// 探测），随后删除卸载器自身与安装目录。
+fn spawn_self_delete_helper(self_path: &Path, dir: &Path) {
+    let pid = std::process::id();
+    let self_s = ps_quote(&self_path.to_string_lossy());
+    let dir_s = ps_quote(&dir.to_string_lossy());
     let script = format!(
-        "@echo off\r\n\
-         cd /d \"%TEMP%\"\r\n\
-         :retry\r\n\
-         del /f /q \"{self}\" >nul 2>&1\r\n\
-         if exist \"{self}\" (\r\n\
-           ping -n 2 127.0.0.1 >nul\r\n\
-           goto retry\r\n\
-         )\r\n\
-         rmdir /q /s \"{dir}\" >nul 2>&1\r\n\
-         del /f /q \"%~f0\" >nul 2>&1\r\n",
+        "$ErrorActionPreference='SilentlyContinue'\n\
+         $p=Get-Process -Id {pid} -ErrorAction SilentlyContinue\n\
+         if($p){{$p.WaitForExit()}}\n\
+         Start-Sleep -Milliseconds 400\n\
+         Remove-Item -LiteralPath {self} -Force\n\
+         Start-Sleep -Milliseconds 300\n\
+         Remove-Item -LiteralPath {self} -Force\n\
+         Remove-Item -LiteralPath {dir} -Recurse -Force",
+        pid = pid,
         self = self_s,
         dir = dir_s,
     );
-    if std::fs::write(&tmp, script).is_ok() {
-        let _ = std::process::Command::new("cmd.exe")
-            .arg("/c")
-            .arg(&tmp)
-            .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
-            .spawn();
-    }
+    run_powershell_detached(&script);
 }
 
 fn uninstall_impl(dir: &Path) -> Result<String, String> {
@@ -426,11 +434,11 @@ fn uninstall_impl(dir: &Path) -> Result<String, String> {
     }
 
     if self_inside {
-        // 自身在安装目录内：派出清理进程，待退出时删除自身与目录
+        // 自身在安装目录内：派出清理进程，等待本进程退出后删除自身与目录
         if let Some(sp) = &self_path {
             spawn_self_delete_helper(sp, dir);
         }
-        Ok("卸载完成：程序文件已移除，用户数据已保留。\n关闭窗口后，卸载程序会自行清理残留。".to_string())
+        Ok("卸载完成：程序文件已移除，用户数据已保留。\n窗口即将自动关闭，卸载程序随后自行清理残留。".to_string())
     } else {
         // 自身不在安装目录内（如 --uninstall 启动的原始安装包）：直接删除目录
         if dir.exists() {
