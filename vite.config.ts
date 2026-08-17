@@ -12,6 +12,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const host = process.env.TAURI_DEV_HOST;
 
+// 构建渠道：stable（正式版）/ beta（测试版）。
+// 发布流水线通过环境变量 VITE_CHANNEL 注入；这里补齐默认值，
+// 保证 index.html 中的 %VITE_BETA_MARK% 占位符（以及任何读取
+// import.meta.env 的代码）在 dev / 手动构建时也能被替换。
+if (!process.env.VITE_CHANNEL) {
+  process.env.VITE_CHANNEL = "stable";
+}
+process.env.VITE_BETA_MARK =
+  process.env.VITE_CHANNEL === "beta" ? " (Beta)" : "";
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [vue()],

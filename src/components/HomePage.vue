@@ -4,6 +4,7 @@
       <div class="header-brand">
         2-Pyramid
         <span class="header-version">v{{ appVersion }}</span>
+        <span v-if="appIsBeta" class="header-beta">Beta</span>
       </div>
     </header>
 
@@ -73,7 +74,7 @@ const switchToSettings = () => emit('switch-page', 'settings');
 // Show the plain semver (e.g. "2.0.0") in the top-left corner. The
 // build number lives in Settings → Version Info so this badge stays
 // clean and minimal.
-const { version: appVersion } = useAppInfo();
+const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
 </script>
 
 <style scoped>
@@ -116,6 +117,17 @@ const { version: appVersion } = useAppInfo();
   color: var(--theme-color);
   font-weight: 700;
   font-size: 11px;
+}
+
+.header-beta {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.14);
+  color: #ea580c;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.6px;
 }
 
 .home-greeting {
