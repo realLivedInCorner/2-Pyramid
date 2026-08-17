@@ -10,19 +10,23 @@
      （installer-app —— Tauri 2 + Vue 3，自定义安装界面与注册表逻辑）
   6. 编译安装器项目（tauri build --no-bundle，便携版）
   7. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
+     （--beta 时输出 2-Pyramid-Installer-{version}-beta.{BUILD}.exe，
+       安装器以 beta 渠道编译：独立注册表键、Beta 标识、可并存）
 
 便携版不对外发布，只作为安装器内嵌 payload。
 仅支持 Windows 平台。
 
 用法：
-  python tools/build_release.py            # 完整构建 + 安装器
-  python tools/build_release.py --no-bump  # 不递增 BUILD
+  python tools/build_release.py              # 正式版完整构建 + 安装器
+  python tools/build_release.py --beta       # beta 渠道构建 + 安装器
+  python tools/build_release.py --no-bump    # 不递增 BUILD
   python tools/build_release.py --skip-installer  # 只出 staging 产物
 
 需要：Node.js、Rust 工具链。不依赖任何第三方打包工具。
 """
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -34,30 +38,37 @@ TAURI_DIR = ROOT / "src-tauri"
 INSTALLER_APP = ROOT / "installer-app"
 STAGING = ROOT / "release" / "staging"
 OUTPUT = ROOT / "release"
+BUILD_FILE = ROOT / "BUILD"
 
 
-def run(cmd: list[str], cwd: Path, label: str) -> None:
+def run(cmd: list[str], cwd: Path, label: str, env: dict | None = None) -> None:
     print(f"\n==> {label}: {' '.join(cmd)}")
     # Windows 上 npm/npx 是 .cmd 包装器，必须经 shell 才能被
     # CreateProcess 找到（本项目仅支持 Windows）
-    result = subprocess.run(cmd, cwd=str(cwd), shell=True)
+    merged = dict(os.environ)
+    if env:
+        merged.update(env)
+    result = subprocess.run(cmd, cwd=str(cwd), shell=True, env=merged)
     if result.returncode != 0:
         print(f"[FAILED] {label} (exit {result.returncode})", file=sys.stderr)
         sys.exit(1)
 
 
+def read_build() -> int:
+    """读取仓库根 BUILD 文件当前值。"""
+    if BUILD_FILE.exists():
+        try:
+            return int(BUILD_FILE.read_text(encoding="utf-8").strip())
+        except ValueError:
+            return 0
+    return 0
+
+
 def bump_build() -> None:
     """递增仓库根 BUILD 文件（与 tools/bump_build.py 的格式一致）。"""
-    build_file = ROOT / "BUILD"
-    current = 0
-    if build_file.exists():
-        text = build_file.read_text(encoding="utf-8").strip()
-        try:
-            current = int(text)
-        except ValueError:
-            current = 0
+    current = read_build()
     new = current + 1
-    build_file.write_text(f"{new}\n", encoding="utf-8")
+    BUILD_FILE.write_text(f"{new}\n", encoding="utf-8")
     print(f"==> BUILD {current} -> {new}")
 
 
@@ -107,13 +118,16 @@ def make_payload_zip() -> Path:
     return payload
 
 
-def build_installer(version: str) -> None:
-    print("\n==> 编译安装器项目 (installer-app, tauri build --no-bundle)")
+def build_installer(version: str, beta: bool) -> None:
+    channel = "beta" if beta else "stable"
+    print(f"\n==> 编译安装器项目 (installer-app, tauri build --no-bundle, 渠道: {channel})")
     make_payload_zip()
+    # 渠道经环境变量注入 Rust 编译期（option_env!），beta/正式版注册表与标识隔离
     run(
         ["npx", "tauri", "build", "--no-bundle"],
         INSTALLER_APP,
         "tauri build installer-app",
+        env={"2PYR_CHANNEL": channel},
     )
 
     installer_exe = INSTALLER_APP / "src-tauri" / "target" / "release" / "two-pyr-installer-app.exe"
@@ -122,18 +136,23 @@ def build_installer(version: str) -> None:
         sys.exit(1)
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    final = OUTPUT / f"2-Pyramid-Installer-{version}.exe"
+    if beta:
+        final = OUTPUT / f"2-Pyramid-Installer-{version}-beta.{read_build()}.exe"
+    else:
+        final = OUTPUT / f"2-Pyramid-Installer-{version}.exe"
     shutil.copy2(installer_exe, final)
-    print(f"\n✅ 安装器已生成: {final}")
+    print(f"\n✅ 安装器已生成（{channel} 渠道）: {final}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="2-Pyramid 发布流水线（Windows，便携版内嵌安装器）")
     parser.add_argument("--no-bump", action="store_true", help="不递增 BUILD 版本")
     parser.add_argument("--skip-installer", action="store_true", help="只构建产物，不生成安装器")
+    parser.add_argument("--beta", action="store_true", help="beta 渠道构建（独立注册表、Beta 标识、可与正式版并存）")
     args = parser.parse_args()
 
     version = read_version()
+    print(f"==> 2-Pyramid 发布流水线 · 版本 {version} · 渠道 {'beta' if args.beta else 'stable（正式版）'}")
 
     if not args.no_bump:
         bump_build()
@@ -151,7 +170,7 @@ def main() -> None:
         print(f"\n完成（跳过安装器打包）。产物位于 {STAGING}")
         return
 
-    build_installer(version)
+    build_installer(version, args.beta)
 
 
 if __name__ == "__main__":
