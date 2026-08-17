@@ -126,6 +126,9 @@ const doUninstall = async () => {
     resultMessage.value = await invoke<string>("uninstall", { dir: dir.value.trim() });
     installed.value = false;
     step.value = 3;
+    // 完成动画播完后自动关窗：窗口关闭 → 进程退出 → 后台清理进程
+    // （WaitForExit 等待本进程）删除卸载器自身与安装目录。
+    window.setTimeout(() => { void closeWindow(); }, 3500);
   } catch (e) {
     failed.value = true;
     resultMessage.value = String(e);
@@ -316,7 +319,7 @@ const closeWindow = async () => {
           <i class="ri-error-warning-line" aria-hidden="true"></i>
           <span>{{ resultMessage }}</span>
         </div>
-        <p v-else class="hint">点击下方「卸载」开始。完成后关闭窗口，卸载程序会自行清理残留。</p>
+        <p v-else class="hint">点击下方「卸载」开始。完成后窗口会自动关闭，卸载程序随后自行清理残留。</p>
       </div>
     </main>
 
