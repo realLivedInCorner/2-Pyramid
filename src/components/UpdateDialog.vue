@@ -30,6 +30,12 @@ let unlistenProgress: UnlistenFn | null = null;
 
 const latest = computed<ReleaseInfo | null>(() => props.updateResult?.latest ?? null);
 
+/// Beta- / UnStable- 前缀的 release 属于测试版更新
+const isBetaRelease = computed(() => {
+  const tag = latest.value?.tagName?.toLowerCase() ?? "";
+  return tag.startsWith("beta-") || tag.startsWith("unstable-");
+});
+
 const priorityLabel = computed(() => {
   if (!latest.value) return "";
   return latest.value.priority === "safe" ? t('update.prioritySafe') : t('update.priorityOptional');
@@ -150,7 +156,7 @@ onUnmounted(() => {
           <div class="ud-version-compare">
             <span class="v-old">{{ updateResult?.currentVersion }}</span>
             <i class="ri-arrow-right-line v-arrow"></i>
-            <span class="v-new">{{ latest?.version }}</span>
+            <span class="v-new">{{ latest?.version }}<em v-if="isBetaRelease" class="ud-beta-tag">{{ t('update.betaTag') }}</em></span>
           </div>
           <div class="ud-meta">
             <span class="ud-size"><i class="ri-download-line"></i> {{ assetSize }}</span>
@@ -288,7 +294,18 @@ onUnmounted(() => {
 }
 .v-old { color: #9ca3af; }
 .v-arrow { color: #9ca3af; font-size: 18px; }
-.v-new { color: #1d1d1f; }
+.v-new { color: #1d1d1f; display: inline-flex; align-items: center; gap: 8px; }
+
+.ud-beta-tag {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.14);
+  color: #ea580c;
+  vertical-align: 2px;
+}
 
 /* Meta */
 .ud-meta {

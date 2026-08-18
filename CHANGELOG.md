@@ -1,0 +1,51 @@
+# Changelog
+
+2-Pyramid 的所有值得注意的变更都会记录在此文件中。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
+
+## [Unreleased]
+
+### Added
+
+- **更新检查识别测试版**：Release tag 带 `Beta-` / `UnStable-` 前缀的视为测试版更新，仅「测试版」更新通道可见；更新对话框对这类更新显示「测试版」徽章。
+
+### Changed
+
+- 版本详情对话框简化为只显示**主版本**与**构建号**两项内容。
+- 更新源切换到 2-Pyramid 官方仓库 Releases（`realLivedInCorner/2-Pyramid`）。
+- README 全面重写，同步当前项目状态（自研安装器、Beta 渠道、更新机制、目录规整等）。
+- 新增本 CHANGELOG.md。
+
+### Fixed
+
+- **目录规整防呆**：寻找 `pack.mcmeta` 时，`pack.mcmeta.txt` 之类任意后缀的文件只要内容是合法 mcmeta（能解析出 format 数值），就统一改名/提升为压缩包根目录的 `pack.mcmeta` 再转换（对齐原 Python 版的结构修复步骤）。
+- **输出文件名版本前缀替换**：版本标签不再只匹配开头——`[Java 1.x-y]` 出现在名称任意位置（如 `[Name] [Ver]` 模板产物）都会被剥除，避免再转换时新旧前缀堆叠。
+- **BUILD 构建号重复递增**：发布流水线不再自行 bump，`build.rs` 成为唯一递增点；`--no-bump` 经 `2PYR_NO_BUMP=1` 彻底跳过。
+- **卸载器自清理**：后台清理进程从「ping 127.0.0.1 轮询」改为进程句柄 `WaitForExit` 等待（零网络探测、零轮询）；卸载完成动画播完后自动关窗触发清理。
+- 更新检查器读取的 mcmeta 兼容 UTF-8 BOM。
+
+## [2.0.0] - 2026-08-18
+
+### Added
+
+- **Tauri 2 桌面版**：覆盖 1.6 → 26.1+ 共 26 个目标版本区间的任意互转，批量并行（1–4 线程）转换。
+- **自研安装器**（`installer-app`）：OOBE 分步向导、实时进度、GitHub 介绍卡片；可选创建桌面 / 开始菜单 / 任务栏快捷方式；写入控制面板卸载入口（HKCU，无需管理员权限）。
+- **卸载器**：以 `uninstall.exe --uninstall` 或双击卸载器直接进入卸载流程；删除程序文件与注册表、清理快捷方式，用户数据（`~/.2pyr`）保留；退出时自行清理残留。
+- **Beta 构建渠道**：`npm run betabuild` 输出 `2-Pyramid-Installer-{版本}-beta.{BUILD}.exe`；Beta 与正式版注册表 / 目录 / 快捷方式全部隔离，可并存；主程序与安装器界面带 Beta 标识。
+- **更新系统**：基于 GitHub Releases 的检查 / 下载 / 静默安装，支持 `Safe-` / `Stable-` / `UnStable-` 前缀优先级与稳定 / 测试双通道。
+- **界面定制**：自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、动画速率三档、中英双语。
+- **输出命名模板**：`[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符 + 实时预览。
+- **其他**：转换历史记录、桌面 Toast 通知、单实例端口锁、动作监视（`--action-monitor` / `2PYR_ACTION_MONITOR=1`）、OKAY 风格日志、无边框窗口（关闭即退出）。
+
+### Changed
+
+- 移除托盘常驻与「关闭最小化到托盘」行为，主窗口关闭即退出。
+- 移除右键菜单与 COM 服务器。
+- 发布产物改为便携版内嵌安装器的单文件安装包（不再使用 Inno / NSIS）。
+
+### Fixed
+
+- 各种窗口生命周期 / Toast 堆叠 / 对话框过渡 / 背景图层问题（详见提交历史）。
+
+## [1.0.0] - 2026-07-10
+
+- 初始提交：基于原 Python 版 `pack.py`（Hurricane）移植的 Tauri + Rust + Vue 桌面版。

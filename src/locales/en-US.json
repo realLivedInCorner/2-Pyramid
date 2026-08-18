@@ -433,6 +433,7 @@
     "ok": "OK",
     "prioritySafe": "Important Security Update",
     "priorityOptional": "Optional Update",
+    "betaTag": "Beta",
     "skipVersion": "Skip This Version",
     "remindLater": "Remind Later",
     "updateNow": "Update Now",
