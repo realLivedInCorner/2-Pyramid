@@ -136,7 +136,7 @@
       "notification": "Notifications",
       "animation": "Animation",
       "version": "Version & Info",
-      "dev": "Developer"
+      "dev": "Developer Options"
     },
     "language": {
       "label": "Language",
@@ -318,6 +318,7 @@
       "placeholder": "Enter DeveloperEnable",
       "enter": "Enter",
       "hintBefore": "{count} more clicks to enable Developer Mode",
+      "logWindowTitle": "Runtime Log",
       "error": "Verification failed: please enter DeveloperEnable",
       "viewLog": "View Full Runtime Log (session)",
       "logError": "Failed to read log: {error}",

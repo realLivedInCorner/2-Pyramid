@@ -734,46 +734,48 @@
       </div>
     </transition>
 
-    <section class="settings-group" v-if="devModeEnabled">
-      <h3 class="group-title">{{ t('settings.groups.dev') }}</h3>
-      <div class="group-card">
-        <div class="setting-item clickable" @click="showLogWindow = true">
-          <div class="item-icon">
-            <i class="ri-terminal-box-line" aria-hidden="true"></i>
+    <transition name="dev-group">
+      <section class="settings-group" v-if="devModeEnabled && shouldShowGroup('dev')">
+        <h3 class="group-title">{{ t('settings.groups.dev') }}</h3>
+        <div class="group-card">
+          <div class="setting-item clickable" v-if="shouldShowItem('devLog')" @click="showLogWindow = true">
+            <div class="item-icon">
+              <i class="ri-terminal-box-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.logWindowTitle') }}</div>
+              <div class="desc">{{ t('settings.devMode.viewLog') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
           </div>
-          <div class="item-info">
-            <div class="label">2-PyramidLogWindow</div>
-            <div class="desc">{{ t('settings.devMode.viewLog') }}</div>
+          <div class="setting-item clickable danger" v-if="shouldShowItem('devClearConfig')" @click="showClearConfigDialog = true">
+            <div class="item-icon">
+              <i class="ri-delete-bin-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.clearConfig') }}</div>
+              <div class="desc">{{ t('settings.devMode.clearConfigDesc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
           </div>
-          <div class="item-arrow">→</div>
+          <div class="setting-item" v-if="shouldShowItem('devActionMonitor')">
+            <div class="item-icon">
+              <i class="ri-radar-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.actionMonitor') }}</div>
+              <div class="desc">{{ t('settings.devMode.actionMonitorDesc') }}</div>
+            </div>
+            <div class="item-action">
+              <label class="switch">
+                <input type="checkbox" v-model="actionMonitorEnabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
-        <div class="setting-item clickable danger" @click="showClearConfigDialog = true">
-          <div class="item-icon">
-            <i class="ri-delete-bin-line" aria-hidden="true"></i>
-          </div>
-          <div class="item-info">
-            <div class="label">{{ t('settings.devMode.clearConfig') }}</div>
-            <div class="desc">{{ t('settings.devMode.clearConfigDesc') }}</div>
-          </div>
-          <div class="item-arrow">→</div>
-        </div>
-        <div class="setting-item">
-          <div class="item-icon">
-            <i class="ri-radar-line" aria-hidden="true"></i>
-          </div>
-          <div class="item-info">
-            <div class="label">{{ t('settings.devMode.actionMonitor') }}</div>
-            <div class="desc">{{ t('settings.devMode.actionMonitorDesc') }}</div>
-          </div>
-          <div class="item-action">
-            <label class="switch">
-              <input type="checkbox" v-model="actionMonitorEnabled" />
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </transition>
 
     <transition name="dialog-pop">
       <div v-if="showClearConfigDialog" class="dialog-overlay" @click="showClearConfigDialog = false">
@@ -829,7 +831,7 @@
       <div v-if="showLogWindow" class="dialog-overlay" @click="closeLogWindow">
         <div class="dialog-content log-dialog" @click.stop>
           <div class="dialog-header">
-            <h3>2-PyramidLogWindow</h3>
+            <h3>{{ t('settings.devMode.logWindowTitle') }}</h3>
             <button class="dialog-close" @click="closeLogWindow" :aria-label="t('common.close')">×</button>
           </div>
           <div class="dialog-body">
@@ -1205,7 +1207,10 @@ const settingItems = [
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
-  { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') }
+  { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
+  { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
+  { id: 'devClearConfig', group: 'dev', label: t('settings.devMode.clearConfig'), desc: t('settings.devMode.clearConfigDesc') },
+  { id: 'devActionMonitor', group: 'dev', label: t('settings.devMode.actionMonitor'), desc: t('settings.devMode.actionMonitorDesc') }
 ];
 
 const shouldShowGroup = (groupId: string) => {
@@ -1869,6 +1874,7 @@ const hexToHsv = (hex: string) => {
   min-height: 0;
   overflow-y: auto;
   padding-right: 10px;
+  padding-bottom: 28px;
 }
 .settings-scroll-area::-webkit-scrollbar { width: 6px; }
 .settings-scroll-area::-webkit-scrollbar-thumb {
@@ -2049,6 +2055,21 @@ const hexToHsv = (hex: string) => {
 .group-title {
   font-size: 13px; font-weight: 700; color: #86868b;
   margin-left: 15px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;
+}
+
+/* 开发者选项分组：启用时与其他分组一样平滑淡入（不突兀出现） */
+.dev-group-enter-active {
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dev-group-leave-active {
+  transition: opacity 0.2s ease;
+}
+.dev-group-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.dev-group-leave-to {
+  opacity: 0;
 }
 
 .group-card {
