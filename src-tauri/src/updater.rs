@@ -78,18 +78,27 @@ struct GitHubAsset {
 
 // ── Tag parsing ──────────────────────────────────────────────
 
-/// Tags: `Safe-2.0.2` (force-install), `Stable-2.0.2` (stable), `UnStable-2.0.2` (test), plain `v2.0.1`.
+/// Tags: `Safe-2.0.2` (force-install), `Stable-2.0.2` (stable),
+/// `UnStable-2.0.2` / `Beta-2.0.2` (test/beta), plain `v2.0.1`.
 fn parse_tag(tag: &str) -> (String, UpdatePriority) {
     let tag = tag.trim();
     if let Some(rest) = tag.strip_prefix("Safe-") {
         (rest.to_string(), UpdatePriority::Safe)
     } else if let Some(rest) = tag.strip_prefix("Stable-")
         .or_else(|| tag.strip_prefix("UnStable-"))
+        .or_else(|| tag.strip_prefix("Beta-"))
     {
         (rest.to_string(), UpdatePriority::Optional)
     } else {
         (strip_v(tag), UpdatePriority::Optional)
     }
+}
+
+/// 测试版 tag：`UnStable-*` / `Beta-*`（不区分大小写）。
+/// 只进入「测试版」更新通道；稳定通道忽略。
+fn is_test_tag(tag: &str) -> bool {
+    let lower = tag.trim().to_ascii_lowercase();
+    lower.starts_with("unstable-") || lower.starts_with("beta-")
 }
 
 fn strip_v(s: &str) -> String {
@@ -144,10 +153,10 @@ async fn check_github_releases(channel: &str, current_version: &str) -> Result<U
         .iter()
         .filter_map(|r| {
             let (version, priority) = parse_tag(&r.tag_name);
-            let tag_is_unstable = r.tag_name.trim().starts_with("UnStable-");
+            // Beta- / UnStable- 前缀 → 测试版更新，仅「测试版」通道可见
             let include = match channel {
                 "unstable" => true,
-                _ => !r.prerelease && !tag_is_unstable,
+                _ => !r.prerelease && !is_test_tag(&r.tag_name),
             };
             if !include { return None; }
             Some(ReleaseInfo {
