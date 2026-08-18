@@ -139,6 +139,12 @@ def build_installer(version: str, beta: bool) -> None:
 
 
 def main() -> None:
+    # Windows GBK 控制台无法输出 ✅/✓ 等字符，统一重配 stdout，避免构建完成后崩溃
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(description="2-Pyramid 发布流水线（Windows，便携版内嵌安装器）")
     parser.add_argument("--no-bump", action="store_true", help="不递增 BUILD 版本")
     parser.add_argument("--skip-installer", action="store_true", help="只构建产物，不生成安装器")
