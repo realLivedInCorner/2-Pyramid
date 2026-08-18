@@ -82,22 +82,41 @@ lazy_static! {
             .map(|label| regex::escape(label))
             .collect::<Vec<_>>()
             .join("|");
-        Regex::new(&format!(r"^\[({})\]", patterns)).unwrap()
+        // 不锚定开头：命名模板改版后，[版本标签] 可能出现在名称中间
+        // 或末尾（如 [Name] [Ver] → “我的包 [Java 1.20-1.20.1]”），
+        // 全部替换才能避免再转换时新旧前缀堆叠。
+        Regex::new(&format!(r"\[({})\]", patterns)).unwrap()
     };
 }
 
 fn strip_version_prefix(name: &str) -> String {
-    let cleaned = VERSION_PREFIX_RE.replace(name, "");
-    cleaned.trim().to_string()
+    let cleaned = VERSION_PREFIX_RE.replace_all(name, "");
+    // 标签被移除后压缩多余空白（两侧与中间的双空格）
+    let mut collapsed = String::with_capacity(cleaned.len());
+    let mut pending_space = false;
+    for ch in cleaned.trim().chars() {
+        if ch.is_whitespace() {
+            pending_space = true;
+        } else {
+            if pending_space {
+                collapsed.push(' ');
+                pending_space = false;
+            }
+            collapsed.push(ch);
+        }
+    }
+    collapsed
 }
 
 fn read_text_with_fallback(path: &Path) -> Result<String, String> {
     let bytes = fs::read(path)
         .map_err(|e| format!("failed to read {}: {}", path.display(), e))?;
-    match String::from_utf8(bytes.clone()) {
-        Ok(text) => Ok(text),
-        Err(_) => Ok(bytes.iter().map(|&b| b as char).collect()),
-    }
+    let text = match String::from_utf8(bytes.clone()) {
+        Ok(text) => text,
+        Err(_) => bytes.iter().map(|&b| b as char).collect(),
+    };
+    // 去掉 UTF-8 BOM 与首尾空白（部分来源的 mcmeta 带 BOM，serde 会解析失败）
+    Ok(text.trim_start_matches('\u{feff}').to_string())
 }
 
 fn find_pack_mcmeta(temp_dir: &Path) -> Option<PathBuf> {
@@ -110,6 +129,94 @@ fn find_pack_mcmeta(temp_dir: &Path) -> Option<PathBuf> {
         if entry.file_type().is_file() && entry.file_name().to_string_lossy().eq_ignore_ascii_case("pack.mcmeta") {
             return Some(entry.into_path());
         }
+    }
+
+    None
+}
+
+/// 严格解析 pack.mcmeta：必须能取出 pack.pack_format 数值才返回 Some。
+/// 与 read_pack_format（缺省回退 1）不同，这里用于「候选文件是否为
+/// 真正的 mcmeta」判定，解析失败一律 None。
+fn parse_pack_format_strict(path: &Path) -> Option<u32> {
+    let content = read_text_with_fallback(path).ok()?;
+    let data: Value = serde_json::from_str(&content).ok()?;
+    let value = data
+        .get("pack")
+        .and_then(|p| p.get("pack_format"))
+        .or_else(|| data.get("pack").and_then(|p| p.get("format")));
+    match value {
+        Some(Value::Number(n)) => n.as_u64().map(|v| v as u32),
+        Some(Value::String(s)) => s.trim().parse::<u32>().ok(),
+        _ => None,
+    }
+}
+
+/// 目录规整（优先级最高、转换开始前最先执行）：
+///
+/// 定位真正的 pack.mcmeta 并统一提升到解压根目录（对齐原 Python 版
+/// 「将 pack.mcmeta 复制到根目录」的结构修复步骤）。
+///
+/// 防呆规则：
+///   * 根目录已有 pack.mcmeta（不区分大小写）→ 直接使用；
+///   * 否则递归查找候选：文件名精确为 pack.mcmeta，或文件名形如
+///     `pack.mcmeta.*`（任意后缀，如 pack.mcmeta.txt / pack.mcmeta.json ——
+///     部分用户或下载工具会给文件多加一个扩展名）；
+///   * 候选必须能解析出 pack_format 数值才认定为真 mcmeta；
+///   * 认定后：根目录内的多扩展名文件直接改名为 pack.mcmeta，
+///     嵌套的复制到根目录并删除原位文件（避免重复打包）；
+///   * 没有任何合法候选 → 返回 None（沿用旧的「新建 pack.mcmeta」逻辑）。
+fn normalize_pack_structure(temp_dir: &Path) -> Option<PathBuf> {
+    let root_meta = temp_dir.join("pack.mcmeta");
+    if root_meta.is_file() {
+        return Some(root_meta);
+    }
+
+    // 递归收集候选：先精确名（pack.mcmeta），后多扩展名（pack.mcmeta.*）
+    let mut exact: Vec<PathBuf> = Vec::new();
+    let mut fuzzy: Vec<PathBuf> = Vec::new();
+    for entry in WalkDir::new(temp_dir).into_iter().filter_map(Result::ok) {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.eq_ignore_ascii_case("pack.mcmeta") {
+            exact.push(entry.into_path());
+        } else if Path::new(&name)
+            .file_stem()
+            .map(|s| s.to_string_lossy().eq_ignore_ascii_case("pack.mcmeta"))
+            .unwrap_or(false)
+        {
+            fuzzy.push(entry.into_path());
+        }
+    }
+    // WalkDir 顺序不稳定：按路径层级从浅到深排序，根目录候选优先
+    exact.sort_by_key(|p| p.components().count());
+    fuzzy.sort_by_key(|p| p.components().count());
+
+    for candidate in exact.into_iter().chain(fuzzy) {
+        // 内容必须能解析出 format 数值才视为真正的 mcmeta
+        if parse_pack_format_strict(&candidate).is_none() {
+            continue;
+        }
+        if candidate == root_meta {
+            return Some(root_meta);
+        }
+        let _ = fs::copy(&candidate, &root_meta);
+        if root_meta.is_file() {
+            // 已统一为根目录 pack.mcmeta：原位文件删除，避免重复进包
+            let _ = fs::remove_file(&candidate);
+            crate::log_info!(
+                "OKAY normalize_pack_structure [{} -> pack.mcmeta]",
+                candidate.display()
+            );
+            return Some(root_meta);
+        }
+        // 复制失败（文件被占用等）：退回原位路径，仍可继续转换
+        crate::log_info!(
+            "promote pack.mcmeta copy failed, fallback to {}",
+            candidate.display()
+        );
+        return Some(candidate);
     }
 
     None
@@ -313,7 +420,10 @@ pub fn process_extracted_dir_only(
     temp_dir: &Path,
     target_version: u32,
 ) -> Result<(), String> {
-    let pack_meta_path = find_pack_mcmeta(temp_dir).unwrap_or_else(|| temp_dir.join("pack.mcmeta"));
+    // 目录规整最先执行：定位/提升 pack.mcmeta（含 pack.mcmeta.txt 防呆）
+    let pack_meta_path = normalize_pack_structure(temp_dir)
+        .or_else(|| find_pack_mcmeta(temp_dir))
+        .unwrap_or_else(|| temp_dir.join("pack.mcmeta"));
     let source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
 
     crate::invoke_conversion::invoke_conversion(
@@ -355,7 +465,10 @@ pub fn process_zip(
 
     extract_resource_pack(original_file_path, &temp_dir_path)?;
 
-    let pack_meta_path = find_pack_mcmeta(temp_dir.path()).unwrap_or_else(|| temp_dir.path().join("pack.mcmeta"));
+    // 目录规整最先执行：定位/提升 pack.mcmeta（含 pack.mcmeta.txt 防呆）
+    let pack_meta_path = normalize_pack_structure(temp_dir.path())
+        .or_else(|| find_pack_mcmeta(temp_dir.path()))
+        .unwrap_or_else(|| temp_dir.path().join("pack.mcmeta"));
     if !pack_meta_path.exists() {
         log_warn!("pack.mcmeta not found, creating a new one at {}", pack_meta_path.display());
     }
@@ -493,5 +606,58 @@ mod tests {
             !dst_container.join("anvil.png").exists(),
             "anvil.png should have been cleaned up after cut_gui"
         );
+    }
+
+    /// 防呆：pack.mcmeta.txt（多扩展名）含合法 format 数值 → 提升为根目录 pack.mcmeta
+    #[test]
+    fn test_normalize_promotes_pack_mcmeta_txt() {
+        let temp = tempdir().expect("tempdir");
+        let nested = temp.path().join("sub/pack.mcmeta.txt");
+        fs::create_dir_all(nested.parent().unwrap()).expect("mkdir");
+        fs::write(
+            &nested,
+            r#"{"pack":{"pack_format":15,"description":"txt 后缀的材质包"}}"#,
+        )
+        .expect("write");
+
+        let found = normalize_pack_structure(temp.path()).expect("should find candidate");
+        assert_eq!(found, temp.path().join("pack.mcmeta"));
+        assert!(
+            temp.path().join("pack.mcmeta").is_file(),
+            "pack.mcmeta should be promoted to root"
+        );
+        assert!(
+            !nested.exists(),
+            "original pack.mcmeta.txt should be removed after promotion"
+        );
+    }
+
+    /// 防呆：pack.mcmeta.txt 但内容不是 mcmeta（无 format 数值）→ 不采纳
+    #[test]
+    fn test_normalize_rejects_fake_pack_mcmeta_txt() {
+        let temp = tempdir().expect("tempdir");
+        let fake = temp.path().join("pack.mcmeta.txt");
+        fs::write(&fake, "这不是 mcmeta 文件").expect("write");
+
+        assert!(
+            normalize_pack_structure(temp.path()).is_none(),
+            "fake pack.mcmeta.txt must not be promoted"
+        );
+        assert!(fake.exists());
+        assert!(!temp.path().join("pack.mcmeta").exists());
+    }
+
+    /// 前缀替换：标签在开头/末尾/中间都应被剥掉，且空白被压缩
+    #[test]
+    fn test_strip_version_prefix_anywhere() {
+        assert_eq!(strip_version_prefix("[Java 1.20-1.20.1]我的包"), "我的包");
+        assert_eq!(strip_version_prefix("我的包 [Java 1.20-1.20.1]"), "我的包");
+        assert_eq!(strip_version_prefix("我的包[Java 1.20-1.20.1]"), "我的包");
+        assert_eq!(
+            strip_version_prefix("[Java 1.16.2-1.16.5] [Java 1.20-1.20.1] 我的 包"),
+            "我的 包"
+        );
+        // 无标签的名称原样保留
+        assert_eq!(strip_version_prefix("我的包"), "我的包");
     }
 }
