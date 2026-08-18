@@ -304,10 +304,14 @@ fn launch_installer(path: &str) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to launch MSI installer: {}", e))?;
     } else {
-        // 自制释放式安装器（2pyr-installer）：--silent 静默安装，
-        // 默认释放到 %LOCALAPPDATA%\2-Pyramid 并写入右键菜单注册表。
+        // 自制释放式安装器（2pyr-installer）：以图形向导方式拉起，
+        // 用户能看到并确认安装流程。
+        //
+        // 注意：不要用 --silent 静默安装 —— 更新场景下旧程序刚退出、
+        // 安装目录里的 exe 可能仍被锁着，静默解压会无声失败；
+        // 图形向导等用户点「安装」时旧进程早已退出，不存在锁竞争，
+        // 用户也能看到进度反馈。
         Command::new(path)
-            .arg("--silent")
             .spawn()
             .map_err(|e| format!("Failed to launch installer: {}", e))?;
     }
@@ -377,7 +381,8 @@ pub async fn download_update(app: AppHandle, tag_name: String) -> Result<String,
 pub fn install_update(app: AppHandle, installer_path: String, new_version: String) -> Result<(), String> {
     let _ = write_update_marker(&new_version);
     launch_installer(&installer_path)?;
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // 给安装向导一点启动时间再退出旧程序（子进程独立运行，不随父进程消失）
+    std::thread::sleep(std::time::Duration::from_millis(1500));
     app.exit(0);
     Ok(())
 }
