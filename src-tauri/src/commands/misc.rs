@@ -134,8 +134,9 @@ pub fn ensure_action_live_server() {
             let Ok(mut s) = stream else { continue };
             // 协议头 + 现有记录快照，然后加入实时推送列表
             let header = format!(
-                "2PYR-AMR/1 app=2-Pyramid version={}\n",
-                env!("CARGO_PKG_VERSION")
+                "2PYR-AMR/1 app=2-Pyramid version={} monitor={}\n",
+                env!("CARGO_PKG_VERSION"),
+                if ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed) { "on" } else { "off" },
             );
             if s.write_all(header.as_bytes()).is_err() {
                 continue;

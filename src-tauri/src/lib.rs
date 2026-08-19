@@ -118,10 +118,13 @@ pub fn run() {
     if action_monitor_arg {
         crate::commands::misc::ACTION_MONITOR.store(true, std::sync::atomic::Ordering::Relaxed);
         log_info!("action monitor enabled via --action-monitor / env");
-        // debug 构建下同步启动 127.0.0.1:24159 实时动作流（Action Mon3tr 接管用）
-        #[cfg(debug_assertions)]
-        crate::commands::misc::ensure_action_live_server();
     }
+
+    // debug 构建（tauri dev）始终启动本地动作流端口 127.0.0.1:24159：
+    // Action Mon3tr 用它检测「tauri dev 下的 2-Pyramid」。动作监视未开启
+    // 时连接照常建立，只是没有帧推送（协议头带 monitor=off 标记）。
+    #[cfg(debug_assertions)]
+    crate::commands::misc::ensure_action_live_server();
 
     match tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
