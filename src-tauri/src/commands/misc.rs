@@ -51,10 +51,14 @@ pub struct ActionRecord {
     pub x: f64,
     pub y: f64,
     pub element: String,
+    /// 点击发生时所在的 Vue 页面（home / conversion / settings / overlay …），
+    /// 供 Mon3tr 复现点击逻辑时的上下文（截图不入 2amr，实时按需抓取）。
+    pub page: String,
 }
 
 const ACTION_MAX_RECORDS: usize = 20_000;
 const ACTION_ELEMENT_MAX: usize = 500;
+const ACTION_PAGE_MAX: usize = 100;
 const ACTION_LIVE_PORT: u16 = 24159;
 
 static ACTION_RECORDS: Mutex<Option<VecDeque<ActionRecord>>> = Mutex::new(None);
@@ -71,7 +75,13 @@ fn sanitize_element(s: &str) -> String {
     out
 }
 
-fn push_action_record(kind: &str, x: f64, y: f64, element: &str) {
+fn sanitize_page(s: &str) -> String {
+    let mut out: String = s.chars().filter(|c| !c.is_control()).take(ACTION_PAGE_MAX).collect();
+    out.truncate(ACTION_PAGE_MAX);
+    out
+}
+
+fn push_action_record(kind: &str, x: f64, y: f64, element: &str, page: &str) {
     let mut recs = ACTION_RECORDS.lock().unwrap();
     let buffer = recs.get_or_insert_with(|| VecDeque::with_capacity(ACTION_MAX_RECORDS));
     let mut start = ACTION_START.lock().unwrap();
@@ -86,6 +96,7 @@ fn push_action_record(kind: &str, x: f64, y: f64, element: &str) {
         x,
         y,
         element: sanitize_element(element),
+        page: sanitize_page(page),
     };
     buffer.push_back(record.clone());
     while buffer.len() > ACTION_MAX_RECORDS {
@@ -112,10 +123,12 @@ fn push_live_record(record: &ActionRecord) {
     });
 }
 
-/// 启动动作实时流服务（仅 debug 构建；tauri dev + 动作监视开启时调用）。
-/// 监听 127.0.0.1:24159，接受连接后先发送头部与快照，再持续推送新动作。
+/// 启动动作实时流服务（仅 debug 构建；tauri dev 下调用）。
+/// 监听 127.0.0.1:24159，接受连接后先发送头部与快照，再持续推送新动作；
+/// 同时为每个连接派生读取线程，响应 Mon3tr 的 `SHOT` 请求：
+/// 实时抓取主窗口截图（base64 PNG），截图不落盘、不进 2amr。
 #[cfg(debug_assertions)]
-pub fn ensure_action_live_server() {
+pub fn ensure_action_live_server(app: tauri::AppHandle) {
     use std::io::Write;
     if LIVE_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return;
@@ -156,19 +169,182 @@ pub fn ensure_action_live_server() {
                 }
             }
             let _ = s.flush();
+
+            // 读取线程：处理 SHOT 请求（对同一 TCP 连接全双工收发）
+            let reader = match s.try_clone() {
+                Ok(r) => r,
+                Err(_) => {
+                    LIVE_WRITERS.lock().unwrap().push(s);
+                    continue;
+                }
+            };
+            let shot_app = app.clone();
+            std::thread::spawn(move || {
+                use std::io::{BufRead, BufReader, Write};
+                let mut reader = BufReader::new(reader);
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    match reader.read_line(&mut line) {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => {}
+                    }
+                    let req = line.trim();
+                    if req.eq_ignore_ascii_case("SHOT") {
+                        let resp = match capture_window_shot(&shot_app) {
+                            Ok(b64) => format!("SHOT:{}\n", b64),
+                            Err(_) => "SHOT:ERR\n".to_string(),
+                        };
+                        if reader.get_mut().write_all(resp.as_bytes()).is_err()
+                            || reader.get_mut().flush().is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+            });
+
             LIVE_WRITERS.lock().unwrap().push(s);
         }
     });
 }
 
+/// 实时抓取主窗口截图（缩放至宽 800 控制体积），返回 base64 PNG。
+/// 仅供 Mon3tr 实时查看使用：不写文件、不存入 2amr。
+///
+/// 实现：GDI PrintWindow(PW_RENDERFULLCONTENT) 抓取自身窗口（含
+/// WebView2 GPU 合成内容），全黑时回退 BitBlt 屏幕拷贝。
+#[cfg(debug_assertions)]
+fn capture_window_shot(app: &tauri::AppHandle) -> Result<String, String> {
+    use base64::Engine;
+    use tauri::Manager;
+
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let hwnd = window.hwnd().map_err(|e| format!("hwnd failed: {}", e))?;
+    let png = capture_hwnd_png(hwnd.0)?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&png))
+}
+
+#[cfg(debug_assertions)]
+fn capture_hwnd_png(hwnd_raw: *mut core::ffi::c_void) -> Result<Vec<u8>, String> {
+    use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
+    use windows_sys::Win32::Graphics::Gdi::{
+        BitBlt, ClientToScreen, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC,
+        DeleteObject, GetDC, GetDIBits, GetPixel, ReleaseDC, SelectObject, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, RGBQUAD, SRCCOPY,
+    };
+    use windows_sys::Win32::Storage::Xps::PrintWindow;
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetClientRect;
+
+    unsafe {
+        let hwnd: HWND = hwnd_raw;
+        let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        if GetClientRect(hwnd, &mut rect) == 0 {
+            return Err("GetClientRect failed".to_string());
+        }
+        let w = rect.right - rect.left;
+        let h = rect.bottom - rect.top;
+        if w <= 0 || h <= 0 {
+            return Err("窗口尺寸无效".to_string());
+        }
+
+        let screen_dc = GetDC(std::ptr::null_mut());
+        if screen_dc.is_null() {
+            return Err("GetDC failed".to_string());
+        }
+        let mem_dc = CreateCompatibleDC(screen_dc);
+        let bmp = CreateCompatibleBitmap(screen_dc, w, h);
+        if mem_dc.is_null() || bmp.is_null() {
+            if !bmp.is_null() {
+                DeleteObject(bmp);
+            }
+            if !mem_dc.is_null() {
+                DeleteDC(mem_dc);
+            }
+            ReleaseDC(std::ptr::null_mut(), screen_dc);
+            return Err("create dc/bitmap failed".to_string());
+        }
+        let old = SelectObject(mem_dc, bmp);
+
+        // 首选 PrintWindow(PW_RENDERFULLCONTENT=2)：可拿到 GPU 合成内容
+        let printed = PrintWindow(hwnd, mem_dc, 2) != 0;
+        let center = if printed { GetPixel(mem_dc, w / 2, h / 2) } else { 0 };
+        if !printed || center == 0 {
+            // 回退：BitBlt 屏幕拷贝（窗口需可见，帧为无边框窗口即完整内容）
+            let mut pt = POINT { x: rect.left, y: rect.top };
+            ClientToScreen(hwnd, &mut pt);
+            let _ = BitBlt(mem_dc, 0, 0, w, h, screen_dc, pt.x, pt.y, SRCCOPY);
+        }
+
+        // 32bpp BGRA 自下而上读出
+        let mut buf: Vec<u8> = vec![0u8; (w * h * 4) as usize];
+        let mut bmi = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: w,
+                biHeight: -h,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB,
+                ..std::mem::zeroed()
+            },
+            bmiColors: [RGBQUAD { rgbBlue: 0, rgbGreen: 0, rgbRed: 0, rgbReserved: 0 }; 1],
+        };
+        let got = GetDIBits(
+            mem_dc,
+            bmp,
+            0,
+            h as u32,
+            buf.as_mut_ptr() as *mut core::ffi::c_void,
+            &mut bmi,
+            DIB_RGB_COLORS,
+        );
+        SelectObject(mem_dc, old);
+        DeleteObject(bmp);
+        DeleteDC(mem_dc);
+        ReleaseDC(std::ptr::null_mut(), screen_dc);
+        if got == 0 {
+            return Err("GetDIBits failed".to_string());
+        }
+
+        // BGRA → RGBA
+        let mut rgba: Vec<u8> = Vec::with_capacity(buf.len());
+        for px in buf.chunks_exact(4) {
+            rgba.push(px[2]);
+            rgba.push(px[1]);
+            rgba.push(px[0]);
+            rgba.push(px[3]);
+        }
+        let img = image::RgbaImage::from_raw(w as u32, h as u32, rgba)
+            .ok_or_else(|| "invalid bitmap buffer".to_string())?;
+
+        // 缩放到宽 800（只在更大时缩放），控制单帧体积与传输延迟
+        let target_w = 800u32.min(w as u32);
+        let resized = if (w as u32) > target_w {
+            let nh = ((h as u32) * target_w / (w as u32)).max(1);
+            image::imageops::resize(&img, target_w, nh, image::imageops::FilterType::Triangle)
+        } else {
+            img
+        };
+
+        let mut out: Vec<u8> = Vec::new();
+        resized
+            .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+            .map_err(|e| format!("png encode failed: {}", e))?;
+        Ok(out)
+    }
+}
+
 #[tauri::command]
-pub fn set_action_monitor(enabled: bool) -> bool {
+pub fn set_action_monitor(app: tauri::AppHandle, enabled: bool) -> bool {
     ACTION_MONITOR.store(enabled, std::sync::atomic::Ordering::Relaxed);
     crate::log_info!("OKAY set_action_monitor [enabled={}]", enabled);
     // dev 下开启监视时同步启动实时流服务（幂等）
     #[cfg(debug_assertions)]
     if enabled {
-        ensure_action_live_server();
+        ensure_action_live_server(app);
     }
     ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed)
 }
@@ -179,9 +355,9 @@ pub fn is_action_monitor() -> bool {
 }
 
 #[tauri::command]
-pub fn log_action(element: String, x: f64, y: f64) {
-    crate::log_info!("[ACTION] ({:.0}, {:.0}) {}", x, y, element);
-    push_action_record("click", x, y, &element);
+pub fn log_action(element: String, x: f64, y: f64, page: String) {
+    crate::log_info!("[ACTION] ({:.0}, {:.0}) [{}] {}", x, y, page, element);
+    push_action_record("click", x, y, &element, &page);
 }
 
 /// 导出内存中的动作记录为 .2amr 文件（Action Mon3tr 回放格式）。

@@ -120,17 +120,17 @@ pub fn run() {
         log_info!("action monitor enabled via --action-monitor / env");
     }
 
-    // debug 构建（tauri dev）始终启动本地动作流端口 127.0.0.1:24159：
-    // Action Mon3tr 用它检测「tauri dev 下的 2-Pyramid」。动作监视未开启
-    // 时连接照常建立，只是没有帧推送（协议头带 monitor=off 标记）。
-    #[cfg(debug_assertions)]
-    crate::commands::misc::ensure_action_live_server();
-
     match tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            // debug 构建（tauri dev）始终启动本地动作流端口 127.0.0.1:24159：
+            // Action Mon3tr 用它检测「tauri dev 下的 2-Pyramid」，并按需抓取
+            // 主窗口实时截图（截图不落盘）。动作监视未开启时连接照常建立，
+            // 只是没有帧推送（协议头带 monitor=off 标记）。
+            #[cfg(debug_assertions)]
+            crate::commands::misc::ensure_action_live_server(app.handle().clone());
             // Single instance: bind a fixed localhost TCP port before
             // creating any window. The first process to bind owns the
             // lock; a second process fails to bind, pokes the port,
