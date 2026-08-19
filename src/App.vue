@@ -867,7 +867,6 @@ onMounted(async () => {
  .app-container .danger-btn,
  .app-container .naming-tag-btn,
  .app-container .naming-preset-btn,
- .app-container .dialog-close,
  .app-container .close-btn,
  .startup-root .seg-btn,
  .startup-root .ghost-btn,
@@ -879,6 +878,22 @@ onMounted(async () => {
    border: var(--ui-border);
    box-shadow: var(--ui-btn-shadow);
    transition: box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+ }
+
+ /* 对话框关闭按钮（×）单独处理：保持透明无背景，hover 才有淡淡的底
+    （此前被并入统一按钮皮肤，出现一块奇怪的玻璃色背景） */
+ .app-container .dialog-close {
+   border-radius: var(--ui-radius-btn);
+   background: transparent;
+   border: none;
+   box-shadow: none;
+   backdrop-filter: none;
+   -webkit-backdrop-filter: none;
+ }
+ .app-container .dialog-close:hover {
+   background: rgba(0, 0, 0, 0.06);
+   box-shadow: none;
+   transform: none;
  }
 
  .app-container .seg-btn:hover:not(.active),

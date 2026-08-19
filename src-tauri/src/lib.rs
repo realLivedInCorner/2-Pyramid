@@ -49,6 +49,7 @@ use self::commands::{
     set_action_monitor,
     is_action_monitor,
     log_action,
+    export_action_records,
     force_quit,
     ping,
     show_toast,
@@ -117,6 +118,9 @@ pub fn run() {
     if action_monitor_arg {
         crate::commands::misc::ACTION_MONITOR.store(true, std::sync::atomic::Ordering::Relaxed);
         log_info!("action monitor enabled via --action-monitor / env");
+        // debug 构建下同步启动 127.0.0.1:24159 实时动作流（Action Mon3tr 接管用）
+        #[cfg(debug_assertions)]
+        crate::commands::misc::ensure_action_live_server();
     }
 
     match tauri::Builder::default()
@@ -251,6 +255,7 @@ pub fn run() {
             set_action_monitor,
             is_action_monitor,
             log_action,
+            export_action_records,
             force_quit,
             ping,
             show_toast,
