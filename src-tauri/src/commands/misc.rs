@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+use std::sync::Mutex;
+
 #[tauri::command]
 pub fn get_logs(lines: Option<usize>) -> String {
     use crate::logger::GLOBAL_LOGGER;
@@ -31,13 +34,141 @@ pub fn get_dev_mode() -> bool {
 // 两种启用方式：
 //   1. 启动参数 `--action-monitor`
 //   2. 设置页开发者选项里的「动作监视」开关
+//
+// 除日志外，动作还进入内存环形缓冲，可导出为 .2amr 文件
+// （Action Mon3tr 可解析回放）。debug 构建下另提供
+// 127.0.0.1:24159 的本地 TCP 实时流，供 Mon3tr 接管实时动作。
 pub static ACTION_MONITOR: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
+
+/// 一条动作记录（.2amr 帧）。
+#[derive(serde::Serialize, Clone)]
+pub struct ActionRecord {
+    /// 距首条记录的毫秒偏移
+    pub t: u64,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub element: String,
+}
+
+const ACTION_MAX_RECORDS: usize = 20_000;
+const ACTION_ELEMENT_MAX: usize = 500;
+const ACTION_LIVE_PORT: u16 = 24159;
+
+static ACTION_RECORDS: Mutex<Option<VecDeque<ActionRecord>>> = Mutex::new(None);
+static ACTION_START: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+static LIVE_WRITERS: Mutex<Vec<std::net::TcpStream>> = Mutex::new(Vec::new());
+static LIVE_STARTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+fn sanitize_element(s: &str) -> String {
+    // 记录内容视为不可信文本：剔除控制字符并截断，防止异常内容进入
+    // 日志/2amr 后干扰解析或显示。
+    let mut out: String = s.chars().filter(|c| !c.is_control()).take(ACTION_ELEMENT_MAX).collect();
+    out.truncate(ACTION_ELEMENT_MAX);
+    out
+}
+
+fn push_action_record(kind: &str, x: f64, y: f64, element: &str) {
+    let mut recs = ACTION_RECORDS.lock().unwrap();
+    let buffer = recs.get_or_insert_with(|| VecDeque::with_capacity(ACTION_MAX_RECORDS));
+    let mut start = ACTION_START.lock().unwrap();
+    let t0 = *start.get_or_insert_with(std::time::Instant::now);
+    let t = t0.elapsed().as_millis() as u64;
+    // 非有限坐标一律按 0 处理，防止异常前端数据写入记录
+    let x = if x.is_finite() { x } else { 0.0 };
+    let y = if y.is_finite() { y } else { 0.0 };
+    let record = ActionRecord {
+        t,
+        kind: kind.to_string(),
+        x,
+        y,
+        element: sanitize_element(element),
+    };
+    buffer.push_back(record.clone());
+    while buffer.len() > ACTION_MAX_RECORDS {
+        buffer.pop_front();
+    }
+
+    // 实时流推送给已连接的 Mon3tr（仅 debug 构建有意义）
+    #[cfg(debug_assertions)]
+    if ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed) {
+        push_live_record(&record);
+    }
+}
+
+#[cfg(debug_assertions)]
+fn push_live_record(record: &ActionRecord) {
+    use std::io::Write;
+    let line = serde_json::to_string(record).unwrap_or_default();
+    let mut writers = LIVE_WRITERS.lock().unwrap();
+    writers.retain_mut(|w| {
+        w.write_all(line.as_bytes())
+            .and_then(|_| w.write_all(b"\n"))
+            .and_then(|_| w.flush())
+            .is_ok()
+    });
+}
+
+/// 启动动作实时流服务（仅 debug 构建；tauri dev + 动作监视开启时调用）。
+/// 监听 127.0.0.1:24159，接受连接后先发送头部与快照，再持续推送新动作。
+#[cfg(debug_assertions)]
+pub fn ensure_action_live_server() {
+    use std::io::Write;
+    if LIVE_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let listener = match std::net::TcpListener::bind(("127.0.0.1", ACTION_LIVE_PORT)) {
+        Ok(l) => l,
+        Err(e) => {
+            crate::log_info!("action live server bind failed: {}", e);
+            LIVE_STARTED.store(false, std::sync::atomic::Ordering::SeqCst);
+            return;
+        }
+    };
+    crate::log_info!("OKAY action live server [127.0.0.1:{}]", ACTION_LIVE_PORT);
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut s) = stream else { continue };
+            // 协议头 + 现有记录快照，然后加入实时推送列表
+            let header = format!(
+                "2PYR-AMR/1 app=2-Pyramid version={}\n",
+                env!("CARGO_PKG_VERSION")
+            );
+            if s.write_all(header.as_bytes()).is_err() {
+                continue;
+            }
+            {
+                let recs = ACTION_RECORDS.lock().unwrap();
+                if let Some(buffer) = recs.as_ref() {
+                    for r in buffer.iter() {
+                        let line = serde_json::to_string(r).unwrap_or_default();
+                        if s.write_all(line.as_bytes())
+                            .and_then(|_| s.write_all(b"\n"))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            let _ = s.flush();
+            LIVE_WRITERS.lock().unwrap().push(s);
+        }
+    });
+}
 
 #[tauri::command]
 pub fn set_action_monitor(enabled: bool) -> bool {
     ACTION_MONITOR.store(enabled, std::sync::atomic::Ordering::Relaxed);
     crate::log_info!("OKAY set_action_monitor [enabled={}]", enabled);
+    // dev 下开启监视时同步启动实时流服务（幂等）
+    #[cfg(debug_assertions)]
+    if enabled {
+        ensure_action_live_server();
+    }
     ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed)
 }
 
@@ -49,6 +180,39 @@ pub fn is_action_monitor() -> bool {
 #[tauri::command]
 pub fn log_action(element: String, x: f64, y: f64) {
     crate::log_info!("[ACTION] ({:.0}, {:.0}) {}", x, y, element);
+    push_action_record("click", x, y, &element);
+}
+
+/// 导出内存中的动作记录为 .2amr 文件（Action Mon3tr 回放格式）。
+/// 仅导出内存快照；内容在写入前经过坐标/文本防护。
+#[tauri::command]
+pub fn export_action_records(dest: String) -> Result<u32, String> {
+    let recs = ACTION_RECORDS.lock().unwrap();
+    let buffer = recs
+        .as_ref()
+        .ok_or_else(|| "动作监视未开启，没有可导出的动作记录".to_string())?;
+    if buffer.is_empty() {
+        return Err("动作监视未开启，没有可导出的动作记录".to_string());
+    }
+    let header = serde_json::json!({
+        "format": "2amr",
+        "version": 1,
+        "app": "2-Pyramid",
+        "app_version": env!("CARGO_PKG_VERSION"),
+        "channel": option_env!("2PYR_CHANNEL").unwrap_or("stable"),
+        "recorded_at": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0),
+        "window": { "width": 1200, "height": 750 },
+        "frames": buffer.iter().collect::<Vec<_>>(),
+    });
+    let json = serde_json::to_string_pretty(&header)
+        .map_err(|e| format!("序列化失败: {}", e))?;
+    std::fs::write(&dest, json).map_err(|e| format!("写入失败: {}", e))?;
+    let count = buffer.len() as u32;
+    crate::log_info!("OKAY export_action_records [frames={} -> {}]", count, dest);
+    Ok(count)
 }
 
 #[tauri::command]

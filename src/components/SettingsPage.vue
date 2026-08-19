@@ -758,6 +758,16 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
+          <div class="setting-item clickable" v-if="shouldShowItem('devExportAmr')" @click="exportActionRecords">
+            <div class="item-icon">
+              <i class="ri-download-2-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.exportActions') }}</div>
+              <div class="desc">{{ t('settings.devMode.exportActionsDesc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
           <div class="setting-item" v-if="shouldShowItem('devActionMonitor')">
             <div class="item-icon">
               <i class="ri-radar-line" aria-hidden="true"></i>
@@ -1209,6 +1219,7 @@ const settingItems = [
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
   { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
+  { id: 'devExportAmr', group: 'dev', label: t('settings.devMode.exportActions'), desc: t('settings.devMode.exportActionsDesc') },
   { id: 'devClearConfig', group: 'dev', label: t('settings.devMode.clearConfig'), desc: t('settings.devMode.clearConfigDesc') },
   { id: 'devActionMonitor', group: 'dev', label: t('settings.devMode.actionMonitor'), desc: t('settings.devMode.actionMonitorDesc') }
 ];
@@ -1322,6 +1333,35 @@ const exportLog = async () => {
     await notify({
       title: t('common.error'),
       body: t('settings.devMode.exportFailed', { error: String(e) }),
+      type: 'error',
+      source: 'system',
+    });
+  }
+};
+
+/// 导出动作监视记录为 .2amr 文件（Action Mon3tr 回放格式）
+const exportActionRecords = async () => {
+  try {
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[-:T]/g, '')
+      .slice(0, 14);
+    const dest = await save({
+      defaultPath: `2pyramid-actions-${stamp}.2amr`,
+      filters: [{ name: '2amr', extensions: ['2amr'] }],
+    });
+    if (!dest) return;
+    const count = await invoke<number>('export_action_records', { dest });
+    await notify({
+      title: t('settings.devMode.exportActions'),
+      body: t('settings.devMode.exportActionsSuccess', { count, path: dest }),
+      type: 'success',
+      source: 'system',
+    });
+  } catch (e) {
+    await notify({
+      title: t('settings.devMode.exportActions'),
+      body: t('settings.devMode.exportActionsFailed', { error: String(e) }),
       type: 'error',
       source: 'system',
     });
