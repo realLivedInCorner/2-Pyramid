@@ -40,6 +40,7 @@ tokio = { version = "1", features = ["sync", "fs", "process"] }
 rayon = "1.9"
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
 winreg = "0.52"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "Win32_UI_WindowsAndMessaging"] }
 
 [[bin]]
 name = "2-pyramid"

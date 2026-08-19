@@ -254,6 +254,7 @@ async function doMarkerCheck() {
        element: describeClickTarget(el),
        x: e.clientX,
        y: e.clientY,
+       page: currentPage.value,
      }).catch(() => {});
    };
    document.addEventListener('click', handler, true);
