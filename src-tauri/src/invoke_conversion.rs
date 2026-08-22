@@ -14,6 +14,7 @@ use crate::converters::delete_font_folder;
 use crate::converters::delete_horse_folder;
 use crate::converters::delete_shaders_folder;
 use crate::converters::rename_blocks_items;
+use crate::converters::convert_animated_textures;
 use crate::converters::rename_mcpatcher_to_optifine;
 use crate::converters::process_chest_folder;
 
@@ -113,6 +114,15 @@ pub fn invoke_conversion(
     scheduler.register_task("rename_blocks_items", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         let temp_dir = ctx.temp_dir();
         rename_blocks_items::rename_blocks_items(Path::new(temp_dir))
+            .map_err(|e| e.to_string())
+    });
+
+    // 动态贴图 mcmeta 升级：必须在 rename_blocks_items（items → item 归一）
+    // 之后执行——同层按注册顺序串行。老版 {"animation": {}} 的 .png.mcmeta
+    // 按同名 png 尺寸推导帧数，改写为 { frametime, interpolate } 高版本格式。
+    scheduler.register_task("convert_animated_textures", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
+        let temp_dir = ctx.temp_dir();
+        convert_animated_textures::convert_animated_textures(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
