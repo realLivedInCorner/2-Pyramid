@@ -382,7 +382,9 @@ pub fn build_output_path(
     let stamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
     let date = Local::now().format("%Y-%m-%d").to_string();
     let stem = apply_naming_template(&template, &cleaned_base, label, &stamp, &date);
-    let mut file_name = format!("{}.zip", stem);
+    // 基岩版产物为 .mcpack（本质仍是 zip）
+    let ext = if target_version == 1000 { "mcpack" } else { "zip" };
+    let mut file_name = format!("{}.{}", stem, ext);
 
     let output_dir = if let Some(override_dir) = output_dir_override {
         Path::new(override_dir).to_path_buf()
@@ -407,7 +409,7 @@ pub fn build_output_path(
     let mut output_path = output_dir.join(&file_name);
     let mut counter = 1;
     while output_path.exists() {
-        file_name = format!("{} ({}).zip", stem, counter);
+        file_name = format!("{} ({}).{}", stem, counter, ext);
         output_path = output_dir.join(&file_name);
         counter += 1;
     }
@@ -456,9 +458,10 @@ pub fn process_zip(
         return Err(format!("input file not found: {}", input_zip.display()));
     }
 
-    if pack_format2 == 1000 {
-        return Err("Bedrock conversion is not implemented in Rust yet. Convert to pack_format 75 first.".to_string());
-    }
+    // Bedrock Latest（pack_format 1000）：先按 Java 1.21.11（75）走完整
+    // 转换流水线，再执行 Bedrock 结构重组（见 converters/bedrock.rs）。
+    let is_bedrock = pack_format2 == 1000;
+    let java_target = if is_bedrock { 75 } else { pack_format2 };
 
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
@@ -475,18 +478,31 @@ pub fn process_zip(
 
     let source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
     log_info!("detected pack_format: {}", source_version);
+    if is_bedrock {
+        log_info!("bedrock target: convert to Java 1.21.11 (75) first");
+    }
 
     // Always run conversion pipeline regardless of version difference
     // This ensures all conversion tasks are executed even if version hasn't changed
     crate::invoke_conversion::invoke_conversion(
         input_zip,
         temp_dir.path(),
-        pack_format2,
+        java_target,
         source_version,
     )
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
 
-    write_pack_format(&pack_meta_path, pack_format2)?;
+    write_pack_format(&pack_meta_path, java_target)?;
+
+    if is_bedrock {
+        // Bedrock 第二阶段：结构重组 + manifest.json
+        let base_name = input_zip
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("resource_pack");
+        let pack_name = strip_version_prefix(base_name);
+        crate::converters::bedrock::convert_java_to_bedrock(temp_dir.path(), &pack_name)?;
+    }
 
     let output_path = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;
 

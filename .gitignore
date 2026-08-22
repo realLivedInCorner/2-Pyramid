@@ -47,3 +47,6 @@ release/
 # Python
 __pycache__/
 *.pyc
+
+# doc/ 下的 Rust 参考项目构建产物
+doc/rust/target/

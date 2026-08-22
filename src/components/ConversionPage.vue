@@ -370,14 +370,15 @@ const versionSidebar = ref<HTMLElement | null>(null);
 const showItemsDialog = ref(false);
 const previewLimit = 3;
 
-type VersionStatus = 'latest' | 'stable';
+type VersionStatus = 'latest' | 'stable' | 'beta';
 type VersionEra =
   | 'classic'      // 1.6 – 1.12
   | 'modern'       // 1.13 – 1.16  (Update Aquatic, Village & Pillage, Nether)
   | 'cavesCliffs'  // 1.17 – 1.19  (Caves & Cliffs I/II, Wild)
   | 'trailsTales'  // 1.20
   | 'trickyTrials' // 1.21
-  | 'bravery';     // 26.1+ (Bundles of Bravery)
+  | 'bravery'      // 26.1+ (Bundles of Bravery)
+  | 'bedrock';     // Bedrock Latest（基岩版，特殊目标：先转 1.21.11 再重组）
 
 interface VersionEntry {
   label: string;        // 唯一 key,跟 versionMap 对齐
@@ -413,11 +414,12 @@ const versions: VersionEntry[] = [
   { label: '1.21.11',         range: '1.21.11',           packFormat: 75, era: 'trickyTrials', status: 'stable' },
   { label: '26.1-26.1.2',     range: '26.1 → 26.1.2',     packFormat: 84, era: 'bravery',    status: 'latest' },
   { label: '26.2',            range: '26.2',              packFormat: 88, era: 'bravery',    status: 'latest' },
+  { label: 'Bedrock Latest',  range: 'Bedrock',           packFormat: 1000, era: 'bedrock',  status: 'beta' },
 ];
 
 // Era order for the picker dialog (chronological, oldest first).
 const eraOrder: VersionEra[] = [
-  'classic', 'modern', 'cavesCliffs', 'trailsTales', 'trickyTrials', 'bravery',
+  'classic', 'modern', 'cavesCliffs', 'trailsTales', 'trickyTrials', 'bravery', 'bedrock',
 ];
 
 const selectedVersionEntry = computed(
@@ -426,7 +428,7 @@ const selectedVersionEntry = computed(
 
 const versionsByEra = computed(() => {
   const groups: Record<VersionEra, VersionEntry[]> = {
-    classic: [], modern: [], cavesCliffs: [], trailsTales: [], trickyTrials: [], bravery: [],
+    classic: [], modern: [], cavesCliffs: [], trailsTales: [], trickyTrials: [], bravery: [], bedrock: [],
   };
   for (const v of versions) groups[v.era].push(v);
   return eraOrder

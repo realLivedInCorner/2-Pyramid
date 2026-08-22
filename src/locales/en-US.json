@@ -81,11 +81,13 @@
       "cavesCliffs": "Caves & Cliffs",
       "trailsTales": "Trails & Tales",
       "trickyTrials": "Tricky Trials",
-      "bravery": "Bundles of Bravery"
+      "bravery": "Bundles of Bravery",
+      "bedrock": "Bedrock"
     },
     "versionStatus": {
       "latest": "Latest",
-      "stable": "Stable"
+      "stable": "Stable",
+      "beta": "Beta"
     },
     "fullImportList": "Full Import List ({count})",
     "ready": "Ready",
