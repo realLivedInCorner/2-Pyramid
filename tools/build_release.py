@@ -97,6 +97,11 @@ def collect_staging() -> None:
         if src_dir.is_dir():
             shutil.copytree(src_dir, STAGING / asset)
 
+    # java_ui 模板（Bedrock 转换用）：存放于 doc/java_ui（设计文档同目录）
+    java_ui_src = ROOT / "doc" / "java_ui"
+    if java_ui_src.is_dir():
+        shutil.copytree(java_ui_src, STAGING / "java_ui")
+
 
 def make_payload_zip() -> Path:
     """把 staging 打成 payload.zip，放入安装器项目（内嵌发布）。"""
