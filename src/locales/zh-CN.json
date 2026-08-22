@@ -81,11 +81,13 @@
       "cavesCliffs": "Caves & Cliffs · 洞穴与悬崖",
       "trailsTales": "Trails & Tales · 足迹与传说",
       "trickyTrials": "Tricky Trials · 试炼密室",
-      "bravery": "Bundles of Bravery · 勇者之束"
+      "bravery": "Bundles of Bravery · 勇者之束",
+      "bedrock": "Bedrock · 基岩版"
     },
     "versionStatus": {
       "latest": "Latest",
-      "stable": "Stable"
+      "stable": "Stable",
+      "beta": "Beta"
     },
     "fullImportList": "完整导入清单 ({count})",
     "ready": "准备就绪",
