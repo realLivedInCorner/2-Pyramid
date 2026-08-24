@@ -8,7 +8,7 @@
 
 - **更新检查识别测试版**：Release tag 带 `Beta-` / `UnStable-` 前缀的视为测试版更新，仅「测试版」更新通道可见；更新对话框对这类更新显示「测试版」徽章。
 - **动态贴图转换**：`textures/item` / `textures/items` 下与 png 同名的 `.png.mcmeta` 若还是老版 `{"animation": {}}` 格式，会读取同名贴图尺寸推导帧数（横条 = 宽/高，竖条 = 高/宽），改写为高版本适配格式 `{"animation": {"frametime": <帧数>, "interpolate": true}}`；已声明 frametime 的保持原样，尺寸无法整除的跳过不瞎猜。
-- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按 doc/ 里的 Python 时代设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`；java_ui 模板目录缺失时跳过（待补齐模板资源）。
+- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、java_ui 模板替换、清理空 assets、生成 manifest.json），输出 `.mcpack`；java_ui 模板随包分发（`src-tauri/java_ui/` → payload）。
 - **动作记录导出 (.2amr)**：开发者选项新增「导出动作记录」，把动作监视记录的点击序列导出为 2amr 文件，供 Action Mon3tr 逐帧回放调试（导出内容经坐标/文本防护）。
 - **实时动作流（仅 dev）**：debug 构建且动作监视开启时，2-Pyramid 在 127.0.0.1:24159 提供本地动作流，供内部工具 Action Mon3tr 接管（不开源）。
 
