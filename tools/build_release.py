@@ -92,8 +92,7 @@ def collect_staging() -> None:
         shutil.copy2(src, dst)
 
     # 外部依赖资源（tauri --no-bundle 不会复制到 exe 旁）
-    # java_ui 为 Bedrock 转换模板（src-tauri/java_ui/）
-    for asset in ("UImage", "overlay", "java_ui"):
+    for asset in ("UImage", "overlay"):
         src_dir = TAURI_DIR / asset
         if src_dir.is_dir():
             shutil.copytree(src_dir, STAGING / asset)

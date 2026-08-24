@@ -14,15 +14,15 @@
 //!   * items 改名：golden_apple→apple_golden，golden_*→gold_*，wooden_*→wood_*
 //!   * textures/gui/container → textures/ui
 //!   * textures/ui/creative_inventory/* 提取到 textures/ui 后删除该目录
-//!   * java_ui 模板（ui/ textures/ui/ gui/container gui/sprites）复制替换
-//!     —— 模板位于 src-tauri/java_ui/，运行时按资源解析策略查找
-//!     （exe 同级 java_ui/ 亦可）；缺失时跳过
 //!   * 清理空的 assets/ 目录
 //!   * 生成 manifest.json（format_version 2、随机 UUID、min_engine_version
 //!     [1,16,2]），description 取自 pack.mcmeta
+//!
+//! 注：原 Python 版还会复制 java_ui 模板替换基岩 UI——模板兼容性不佳
+//! 已删除，此步骤不再执行。
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::log_info;
 
@@ -95,13 +95,10 @@ pub fn convert_java_to_bedrock(temp_dir: &Path, pack_name: &str) -> Result<(), S
         log_info!("OKAY bedrock [ui/creative_inventory 提取到 ui/]");
     }
 
-    // 7. java_ui 模板（缺失则跳过——模板待补齐）
-    apply_java_ui_templates(temp_dir, &textures_dst)?;
-
-    // 8. 清理空的 assets/
+    // 7. 清理空的 assets/
     cleanup_empty_assets(temp_dir);
 
-    // 9. manifest.json
+    // 8. manifest.json
     let description = read_description(temp_dir);
     write_manifest(temp_dir, pack_name, &description)?;
     log_info!("OKAY bedrock [manifest.json]");
@@ -187,80 +184,6 @@ fn move_contents_up(src: &Path, dst: &Path) -> Result<(), String> {
         let dst_path = dst.join(entry.file_name());
         if src_path.is_dir() {
             merge_dir(&src_path, &dst_path)?;
-        } else {
-            fs::copy(&src_path, &dst_path).map_err(|e| format!("copy failed: {}", e))?;
-        }
-    }
-    Ok(())
-}
-
-/// 应用 java_ui 模板（模板目录缺失时跳过，不视为失败——doc 内容不完整，
-/// 模板资源后续补齐）。
-fn apply_java_ui_templates(temp_dir: &Path, textures_dst: &Path) -> Result<(), String> {
-    let java_ui = find_java_ui_dir();
-    let Some(java_ui) = java_ui else {
-        log_info!("bedrock: java_ui 模板缺失，跳过 UI 模板替换");
-        return Ok(());
-    };
-
-    // 1. java_ui/ui → 根目录 ui/（强制替换）
-    let src_ui = java_ui.join("ui");
-    if src_ui.exists() {
-        let dst_ui = temp_dir.join("ui");
-        if dst_ui.exists() {
-            let _ = fs::remove_dir_all(&dst_ui);
-        }
-        copy_force(&src_ui, &dst_ui)?;
-        log_info!("OKAY bedrock [java_ui/ui -> ui/]");
-    }
-
-    // 2. java_ui/textures/ui → textures/ui（强制替换）
-    let src_tui = java_ui.join("textures").join("ui");
-    if src_tui.exists() {
-        let dst_tui = textures_dst.join("ui");
-        fs::create_dir_all(&dst_tui).map_err(|e| format!("create dir failed: {}", e))?;
-        copy_force(&src_tui, &dst_tui)?;
-        log_info!("OKAY bedrock [java_ui/textures/ui -> textures/ui]");
-    }
-
-    // 3. java_ui/gui/container → textures/gui/container（强制替换）
-    let src_container = java_ui.join("gui").join("container");
-    if src_container.exists() {
-        let dst_container = textures_dst.join("gui").join("container");
-        copy_force(&src_container, &dst_container)?;
-        log_info!("OKAY bedrock [java_ui/gui/container -> textures/gui/container]");
-    }
-
-    // 4. java_ui/gui/sprites → textures/gui/sprites（强制替换）
-    let src_sprites = java_ui.join("gui").join("sprites");
-    if src_sprites.exists() {
-        let dst_sprites = textures_dst.join("gui").join("sprites");
-        copy_force(&src_sprites, &dst_sprites)?;
-        log_info!("OKAY bedrock [java_ui/gui/sprites -> textures/gui/sprites]");
-    }
-
-    Ok(())
-}
-
-/// 查找 java_ui 模板目录：统一资源解析（exe 同级 java_ui/、
-/// resources/java_ui/、_up_/、src-tauri/java_ui/ 等，与 UImage/overlay
-/// 同策略）。找不到返回 None（调用方跳过模板替换，不视为失败）。
-fn find_java_ui_dir() -> Option<PathBuf> {
-    crate::resource_resolver::resolve_resource_dir("java_ui", |p| p.join("ui").is_dir()).ok()
-}
-
-/// 递归复制（同名文件覆盖）。
-fn copy_force(src: &Path, dst: &Path) -> Result<(), String> {
-    if !src.is_dir() {
-        return Ok(());
-    }
-    fs::create_dir_all(dst).map_err(|e| format!("create dir failed: {}", e))?;
-    for entry in fs::read_dir(src).map_err(|e| format!("read dir failed: {}", e))? {
-        let entry = entry.map_err(|e| format!("read entry failed: {}", e))?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-        if src_path.is_dir() {
-            copy_force(&src_path, &dst_path)?;
         } else {
             fs::copy(&src_path, &dst_path).map_err(|e| format!("copy failed: {}", e))?;
         }
