@@ -92,15 +92,11 @@ def collect_staging() -> None:
         shutil.copy2(src, dst)
 
     # 外部依赖资源（tauri --no-bundle 不会复制到 exe 旁）
-    for asset in ("UImage", "overlay"):
+    # java_ui 为 Bedrock 转换模板（src-tauri/java_ui/）
+    for asset in ("UImage", "overlay", "java_ui"):
         src_dir = TAURI_DIR / asset
         if src_dir.is_dir():
             shutil.copytree(src_dir, STAGING / asset)
-
-    # java_ui 模板（Bedrock 转换用）：存放于 doc/java_ui（设计文档同目录）
-    java_ui_src = ROOT / "doc" / "java_ui"
-    if java_ui_src.is_dir():
-        shutil.copytree(java_ui_src, STAGING / "java_ui")
 
 
 def make_payload_zip() -> Path:

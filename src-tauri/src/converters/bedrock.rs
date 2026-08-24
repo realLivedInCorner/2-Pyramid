@@ -1,12 +1,12 @@
-//! 基岩版（Bedrock）转换 —— 规格来自 `doc/`（Python 时代遗留设计，
-//! 见 doc/bedrock_converter.py 与 doc/rust/）：
+//! 基岩版（Bedrock）转换 —— 规格移植自原 Python 版 bedrock_converter.py
+//! （参考设计文档已删除，功能已全部落地本模块）。
 //!
 //! 流程分两阶段：
 //!   1. Java 阶段：先把包按普通流程转换到 1.21.11（pack_format 75），
 //!      （在 version_converter::process_zip 中分流执行）
 //!   2. Bedrock 阶段（本模块）：结构重组 + manifest.json + .mcpack 打包
 //!
-//! 结构重组步骤（与 Python 版对齐）：
+//! 结构重组步骤（与原 Python 版对齐）：
 //!   * pack.png → pack_icon.png
 //!   * assets/minecraft/textures/font → font/（一级目录）
 //!   * assets/minecraft/textures → textures/（合并式提升）
@@ -15,8 +15,8 @@
 //!   * textures/gui/container → textures/ui
 //!   * textures/ui/creative_inventory/* 提取到 textures/ui 后删除该目录
 //!   * java_ui 模板（ui/ textures/ui/ gui/container gui/sprites）复制替换
-//!     —— 模板目录位于 doc/java_ui（设计文档同目录），运行时按
-//!     资源解析策略查找（exe 同级 java_ui/ 亦可）；缺失时跳过
+//!     —— 模板位于 src-tauri/java_ui/，运行时按资源解析策略查找
+//!     （exe 同级 java_ui/ 亦可）；缺失时跳过
 //!   * 清理空的 assets/ 目录
 //!   * 生成 manifest.json（format_version 2、随机 UUID、min_engine_version
 //!     [1,16,2]），description 取自 pack.mcmeta
@@ -242,32 +242,11 @@ fn apply_java_ui_templates(temp_dir: &Path, textures_dst: &Path) -> Result<(), S
     Ok(())
 }
 
-/// 查找 java_ui 模板目录：
-///   1. 统一资源解析（exe 同级 java_ui/、resources/java_ui/、_up_/、
-///      src-tauri/java_ui/ 等，与 UImage/overlay 同策略）
-///   2. 开发期参考目录 doc/java_ui（自当前目录向上逐级查找）
-/// 找不到返回 None（调用方跳过模板替换，不视为失败）。
+/// 查找 java_ui 模板目录：统一资源解析（exe 同级 java_ui/、
+/// resources/java_ui/、_up_/、src-tauri/java_ui/ 等，与 UImage/overlay
+/// 同策略）。找不到返回 None（调用方跳过模板替换，不视为失败）。
 fn find_java_ui_dir() -> Option<PathBuf> {
-    // 1. 统一资源解析
-    if let Ok(p) = crate::resource_resolver::resolve_resource_dir("java_ui", |p| {
-        p.join("ui").is_dir()
-    }) {
-        return Some(p);
-    }
-    // 2. doc/java_ui（向上查找，兼容 cargo test / tauri dev 的 cwd）
-    if let Ok(cwd) = std::env::current_dir() {
-        let mut dir = cwd;
-        for _ in 0..6 {
-            let candidate = dir.join("doc").join("java_ui");
-            if candidate.is_dir() && candidate.join("ui").is_dir() {
-                return Some(candidate);
-            }
-            if !dir.pop() {
-                break;
-            }
-        }
-    }
-    None
+    crate::resource_resolver::resolve_resource_dir("java_ui", |p| p.join("ui").is_dir()).ok()
 }
 
 /// 递归复制（同名文件覆盖）。
