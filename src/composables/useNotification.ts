@@ -30,6 +30,12 @@ export interface NotificationOptions {
   source?: NotificationSource;
   silent?: boolean;
   /**
+   * 忽略「通知已关闭」开关强制发送。供设置页的「测试通知」按钮使用：
+   * 测试按钮的目的是预览效果，即使用户关闭了通知也应当能看到结果，
+   * 否则点击毫无反馈（此前就是静默返回导致“无法使用”）。
+   */
+  ignoreDisabled?: boolean;
+  /**
    * Optional action buttons rendered inside the toast. Clicking one
    * closes the toast and fires the corresponding handler registered
    * via `registerToastAction`.
@@ -130,16 +136,18 @@ async function logNotification(type: string, title: string, body: string) {
 
 export function useNotification() {
   const notify = async (options: NotificationOptions) => {
-    if (!notificationEnabled.value) return;
-
     const {
       title,
       body,
       type = 'info',
       source = 'system',
       silent = false,
+      ignoreDisabled = false,
       actions = []
     } = options;
+
+    // 测试通知（ignoreDisabled）等显式请求除外：通知关闭时静默跳过
+    if (!notificationEnabled.value && !ignoreDisabled) return;
 
     await logNotification(type, title, body);
 

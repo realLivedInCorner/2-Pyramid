@@ -1266,7 +1266,9 @@ const testNotification = async () => {
     title: t('settings.testNotification.testTitle'),
     body: t('settings.testNotification.testBody'),
     type: 'info',
-    source: 'system'
+    source: 'system',
+    // 测试按钮用于预览效果：即使通知总开关关闭也必须能看到结果
+    ignoreDisabled: true,
   });
 };
 
@@ -1549,6 +1551,10 @@ onMounted(() => {
       if (cfg?.notification_mode === 'system' || cfg?.notification_mode === 'app' || cfg?.notification_mode === 'both') {
         notificationMode.value = cfg.notification_mode;
       }
+      // 配置加载后显式同步 composable 单例（localStorage 与 config 未变化时
+      // watch 不会触发，避免测试通知被陈旧的开关状态拦截）
+      setNotificationEnabled(notificationEnabled.value);
+      setNotificationMode(notificationMode.value);
       if (typeof cfg?.toast_duration_ms === 'number' && cfg.toast_duration_ms >= 4000 && cfg.toast_duration_ms <= 15000) {
         toastDuration.value = cfg.toast_duration_ms;
         setToastDuration(cfg.toast_duration_ms);
