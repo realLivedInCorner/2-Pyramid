@@ -114,6 +114,7 @@
           <div class="drop-text">
             <h3>{{ importMode === 'file' ? t('conversion.dropFilePrompt') : t('conversion.dropFolderPrompt') }}</h3>
             <p>{{ t('conversion.dropSubPrompt') }}</p>
+            <p v-if="dropHint" class="drop-hint">{{ dropHint }}</p>
           </div>
         </div>
 
@@ -152,6 +153,25 @@
         </div>
       </div>
     </div>
+
+    <!-- Bedrock 转换未完成警示 -->
+    <transition name="dialog-pop">
+      <div v-if="showBedrockWarn" class="dialog-overlay" @click.self="showBedrockWarn = false">
+        <div class="dialog-content" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('conversion.bedrockWarn.title') }}</h3>
+            <button class="close-btn" @click="showBedrockWarn = false" :aria-label="t('common.close')">×</button>
+          </div>
+          <div class="dialog-body">
+            <p class="bedrock-warn-text">{{ t('conversion.bedrockWarn.body') }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="dialog-button secondary" @click="showBedrockWarn = false">{{ t('common.cancel') }}</button>
+            <button class="dialog-button danger" @click="confirmBedrockPick">{{ t('conversion.bedrockWarn.confirm') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <transition name="dialog-pop">
     <div class="dialog-overlay" v-if="showResultModal" @click="showResultModal = false">
@@ -275,7 +295,7 @@
                   'has-status': v.status,
                 }"
                 :style="{ '--card-delay': `${(gi * 50) + (i * 25)}ms` }"
-                @click="selectedVersion = v.label; showVersionPicker = false"
+                @click="onVersionPick(v)"
               >
                 <div class="version-row-main">
                   <span class="version-row-label">{{ v.label }}</span>
@@ -366,9 +386,13 @@ const logMessages = ref<string[]>([]);
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('');
 const showVersionPicker = ref(false);
+const showBedrockWarn = ref(false);
 const versionSidebar = ref<HTMLElement | null>(null);
 const showItemsDialog = ref(false);
 const previewLimit = 3;
+// 拖入不受支持的文件（如 .mcpack）时的提示
+const dropHint = ref('');
+let dropHintTimer: ReturnType<typeof setTimeout> | null = null;
 
 type VersionStatus = 'latest' | 'stable' | 'beta';
 type VersionEra =
@@ -425,6 +449,31 @@ const eraOrder: VersionEra[] = [
 const selectedVersionEntry = computed(
   () => versions.find(v => v.label === selectedVersion.value) ?? versions[versions.length - 1]
 );
+
+/// 版本选择：Bedrock 目标功能未完成，选中时先弹警示确认
+const onVersionPick = (v: VersionEntry) => {
+  if (v.packFormat === 1000) {
+    showVersionPicker.value = false;
+    showBedrockWarn.value = true;
+    return;
+  }
+  selectedVersion.value = v.label;
+  showVersionPicker.value = false;
+};
+
+const confirmBedrockPick = () => {
+  showBedrockWarn.value = false;
+  selectedVersion.value = 'Bedrock Latest';
+};
+
+/// 显示拖拽提示（自动消失）
+const showDropHint = (text: string) => {
+  dropHint.value = text;
+  if (dropHintTimer) clearTimeout(dropHintTimer);
+  dropHintTimer = setTimeout(() => {
+    dropHint.value = '';
+  }, 4000);
+};
 
 const versionsByEra = computed(() => {
   const groups: Record<VersionEra, VersionEntry[]> = {
@@ -499,7 +548,12 @@ onMounted(async () => {
           const fileName = p.split('/').pop() || p.split('\\').pop() || p;
           const ext = fileName.toLowerCase().split('.').pop() || '';
           if (importMode.value === 'file') {
-            if (ext !== 'zip' && ext !== 'mcpack') continue;
+            // Bedrock 输入未完善：拒绝 .mcpack，并给出明确提示
+            if (ext === 'mcpack') {
+              showDropHint(t('conversion.mcpackRejected'));
+              continue;
+            }
+            if (ext !== 'zip') continue;
             selectedItems.value.push({ name: fileName, size: '', path: p, isDir: false });
           } else {
             selectedItems.value.push({ name: fileName, size: 'Folder', path: p, isDir: true });
@@ -517,6 +571,7 @@ onUnmounted(() => {
     dragUnlisten();
     dragUnlisten = null;
   }
+  if (dropHintTimer) clearTimeout(dropHintTimer);
   window.removeEventListener('keydown', handleVersionPickerKey);
   // Tear down the toast action handlers we registered on mount so a
   // later conversion (or page) doesn't accidentally fire them.
@@ -616,7 +671,7 @@ const triggerPicker = async () => {
       multiple: true,
       directory: importMode.value === 'folder',
       filters: importMode.value === 'file' ? [
-        { name: t('conversion.resourcePackFilter'), extensions: ['zip', 'mcpack'] },
+        { name: t('conversion.resourcePackFilter'), extensions: ['zip'] },
         { name: t('conversion.allFilesFilter'), extensions: ['*'] }
       ] : undefined
     });
@@ -1218,6 +1273,8 @@ const exportLogsToFile = async () => {
 .drop-icon.success { color: #16a34a; }
 .drop-text h3 { margin: 0; font-size: 14px; color: #1f2937; }
 .drop-text p { margin: 6px 0 0; color: #94a3b8; font-size: 12px; }
+.drop-hint { color: #d97706 !important; font-weight: 700; }
+.bedrock-warn-text { color: #b91c1c; font-weight: 600; line-height: 1.7; }
 
 .selected-items-list {
   background: rgba(255, 255, 255, 0.85);

@@ -93,6 +93,12 @@
     "ready": "Ready",
     "resourcePackFilter": "Resource Pack",
     "allFilesFilter": "All Files",
+    "mcpackRejected": ".mcpack import is not supported yet (Bedrock conversion is incomplete, testing only)",
+    "bedrockWarn": {
+      "title": "Bedrock Conversion Incomplete",
+      "body": "The Bedrock conversion is incomplete and known to be broken. For testing only. Continue?",
+      "confirm": "Continue Testing"
+    },
     "fileSelectErrorTitle": "Error",
     "fileSelectErrorBody": "File selection failed, please try again",
     "outputNotSetTitle": "Output Directory Not Set",
