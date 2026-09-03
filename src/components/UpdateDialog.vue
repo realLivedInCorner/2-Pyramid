@@ -2,8 +2,10 @@
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUpdater, type UpdateCheckResult, type ReleaseInfo } from "../composables/useUpdater";
 import { isTauri as tauriIsAvailable } from "@tauri-apps/api/core";
+import { renderMarkdown } from "../utils/markdown";
 
 const { t } = useI18n();
 
@@ -29,6 +31,23 @@ const errorMessage = ref("");
 let unlistenProgress: UnlistenFn | null = null;
 
 const latest = computed<ReleaseInfo | null>(() => props.updateResult?.latest ?? null);
+
+/// 更新日志：Release body 以 Markdown 渲染（安全渲染器）
+const renderedBody = computed(() =>
+  latest.value?.body ? renderMarkdown(latest.value.body) : ""
+);
+
+/// 更新日志里的链接：交给系统默认浏览器打开（仅 http/https，渲染器已校验）
+function onMdClick(ev: MouseEvent) {
+  const target = ev.target as HTMLElement | null;
+  const link = target?.closest?.("a[data-ext-link]") as HTMLAnchorElement | null;
+  if (!link) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href");
+  if (href && /^https?:\/\//i.test(href)) {
+    void openUrl(href).catch(() => {});
+  }
+}
 
 /// Beta- / UnStable- 前缀的 release 属于测试版更新
 const isBetaRelease = computed(() => {
@@ -163,7 +182,7 @@ onUnmounted(() => {
             <span v-if="latest?.publishedAt" class="ud-date">{{ latest?.publishedAt?.slice(0, 10) }}</span>
           </div>
           <div v-if="latest?.body" class="ud-body">
-            <pre>{{ latest.body }}</pre>
+            <div class="ud-md" v-html="renderedBody" @click="onMdClick"></div>
           </div>
           <div class="ud-actions">
             <button v-if="isSkippable" class="ud-btn ghost" @click="emit('close')">{{ t('update.skipVersion') }}</button>
@@ -313,16 +332,51 @@ onUnmounted(() => {
 }
 .ud-meta i { font-size: 14px; }
 
-/* Body (changelog) */
+/* Body (changelog) —— Markdown 渲染视图 */
 .ud-body {
-  width: 100%; max-height: 140px; overflow-y: auto;
+  width: 100%; max-height: 240px; overflow-y: auto;
   background: #f9fafb; border-radius: 10px; padding: 14px 16px;
   text-align: left; margin-top: 4px;
 }
-.ud-body pre {
-  margin: 0; font-family: inherit; font-size: 12px; color: #4b5563;
-  white-space: pre-wrap; line-height: 1.6;
+
+.ud-md {
+  font-size: 12.5px; color: #4b5563; line-height: 1.7;
 }
+.ud-md h1, .ud-md h2, .ud-md h3, .ud-md h4 {
+  margin: 10px 0 6px; color: #1f2937; font-weight: 800; line-height: 1.4;
+}
+.ud-md h1 { font-size: 15px; }
+.ud-md h2 { font-size: 14px; }
+.ud-md h3, .ud-md h4 { font-size: 13px; }
+.ud-md p { margin: 6px 0; }
+.ud-md ul, .ud-md ol { margin: 6px 0 6px 18px; padding: 0; }
+.ud-md li { margin: 3px 0; }
+.ud-md blockquote {
+  margin: 8px 0; padding: 6px 12px;
+  border-left: 3px solid color-mix(in srgb, var(--theme-color) 55%, #e5e7eb);
+  background: #f3f4f6; border-radius: 0 8px 8px 0;
+  color: #6b7280;
+}
+.ud-md code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11.5px;
+  background: #eef0f3; border-radius: 4px; padding: 1px 5px;
+  color: #111827;
+}
+.ud-md pre {
+  margin: 8px 0; padding: 10px 12px;
+  background: #111827; border-radius: 8px; overflow-x: auto;
+}
+.ud-md pre code { background: transparent; color: #e5e7eb; padding: 0; font-size: 11.5px; }
+.ud-md a {
+  color: var(--theme-color); text-decoration: none; font-weight: 700;
+  border-bottom: 1px dashed color-mix(in srgb, var(--theme-color) 50%, transparent);
+}
+.ud-md a:hover { border-bottom-style: solid; }
+.ud-md hr {
+  border: none; border-top: 1px solid #e5e7eb; margin: 10px 0;
+}
+.ud-md strong { color: #111827; }
 
 /* Progress bar */
 .ud-progress-bar {

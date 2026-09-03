@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.0.2-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.0.3-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -74,10 +74,10 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 | Tag 前缀 | 含义 | 可见通道 |
 |---|---|---|
-| `Safe-2.0.2` | 重要安全更新（强制提醒） | 全部 |
-| `Stable-2.0.2` | 稳定版 | 稳定通道 / 全部 |
-| `v2.0.2` | 稳定版（无前缀） | 稳定通道 / 全部 |
-| `UnStable-2.0.2` / `Beta-2.0.2` | 测试版更新 | 测试通道 / 全部 |
+| `Safe-2.0.3` | 重要安全更新（强制提醒） | 全部 |
+| `Stable-2.0.3` | 稳定版 | 稳定通道 / 全部 |
+| `v2.0.3` | 稳定版（无前缀） | 稳定通道 / 全部 |
+| `UnStable-2.0.3` / `Beta-2.0.3` | 测试版更新 | 测试通道 / 全部 |
 
 更新通道为三态：**稳定版**（仅稳定发布）/ **测试版**（仅测试发布）/ **全部**（同时接受两个通道的更新内容，取最高版本）。
 
@@ -219,10 +219,10 @@ In-app update checks read this repository's GitHub Releases. Tag conventions:
 
 | Tag prefix | Meaning | Visible to |
 |---|---|---|
-| `Safe-2.0.2` | Important security update | All channels |
-| `Stable-2.0.2` | Stable | Stable / Both |
-| `v2.0.2` | Stable (no prefix) | Stable / Both |
-| `UnStable-2.0.2` / `Beta-2.0.2` | Test / Beta update | Test / Both |
+| `Safe-2.0.3` | Important security update | All channels |
+| `Stable-2.0.3` | Stable | Stable / Both |
+| `v2.0.3` | Stable (no prefix) | Stable / Both |
+| `UnStable-2.0.3` / `Beta-2.0.3` | Test / Beta update | Test / Both |
 
 The update channel has three states: **Stable** (stable releases only) / **Pre-Release** (test releases only) / **Both** (accepts updates from both channels at once, highest version wins).
 
