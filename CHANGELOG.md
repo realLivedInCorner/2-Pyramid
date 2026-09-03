@@ -6,6 +6,30 @@
 
 （暂无）
 
+## [2.0.3] - 2026-08-22（BUILD 20032）
+
+正式版。包含 Beta-2.0.2 的全部内容，另加：
+
+### Added
+
+- **更新日志 Markdown 渲染**：更新对话框的 Release 说明改为 Markdown 视图（标题 / 列表 / 引用 / 代码块 / 加粗 / 链接），链接经系统浏览器打开；渲染器对不可信内容做 HTML 转义与链接白名单防护。
+
+### 自 Beta-2.0.2 起包含
+
+- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。
+- **动态贴图转换**：`textures/item` / `textures/items` 下与 png 同名的 `.png.mcmeta` 若还是老版 `{"animation": {}}` 格式，会读取同名贴图尺寸推导帧数（横条 = 宽/高，竖条 = 高/宽），改写为高版本适配格式 `{"animation": {"frametime": <帧数>, "interpolate": true}}`；已声明 frametime 的保持原样，尺寸无法整除的跳过不瞎猜。
+- **更新通道三态**：稳定版 / 测试版 / 全部——「全部」同时接受两个通道的更新内容（取最高版本），「测试版」现在只收测试更新（原行为是包含全部）。
+- **动作记录导出 (.2amr)**：开发者选项新增「导出动作记录」，把动作监视记录的点击序列（含所在 Vue 页面）导出为 2amr 文件，供内部工具 **Action Mon3tr**（不开源，不入仓库）逐帧回放调试。
+- **实时动作流（仅 dev）**：debug 构建时 2-Pyramid 在 127.0.0.1:24159 提供本地动作流（支持按需抓取主窗口截图），供 Action Mon3tr 接管实时动作。
+- **输入防护**：材质包选择不再接受 `.mcpack` 文件（Bedrock 输入功能未完善）。
+
+### Fixed（自 Beta-2.0.2 起）
+
+- **更新安装器拉起修复**：更新下载后不再静默安装（会因旧进程文件锁无声失败），改为拉起图形安装向导。
+- **测试通知修复**：通知总开关关闭时，「测试通知」按钮仍可正常预览效果（不再静默无反馈）。
+- 更新检查器读取的 mcmeta 兼容 UTF-8 BOM。
+- 对话框关闭按钮不再被统一按钮皮肤覆盖（去掉奇怪的玻璃底色）。
+
 ## [Beta-2.0.2] - 2026-08-22（BUILD 20031）
 
 ### Added
