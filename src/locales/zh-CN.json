@@ -93,6 +93,12 @@
     "ready": "准备就绪",
     "resourcePackFilter": "资源包",
     "allFilesFilter": "所有文件",
+    "mcpackRejected": "暂不支持导入 .mcpack（Bedrock 转换未完成，仅用于测试）",
+    "bedrockWarn": {
+      "title": "Bedrock 转换未完成",
+      "body": "Bedrock 转换功能尚未完成，存在严重问题，仅用于测试。继续？",
+      "confirm": "仍要测试"
+    },
     "fileSelectErrorTitle": "错误",
     "fileSelectErrorBody": "文件选择失败，请重试",
     "outputNotSetTitle": "输出目录未设置",

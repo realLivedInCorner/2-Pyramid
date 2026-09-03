@@ -2,33 +2,53 @@
 
 2-Pyramid 的所有值得注意的变更都会记录在此文件中。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Beta-2.0.1] - 2026-08-18
+## [Unreleased]
 
 ### Added
 
-- **更新检查识别测试版**：Release tag 带 `Beta-` / `UnStable-` 前缀的视为测试版更新，仅「测试版」更新通道可见；更新对话框对这类更新显示「测试版」徽章。
+- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。
 - **动态贴图转换**：`textures/item` / `textures/items` 下与 png 同名的 `.png.mcmeta` 若还是老版 `{"animation": {}}` 格式，会读取同名贴图尺寸推导帧数（横条 = 宽/高，竖条 = 高/宽），改写为高版本适配格式 `{"animation": {"frametime": <帧数>, "interpolate": true}}`；已声明 frametime 的保持原样，尺寸无法整除的跳过不瞎猜。
-- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。（java_ui 模板因兼容性不佳已移除，不参与转换。）
-- **动作记录导出 (.2amr)**：开发者选项新增「导出动作记录」，把动作监视记录的点击序列导出为 2amr 文件，供 Action Mon3tr 逐帧回放调试（导出内容经坐标/文本防护）。
-- **实时动作流（仅 dev）**：debug 构建且动作监视开启时，2-Pyramid 在 127.0.0.1:24159 提供本地动作流，供内部工具 Action Mon3tr 接管（不开源）。
+- **动作记录导出 (.2amr)**：开发者选项新增「导出动作记录」，把动作监视记录的点击序列（含所在 Vue 页面）导出为 2amr 文件，供内部工具 **Action Mon3tr**（不开源，不入仓库）逐帧回放调试。
+- **实时动作流（仅 dev）**：debug 构建时 2-Pyramid 在 127.0.0.1:24159 提供本地动作流（支持按需抓取主窗口截图），供 Action Mon3tr 接管实时动作。
+- **输入防护**：材质包选择不再接受 `.mcpack` 文件（Bedrock 输入功能未完善）。
 
 ### Changed
 
-- 版本详情对话框简化为只显示**主版本**与**构建号**两项内容。
-- 更新源切换到 2-Pyramid 官方仓库 Releases（`realLivedInCorner/2-Pyramid`）。
-- README 全面重写，同步当前项目状态（自研安装器、Beta 渠道、更新机制、目录规整等）。
-- 新增本 CHANGELOG.md。
 - 开发者选项分组与其他分组行为统一（淡入动画、搜索联动、i18n 标签）。
+- 移除 java_ui UI 模板（基岩 UI 兼容性不佳）。
 
 ### Fixed
 
 - **更新安装器拉起修复**：更新下载后不再静默安装（会因旧进程文件锁无声失败），改为拉起图形安装向导。
-- **目录规整防呆**：寻找 `pack.mcmeta` 时，`pack.mcmeta.txt` 之类任意后缀的文件只要内容是合法 mcmeta（能解析出 format 数值），就统一改名/提升为压缩包根目录的 `pack.mcmeta` 再转换（对齐原 Python 版的结构修复步骤）。
-- **输出文件名版本前缀替换**：版本标签不再只匹配开头——`[Java 1.x-y]` 出现在名称任意位置（如 `[Name] [Ver]` 模板产物）都会被剥除，避免再转换时新旧前缀堆叠。
-- **BUILD 构建号重复递增**：发布流水线不再自行 bump，`build.rs` 成为唯一递增点；`--no-bump` 经 `2PYR_NO_BUMP=1` 彻底跳过。
-- **卸载器自清理**：后台清理进程从「ping 127.0.0.1 轮询」改为进程句柄 `WaitForExit` 等待（零网络探测、零轮询）；卸载完成动画播完后自动关窗触发清理。
 - 更新检查器读取的 mcmeta 兼容 UTF-8 BOM。
 - 对话框关闭按钮不再被统一按钮皮肤覆盖（去掉奇怪的玻璃底色）。
+- **测试通知修复**：通知总开关关闭时，「测试通知」按钮仍可正常预览效果（不再静默无反馈）。
+
+## [Beta-2.0.1] - 2026-08-18（BUILD 20029）
+
+> 这是 2-Pyramid 的 Beta 测试版（tag: Beta-2.0.1）。可通过应用内「更新通道 → 测试版」检查到，或直接在 Releases 下载 `2-Pyramid-Installer-2.0.1-beta.{BUILD}.exe`。
+> Beta 与正式版可并存安装：独立注册表、独立目录（%LOCALAPPDATA%\2-Pyramid-Beta）、程序内带 Beta 标识。正式版请用 Stable-/v 前缀的发布。
+
+### 新增
+
+- **安装器三快捷方式选项**：安装时可勾选「桌面快捷方式 / 加入开始菜单 / 加入快捷栏（任务栏）」；卸载时自动清理快捷方式与任务栏固定。
+- **Beta 双渠道构建**：`npm run betabuild` 一键产出 Beta 安装包；主程序从启动画面、首页到设置页均有 Beta 标识，窗口标题与任务栏同步显示。
+- **更新检查识别测试版**：Release tag 带 `Beta-` / `UnStable-` 前缀即视为测试版更新，仅测试版通道可见，更新对话框带「测试版」徽章。
+- **目录规整防呆**：`pack.mcmeta.txt` 等任意后缀的文件，只要内容是合法 mcmeta（能解析出 format 数值），自动统一改名为 `pack.mcmeta` 并提升到压缩包根目录，再正常转换。
+- **版本详情页改版**：只保留主版本 + 构建号两项，干净直观。
+
+### 修复
+
+- **卸载器彻底修复**：双击 uninstall.exe 或从控制面板卸载，直接进入卸载流程（不再打开安装界面）；卸载过程有明确的进度反馈，完成动画播完后自动关窗，退出时自行清理残留文件。
+- **背景透色调整**：调整透色强度/展示方式不再需要重新选择背景图片。
+- **输出文件名版本前缀替换**：`[Java 1.x-y]` 标签出现在名称任意位置都能被替换，再转换时不再出现新旧前缀堆叠。
+- **BUILD 构建号**：每次发布构建只递增一次（此前会 +2）。
+- **卸载器自清理**：不再反复 ping 127.0.0.1，改为进程句柄等待，安静无痕。
+
+### 其他
+
+- README 全面更新，新增根目录 CHANGELOG.md。
+- 更新源切换到 2-Pyramid 官方仓库 Releases。
 
 ## [2.0.0] - 2026-08-17
 
