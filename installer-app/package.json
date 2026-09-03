@@ -1,7 +1,7 @@
 {
   "name": "2pyr-installer-app",
   "private": true,
-  "version": "2.0.3",
+  "version": "2.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite --port 1422",

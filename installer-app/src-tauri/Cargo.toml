@@ -1,6 +1,6 @@
 [package]
 name = "two-pyr-installer-app"
-version = "2.0.3"
+version = "2.0.4"
 edition = "2021"
 
 # 独立安装器项目：同主项目技术栈（Tauri 2 + Rust），自定义安装界面
