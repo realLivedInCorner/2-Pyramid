@@ -296,11 +296,12 @@
     },
     "updateChannel": {
       "label": "更新通道",
-      "desc": "选择稳定版本或包含测试版的更新源",
+      "desc": "选择接受稳定版、测试版，或同时接受两个通道的更新",
       "searchLabel": "更新通道",
-      "searchDesc": "选择稳定版本或测试版本",
+      "searchDesc": "选择稳定版、测试版或全部",
       "stable": "稳定版",
-      "unstable": "测试版"
+      "unstable": "测试版",
+      "both": "全部"
     },
     "versionInfo": {
       "label": "版本详情",

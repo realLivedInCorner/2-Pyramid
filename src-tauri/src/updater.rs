@@ -153,9 +153,13 @@ async fn check_github_releases(channel: &str, current_version: &str) -> Result<U
         .iter()
         .filter_map(|r| {
             let (version, priority) = parse_tag(&r.tag_name);
-            // Beta- / UnStable- 前缀 → 测试版更新，仅「测试版」通道可见
+            // 通道语义：
+            //   master   —— 仅稳定版（排除 Beta-/UnStable- 与 prerelease）
+            //   unstable —— 仅测试版（Beta-/UnStable-/prerelease）
+            //   both     —— 同时接受两个通道的更新内容（全部，取最高版本）
             let include = match channel {
-                "unstable" => true,
+                "both" => true,
+                "unstable" => r.prerelease || is_test_tag(&r.tag_name),
                 _ => !r.prerelease && !is_test_tag(&r.tag_name),
             };
             if !include { return None; }
@@ -395,7 +399,8 @@ pub fn get_update_channel() -> Result<String, String> {
 
 #[tauri::command]
 pub fn set_update_channel(channel: String) -> Result<(), String> {
-    if channel != "master" && channel != "unstable" {
+    // master = 仅稳定；unstable = 仅测试；both = 同时接受两个通道
+    if channel != "master" && channel != "unstable" && channel != "both" {
         return Err(format!("Invalid update channel: {}", channel));
     }
     let mut cfg = read_config_file()?;

@@ -296,11 +296,12 @@
     },
     "updateChannel": {
       "label": "Update Channel",
-      "desc": "Choose between stable releases or include pre-release builds",
+      "desc": "Accept stable updates, pre-release updates, or both channels at once",
       "searchLabel": "Update Channel",
-      "searchDesc": "Choose between stable releases or pre-release builds",
+      "searchDesc": "Stable, pre-release, or both channels",
       "stable": "Stable",
-      "unstable": "Pre-Release"
+      "unstable": "Pre-Release",
+      "both": "Both"
     },
     "versionInfo": {
       "label": "Version Info",

@@ -389,6 +389,7 @@
               <div class="segmented">
                 <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="changeChannel('master')">{{ t('settings.updateChannel.stable') }}</button>
                 <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="changeChannel('unstable')">{{ t('settings.updateChannel.unstable') }}</button>
+                <button class="seg-btn" :class="{ active: updateChannel === 'both' }" @click="changeChannel('both')">{{ t('settings.updateChannel.both') }}</button>
               </div>
             </div>
           </div>
