@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "two-pyramid"
-version = "2.0.1"
+version = "2.0.2"
 description = "2-Pyramid"
 authors = ["2-Pyramid Studio"]
 edition = "2021"

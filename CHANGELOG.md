@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+（暂无）
+
+## [Beta-2.0.2] - 2026-08-22（BUILD 20031）
+
 ### Added
 
 - **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。
