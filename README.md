@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.0.0-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.0.2-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -23,14 +23,15 @@
 
 ## 中文
 
-**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.1+ 的 26 个目标版本区间，支持任意两个版本之间的相互转换。
+**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.1+ 的 26 个 Java 目标版本区间（外加实验性的 Bedrock 目标），支持任意两个版本之间的相互转换。
 
 ### ✨ 特性
 
-- **广覆盖** — 26 个目标版本区间，六个时代（Classic / Modern / Caves & Cliffs / Trails & Tales / Tricky Trials / Bundles of Bravery）
+- **广覆盖** — 26 个 Java 目标版本区间，六个时代（Classic / Modern / Caves & Cliffs / Trails & Tales / Tricky Trials / Bundles of Bravery）；另有实验性 **Bedrock Latest** 目标（⚠ 未完成、仅用于测试，选中时会弹警示，产物为 `.mcpack`）
 - **完全本地** — 无云端、无账号、无遥测，文件全程不离开你的电脑
 - **批量处理** — 一次拖入多个资源包，1–4 线程并行转换
 - **目录规整防呆** — 自动把嵌套的 `pack.mcmeta` 提升到压缩包根目录；`pack.mcmeta.txt` 之类多扩展名文件只要内容是合法 mcmeta（能解析出 format 数值）也会统一改名为 `pack.mcmeta`
+- **动态贴图转换** — 老版 `{"animation": {}}` 的 `.png.mcmeta` 自动按贴图尺寸推导帧数，改写为高版本 `frametime` + `interpolate` 格式
 - **输出命名模板** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符自由组合，再转换时自动替换名称中的旧版本前缀
 - **Overlay 母包叠加** — 在不修改原包的前提下，把自定义覆盖包叠加到任意母包上
 - **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、动画速率三档、中英双语
@@ -74,11 +75,13 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | Tag 前缀 | 含义 | 可见通道 |
 |---|---|---|
 | `Safe-2.0.2` | 重要安全更新（强制提醒） | 全部 |
-| `Stable-2.0.2` | 稳定版 | 稳定通道 |
-| `v2.0.2` | 稳定版（无前缀） | 稳定通道 |
-| `UnStable-2.0.2` / `Beta-2.0.2` | 测试版更新 | 仅「测试版」通道 |
+| `Stable-2.0.2` | 稳定版 | 稳定通道 / 全部 |
+| `v2.0.2` | 稳定版（无前缀） | 稳定通道 / 全部 |
+| `UnStable-2.0.2` / `Beta-2.0.2` | 测试版更新 | 测试通道 / 全部 |
 
-发版时记得给 Release 附带 `.exe` 安装包附件（安装器自动静默安装）。
+更新通道为三态：**稳定版**（仅稳定发布）/ **测试版**（仅测试发布）/ **全部**（同时接受两个通道的更新内容，取最高版本）。
+
+发版时记得给 Release 附带 `.exe` 安装包附件（更新会拉起图形安装向导）。
 
 ### 🏗️ 架构
 
@@ -165,14 +168,15 @@ npm run build                                               # 前端 build
 
 ## English
 
-**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 target version ranges from 1.6 to the latest 26.1+, with conversion between any two versions.
+**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.1+ (plus an experimental Bedrock target), with conversion between any two versions.
 
 ### ✨ Features
 
-- **Wide coverage** — 26 target ranges across six eras
+- **Wide coverage** — 26 Java target ranges across six eras; experimental **Bedrock Latest** target (⚠ incomplete, testing only — a warning is shown on selection, output is `.mcpack`)
 - **Fully local** — No cloud, no account, no telemetry
 - **Batch processing** — Multiple packs at once, 1–4 parallel workers
 - **Directory normalization** — Nested `pack.mcmeta` is promoted to the zip root; `pack.mcmeta.txt`-style files are renamed to `pack.mcmeta` when they contain a valid `format` value
+- **Animated texture conversion** — Legacy `{"animation": {}}` mcmeta files are upgraded to explicit `frametime` + `interpolate` (frame count derived from texture dimensions)
 - **Output naming template** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` placeholders; old version prefixes are replaced on re-conversion
 - **Overlay parent packs** — Layer custom content on top of any base pack without modifying it
 - **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, three animation speeds, zh / en
@@ -216,11 +220,13 @@ In-app update checks read this repository's GitHub Releases. Tag conventions:
 | Tag prefix | Meaning | Visible to |
 |---|---|---|
 | `Safe-2.0.2` | Important security update | All channels |
-| `Stable-2.0.2` | Stable | Stable channel |
-| `v2.0.2` | Stable (no prefix) | Stable channel |
-| `UnStable-2.0.2` / `Beta-2.0.2` | Test / Beta update | Test channel only |
+| `Stable-2.0.2` | Stable | Stable / Both |
+| `v2.0.2` | Stable (no prefix) | Stable / Both |
+| `UnStable-2.0.2` / `Beta-2.0.2` | Test / Beta update | Test / Both |
 
-Attach the `.exe` installer to each release (updates install silently).
+The update channel has three states: **Stable** (stable releases only) / **Pre-Release** (test releases only) / **Both** (accepts updates from both channels at once, highest version wins).
+
+Attach the `.exe` installer to each release (updates launch the GUI installer wizard).
 
 ### 🏗️ Architecture
 
