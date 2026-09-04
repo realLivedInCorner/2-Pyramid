@@ -35,7 +35,7 @@
 - **输出命名模板** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符自由组合，再转换时自动替换名称中的旧版本前缀
 - **Overlay 母包叠加** — 在不修改原包的前提下，把自定义覆盖包叠加到任意母包上
 - **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、动画速率三档、中英双语
-- **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单 / 任务栏快捷方式；卸载器走完动画自动退出并自行清理
+- **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单快捷方式，重装时安装目录自动对齐现有位置；卸载器走完动画自动退出并自行清理
 - **Beta 双渠道** — 正式版与 Beta 版可并存安装（独立注册表、独立目录、Beta 标识），`betabuild` 一键构建
 
 ### 🚀 快速开始
@@ -180,7 +180,7 @@ npm run build                                               # 前端 build
 - **Output naming template** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` placeholders; old version prefixes are replaced on re-conversion
 - **Overlay parent packs** — Layer custom content on top of any base pack without modifying it
 - **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, three animation speeds, zh / en
-- **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu / taskbar shortcuts; the uninstaller cleans up after itself on exit
+- **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts, install dir auto-aligns to the existing location on reinstall; the uninstaller cleans up after itself on exit
 - **Beta channel** — Stable and Beta installs coexist (separate registry, directory and badges); built with `betabuild`
 
 ### 🚀 Quick Start

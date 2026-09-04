@@ -6,7 +6,7 @@
 //!
 //! Rust 侧命令：
 //!   * install(dir, shortcuts) —— 释放 payload（emit 实时进度）、
-//!     释放 uninstaller.exe、按需创建桌面/开始菜单/任务栏快捷方式、
+//!     释放 uninstaller.exe、按需创建桌面/开始菜单快捷方式、
 //!     写安装信息与卸载注册表
 //!   * uninstall(dir) —— 删除文件与全部注册表（用户数据 ~/.2pyr 保留）；
 //!     卸载器自身在安装目录内时派出独立清理进程，于退出后删除自身
@@ -75,25 +75,33 @@ struct InstallProgress {
 
 // ── 快捷方式选项 ─────────────────────────────────────────────────
 
-/// 安装界面三个快捷方式勾选项：桌面 / 开始菜单 / 任务栏（快捷栏）。
+/// 安装界面快捷方式勾选项：桌面 / 开始菜单。
+/// （「快捷栏 / 任务栏」选项已移除——任务栏固定受 Windows 版本限制且
+/// 无法稳定实现，不再提供。）
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ShortcutOptions {
     desktop: bool,
     start_menu: bool,
-    taskbar: bool,
 }
 
 impl ShortcutOptions {
     /// 静默更新模式：不创建任何快捷方式（避免覆盖用户已删除的入口）。
     fn none() -> Self {
-        Self { desktop: false, start_menu: false, taskbar: false }
+        Self { desktop: false, start_menu: false }
     }
 }
 
 // ── 核心逻辑（silent 模式与 GUI 命令共用） ────────────────────────
 
+/// 默认安装目录：若本渠道（stable/beta）已安装过，自动对齐到
+/// 已安装目录（重装/升级时沿用用户上次选择的路径），否则用渠道默认。
 fn default_install_dir() -> PathBuf {
+    if let Some(dir) = registry_install_dir() {
+        if dir.join(EXE_NAME).exists() {
+            return dir;
+        }
+    }
     let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
     if is_beta() {
         base.join("2-Pyramid-Beta")
@@ -286,21 +294,6 @@ fn create_shortcuts(dir: &Path, opts: &ShortcutOptions) -> String {
         run_powershell(&script);
     }
 
-    // 任务栏固定：通过 Shell.Application InvokeVerb('taskbarpin') 尽力而为。
-    // Windows 10/11 对程序化固定限制较多，失败时静默跳过。
-    if opts.taskbar {
-        let script = format!(
-            "$ErrorActionPreference='SilentlyContinue'\n\
-             $shell=New-Object -ComObject Shell.Application\n\
-             $folder=$shell.Namespace({})\n\
-             if($folder -ne $null){{$item=$folder.ParseName('{}');if($item -ne $null){{$item.InvokeVerb('taskbarpin')}}}}",
-            ps_quote(&dir.to_string_lossy()),
-            EXE_NAME,
-        );
-        run_powershell(&script);
-        created.push("任务栏(尽力而为)");
-    }
-
     if created.is_empty() {
         "未创建".to_string()
     } else {
@@ -308,8 +301,8 @@ fn create_shortcuts(dir: &Path, opts: &ShortcutOptions) -> String {
     }
 }
 
-/// 卸载时清理快捷方式（.lnk 直接删除；任务栏固定尽力解除）。
-fn remove_shortcuts(dir: &Path) {
+/// 卸载时清理快捷方式（.lnk 直接删除）。
+fn remove_shortcuts() {
     if let Some(desktop) = dirs::desktop_dir() {
         let _ = std::fs::remove_file(desktop.join(shortcut_file_name()));
     }
@@ -322,17 +315,6 @@ fn remove_shortcuts(dir: &Path) {
                 .join("Programs")
                 .join(shortcut_file_name()),
         );
-    }
-    if dir.join(EXE_NAME).exists() {
-        let script = format!(
-            "$ErrorActionPreference='SilentlyContinue'\n\
-             $shell=New-Object -ComObject Shell.Application\n\
-             $folder=$shell.Namespace({})\n\
-             if($folder -ne $null){{$item=$folder.ParseName('{}');if($item -ne $null){{$item.InvokeVerb('taskbarunpin')}}}}",
-            ps_quote(&dir.to_string_lossy()),
-            EXE_NAME,
-        );
-        run_powershell(&script);
     }
 }
 
@@ -407,7 +389,7 @@ fn spawn_self_delete_helper(self_path: &Path, dir: &Path) {
 
 fn uninstall_impl(dir: &Path) -> Result<String, String> {
     delete_registry();
-    remove_shortcuts(dir);
+    remove_shortcuts();
 
     let self_path = std::env::current_exe().ok();
     // Windows 路径不区分大小写；自身位于安装目录内则走“退出时清理自身”分支
