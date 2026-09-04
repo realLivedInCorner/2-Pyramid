@@ -20,10 +20,9 @@ const failed = ref(false);
 const resultMessage = ref("");
 const installed = ref(false);
 
-// 快捷方式选项：桌面 / 开始菜单 / 任务栏(快捷栏，尽力而为)
+// 快捷方式选项：桌面 / 开始菜单
 const shortcutDesktop = ref(true);
 const shortcutStartMenu = ref(true);
-const shortcutTaskbar = ref(false);
 
 // 安装进度
 const progressCurrent = ref(0);
@@ -105,7 +104,6 @@ const doInstall = async () => {
       shortcuts: {
         desktop: shortcutDesktop.value,
         startMenu: shortcutStartMenu.value,
-        taskbar: shortcutTaskbar.value,
       },
     });
     installed.value = true;
@@ -234,6 +232,10 @@ const closeWindow = async () => {
           <input v-model="dir" class="dir-input" spellcheck="false" />
           <button class="btn ghost" @click="browse"><i class="ri-folder-open-line"></i> 浏览</button>
         </div>
+        <p v-if="installed" class="hint align-hint">
+          <i class="ri-information-line" aria-hidden="true"></i>
+          已检测到安装的 2-Pyramid，安装目录已自动对齐到现有位置。
+        </p>
 
         <label class="field-label">快捷方式</label>
         <div class="shortcut-options">
@@ -247,15 +249,7 @@ const closeWindow = async () => {
             <i class="ri-menu-line" aria-hidden="true"></i>
             <span>加入开始菜单</span>
           </label>
-          <label class="check-row">
-            <input type="checkbox" v-model="shortcutTaskbar" />
-            <i class="ri-window-line" aria-hidden="true"></i>
-            <span>加入快捷栏（任务栏）</span>
-          </label>
         </div>
-        <p class="hint">
-          任务栏固定受 Windows 版本限制，未成功时可手动固定（开始菜单 → 右键 → 固定到任务栏）。
-        </p>
         <p class="hint">
           安装内容：主程序、转换引擎与内置资源（约几十 MB）。
           卸载时用户数据（转换记录、设置）将保留。
@@ -559,6 +553,14 @@ html, body, #app {
   margin: 0;
 }
 .check-row i { font-size: 15px; color: #007bff; }
+
+.align-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #007bff;
+  font-weight: 700;
+}
 
 .dir-input {
   flex: 1;
