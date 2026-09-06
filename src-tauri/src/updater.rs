@@ -122,9 +122,10 @@ fn version_greater(a: &str, b: &str) -> bool {
 
 // ── GitHub API (async) ──────────────────────────────────────
 
-// 更新源：2-Pyramid 官方仓库的 releases（对应网页
-// https://github.com/realLivedInCorner/2-Pyramid/releases）
-const GITHUB_API: &str = "https://api.github.com/repos/realLivedInCorner/2-Pyramid/releases";
+// 更新源：国内镜像（由 cdn.5eggpack.top 提供，schema 与 GitHub Releases API 一致，
+// 便于国内用户快速检测与下载更新）。原上游：
+// https://github.com/realLivedInCorner/2-Pyramid/releases
+const GITHUB_API: &str = "https://cdn.5eggpack.top/api/github/releases";
 
 async fn fetch_releases() -> Result<Vec<GitHubRelease>, String> {
     let client = reqwest::Client::new();
