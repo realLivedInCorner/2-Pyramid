@@ -309,7 +309,11 @@
       "searchLabel": "Update Source",
       "searchDesc": "Choose mirror source or official GitHub",
       "mirror": "Mirror",
-      "github": "GitHub Official"
+      "github": "GitHub Official",
+      "speedTest": "Speed Test",
+      "measuring": "Testing…",
+      "unreachable": "Unreachable",
+      "useFastest": "Use Fastest"
     },
     "versionInfo": {
       "label": "Version Info",

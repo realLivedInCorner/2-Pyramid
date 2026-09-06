@@ -400,11 +400,37 @@
             <div class="item-info">
               <div class="label">{{ t('settings.updateSource.label') }}</div>
               <div class="desc">{{ t('settings.updateSource.desc') }}</div>
+              <!-- 测速结果 -->
+              <div v-if="speedResults" class="source-speed">
+                <div
+                  v-for="r in speedResults"
+                  :key="r.source"
+                  class="speed-row"
+                  :class="{ unreachable: !r.reachable }"
+                >
+                  <span class="speed-name">{{ r.source === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}</span>
+                  <span v-if="r.reachable" class="speed-val">
+                    {{ r.speedKbps >= 1024 ? (r.speedKbps / 1024).toFixed(1) + ' MB/s' : r.speedKbps + ' KB/s' }} · {{ r.latencyMs }}ms
+                  </span>
+                  <span v-else class="speed-val">{{ r.error || t('settings.updateSource.unreachable') }}</span>
+                </div>
+              </div>
             </div>
-            <div class="item-action">
+            <div class="item-action source-actions">
               <div class="segmented">
                 <button class="seg-btn" :class="{ active: updateSource === 'mirror' }" @click="changeSource('mirror')">{{ t('settings.updateSource.mirror') }}</button>
                 <button class="seg-btn" :class="{ active: updateSource === 'github' }" @click="changeSource('github')">{{ t('settings.updateSource.github') }}</button>
+              </div>
+              <div class="speed-btns">
+                <button class="btn-text secondary speed-btn" :disabled="sourceMeasuring" @click="measureSources">
+                  <i :class="sourceMeasuring ? 'ri-loader-4-line ri-spin' : 'ri-speed-up-line'" aria-hidden="true"></i>
+                  {{ sourceMeasuring ? t('settings.updateSource.measuring') : t('settings.updateSource.speedTest') }}
+                </button>
+                <button
+                  v-if="fastestSource"
+                  class="btn-text speed-btn"
+                  @click="changeSource(fastestSource)"
+                >{{ t('settings.updateSource.useFastest') }}（{{ fastestSource === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}）</button>
               </div>
             </div>
           </div>
@@ -1193,6 +1219,46 @@ const updateSource = ref('mirror');
 const updateChecking = ref(false);
 const updateError = ref('');
 const currentVersion = ref('');
+
+// 更新源测速
+interface SourceSpeedResult {
+  source: string;
+  reachable: boolean;
+  latencyMs: number;
+  speedKbps: number;
+  error: string | null;
+}
+const speedResults = ref<SourceSpeedResult[] | null>(null);
+const sourceMeasuring = ref(false);
+
+/// 两个源都可达时的最快源（按速率，取不到则按延迟）
+const fastestSource = computed(() => {
+  const list = speedResults.value;
+  if (!list) return null;
+  const reachable = list.filter((r) => r.reachable);
+  if (reachable.length < 2) return null;
+  const a = reachable[0];
+  const b = reachable[1];
+  if (a.speedKbps !== b.speedKbps) {
+    return a.speedKbps > b.speedKbps ? a.source : b.source;
+  }
+  return a.latencyMs <= b.latencyMs ? a.source : b.source;
+});
+
+async function measureSources() {
+  if (sourceMeasuring.value) return;
+  sourceMeasuring.value = true;
+  speedResults.value = null;
+  try {
+    const results = await invoke<SourceSpeedResult[]>('measure_update_sources');
+    speedResults.value = results;
+  } catch (e) {
+    speedResults.value = null;
+    console.error('measure_update_sources failed', e);
+  } finally {
+    sourceMeasuring.value = false;
+  }
+}
 
 async function loadUpdateChannel() {
   try {
@@ -2173,6 +2239,16 @@ const hexToHsv = (hex: string) => {
 .item-info .desc { font-size: 12px; color: #86868b; }
 
 .item-arrow { color: #c6c6c8; font-weight: 800; }
+
+/* 更新源：测速结果与操作按钮 */
+.source-actions { flex-direction: column; align-items: flex-end; gap: 8px; }
+.speed-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.speed-btn { padding: 6px 12px; font-size: 12px; }
+.source-speed { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.speed-row { display: flex; gap: 8px; font-size: 11.5px; color: #6b7280; }
+.speed-row.unreachable .speed-val { color: #dc2626; }
+.speed-name { font-weight: 700; color: #374151; min-width: 56px; }
+.speed-val { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 
 .fanhua-select {
   background: rgba(0, 0, 0, 0.05); border: none; padding: 6px 10px;
