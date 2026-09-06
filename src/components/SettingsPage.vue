@@ -393,6 +393,21 @@
               </div>
             </div>
           </div>
+          <div class="setting-item" v-if="shouldShowItem('updateSource')">
+            <div class="item-icon">
+              <i class="ri-server-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.updateSource.label') }}</div>
+              <div class="desc">{{ t('settings.updateSource.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button class="seg-btn" :class="{ active: updateSource === 'mirror' }" @click="changeSource('mirror')">{{ t('settings.updateSource.mirror') }}</button>
+                <button class="seg-btn" :class="{ active: updateSource === 'github' }" @click="changeSource('github')">{{ t('settings.updateSource.github') }}</button>
+              </div>
+            </div>
+          </div>
           <div class="setting-item clickable" @click="showVersionInfo = true" v-if="shouldShowItem('versionInfo')">
             <div class="item-icon">
               <i class="ri-information-line" aria-hidden="true"></i>
@@ -1174,6 +1189,7 @@ let logTimer: ReturnType<typeof setInterval> | null = null;
 // ── Updater ──────────────────────────────────────
 const { checkForUpdate, getChannel } = useUpdater();
 const updateChannel = ref('master');
+const updateSource = ref('mirror');
 const updateChecking = ref(false);
 const updateError = ref('');
 const currentVersion = ref('');
@@ -1181,6 +1197,9 @@ const currentVersion = ref('');
 async function loadUpdateChannel() {
   try {
     updateChannel.value = await getChannel();
+  } catch { /* use default */ }
+  try {
+    updateSource.value = await invoke<string>('get_update_source');
   } catch { /* use default */ }
 }
 
@@ -1200,6 +1219,15 @@ async function changeChannel(ch: string) {
   }
 }
 
+async function changeSource(src: string) {
+  updateSource.value = src;
+  try {
+    await invoke('set_update_source', { source: src });
+  } catch (e) {
+    console.error('set_update_source failed', e);
+  }
+}
+
 const settingItems = [
   { id: 'language', group: 'language', label: t('settings.language.label'), desc: t('settings.language.desc') },
   { id: 'userName', group: 'personal', label: t('settings.userName.label'), desc: t('settings.userName.desc', { name: localUserName.value || '—' }) },
@@ -1216,6 +1244,7 @@ const settingItems = [
   { id: 'outputNaming', group: 'convert', label: t('settings.outputNaming.label'), desc: t('settings.outputNaming.desc') },
   { id: 'conversionHistory', group: 'conversionHistory', label: t('settings.conversionHistory.label'), desc: t('settings.conversionHistory.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
+  { id: 'updateSource', group: 'version', label: t('settings.updateSource.label'), desc: t('settings.updateSource.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
