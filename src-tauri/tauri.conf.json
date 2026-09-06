@@ -17,7 +17,7 @@
           "$HOME/.2pyr/**"
         ]
       },
-      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://github.com https://cdn.5eggpack.top; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:;",
+      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://github.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:;",
       "capabilities": [
         "default"
       ]

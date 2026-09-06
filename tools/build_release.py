@@ -28,6 +28,7 @@
 """
 
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -135,7 +136,21 @@ def build_installer(version: str, beta: bool) -> None:
     else:
         final = OUTPUT / f"2-Pyramid-Installer-{version}.exe"
     shutil.copy2(installer_exe, final)
+    write_sha256_sidecar(final)
     print(f"\n✅ 安装器已生成（{channel} 渠道）: {final}")
+
+
+def write_sha256_sidecar(final: Path) -> None:
+    """为安装包生成同名 .sha256 校验文件（更新器下载后据此做完整性校验）。
+    发版时需把 .exe 与 .sha256 一并上传为 release 资产。"""
+    digest = hashlib.sha256()
+    with open(final, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    hex_digest = digest.hexdigest()
+    sidecar = Path(str(final) + ".sha256")
+    sidecar.write_text(hex_digest + "\n", encoding="utf-8")
+    print(f"    {sidecar.name}: {hex_digest}")
 
 
 def main() -> None:

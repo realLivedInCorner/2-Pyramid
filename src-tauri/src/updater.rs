@@ -227,23 +227,119 @@ async fn check_github_releases(channel: &str, current_version: &str) -> Result<U
 
 // ── Download (async streaming) ──────────────────────────────
 
+/// 下载域名白名单：安装包与哈希文件只允许从这些主机下载。
+/// 镜像/API 返回的 browser_download_url 一律先过这里，防止被
+/// 篡改的数据把用户引向任意域名。
+fn is_allowed_download_url(url: &str) -> bool {
+    match reqwest::Url::parse(url) {
+        Ok(u) => u.host_str().map(|h| {
+            h == "github.com"
+                || h.ends_with(".github.com")
+                || h == "objects.githubusercontent.com"
+                || h == "cdn.5eggpack.top"
+        }).unwrap_or(false),
+        Err(_) => false,
+    }
+}
+
+/// 安装包文件名校验：必须是我们流水线的命名（2-Pyramid-Installer-…
+/// 且包含所选版本号），防止镜像/响应里塞入别的文件。
+fn is_expected_installer_name(name: &str, version: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("2-pyramid-installer-")
+        && lower.contains(&version.to_ascii_lowercase())
+}
+
 fn find_windows_asset(release: &ReleaseInfo) -> Result<&AssetInfo, String> {
-    for ext in &[".msi", ".exe"] {
-        for asset in &release.assets {
-            if asset.name.ends_with(ext) {
-                return Ok(asset);
-            }
+    // 只认符合命名规范的安装包（含版本号）
+    let candidates: Vec<&AssetInfo> = release
+        .assets
+        .iter()
+        .filter(|a| {
+            (a.name.ends_with(".exe") || a.name.ends_with(".msi"))
+                && is_expected_installer_name(&a.name, &release.version)
+        })
+        .collect();
+    for ext in &[".exe", ".msi"] {
+        if let Some(asset) = candidates.iter().find(|a| a.name.ends_with(ext)) {
+            return Ok(asset);
         }
     }
     release
         .assets
         .iter()
-        .find(|a| a.name.ends_with(".msi") || a.name.ends_with(".exe"))
+        .find(|a| a.name.ends_with(".exe") || a.name.ends_with(".msi"))
         .ok_or_else(|| "No Windows installer found".to_string())
+}
+
+/// 在 release 资产里找 `<安装包名>.sha256` 校验文件。
+fn find_sha256_asset<'a>(
+    release: &'a ReleaseInfo,
+    installer_name: &str,
+) -> Option<&'a AssetInfo> {
+    let needle = format!("{}.sha256", installer_name.to_ascii_lowercase());
+    release
+        .assets
+        .iter()
+        .find(|a| a.name.to_ascii_lowercase() == needle)
+}
+
+/// 下载并解析 .sha256 文件（小文件，上限 4KB）。
+async fn fetch_expected_sha256(url: &str) -> Result<String, String> {
+    if !is_allowed_download_url(url) {
+        return Err(format!("哈希文件域名不在白名单: {}", url));
+    }
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(USER_AGENT, "2-Pyramid-Updater/2.0")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch checksum: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("Checksum fetch returned {}", resp.status()));
+    }
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read checksum: {}", e))?;
+    if bytes.len() > 4096 {
+        return Err("Checksum file too large".to_string());
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    let hex = text.split_whitespace().next().unwrap_or_default().trim();
+    if hex.len() == 64 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        Ok(hex.to_ascii_lowercase())
+    } else {
+        Err("Checksum 格式不正确".to_string())
+    }
 }
 
 async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<String, String> {
     let asset = find_windows_asset(release)?;
+
+    // 1. 下载域名白名单校验（镜像响应可能伪造下载地址）
+    if !is_allowed_download_url(&asset.browser_download_url) {
+        return Err(format!(
+            "安装包域名不在白名单，已拒绝下载: {}",
+            asset.browser_download_url
+        ));
+    }
+
+    // 2. 预取期望的 SHA-256（若有同名 .sha256 资产）；没有则跳过校验
+    let expected_sha256 = match find_sha256_asset(release, &asset.name) {
+        Some(sha_asset) => match fetch_expected_sha256(&sha_asset.browser_download_url).await {
+            Ok(hex) => Some(hex),
+            Err(e) => {
+                crate::log_warn!("sha256 资产获取失败（跳过校验）: {}", e);
+                None
+            }
+        },
+        None => {
+            crate::log_warn!("release 未附带 .sha256 校验文件，跳过完整性校验");
+            None
+        }
+    };
 
     let temp_dir = std::env::temp_dir().join("2_pyramid_update");
     fs::create_dir_all(&temp_dir)
@@ -267,12 +363,17 @@ async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<St
     let mut last_emit: u64 = 0;
     let mut file = fs::File::create(&file_path)
         .map_err(|e| format!("Failed to create file: {}", e))?;
+    // sha2 的 new()/update()/finalize() 都来自 Digest trait，需先引入
+    use sha2::Digest;
+    let mut hasher = sha2::Sha256::new();
 
     while let Some(chunk) = resp.chunk().await
         .map_err(|e| format!("Download read failed: {}", e))?
     {
         file.write_all(&chunk)
             .map_err(|e| format!("Failed to write file: {}", e))?;
+        // 边下载边算哈希
+        hasher.update(&chunk);
         downloaded += chunk.len() as u64;
 
         // Emit progress every ~512KB — avoids flooding the JS event loop
@@ -287,6 +388,19 @@ async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<St
 
     file.flush().map_err(|e| format!("Failed to flush file: {}", e))?;
 
+    // 3. SHA-256 校验
+    if let Some(expected) = expected_sha256 {
+        let actual = format!("{:x}", hasher.finalize());
+        if !actual.eq_ignore_ascii_case(&expected) {
+            let _ = fs::remove_file(&file_path);
+            return Err(format!(
+                "安装包 SHA-256 校验失败：期望 {}，实际 {}。已删除下载文件",
+                expected, actual
+            ));
+        }
+        crate::log_info!("sha256 verified: {}", expected);
+    }
+
     // Final progress event
     let _ = app.emit(
         "update-download-progress",
@@ -295,6 +409,87 @@ async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<St
 
     crate::log_info!("downloaded installer to {}", file_path_str);
     Ok(file_path_str)
+}
+
+// ── 更新源测速 ──────────────────────────────────────────────
+
+/// 单个更新源的测速结果（序列化给前端展示）。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceSpeed {
+    pub source: String,
+    pub reachable: bool,
+    /// 从发起到收到响应头的耗时（毫秒）
+    pub latency_ms: u64,
+    /// 平均下载速率（KB/s，保留 1 位小数）
+    pub speed_kbps: f64,
+    pub error: Option<String>,
+}
+
+/// 测一个更新源：GET releases API（per_page=1），最多读 512KB，
+/// 统计响应头耗时与平均速率。超时 10 秒。
+async fn measure_source(endpoint: &str, source: &str) -> SourceSpeed {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return SourceSpeed {
+                source: source.to_string(),
+                reachable: false,
+                latency_ms: 0,
+                speed_kbps: 0.0,
+                error: Some(e.to_string()),
+            }
+        }
+    };
+    let started = std::time::Instant::now();
+    match client
+        .get(endpoint)
+        .query(&[("per_page", "1")])
+        .header(USER_AGENT, "2-Pyramid-Updater/2.0")
+        .header(ACCEPT, "application/vnd.github+json")
+        .send()
+        .await
+    {
+        Ok(mut resp) => {
+            let latency_ms = started.elapsed().as_millis() as u64;
+            let ok = resp.status().is_success();
+            let mut bytes: usize = 0;
+            while let Some(chunk) = resp.chunk().await.ok().flatten() {
+                bytes += chunk.len();
+                if bytes >= 512 * 1024 {
+                    break;
+                }
+            }
+            let elapsed_s = started.elapsed().as_millis().max(1) as f64 / 1000.0;
+            let speed_kbps = (bytes as f64 / 1024.0) / elapsed_s;
+            SourceSpeed {
+                source: source.to_string(),
+                reachable: ok,
+                latency_ms,
+                speed_kbps: (speed_kbps * 10.0).round() / 10.0,
+                error: if ok { None } else { Some(format!("HTTP {}", resp.status())) },
+            }
+        }
+        Err(e) => SourceSpeed {
+            source: source.to_string(),
+            reachable: false,
+            latency_ms: 0,
+            speed_kbps: 0.0,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// 并发测速两个更新源（镜像 / GitHub 官方），供设置页展示。
+/// 注：离线依赖受限（无 tokio-macros），此处顺序执行；单源超时 8 秒。
+#[tauri::command]
+pub async fn measure_update_sources() -> Result<Vec<SourceSpeed>, String> {
+    let mirror = measure_source(MIRROR_API, "mirror").await;
+    let github = measure_source(GITHUB_API, "github").await;
+    Ok(vec![mirror, github])
 }
 
 // ── Install ──────────────────────────────────────────────────

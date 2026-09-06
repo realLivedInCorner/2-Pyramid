@@ -309,7 +309,11 @@
       "searchLabel": "更新源",
       "searchDesc": "选择镜像源或 GitHub 官方源",
       "mirror": "镜像源",
-      "github": "GitHub 官方"
+      "github": "GitHub 官方",
+      "speedTest": "测速",
+      "measuring": "测速中…",
+      "unreachable": "不可达",
+      "useFastest": "使用最快源"
     },
     "versionInfo": {
       "label": "版本详情",
