@@ -122,15 +122,34 @@ fn version_greater(a: &str, b: &str) -> bool {
 
 // ── GitHub API (async) ──────────────────────────────────────
 
-// 更新源：国内镜像（由 cdn.5eggpack.top 提供，schema 与 GitHub Releases API 一致，
-// 便于国内用户快速检测与下载更新）。原上游：
-// https://github.com/realLivedInCorner/2-Pyramid/releases
-const GITHUB_API: &str = "https://cdn.5eggpack.top/api/github/releases";
+// 可用的更新源：
+//   * mirror（默认）— 国内镜像，由 cdn.5eggpack.top 提供，schema 与 GitHub Releases
+//     API 一致，便于国内用户快速检测与下载更新。
+//   * github — 官方 GitHub Releases 源。
+const MIRROR_API: &str = "https://cdn.5eggpack.top/api/github/releases";
+const GITHUB_API: &str = "https://api.github.com/repos/realLivedInCorner/2-Pyramid/releases";
+
+/// 读取当前更新源配置（"github" 或默认 "mirror"）。
+fn effective_update_source() -> String {
+    read_config_file()
+        .ok()
+        .and_then(|c| c.update_source)
+        .unwrap_or_else(|| "mirror".to_string())
+}
+
+/// 根据配置返回本次要请求的 releases API 端点。
+fn releases_api_endpoint() -> &'static str {
+    match effective_update_source().as_str() {
+        "github" => GITHUB_API,
+        _ => MIRROR_API,
+    }
+}
 
 async fn fetch_releases() -> Result<Vec<GitHubRelease>, String> {
+    let endpoint = releases_api_endpoint();
     let client = reqwest::Client::new();
     let resp = client
-        .get(GITHUB_API)
+        .get(endpoint)
         .query(&[("per_page", "30")])
         .header(USER_AGENT, "2-Pyramid-Updater/2.0")
         .header(ACCEPT, "application/vnd.github+json")
@@ -406,6 +425,24 @@ pub fn set_update_channel(channel: String) -> Result<(), String> {
     }
     let mut cfg = read_config_file()?;
     cfg.update_channel = Some(channel);
+    write_config_file(&cfg)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_update_source() -> Result<String, String> {
+    let cfg = read_config_file()?;
+    Ok(cfg.update_source.unwrap_or_else(|| "mirror".to_string()))
+}
+
+#[tauri::command]
+pub fn set_update_source(source: String) -> Result<(), String> {
+    // mirror = 国内镜像（默认）；github = 官方 GitHub Releases
+    if source != "mirror" && source != "github" {
+        return Err(format!("Invalid update source: {}", source));
+    }
+    let mut cfg = read_config_file()?;
+    cfg.update_source = Some(source);
     write_config_file(&cfg)?;
     Ok(())
 }

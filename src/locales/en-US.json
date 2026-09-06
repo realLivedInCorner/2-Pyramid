@@ -303,6 +303,14 @@
       "unstable": "Pre-Release",
       "both": "Both"
     },
+    "updateSource": {
+      "label": "Update Source",
+      "desc": "Mirror source recommended for users in mainland China; switch to GitHub official for the original source",
+      "searchLabel": "Update Source",
+      "searchDesc": "Choose mirror source or official GitHub",
+      "mirror": "Mirror",
+      "github": "GitHub Official"
+    },
     "versionInfo": {
       "label": "Version Info",
       "desc": "View current version and build number",

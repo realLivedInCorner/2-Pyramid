@@ -5,6 +5,9 @@ pub struct AppConfig {
     pub palette: Option<serde_json::Value>,
     pub overlay_history: Option<serde_json::Value>,
     pub update_channel: Option<String>,
+    /// Update download source: "mirror" (default, cdn.5eggpack.top) or
+    /// "github" (official GitHub Releases). Switchable in settings.
+    pub update_source: Option<String>,
     pub initialized: Option<bool>,
     pub user_name: Option<String>,
     pub notification_enabled: Option<bool>,
