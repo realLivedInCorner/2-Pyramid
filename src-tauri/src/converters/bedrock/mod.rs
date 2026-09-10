@@ -2,7 +2,9 @@
 //!
 //! 子模块：
 //! - `mapping`   路径别名与语言键映射
-//! - `textures`  贴图目录重组与 flipbook
+//! - `textures`  贴图目录重组、床/实体、flipbook
+//! - `ui`        快捷栏 / HUD / 容器 UI 补全
+//! - `potions`   药水物品栏变体铺开
 //! - `metadata`  manifest / pack.mcmeta / lang / sounds
 //! - `fsutil`    目录合并等文件工具
 //! - `j2b` / `b2j` 两个方向的编排入口
@@ -15,7 +17,9 @@ pub mod fsutil;
 pub mod j2b;
 pub mod mapping;
 pub mod metadata;
+pub mod potions;
 pub mod textures;
+pub mod ui;
 
 use std::path::Path;
 
