@@ -1,9 +1,9 @@
 ---
 feature: java-to-bedrock-conversion
-status: in-progress
+status: delivered
 updated: 2026-08-23
 branch: feat/java-bedrock-convert
-commits: b7524b5..675f8cb
+commits: b7524b5..86f41c5
 ---
 
 # Java ↔ Bedrock 资源包双向转换
@@ -12,16 +12,14 @@ commits: b7524b5..675f8cb
 
 **What was built** — 在既有模块化 j2b/b2j 上补齐网络调研差异：j2b 生成 `textures_list.json`、`terrain_texture.json`、`item_texture.json`（shortname=文件名 stem），`colormap→colormaps`，音效定义双写 `sounds/sound_definitions.json` 与包根 `sounds.json`。b2j 删除索引文件、`colormaps→colormap`，音效优先读包根再 `sounds/`。仍经 Scheduler Exclusive/Surgeon 边任务挂载。
 
-**Verification** — `cargo test --offline --manifest-path src-tauri/Cargo.toml`：89 passed（含 bedrock 12）。`npm run build`：PASS（本轮无前端改动）。
+**Verification** — `cargo test --offline --manifest-path src-tauri/Cargo.toml`：89 passed（含 bedrock 12）。`npm run build`：PASS。独立 review（general-2）：T6–T10 全 PASS，无 critical；review 后补了扩展名大小写、包根 `item_texture.json` 剥离、根 sounds 解析失败回退 `sounds/sound_definitions.json`。
 
 **Journey log**
 - worktree 创建被环境拦截 → `feat/java-bedrock-convert` 功能分支隔离 master。
 - 废弃巨型 `bedrock.rs`，按职责拆目录并用 Scheduler 边任务挂载。
 - j2b 须在删除 `pack.mcmeta` **之前**读取 description；font 须在 textures 提升前抽出。
-- Review 提出 GuiSurgeon 在 Java 中间态 75 仍会触发 → `invoke_conversion_ex(..., run_gui_surgeon)`。
-- 调研 Bedrock Wiki：flipbook 依赖 atlas shortname；textures_list 为性能缓存；sounds 定义可能在包根与 sounds/ 两处。
-- atlas shortname 采用文件名 stem，与现有 flipbook `atlas_tile` 对齐。
-- b2j 读 sound_definitions 时需兼容 `format_version` 键与「根文件即 event map」两种形态。
+- GuiSurgeon 在 Bedrock 中间态跳过（`invoke_conversion_ex`）。
+- atlas shortname / flipbook `atlas_tile` 统一用文件名 stem；sounds 可能在包根或 `sounds/`。
 
 ## [S1] Problem
 

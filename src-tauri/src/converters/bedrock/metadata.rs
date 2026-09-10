@@ -286,20 +286,22 @@ pub fn convert_sounds_bedrock_to_java(temp_dir: &Path, minecraft: &Path) {
         log_info!("OKAY java [sounds/ -> assets/minecraft/sounds/]");
     }
 
-    // 优先读包根 sounds.json（与 sound_definitions 同构），否则 sounds/sound_definitions.json
+    // 优先读包根 sounds.json；解析失败则回退 sounds/sound_definitions.json
     let root_sounds = temp_dir.join("sounds.json");
     let defs_sounds = bedrock_sounds.join("sound_definitions.json");
-    let defs_path = if root_sounds.is_file() {
-        root_sounds.clone()
-    } else {
-        defs_sounds.clone()
-    };
-    if !defs_path.exists() {
-        remove_dir_quiet(&bedrock_sounds);
-        remove_file_quiet(&root_sounds);
-        return;
+    let mut raw = None;
+    for candidate in [&root_sounds, &defs_sounds] {
+        if !candidate.is_file() {
+            continue;
+        }
+        if let Ok(s) = fs::read_to_string(candidate) {
+            if serde_json::from_str::<serde_json::Value>(&s).is_ok() {
+                raw = Some(s);
+                break;
+            }
+        }
     }
-    let Ok(raw) = fs::read_to_string(&defs_path) else {
+    let Some(raw) = raw else {
         remove_dir_quiet(&bedrock_sounds);
         remove_file_quiet(&root_sounds);
         return;
@@ -382,6 +384,7 @@ pub fn strip_bedrock_only(temp_dir: &Path, minecraft: &Path) {
         "manifest.json",
         "textures_list.json",
         "terrain_texture.json",
+        "item_texture.json",
         "blocks.json",
         "biomes_client.json",
         "splashes.json",
