@@ -3,7 +3,7 @@ feature: java-to-bedrock-conversion
 status: delivered
 updated: 2026-08-23
 branch: feat/java-bedrock-convert
-commits: b7524b5..d8f214f
+commits: b7524b5..ac573ec
 ---
 
 # Java ↔ Bedrock 资源包双向转换
