@@ -1,47 +1,43 @@
-# Beta-2.1.0（BUILD 20035）
+✨ 2.1.0 测试版更新（BUILD 20035）
 
-> 测试通道发布。可与正式版并存安装。产物命名示例：`2-Pyramid-Installer-2.1.0-beta.20035.exe`（请附带同名 `.sha256`）。
+这是 2-Pyramid 的测试版（tag: Beta-2.1.0）。可通过应用内「更新通道 → 测试版 / 全部」检查到，
+或直接在 Releases 下载 2-Pyramid-Installer-2.1.0-beta.20035.exe。
 
-## 概要
+⚠ 基岩版转换仍为实验性功能：资源包转换后的模型、部分 UI 与键级映射无法与原版 100% 等价，
+请以测试反馈为主，勿用于对完整性要求极高的生产包。
 
-本版本重点是 **界面动效体验** 与 **Java ↔ 基岩资源包双向转换**。基岩链路仍为实验性，模型/部分 UI 不可能 100% 等价；欢迎用真实资源包反馈问题。
+✨ 新增
 
-## 新增
+界面动画系统重做 + 开关：统一动效节奏；页面切换改为交叉淡入淡出并带轻微模糊衔接，
+弹层只对内容面板做软缩放、遮罩仅淡入淡出。设置页新增「界面动画」——开启 / 跟随系统 /
+关闭；关闭或系统开启了「减少动态效果」时会压掉装饰性动画（加载转圈等状态反馈保留）。
+动画速率三档（慢 / 优雅 / 快）现在会作用于完整的页面切换时长。
 
-- 界面动画系统重做 + 设置项「界面动画」（开启 / 跟随系统 / 关闭）
-- 页面切换交叉淡入淡出 + 模糊衔接；动画速率三档作用于完整页切换
-- 基岩 **j2b / b2j** 模块化实现，Scheduler 边任务挂载
-- 输入接受 `.mcpack` / `.zip`；检测基岩源自动先转 Java
-- j2b 生成 `textures_list.json`、`terrain_texture.json`、`item_texture.json`
-- 音效定义双写：`sounds/sound_definitions.json` + 包根 `sounds.json`
+基岩版双向转换（j2b / b2b）：转换逻辑拆分为 converters/bedrock 子模块，经调度器版本边挂载。
+输入接受 .mcpack 与 .zip；检测到基岩资源包时会先转成 Java 结构，再转到你选择的 Java 目标版本。
+选择「Bedrock Latest」时会先把包转到 Java 1.21.11，再生成 .mcpack。
 
-## 调整 / 修复
+j2b 贴图索引：自动生成 textures/textures_list.json、terrain_texture.json、item_texture.json；
+colormap 目录改名为 colormaps；音效定义同时写入 sounds/sound_definitions.json 与包根 sounds.json；
+动态贴图 flipbook 与 atlas 短名对齐。
 
-- 药水、床、草方块、桶、弓弩、合金（撤销错误 netherite 改名）等贴图路径对齐 vanilla Bedrock
-- 床从 `blocks/` 复制到 `items/`；item atlas 使用 vanilla 数组 shortname
-- UI：`gui/**` → `textures/ui/` 并扁平 `ui/container/*`
-- Bedrock 中间态跳过 GuiSurgeon
-- 快速切页叠影、动画速率未作用于 enter/leave 等 UI 问题
+🔧 修复 / 改进
 
-## 已知限制
+可见贴图路径对齐 vanilla Bedrock：药水改为 potion_bottle_*；彩色床 {color}_bed → bed_*
+并复制到 items/ 供物品栏图标使用；草方块 grass_block_* → grass_*；桶 water_bucket → bucket_water
+等；弓 bow → bow_standby、弩 crossbow → crossbow_standby。物品图集对床 / 桶 / 弓弩等使用
+vanilla 数组短名（bed、bucket、bow_pulling 等），避免游戏仍按旧短名查找导致黑紫块。
 
-- Java model / blockstate ↔ Bedrock geometry 不互转
-- Ore UI 无法被资源包修改
-- 语言 / 音效键级映射为尽力而为
-- 请勿将 Bedrock 目标视为生产级输出
+撤销错误的下界合金改名：Bedrock 与 Java 对 netherite_* 命名一致，不再映射为 *_netherite。
 
-## 完整变更
+UI 贴图路径：gui/** 合并进 textures/ui/ 后，将 ui/container/* 扁平到 ui/（widgets、icons
+等可被基岩正常加载）。Bedrock 转换中间态跳过 GuiSurgeon，避免干扰输出。
 
-见仓库 `CHANGELOG.md` 的 `[2.1.0]` 小节。
+页面切换动画速率此前只影响列表 stagger，现已作用于进出场时长；快速切页时旧页叠影
+（退场模糊与淡出时序拆分）已改善。
 
-## 安装与通道
+发版说明：本 Release 需同时上传 2-Pyramid-Installer-2.1.0-beta.20035.exe 与
+2-Pyramid-Installer-2.1.0-beta.20035.exe.sha256 两个资产（更新器 SHA-256 校验依赖后者）。
 
-1. 下载 `2-Pyramid-Installer-2.1.0-beta.20035.exe`（及 `.sha256`）
-2. 或在应用内将更新通道设为 **测试版** / **全部** 后检查更新
-3. 正式版用户请继续使用 Stable / `v` 前缀发布
-
-## 验证摘要（开发者）
-
-- `cargo test --offline --manifest-path src-tauri/Cargo.toml`：91 passed
-- `npm run build`：PASS
-- 分支：`feat/java-bedrock-convert` → 已合入 `origin/master`（`ffe2ee3`）
+如何反馈问题：在仓库 Issues 提交即可，最好附上「设置 → 开发者模式 → 导出日志」的日志文件，
+以及原资源包版本与目标版本（Java / Bedrock）。
