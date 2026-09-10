@@ -80,7 +80,7 @@ mod tests {
         assert!(root.join("textures/blocks/stone.png").exists());
         assert!(root.join("textures/ui/icons.png").exists());
         assert!(!root.join("textures/container").exists(), "textures/container 应并入 ui");
-        assert!(!root.join("textures/gui").exists());
+        assert!(root.join("textures/gui/icons.png").exists(), "Bedrock 需要 gui/icons.png");
         assert!(!root.join("assets").exists());
         assert!(root.join("manifest.json").exists());
         // textures/models（盔甲）不得被剥离，且层名已改

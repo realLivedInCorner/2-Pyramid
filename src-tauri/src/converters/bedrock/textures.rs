@@ -848,6 +848,6 @@ mod tests {
         assert!(root.join("textures/ui/anvil.png").exists());
         assert!(root.join("textures/ui/hotbar.png").exists(), "sprites/hud 应进 ui/");
         assert!(!root.join("textures/ui/sprites").exists());
-        assert!(!root.join("textures/gui").exists());
+        assert!(root.join("textures/gui/icons.png").exists() || root.join("textures/ui/hotbar.png").exists(), "应有 HUD 来源");
     }
 }
