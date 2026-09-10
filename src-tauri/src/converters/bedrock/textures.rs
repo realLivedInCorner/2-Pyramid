@@ -92,11 +92,12 @@ fn collect_texture_rel_paths(root: &Path, dir: &Path, out: &mut Vec<String>) {
             continue;
         };
         let mut s = rel.to_string_lossy().replace('\\', "/");
-        for ext in [".png", ".tga"] {
-            if let Some(stripped) = s.strip_suffix(ext) {
-                s = stripped.to_string();
-                break;
-            }
+        // 大小写不敏感去扩展名
+        let lower = s.to_ascii_lowercase();
+        if lower.ends_with(".png") {
+            s.truncate(s.len() - 4);
+        } else if lower.ends_with(".tga") {
+            s.truncate(s.len() - 4);
         }
         if !s.is_empty() {
             out.push(s);
@@ -131,7 +132,12 @@ fn write_atlas_file(
         if !fname.to_ascii_lowercase().ends_with(".png") {
             continue;
         }
-        let stem = fname.trim_end_matches(".png").to_string();
+        let lower = fname.to_ascii_lowercase();
+        let stem = if lower.ends_with(".png") {
+            fname[..fname.len() - 4].to_string()
+        } else {
+            continue;
+        };
         if stem.is_empty() {
             continue;
         }
