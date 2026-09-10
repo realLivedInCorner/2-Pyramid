@@ -20,9 +20,98 @@ pub fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
     copy_inventory_gui(textures_dst, &ui);
     adapt_container_screens(textures_dst, &ui);
     copy_java_sprite_hud(textures_dst, &ui);
+    flatten_java120_ui_sprite_dirs(&ui);
     extract_from_icons_atlas(&ui);
     // Bedrock 容器 UV 按 256/512 POT 资源；Java 常为 176×166 等，需垫到 POT
     pad_container_textures_to_pot(&ui);
+}
+
+/// Java 1.20+ 将 GUI 拆到 `ui/<name>/container.png`、`ui/heart/full.png` 等子目录。
+/// Bedrock 读的是 `ui/furnace.png`、`ui/heart_full.png` 这类扁平名。
+fn flatten_java120_ui_sprite_dirs(ui: &Path) {
+    // 容器：ui/<id>/container.png → ui/<id>.png
+    let containers = [
+        "furnace",
+        "blast_furnace",
+        "smoker",
+        "brewing_stand",
+        "enchanting_table",
+        "anvil",
+        "grindstone",
+        "stonecutter",
+        "cartography_table",
+        "smithing",
+        "loom",
+        "beacon",
+        "horse",
+        "inventory",
+        "generic_54",
+        "generic_53",
+        "crafting_table",
+        "dispenser",
+        "hopper",
+    ];
+    let mut n = 0usize;
+    for id in containers {
+        let src = ui.join(id).join("container.png");
+        let dst = ui.join(format!("{}.png", id));
+        if src.is_file() && !dst.exists() {
+            if fs::copy(&src, &dst).is_ok() {
+                n += 1;
+            }
+        }
+        // 英雄条等有时叫 <id>.png 在子目录里
+        let alt = ui.join(id).join(format!("{}.png", id));
+        if alt.is_file() && !dst.exists() {
+            if fs::copy(&alt, &dst).is_ok() {
+                n += 1;
+            }
+        }
+    }
+
+    // 心：ui/heart/{full,half,container}.png → heart_*
+    let heart = ui.join("heart");
+    if heart.is_dir() {
+        let maps: &[(&str, &str)] = &[
+            ("full.png", "heart_full.png"),
+            ("half.png", "heart_half.png"),
+            ("container.png", "heart_empty.png"),
+            ("hardcore_full.png", "heart_full.png"),
+        ];
+        for (from, to) in maps {
+            let src = heart.join(from);
+            let dst = ui.join(to);
+            if src.is_file() && !dst.exists() && fs::copy(&src, &dst).is_ok() {
+                n += 1;
+            }
+        }
+    }
+
+    // 饥饿：Java food_* → Bedrock hunger_*
+    let food_maps: &[(&str, &str)] = &[
+        ("food_full.png", "hunger_effect_full.png"),
+        ("food_half.png", "hunger_effect_half.png"),
+        ("food_empty.png", "hunger_effect.png"),
+        ("food_full_hunger.png", "hunger_effect_flash_full.png"),
+        ("food_half_hunger.png", "hunger_effect_flash_half.png"),
+    ];
+    for (from, to) in food_maps {
+        let src = ui.join(from);
+        let dst = ui.join(to);
+        if src.is_file() && !dst.exists() && fs::copy(&src, &dst).is_ok() {
+            n += 1;
+        }
+    }
+
+    // 清理已消费的 Java 子目录
+    for id in containers {
+        remove_dir_quiet(&ui.join(id));
+    }
+    remove_dir_quiet(&heart);
+
+    if n > 0 {
+        log_info!("OKAY bedrock [Java 1.20+ ui sprite dirs × {}]", n);
+    }
 }
 
 /// 容器界面：箱子 / 工作台 / 熔炉 / 酿造 / 附魔 / 砂轮 / 铁砧 / 熔炉变体。
@@ -583,5 +672,33 @@ mod tests {
         assert_eq!(fur.width(), 1024);
         let custom = image::open(ui.join("custom_panel.png")).unwrap();
         assert_eq!(custom.width(), 100, "非容器名不垫 POT");
+    }
+
+    #[test]
+    fn test_flatten_heart_and_food_and_furnace_dir() {
+        let temp = tempdir().unwrap();
+        let textures = temp.path();
+        let ui = textures.join("ui");
+        fs::create_dir_all(ui.join("heart")).unwrap();
+        fs::create_dir_all(ui.join("furnace")).unwrap();
+        fs::write(ui.join("heart/full.png"), b"hf").unwrap();
+        fs::write(ui.join("heart/half.png"), b"hh").unwrap();
+        fs::write(ui.join("heart/container.png"), b"he").unwrap();
+        fs::write(ui.join("furnace/container.png"), b"fu").unwrap();
+        fs::write(ui.join("food_full.png"), b"ff").unwrap();
+        fs::write(ui.join("food_half.png"), b"fh").unwrap();
+        fs::write(ui.join("food_empty.png"), b"fe").unwrap();
+
+        flatten_java120_ui_sprite_dirs(&ui);
+
+        assert!(ui.join("heart_full.png").exists(), "血量满心");
+        assert!(ui.join("heart_half.png").exists(), "血量半心");
+        assert!(ui.join("heart_empty.png").exists(), "血量空心容器");
+        assert!(ui.join("hunger_effect_full.png").exists(), "饱食度");
+        assert!(ui.join("hunger_effect_half.png").exists());
+        assert!(ui.join("hunger_effect.png").exists());
+        assert!(ui.join("furnace.png").exists(), "熔炉容器");
+        assert!(!ui.join("heart").exists());
+        assert!(!ui.join("furnace").exists());
     }
 }
