@@ -50,6 +50,114 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
             .map_err(|e| format!("write flipbook failed: {}", e))?;
         log_info!("OKAY bedrock [flipbook_textures.json × {}]", flipbooks.len());
     }
+
+    // Java colormap → Bedrock colormaps
+    rename_dir_if_absent(&textures_dst.join("colormap"), &textures_dst.join("colormaps"))?;
+
+    // T6/T7: 贴图缓存 + atlas 短名表
+    write_textures_list(textures_dst)?;
+    write_bedrock_atlas_maps(textures_dst)?;
+    Ok(())
+}
+
+/// j2b：生成 `textures/textures_list.json`（无扩展名相对包根路径）。
+pub fn write_textures_list(textures_dst: &Path) -> Result<(), String> {
+    let mut paths = Vec::new();
+    collect_texture_rel_paths(textures_dst, textures_dst, &mut paths);
+    paths.sort();
+    paths.dedup();
+    let pretty = serde_json::to_string_pretty(&paths)
+        .map_err(|e| format!("serialize textures_list failed: {}", e))?;
+    fs::write(textures_dst.join("textures_list.json"), pretty)
+        .map_err(|e| format!("write textures_list failed: {}", e))?;
+    log_info!("OKAY bedrock [textures_list.json × {}]", paths.len());
+    Ok(())
+}
+
+fn collect_texture_rel_paths(root: &Path, dir: &Path, out: &mut Vec<String>) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_texture_rel_paths(root, &path, out);
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if !(name.ends_with(".png") || name.ends_with(".tga")) {
+            continue;
+        }
+        // 跳过 mcmeta 配对文件本身；flipbook/atlas json 不在 textures 子目录树的 png 里
+        let Ok(rel) = path.strip_prefix(root.parent().unwrap_or(root)) else {
+            // root = textures/，包根 = parent
+            continue;
+        };
+        let mut s = rel.to_string_lossy().replace('\\', "/");
+        for ext in [".png", ".tga"] {
+            if let Some(stripped) = s.strip_suffix(ext) {
+                s = stripped.to_string();
+                break;
+            }
+        }
+        if !s.is_empty() {
+            out.push(s);
+        }
+    }
+}
+
+/// j2b：生成 terrain_texture.json / item_texture.json（shortname=文件名 stem）。
+pub fn write_bedrock_atlas_maps(textures_dst: &Path) -> Result<(), String> {
+    write_atlas_file(&textures_dst.join("blocks"), "terrain_texture.json", textures_dst, Some("atlas.terrain"))?;
+    write_atlas_file(&textures_dst.join("items"), "item_texture.json", textures_dst, None)?;
+    Ok(())
+}
+
+fn write_atlas_file(
+    src_dir: &Path,
+    out_name: &str,
+    textures_dst: &Path,
+    texture_name: Option<&str>,
+) -> Result<(), String> {
+    if !src_dir.is_dir() {
+        return Ok(());
+    }
+    let mut data = serde_json::Map::new();
+    let Ok(entries) = fs::read_dir(src_dir) else { return Ok(()) };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let fname = entry.file_name().to_string_lossy().to_string();
+        if !fname.to_ascii_lowercase().ends_with(".png") {
+            continue;
+        }
+        let stem = fname.trim_end_matches(".png").to_string();
+        if stem.is_empty() {
+            continue;
+        }
+        let folder = src_dir
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let rel = format!("textures/{}/{}", folder, stem);
+        data.insert(
+            stem,
+            serde_json::json!({ "textures": rel }),
+        );
+    }
+    if data.is_empty() {
+        return Ok(());
+    }
+    let mut root = serde_json::Map::new();
+    if let Some(name) = texture_name {
+        root.insert("texture_name".into(), serde_json::Value::String(name.into()));
+    }
+    root.insert("texture_data".into(), serde_json::Value::Object(data));
+    let pretty = serde_json::to_string_pretty(&serde_json::Value::Object(root))
+        .map_err(|e| format!("serialize atlas failed: {}", e))?;
+    fs::write(textures_dst.join(out_name), pretty)
+        .map_err(|e| format!("write {} failed: {}", out_name, e))?;
+    log_info!("OKAY bedrock [{}]", out_name);
     Ok(())
 }
 
@@ -87,6 +195,25 @@ pub fn reorganize_bedrock_textures_for_java(pack_root: &Path, minecraft: &Path) 
 
     rename_dir_if_absent(&textures_dst.join("items"), &textures_dst.join("item"))?;
     rename_dir_if_absent(&textures_dst.join("blocks"), &textures_dst.join("block"))?;
+    // Bedrock colormaps → Java colormap
+    if textures_dst.join("colormaps").exists() {
+        let cmap = textures_dst.join("colormap");
+        if cmap.exists() {
+            let _ = merge_dir(&textures_dst.join("colormaps"), &cmap);
+            remove_dir_quiet(&textures_dst.join("colormaps"));
+        } else {
+            rename_dir_if_absent(&textures_dst.join("colormaps"), &cmap)?;
+        }
+    }
+    // b2j：丢弃 Bedrock 专用贴图索引（T6/T7）
+    for f in [
+        "textures_list.json",
+        "terrain_texture.json",
+        "item_texture.json",
+        "flipbook_textures.json",
+    ] {
+        remove_file_quiet(&textures_dst.join(f));
+    }
     for d in ["item", "block"] {
         let n = rename_stems_in_dir(&textures_dst.join(d), bedrock_to_java_stem)?;
         if n > 0 {
@@ -236,6 +363,33 @@ mod tests {
         .unwrap();
         assert_eq!(flip[0]["ticks_per_frame"], 3);
         assert!(!root.join("textures/blocks/water_still.png.mcmeta").exists());
+
+        // T6 textures_list
+        let list: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join("textures/textures_list.json")).unwrap(),
+        )
+        .unwrap();
+        let arr = list.as_array().unwrap();
+        assert!(arr.iter().any(|v| v.as_str() == Some("textures/blocks/water_still")));
+        assert!(arr.iter().any(|v| v.as_str() == Some("textures/items/apple_golden")));
+
+        // T7 atlas
+        let terrain: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join("textures/terrain_texture.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            terrain["texture_data"]["water_still"]["textures"],
+            "textures/blocks/water_still"
+        );
+        let item: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join("textures/item_texture.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            item["texture_data"]["apple_golden"]["textures"],
+            "textures/items/apple_golden"
+        );
     }
 
     #[test]
@@ -252,6 +406,11 @@ mod tests {
         fs::write(root.join("textures/ui/widgets.png"), b"w").unwrap();
         fs::write(root.join("textures/ui/x.json"), b"{}").unwrap();
         fs::write(root.join("font/default8.png"), b"f").unwrap();
+        fs::create_dir_all(root.join("textures/colormaps")).unwrap();
+        fs::write(root.join("textures/colormaps/grass.png"), b"c").unwrap();
+        fs::write(root.join("textures/textures_list.json"), b"[]").unwrap();
+        fs::write(root.join("textures/terrain_texture.json"), b"{}").unwrap();
+        fs::write(root.join("textures/item_texture.json"), b"{}").unwrap();
 
         reorganize_bedrock_textures_for_java(root, &mc).unwrap();
         move_bedrock_font_to_java(root, &mc);
@@ -262,6 +421,10 @@ mod tests {
         assert!(mc.join("textures/gui/container/widgets.png").exists());
         assert!(!mc.join("textures/gui/container/x.json").exists());
         assert!(mc.join("textures/font/ascii.png").exists());
+        assert!(mc.join("textures/colormap/grass.png").exists());
+        assert!(!mc.join("textures/textures_list.json").exists());
+        assert!(!mc.join("textures/terrain_texture.json").exists());
+        assert!(!mc.join("textures/item_texture.json").exists());
         assert!(!root.join("textures").exists());
         assert!(!root.join("font").exists());
     }

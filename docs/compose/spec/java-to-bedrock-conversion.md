@@ -10,16 +10,18 @@ commits: b7524b5..675f8cb
 
 ## Report
 
-**What was built** — 将原单文件 Bedrock 重组拆为 `converters/bedrock/{mod,mapping,textures,metadata,fsutil,j2b,b2j}`，各子模块自带单元测试。j2b / b2j 以 `Exclusive`+`Surgeon` 任务挂到 Scheduler 版本边 `(84,1000)` / `(1000,84)`；`invoke_conversion` 只 `register_tasks`，`process_zip` 负责检测 Bedrock 源、先跑 b2j、目标 1000 时先到 Java 75 再跑 j2b（GuiSurgeon 在 Bedrock 中间态跳过）。前端接受 `.mcpack`。平台独有目录在对应方向被剥离。
+**What was built** — 在既有模块化 j2b/b2j 上补齐网络调研差异：j2b 生成 `textures_list.json`、`terrain_texture.json`、`item_texture.json`（shortname=文件名 stem），`colormap→colormaps`，音效定义双写 `sounds/sound_definitions.json` 与包根 `sounds.json`。b2j 删除索引文件、`colormaps→colormap`，音效优先读包根再 `sounds/`。仍经 Scheduler Exclusive/Surgeon 边任务挂载。
 
-**Verification** — `cargo test --offline --manifest-path src-tauri/Cargo.toml`：89 passed（含 bedrock 12）。`npm run build`：PASS。独立 reviewer：T1–T5 合规，无 critical。
+**Verification** — `cargo test --offline --manifest-path src-tauri/Cargo.toml`：89 passed（含 bedrock 12）。`npm run build`：PASS（本轮无前端改动）。
 
 **Journey log**
-- worktree 创建被环境拦截，改为 `feat/java-bedrock-convert` 功能分支隔离 master。
-- 用户要求模块化后废弃巨型 `bedrock.rs`，按职责拆目录并用 Scheduler 边任务挂载。
-- j2b 须在删除 `pack.mcmeta` **之前**读取 description。
-- font 需在 textures 提升前抽出，否则并入 `textures/font` 后路径错误。
-- Review 提出 GuiSurgeon 在 Java 中间态 75 仍会触发 → 增加 `invoke_conversion_ex(..., run_gui_surgeon)`。
+- worktree 创建被环境拦截 → `feat/java-bedrock-convert` 功能分支隔离 master。
+- 废弃巨型 `bedrock.rs`，按职责拆目录并用 Scheduler 边任务挂载。
+- j2b 须在删除 `pack.mcmeta` **之前**读取 description；font 须在 textures 提升前抽出。
+- Review 提出 GuiSurgeon 在 Java 中间态 75 仍会触发 → `invoke_conversion_ex(..., run_gui_surgeon)`。
+- 调研 Bedrock Wiki：flipbook 依赖 atlas shortname；textures_list 为性能缓存；sounds 定义可能在包根与 sounds/ 两处。
+- atlas shortname 采用文件名 stem，与现有 flipbook `atlas_tile` 对齐。
+- b2j 读 sound_definitions 时需兼容 `format_version` 键与「根文件即 event map」两种形态。
 
 ## [S1] Problem
 
@@ -184,13 +186,13 @@ b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 - [x] T4: 前端允许 `.mcpack` 拖入/选择 — acceptance: zip+mcpack 过滤 (covers: S2)
 - [x] T5: `cargo test --offline` 89 passed；`npm run build` 成功 — acceptance: 退出码 0 (covers: S2)
 
-待实现（调研增补，**待审批**）：
+待实现（调研增补，**已批准 ALL**）：
 
-- [ ] T6: j2b 生成 `textures/textures_list.json`（扫描 textures 下 png/tga，写无扩展名相对路径）— acceptance: j2b 夹具含列表且路径正确；b2j 删除该文件 (covers: S2 网络调研)
-- [ ] T7: j2b 生成 `textures/terrain_texture.json` + `item_texture.json`（shortname=文件名 stem，path 相对包根）— acceptance: stone→`textures/blocks/stone`；flipbook `atlas_tile` 与 shortname 一致 (covers: S2 网络调研)
-- [ ] T8: colormap 目录互转 — acceptance: j2b `colormap→colormaps`；b2j 反向 (covers: S2 网络调研)
-- [ ] T9: 音效双写/双读 — acceptance: j2b 同时写 `sounds/sound_definitions.json` 与包根 `sounds.json`；b2j 优先根目录再 sounds/ (covers: S2 网络调研)
-- [ ] T10: 回归验证 — acceptance: `cargo test --offline` 全绿；`npm run build` PASS (covers: S2)
+- [x] T6: j2b 生成 `textures/textures_list.json`（扫描 textures 下 png/tga，写无扩展名相对路径）— acceptance: j2b 夹具含列表且路径正确；b2j 删除该文件 (covers: S2 网络调研)
+- [x] T7: j2b 生成 `textures/terrain_texture.json` + `item_texture.json`（shortname=文件名 stem，path 相对包根）— acceptance: stone→`textures/blocks/stone`；flipbook `atlas_tile` 与 shortname 一致 (covers: S2 网络调研)
+- [x] T8: colormap 目录互转 — acceptance: j2b `colormap→colormaps`；b2j 反向 (covers: S2 网络调研)
+- [x] T9: 音效双写/双读 — acceptance: j2b 同时写 `sounds/sound_definitions.json` 与包根 `sounds.json`；b2j 优先根目录再 sounds/ (covers: S2 网络调研)
+- [x] T10: 回归验证 — acceptance: `cargo test --offline` 全绿；`npm run build` PASS (covers: S2)
 
 模块约束不变：逻辑落在 `textures.rs` / `metadata.rs`（或新增小函数），各模块保留 `#[cfg(test)]`；Scheduler 挂载方式不变。
 

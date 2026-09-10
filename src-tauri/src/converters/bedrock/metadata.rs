@@ -256,8 +256,10 @@ pub fn convert_sounds_java_to_bedrock(minecraft: &Path, temp_dir: &Path) {
         "sound_definitions": defs
     });
     if let Ok(pretty) = serde_json::to_string_pretty(&doc) {
-        let _ = fs::write(bedrock_sounds.join("sound_definitions.json"), pretty);
-        log_info!("OKAY bedrock [sounds.json -> sound_definitions.json]");
+        let _ = fs::write(bedrock_sounds.join("sound_definitions.json"), &pretty);
+        // 包根 sounds.json：与 definitions 同结构（部分加载路径读根目录）
+        let _ = fs::write(temp_dir.join("sounds.json"), &pretty);
+        log_info!("OKAY bedrock [sounds.json -> sound_definitions.json + root sounds.json]");
     }
     remove_file_quiet(&sounds_json);
 }
@@ -284,25 +286,44 @@ pub fn convert_sounds_bedrock_to_java(temp_dir: &Path, minecraft: &Path) {
         log_info!("OKAY java [sounds/ -> assets/minecraft/sounds/]");
     }
 
-    let defs_path = bedrock_sounds.join("sound_definitions.json");
+    // 优先读包根 sounds.json（与 sound_definitions 同构），否则 sounds/sound_definitions.json
+    let root_sounds = temp_dir.join("sounds.json");
+    let defs_sounds = bedrock_sounds.join("sound_definitions.json");
+    let defs_path = if root_sounds.is_file() {
+        root_sounds.clone()
+    } else {
+        defs_sounds.clone()
+    };
     if !defs_path.exists() {
         remove_dir_quiet(&bedrock_sounds);
+        remove_file_quiet(&root_sounds);
         return;
     }
     let Ok(raw) = fs::read_to_string(&defs_path) else {
         remove_dir_quiet(&bedrock_sounds);
+        remove_file_quiet(&root_sounds);
         return;
     };
     let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
         remove_dir_quiet(&bedrock_sounds);
+        remove_file_quiet(&root_sounds);
         return;
     };
-    let Some(defs) = v.get("sound_definitions").and_then(|d| d.as_object()) else {
+    // 兼容：根文件可能是 {sound_definitions:{...}} 或直接 event map
+    let defs_obj: Option<&serde_json::Map<String, serde_json::Value>> = v
+        .get("sound_definitions")
+        .and_then(|d| d.as_object())
+        .or_else(|| v.as_object());
+    let Some(defs) = defs_obj else {
         remove_dir_quiet(&bedrock_sounds);
+        remove_file_quiet(&root_sounds);
         return;
     };
     let mut sounds_json = serde_json::Map::new();
     for (event, def) in defs {
+        if event == "format_version" {
+            continue;
+        }
         let category = def
             .get("category")
             .and_then(|c| c.as_str())
@@ -337,6 +358,7 @@ pub fn convert_sounds_bedrock_to_java(temp_dir: &Path, minecraft: &Path) {
         }
     }
     remove_dir_quiet(&bedrock_sounds);
+    remove_file_quiet(&root_sounds);
 }
 
 pub fn strip_java_only(minecraft: &Path, temp_dir: &Path) {
@@ -375,10 +397,13 @@ pub fn strip_bedrock_only(temp_dir: &Path, minecraft: &Path) {
         "flipbook_textures.json",
         "textures_list.json",
         "terrain_texture.json",
+        "item_texture.json",
     ] {
         remove_file_quiet(&temp_dir.join("textures").join(f));
         remove_file_quiet(&tex.join(f));
     }
+    remove_file_quiet(&temp_dir.join("sounds.json"));
+    remove_file_quiet(&temp_dir.join("sounds").join("sound_definitions.json"));
     for d in [
         "animation_controllers",
         "animations",
@@ -497,14 +522,17 @@ mod tests {
         .unwrap();
         convert_sounds_java_to_bedrock(&mc, root);
         assert!(root.join("sounds/sound_definitions.json").exists());
+        assert!(root.join("sounds.json").exists(), "根 sounds.json 双写");
         assert!(root.join("sounds/ambient/cave/cave1.ogg").exists());
 
         let _ = fs::remove_dir_all(mc.join("sounds"));
         let _ = fs::remove_file(mc.join("sounds.json"));
+        // 根 sounds.json 仍在：b2j 应优先读它
         convert_sounds_bedrock_to_java(root, &mc);
         let sj: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(mc.join("sounds.json")).unwrap()).unwrap();
         assert_eq!(sj["ambient.cave"]["sounds"][0], "ambient/cave/cave1");
         assert!(mc.join("sounds/ambient/cave/cave1.ogg").exists());
+        assert!(!root.join("sounds.json").exists());
     }
 }
