@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.0.5-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.1.0-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -23,18 +23,25 @@
 
 ## 中文
 
-**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.1+ 的 26 个 Java 目标版本区间（外加实验性的 Bedrock 目标），支持任意两个版本之间的相互转换。
+**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.2 的 Java 目标版本区间，支持任意两个版本之间的相互转换，并支持 **Java ↔ Bedrock（基岩）** 结构互转（实验性）。
 
 ### ✨ 特性
 
-- **广覆盖** — 26 个 Java 目标版本区间，六个时代（Classic / Modern / Caves & Cliffs / Trails & Tales / Tricky Trials / Bundles of Bravery）；另有实验性 **Bedrock Latest** 目标（⚠ 未完成、仅用于测试，选中时会弹警示，产物为 `.mcpack`）
+- **广覆盖** — 26 个 Java 目标版本区间，六个时代（Classic / Modern / Caves & Cliffs / Trails & Tales / Tricky Trials / Bundles of Bravery）
+- **Java ↔ Bedrock（实验性）**
+  - **j2b**：任意 Java 包 → 先转到最新 **Java 26.2（pack_format 88）** → 结构重组 → `.mcpack`
+  - **b2j**：检测 `.mcpack` / 基岩 zip → 先落到 Java 26.2 树 → 再转到所选 Java 目标 → `.zip`
+  - 贴图别名对齐 vanilla Bedrock（药水瓶、床、桶、木板/原木、盔甲层等）
+  - 生成 `gui/icons.png` HUD 图集、`textures_list.json`、容器界面扁平化与 POT 适配
+  - 平台独有内容按方向剥离（不互转 Java model ↔ Bedrock geometry）
 - **完全本地** — 无云端、无账号、无遥测，文件全程不离开你的电脑
 - **批量处理** — 一次拖入多个资源包，1–4 线程并行转换
 - **目录规整防呆** — 自动把嵌套的 `pack.mcmeta` 提升到压缩包根目录；`pack.mcmeta.txt` 之类多扩展名文件只要内容是合法 mcmeta（能解析出 format 数值）也会统一改名为 `pack.mcmeta`
 - **动态贴图转换** — 老版 `{"animation": {}}` 的 `.png.mcmeta` 自动按贴图尺寸推导帧数，改写为高版本 `frametime` + `interpolate` 格式
 - **输出命名模板** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符自由组合，再转换时自动替换名称中的旧版本前缀
 - **Overlay 母包叠加** — 在不修改原包的前提下，把自定义覆盖包叠加到任意母包上
-- **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、动画速率三档、中英双语
+- **界面动画** — 页面切换交叉淡入淡出 + 模糊衔接；设置可选开启 / 跟随系统 / 关闭；速率三档作用于完整页切换
+- **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、中英双语
 - **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单快捷方式，重装时安装目录自动对齐现有位置；卸载器走完动画自动退出并自行清理
 - **Beta 双渠道** — 正式版与 Beta 版可并存安装（独立注册表、独立目录、Beta 标识），`betabuild` 一键构建
 
@@ -120,6 +127,12 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 - **Architect** — 在“目标版本图”上 BFS 规划最短转换路径
 - **Surgeon** — 按序执行每个 converter（各含 reverse 配对），输出目标资源包
 
+**Bedrock 路径（实验性）** 在同一 Scheduler 上以版本边挂载：
+
+- `converters/bedrock/` 模块：`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`
+- 任务 `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java`（`Exclusive` + `Surgeon`）
+- 边：`(88, 1000)` j2b、`(1000, 88)` b2j；Java 中间态统一 **format 88（26.2）**
+
 ### 🧰 技术栈
 
 | 层 | 技术 |
@@ -141,7 +154,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   └── locales/               zh-CN.json / en-US.json
 ├── src-tauri/                 Rust 后端（主程序）
 │   ├── src/
-│   │   ├── converters/        版本转换模块（各含 reverse）+ 目录规整 / 打包
+│   │   ├── converters/        版本转换模块（各含 reverse）+ bedrock/ 子模块 + 目录规整 / 打包
 │   │   ├── commands/          Tauri 命令（config / background / overlay / misc …）
 │   │   ├── hurray/            调度器与纹理池
 │   │   ├── overlay/           Overlay 模板生成
@@ -169,18 +182,25 @@ npm run build                                               # 前端 build
 
 ## English
 
-**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.1+ (plus an experimental Bedrock target), with conversion between any two versions.
+**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.2, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
 
 ### ✨ Features
 
-- **Wide coverage** — 26 Java target ranges across six eras; experimental **Bedrock Latest** target (⚠ incomplete, testing only — a warning is shown on selection, output is `.mcpack`)
+- **Wide coverage** — 26 Java target ranges across six eras
+- **Java ↔ Bedrock (experimental)**
+  - **j2b**: any Java pack → latest **Java 26.2 (pack_format 88)** → restructure → `.mcpack`
+  - **b2j**: detects `.mcpack` / Bedrock zip → Java 26.2 tree → chosen Java target → `.zip`
+  - Vanilla-aligned texture aliases (potions, beds, buckets, planks/logs, armor layers)
+  - Builds `gui/icons.png` HUD atlas, `textures_list.json`; flattens container UI and pads to power-of-two
+  - Platform-exclusive assets are dropped per direction (no Java model ↔ Bedrock geometry conversion)
 - **Fully local** — No cloud, no account, no telemetry
 - **Batch processing** — Multiple packs at once, 1–4 parallel workers
 - **Directory normalization** — Nested `pack.mcmeta` is promoted to the zip root; `pack.mcmeta.txt`-style files are renamed to `pack.mcmeta` when they contain a valid `format` value
 - **Animated texture conversion** — Legacy `{"animation": {}}` mcmeta files are upgraded to explicit `frametime` + `interpolate` (frame count derived from texture dimensions)
 - **Output naming template** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` placeholders; old version prefixes are replaced on re-conversion
 - **Overlay parent packs** — Layer custom content on top of any base pack without modifying it
-- **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, three animation speeds, zh / en
+- **Interface motion** — Crossfade page swaps with soft blur; settings for on / follow system / off; speed tiers scale the full page transition
+- **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, zh / en
 - **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts, install dir auto-aligns to the existing location on reinstall; the uninstaller cleans up after itself on exit
 - **Beta channel** — Stable and Beta installs coexist (separate registry, directory and badges); built with `betabuild`
 
@@ -233,6 +253,8 @@ Attach the `.exe` installer to each release (updates launch the GUI installer wi
 
 The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The very first step is **directory normalization** (locate & promote `pack.mcmeta` to the zip root, with `pack.mcmeta.txt` foolproofing), followed by Eraser → Architect → Surgeon converter tiers.
 
+**Bedrock path (experimental)** mounts on the same scheduler as version edges: modular `converters/bedrock/` (`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`), tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`), edges `(88, 1000)` / `(1000, 88)`. The Java intermediate is always **format 88 (26.2)**.
+
 ### 🧰 Tech Stack
 
 | Layer | Tech |
@@ -254,7 +276,7 @@ The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The ve
 │   └── locales/               zh-CN.json / en-US.json
 ├── src-tauri/                 Rust backend (main app)
 │   ├── src/
-│   │   ├── converters/        Version converters + directory normalization
+│   │   ├── converters/        Version converters + bedrock/ submodule + directory normalization
 │   │   ├── commands/          Tauri commands
 │   │   ├── hurray/            Scheduler & texture pool
 │   │   ├── overlay/           Overlay template generation
