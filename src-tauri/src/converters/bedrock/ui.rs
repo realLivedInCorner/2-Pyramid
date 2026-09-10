@@ -19,6 +19,8 @@ pub fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
     adapt_container_screens(textures_dst, &ui);
     copy_java_sprite_hud(textures_dst, &ui);
     extract_from_icons_atlas(&ui);
+    // Bedrock 容器 UV 按 256/512 POT 资源；Java 常为 176×166 等，需垫到 POT
+    pad_container_textures_to_pot(&ui);
 }
 
 /// 容器界面：箱子 / 工作台 / 熔炉 / 酿造 / 附魔 / 砂轮 / 铁砧 / 熔炉变体。
@@ -98,6 +100,85 @@ fn adapt_container_screens(textures_dst: &Path, ui: &Path) {
     if n > 0 {
         log_info!("OKAY bedrock [container screens × {}]", n);
     }
+}
+
+/// 容器界面在 Bedrock 使用 2^n 尺寸（可用包为 256 或 512）。
+/// Java 原生如 176×166 会因 UV 归一化而拉伸——贴左上角垫到 ≥256 的 POT。
+fn pad_container_textures_to_pot(ui: &Path) {
+    // 只处理容器/背包类，避免误改已裁好的 hotbar 182×22
+    let names = [
+        "inventory.png",
+        "generic_53.png",
+        "generic_54.png",
+        "generic_9x3.png",
+        "generic_9x1.png",
+        "generic_9x5.png",
+        "generic_9x6.png",
+        "crafting_table.png",
+        "furnace.png",
+        "blast_furnace.png",
+        "smoker.png",
+        "brewing_stand.png",
+        "enchanting_table.png",
+        "anvil.png",
+        "grindstone.png",
+        "stonecutter.png",
+        "loom.png",
+        "cartography_table.png",
+        "smithing_table.png",
+        "lectern.png",
+        "fletcher.png",
+        "beacon.png",
+        "dispenser.png",
+        "dropper.png",
+        "hopper.png",
+        "horse.png",
+        "villager.png",
+        "chest.png",
+        "double_chest.png",
+        "creative_inventory.png",
+    ];
+    let mut n = 0usize;
+    for name in names {
+        let path = ui.join(name);
+        if !path.is_file() {
+            continue;
+        }
+        if pad_png_to_pot(&path).is_ok() {
+            n += 1;
+        }
+    }
+    if n > 0 {
+        log_info!("OKAY bedrock [container pad-to-POT × {}]", n);
+    }
+}
+
+fn next_pot(v: u32) -> u32 {
+    let mut p = 1u32;
+    while p < v {
+        p = p.saturating_mul(2);
+    }
+    p.max(256)
+}
+
+fn pad_png_to_pot(path: &Path) -> Result<(), String> {
+    let img = image::open(path)
+        .map_err(|e| format!("open {}: {}", path.display(), e))?
+        .to_rgba8();
+    let (w, h) = (img.width(), img.height());
+    // 已是 POT 且 ≥256 则不动
+    if w.is_power_of_two() && h.is_power_of_two() && w >= 256 && h >= 256 {
+        return Ok(());
+    }
+    let tw = next_pot(w);
+    let th = next_pot(h);
+    if tw == w && th == h {
+        return Ok(());
+    }
+    let mut out = RgbaImage::from_pixel(tw, th, image::Rgba([0, 0, 0, 0]));
+    image::imageops::overlay(&mut out, &img, 0, 0);
+    out.save(path).map_err(|e| format!("save {}: {}", path.display(), e))?;
+    Ok(())
 }
 
 /// 背包：container/inventory.png（扁平后可能已在 ui/）。
@@ -386,5 +467,32 @@ mod tests {
         assert!(ui.join("enchanting_table.png").exists());
         assert!(ui.join("grindstone.png").exists());
         assert!(ui.join("anvil.png").exists());
+    }
+
+    #[test]
+    fn test_pad_container_to_pot() {
+        let temp = tempdir().unwrap();
+        let ui = temp.path().join("ui");
+        fs::create_dir_all(&ui).unwrap();
+        // 模拟 Java 176×166 背包
+        let img = RgbaImage::from_pixel(176, 166, image::Rgba([10, 20, 30, 255]));
+        img.save(ui.join("inventory.png")).unwrap();
+        // 已是 512 的不改
+        let big = RgbaImage::from_pixel(512, 512, image::Rgba([1, 2, 3, 255]));
+        big.save(ui.join("furnace.png")).unwrap();
+        // hotbar 182×22 不应被 pad
+        let hb = RgbaImage::from_pixel(182, 22, image::Rgba([9, 9, 9, 255]));
+        hb.save(ui.join("hotbar.png")).unwrap();
+
+        pad_container_textures_to_pot(&ui);
+
+        let inv = image::open(ui.join("inventory.png")).unwrap();
+        assert_eq!(inv.width(), 256);
+        assert_eq!(inv.height(), 256);
+        let fur = image::open(ui.join("furnace.png")).unwrap();
+        assert_eq!(fur.width(), 512);
+        let hot = image::open(ui.join("hotbar.png")).unwrap();
+        assert_eq!(hot.width(), 182);
+        assert_eq!(hot.height(), 22);
     }
 }
