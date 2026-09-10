@@ -102,46 +102,27 @@ fn adapt_container_screens(textures_dst: &Path, ui: &Path) {
     }
 }
 
-/// 容器界面在 Bedrock 使用 2^n 尺寸（可用包为 256 或 512）。
-/// Java 原生如 176×166 会因 UV 归一化而拉伸——贴左上角垫到 ≥256 的 POT。
+/// 容器界面在 Bedrock 使用 2^n 尺寸（可用包为 256/512，也可能更大）。
+/// 不按固定 176 判断：凡非 POT 的界面图，按**实际宽高**垫到 ≥256 的 POT；
+/// 已是 POT 且 ≥256 的保留（兼容 HD 512/1024 包）。
 fn pad_container_textures_to_pot(ui: &Path) {
-    // 只处理容器/背包类，避免误改已裁好的 hotbar 182×22
-    let names = [
-        "inventory.png",
-        "generic_53.png",
-        "generic_54.png",
-        "generic_9x3.png",
-        "generic_9x1.png",
-        "generic_9x5.png",
-        "generic_9x6.png",
-        "crafting_table.png",
-        "furnace.png",
-        "blast_furnace.png",
-        "smoker.png",
-        "brewing_stand.png",
-        "enchanting_table.png",
-        "anvil.png",
-        "grindstone.png",
-        "stonecutter.png",
-        "loom.png",
-        "cartography_table.png",
-        "smithing_table.png",
-        "lectern.png",
-        "fletcher.png",
-        "beacon.png",
-        "dispenser.png",
-        "dropper.png",
-        "hopper.png",
-        "horse.png",
-        "villager.png",
-        "chest.png",
-        "double_chest.png",
-        "creative_inventory.png",
-    ];
+    let Ok(entries) = fs::read_dir(ui) else { return };
     let mut n = 0usize;
-    for name in names {
-        let path = ui.join(name);
+    for entry in entries.flatten() {
+        let path = entry.path();
         if !path.is_file() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if !name.ends_with(".png") {
+            continue;
+        }
+        // HUD 小图标不垫（hotbar 182×22、心/饥饿 9×9 等）
+        if is_hud_icon_name(&name) {
+            continue;
+        }
+        // 仅处理容器/面板类（含通用名与别名）
+        if !is_container_texture_name(&name) {
             continue;
         }
         if pad_png_to_pot(&path).is_ok() {
@@ -153,11 +134,59 @@ fn pad_container_textures_to_pot(ui: &Path) {
     }
 }
 
+fn is_hud_icon_name(name: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "hotbar",
+        "cross_hair",
+        "crosshair",
+        "heart_",
+        "hunger_",
+        "armor_full",
+        "armor_half",
+        "armor_empty",
+        "experiencebar",
+        "potion_overlay",
+    ];
+    KEYS.iter().any(|k| name.contains(k))
+}
+
+fn is_container_texture_name(name: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "inventory",
+        "generic_",
+        "crafting",
+        "furnace",
+        "blast_furnace",
+        "smoker",
+        "brewing",
+        "enchanting",
+        "anvil",
+        "grindstone",
+        "stonecutter",
+        "loom",
+        "cartography",
+        "smithing",
+        "lectern",
+        "fletcher",
+        "beacon",
+        "dispenser",
+        "dropper",
+        "hopper",
+        "horse",
+        "villager",
+        "chest",
+        "creative",
+        "container",
+    ];
+    KEYS.iter().any(|k| name.contains(k))
+}
+
 fn next_pot(v: u32) -> u32 {
     let mut p = 1u32;
     while p < v {
         p = p.saturating_mul(2);
     }
+    // 容器界面至少 256（Bedrock 常用基线）；更大的包自然用更大 POT
     p.max(256)
 }
 
@@ -166,7 +195,10 @@ fn pad_png_to_pot(path: &Path) -> Result<(), String> {
         .map_err(|e| format!("open {}: {}", path.display(), e))?
         .to_rgba8();
     let (w, h) = (img.width(), img.height());
-    // 已是 POT 且 ≥256 则不动
+    if w == 0 || h == 0 {
+        return Ok(());
+    }
+    // 已是 POT 且 ≥256 → 通用 HD 包直接保留
     if w.is_power_of_two() && h.is_power_of_two() && w >= 256 && h >= 256 {
         return Ok(());
     }
@@ -179,6 +211,17 @@ fn pad_png_to_pot(path: &Path) -> Result<(), String> {
     image::imageops::overlay(&mut out, &img, 0, 0);
     out.save(path).map_err(|e| format!("save {}: {}", path.display(), e))?;
     Ok(())
+}
+
+/// icons.png 缩放倍数：按实际宽度相对 256 计算，兼容 256/512/1024/2048 及非整数倍包。
+fn icons_scale(width: u32) -> u32 {
+    if width == 0 {
+        return 1;
+    }
+    if width % 256 == 0 {
+        return (width / 256).max(1);
+    }
+    ((width as f32 / 256.0).round() as u32).max(1)
 }
 
 /// 背包：container/inventory.png（扁平后可能已在 ui/）。
@@ -285,13 +328,7 @@ impl IconsUv {
     fn open(path: &Path) -> Option<Self> {
         let img = image::open(path).ok()?.to_rgba8();
         let w = img.width();
-        let scale = if w >= 1024 {
-            4
-        } else if w >= 512 {
-            2
-        } else {
-            1
-        };
+        let scale = icons_scale(w);
         Some(Self { scale, img })
     }
 
@@ -494,5 +531,39 @@ mod tests {
         let hot = image::open(ui.join("hotbar.png")).unwrap();
         assert_eq!(hot.width(), 182);
         assert_eq!(hot.height(), 22);
+    }
+
+    #[test]
+    fn test_generic_scale_and_pad_various_sizes() {
+        // 384 宽（1.5×256）→ scale 取整为 2；非 176 整数倍也可处理
+        assert_eq!(icons_scale(256), 1);
+        assert_eq!(icons_scale(512), 2);
+        assert_eq!(icons_scale(1024), 4);
+        assert_eq!(icons_scale(2048), 8);
+        assert_eq!(icons_scale(384), 2); // round(384/256)=1.5→2
+        assert_eq!(icons_scale(128), 1);
+
+        let temp = tempdir().unwrap();
+        let ui = temp.path().join("ui");
+        fs::create_dir_all(&ui).unwrap();
+        // 2x Java 背包 352×332 → 512 POT
+        let img2 = RgbaImage::from_pixel(352, 332, image::Rgba([5, 5, 5, 255]));
+        img2.save(ui.join("inventory.png")).unwrap();
+        // 已是 1024 的 HD 容器保留
+        let hd = RgbaImage::from_pixel(1024, 1024, image::Rgba([8, 8, 8, 255]));
+        hd.save(ui.join("furnace.png")).unwrap();
+        // 非容器文件不处理
+        let other = RgbaImage::from_pixel(100, 100, image::Rgba([1, 1, 1, 255]));
+        other.save(ui.join("custom_panel.png")).unwrap();
+
+        pad_container_textures_to_pot(&ui);
+
+        let inv = image::open(ui.join("inventory.png")).unwrap();
+        assert_eq!(inv.width(), 512);
+        assert_eq!(inv.height(), 512);
+        let fur = image::open(ui.join("furnace.png")).unwrap();
+        assert_eq!(fur.width(), 1024);
+        let custom = image::open(ui.join("custom_panel.png")).unwrap();
+        assert_eq!(custom.width(), 100, "非容器名不垫 POT");
     }
 }
