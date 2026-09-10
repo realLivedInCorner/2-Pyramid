@@ -6,6 +6,28 @@
 
 （暂无）
 
+## [2.1.0] - 2026-08-23（BUILD 20035）
+
+### Added
+
+- **界面动画系统重做 + 开关**：统一动效 token；页面交叉淡入淡出 + 轻微模糊衔接；弹层只缩放面板、遮罩仅淡入淡出；设置新增「界面动画」（开启 / **跟随系统** / 关闭），关闭或系统 `prefers-reduced-motion` 时压掉装饰动效（加载转圈保留）；动画速率三档同步作用于页面切换时长。
+- **基岩版双向转换（j2b / b2j）模块化**：`converters/bedrock/{mod,mapping,textures,metadata,fsutil,j2b,b2j}`，经 Scheduler `Exclusive+Surgeon` 版本边 `(84,1000)` / `(1000,84)` 挂载；`invoke_conversion` 仅注册任务。输入接受 `.mcpack`/`.zip`；检测到基岩源时先 b2j 再转 Java 目标格式。
+- **j2b 贴图索引**：生成 `textures/textures_list.json`、`terrain_texture.json`、`item_texture.json`；`colormap→colormaps`；音效定义写入 `sounds/sound_definitions.json` **与包根** `sounds.json`；flipbook 动画对齐 atlas shortname。
+- **Bedrock 中间态跳过 GuiSurgeon**：避免 Java 75 中间包被 sprite 手术干扰 j2b 输出。
+
+### Changed
+
+- **j2b/b2j 别名对齐 vanilla Bedrock**：药水 `potion_bottle_*`；床 `{color}_bed→bed_{color}`（并从 `blocks/` 复制到 `items/`）；草 `grass_block_*→grass_*`；桶 `water_bucket→bucket_water` 等；`bow→bow_standby`、`crossbow→crossbow_standby`；item atlas 使用 vanilla 数组 shortname（`bed` / `bucket` / `bow_pulling` 等）。
+- **撤销错误的 netherite 改名**：Bedrock 与 Java 对 `netherite_*` 同名，不再映射为 `*_netherite`。
+- **UI 贴图路径**：`gui/**` 合并进 `textures/ui/` 后，将 `ui/container/*` 扁平到 `ui/`（widgets / icons 可被基岩加载）。
+- 平台独有内容按方向剥离（Java model/blockstates/shaders 等 ↔ Bedrock attachables/fog/geo 等）；b2j 删除 flipbook / textures_list / atlas 索引。
+
+### Fixed
+
+- 页面切换动画速率未作用于 enter/leave/blur（仅 stagger）。
+- 快速切页时旧页叠影：退场 blur 与淡出时序拆分。
+- 药水 / 桶 / 弓弩 / 床 / 草方块等可见贴图在基岩目标下丢失或错误路径。
+
 ## [2.0.5] - 2026-08-22（BUILD 20034）
 
 ### Added
