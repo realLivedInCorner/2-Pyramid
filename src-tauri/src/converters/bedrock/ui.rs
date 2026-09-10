@@ -27,10 +27,20 @@ pub fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
 /// Java `gui/container/*.png` 扁平到 `ui/` 后，补齐 Bedrock 常用别名与缺失名。
 fn adapt_container_screens(textures_dst: &Path, ui: &Path) {
     let _ = fs::create_dir_all(ui);
-    // 仍从 gui/container 再扫一遍（扁平失败时兜底）
-    let container = textures_dst.join("gui").join("container");
-    if container.is_dir() {
-        let Ok(entries) = fs::read_dir(&container) else { return };
+    // 仍从 gui/container、textures/container 兜底（扁平失败时）
+    let mut container = ui.join("container");
+    for dir in [
+        textures_dst.join("gui").join("container"),
+        textures_dst.join("container"),
+        ui.join("container"),
+    ] {
+        if !dir.is_dir() {
+            continue;
+        }
+        if dir != ui.join("container") {
+            container = dir.clone();
+        }
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
