@@ -285,6 +285,15 @@
       "empty": "暂无转换记录",
       "cleared": "转换历史已清空"
     },
+    "animationEnabled": {
+      "label": "界面动画",
+      "desc": "开启后页面与弹层有平滑过渡；关闭或跟随系统时会减少动效",
+      "searchLabel": "界面动画",
+      "searchDesc": "开启 / 跟随系统 / 关闭",
+      "on": "开启",
+      "system": "跟随系统",
+      "off": "关闭"
+    },
     "animationSpeed": {
       "label": "动画速率",
       "desc": "控制页面切换和元素依次出现的速度",

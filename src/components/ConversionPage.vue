@@ -294,7 +294,7 @@
                   active: v.label === selectedVersion,
                   'has-status': v.status,
                 }"
-                :style="{ '--card-delay': `${(gi * 50) + (i * 25)}ms` }"
+                :style="{ '--card-delay': `${(gi * 40) + (i * 16)}ms` }"
                 @click="onVersionPick(v)"
               >
                 <div class="version-row-main">
@@ -601,16 +601,28 @@ function onSidebarBeforeEnter(el: Element) {
   h.style.opacity = '1';
 }
 
+function prefersReducedMotion() {
+  return document.body.classList.contains('motion-reduced');
+}
+
 function onSidebarEnter(el: Element, done: () => void) {
   const h = el as HTMLElement;
+  if (prefersReducedMotion()) {
+    h.style.transition = '';
+    h.style.transform = 'translateX(0)';
+    h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
+    h.style.opacity = '1';
+    done();
+    return;
+  }
   // 强制 reflow 让 transition: none 先 commit
   h.offsetHeight;
   // raf 后设 transition + 终值,触发 CSS transition 渐变
   requestAnimationFrame(() => {
-    h.style.transition = 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 450ms cubic-bezier(0.22, 1, 0.36, 1)';
+    h.style.transition = 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1)';
     h.style.transform = 'translateX(0)';
     h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
-    setTimeout(done, 460);
+    setTimeout(done, 330);
   });
 }
 
@@ -625,17 +637,23 @@ function onSidebarAfterEnter(el: Element) {
 
 function onSidebarBeforeLeave(el: Element) {
   const h = el as HTMLElement;
+  if (prefersReducedMotion()) {
+    h.style.transition = '';
+    h.style.transform = 'translateX(100%)';
+    h.style.boxShadow = 'none';
+    return;
+  }
   // 当前 transform = 0(afterEnter 锁),box-shadow = 0.08
   // 直接设 transition + 终值(transform 100% + box-shadow none)
   // 浏览器看到 inline style 改动从 0 跳到 100%,自动触发 CSS transition 渐变
-  h.style.transition = 'transform 400ms cubic-bezier(0.65, 0, 0.35, 1), box-shadow 400ms cubic-bezier(0.65, 0, 0.35, 1)';
+  h.style.transition = 'transform 240ms cubic-bezier(0.4, 0, 1, 1), box-shadow 240ms cubic-bezier(0.4, 0, 1, 1)';
   h.style.transform = 'translateX(100%)';
   h.style.boxShadow = 'none';
 }
 
 function onSidebarLeave(_el: Element, done: () => void) {
-  // Vue 等 done() 调才 unmount,等 410ms 让 transition 跑完
-  setTimeout(done, 410);
+  // Vue 等 done() 调才 unmount; reduced 下立刻结束
+  setTimeout(done, prefersReducedMotion() ? 0 : 250);
 }
 
 function onSidebarAfterLeave(el: Element) {
@@ -1509,14 +1527,14 @@ const exportLogsToFile = async () => {
   text-align: left;
   overflow: hidden;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
-  /* stagger entrance — sidebar body 出现后,row 一个个滑入 */
-  animation: version-row-in 0.36s cubic-bezier(.2, .65, .3, 1) both;
-  animation-delay: var(--card-delay, 0ms);
+    background 140ms ease,
+    border-color 140ms ease;
+  /* stagger entrance — 侧栏滑入过半后再让行浮现，避免和面板位移叠在一起 */
+  animation: version-row-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(120ms + var(--card-delay, 0ms));
 }
 @keyframes version-row-in {
-  from { opacity: 0; transform: translateX(12px); }
+  from { opacity: 0; transform: translateX(8px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 .version-row:hover {
@@ -1568,10 +1586,10 @@ const exportLogsToFile = async () => {
 .version-row-check {
   font-size: 16px;
   color: var(--theme-color);
-  animation: version-check-pop 0.32s cubic-bezier(.34, 1.56, .64, 1);
+  animation: version-check-pop 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes version-check-pop {
-  from { opacity: 0; transform: scale(0.4); }
+  from { opacity: 0; transform: scale(0.85); }
   to   { opacity: 1; transform: scale(1); }
 }
 
