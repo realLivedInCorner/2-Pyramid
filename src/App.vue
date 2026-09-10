@@ -763,11 +763,13 @@ onMounted(async () => {
    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
    --ease-in: cubic-bezier(0.4, 0, 1, 1);
    --motion-micro: 150ms;
-   --motion-page-leave: 160ms;
-   --motion-page-enter: 240ms;
+   --motion-page-leave: 320ms;
+   --motion-page-enter: 300ms;
+   --motion-page-blur: 10px;
+   --motion-page-blur-ms: 160ms;
    --motion-stagger-dur: 280ms;
    --motion-stagger-step: 36ms;
-   --motion-stagger-base: 0ms;
+   --motion-stagger-base: 60ms;
    --motion-dialog-enter: 240ms;
    --motion-dialog-leave: 160ms;
    --motion-dialog-quick-enter: 180ms;
@@ -1344,21 +1346,27 @@ onMounted(async () => {
  } 
  
  /* 页面切换：交叉淡入淡出（非 out-in），避免中间空窗。
-   退场：旧页整体淡出。
-   进场：新页容器不压 opacity，由子节点 stagger 自己浮现——
-   旧页仍在下层淡出时，新内容从透明里长出来，衔接不断档。 */
+   退场加 blur + 轻微缩小，快速连点时旧页不会「还清晰地叠在下面」。
+   进场也从轻微模糊收束到清晰，两页交叠时读感更像景深过渡。 */
  .fade-scale-enter-active {
-   transition: transform var(--motion-page-enter) var(--ease-out);
+   transition:
+     transform var(--motion-page-enter) var(--ease-out),
+     filter var(--motion-page-enter) var(--ease-out);
    position: absolute;
    top: 0;
    left: 0;
    width: 100%;
    height: 100%;
    z-index: 2;
+   will-change: transform, filter;
  }
 
  .fade-scale-leave-active {
-   transition: opacity var(--motion-page-leave) var(--ease-in);
+   transition:
+     opacity var(--motion-page-leave) var(--ease-in),
+     /* blur 先到位：旧页尽快糊掉，淡出再慢慢收，衔接更干净 */
+     filter var(--motion-page-blur-ms, 160ms) var(--ease-in),
+     transform var(--motion-page-leave) var(--ease-in);
    position: absolute;
    top: 0;
    left: 0;
@@ -1366,22 +1374,31 @@ onMounted(async () => {
    height: 100%;
    z-index: 1;
    pointer-events: none;
+   will-change: opacity, filter, transform;
+   /* 隔离层，避免旧页 filter 影响新页 */
+   isolation: isolate;
  }
 
  .fade-scale-enter-from {
    transform: translateY(4px);
- }
-
- .fade-scale-leave-to {
-   opacity: 0;
+   filter: blur(4px);
  }
 
  .fade-scale-enter-to {
    transform: translateY(0);
+   filter: blur(0);
  }
 
  .fade-scale-leave-from {
    opacity: 1;
+   filter: blur(0);
+   transform: scale(1);
+ }
+
+ .fade-scale-leave-to {
+   opacity: 0;
+   filter: blur(var(--motion-page-blur));
+   transform: scale(0.985);
  }
 
  /*
@@ -1414,12 +1431,18 @@ onMounted(async () => {
    --motion-stagger-dur: 360ms;
    --motion-stagger-step: 52ms;
    --motion-stagger-base: 20ms;
+   --motion-page-leave: 420ms;
+   --motion-page-enter: 400ms;
+   --motion-page-blur-ms: 200ms;
  }
 
  .page-shell[data-anim-speed="fast"] {
    --motion-stagger-dur: 200ms;
    --motion-stagger-step: 24ms;
    --motion-stagger-base: 0ms;
+   --motion-page-leave: 220ms;
+   --motion-page-enter: 200ms;
+   --motion-page-blur-ms: 100ms;
  }
 
  @keyframes stagger-rise {
