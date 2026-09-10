@@ -23,6 +23,9 @@ overlay_projects.json
 test*
 thumb*
 
+# compose-next / agent working docs
+docs/compose/
+
 # Temp
 temp_overlay/
 .BUILD_LAST_USED
