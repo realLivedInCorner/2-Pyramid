@@ -55,26 +55,37 @@ fn ensure_bedrock_icons_atlas(textures_dst: &Path, ui: &Path) {
 
 /// 用 UI sprite 按 Java icons 标准 UV 拼 256×scale 图集。
 fn assemble_icons_from_sprites(ui: &Path, out: &Path) -> bool {
-    // 用任一 9×9 图元推断倍数
-    let scale = [
-        ui.join("heart_full.png"),
-        ui.join("armor_full.png"),
-        ui.join("hunger_effect_full.png"),
-        ui.join("food_full.png"),
-    ]
-    .iter()
-    .find_map(|p| image::open(p).ok().map(|i| i.width().max(1) / 9))
-    .unwrap_or(1)
-    .max(1);
+    // 优先用 hotbar 宽度 / 182 定倍数（最稳）；否则用 9×9 图元，且限制 1–4 倍
+    let scale = image::open(ui.join("hotbar.png"))
+        .ok()
+        .map(|i| i.width().max(1) / 182)
+        .filter(|s| *s >= 1)
+        .or_else(|| {
+            [
+                ui.join("heart_full.png"),
+                ui.join("armor_full.png"),
+                ui.join("hunger_effect_full.png"),
+                ui.join("food_full.png"),
+            ]
+            .iter()
+            .find_map(|p| {
+                image::open(p)
+                    .ok()
+                    .map(|i| (i.width().max(9) / 9).clamp(1, 4))
+            })
+        })
+        .unwrap_or(1)
+        .clamp(1, 4);
 
     let base = 256u32 * scale;
     let mut atlas = RgbaImage::from_pixel(base, base, image::Rgba([0, 0, 0, 0]));
 
     // (src 文件, dest x,y,w,h 在 256 坐标系)
-    let stamps: &[(&str, u32, u32, u32, u32)] = &[
+    // 准星与快捷栏同区：仅在没有 hotbar 时写入，避免盖住快捷栏
+    let has_hotbar = ui.join("hotbar.png").is_file();
+    let mut stamps: Vec<(&str, u32, u32, u32, u32)> = vec![
         ("hotbar.png", 0, 0, 182, 22),
         ("hotbar_selection.png", 0, 22, 24, 24),
-        ("cross_hair.png", 0, 0, 15, 15),
         ("heart_empty.png", 16, 0, 9, 9),
         ("heart_full.png", 52, 0, 9, 9),
         ("heart_half.png", 61, 0, 9, 9),
@@ -87,30 +98,33 @@ fn assemble_icons_from_sprites(ui: &Path, out: &Path) -> bool {
         ("food_full.png", 52, 27, 9, 9),
         ("hunger_effect_half.png", 61, 27, 9, 9),
         ("food_half.png", 61, 27, 9, 9),
-        ("experiencebarfull.png", 0, 69, 182, 5),
-        ("experience_bar_progress.png", 0, 69, 182, 5),
         ("experiencebarempty.png", 0, 64, 182, 5),
         ("experience_bar_background.png", 0, 64, 182, 5),
+        ("experiencebarfull.png", 0, 69, 182, 5),
+        ("experience_bar_progress.png", 0, 69, 182, 5),
     ];
+    if !has_hotbar {
+        stamps.push(("cross_hair.png", 0, 0, 15, 15));
+        stamps.push(("crosshair.png", 0, 0, 15, 15));
+    }
 
     let mut any = false;
     for (name, x, y, w, h) in stamps {
         let path = ui.join(name);
         let Ok(img) = image::open(&path) else { continue };
         let img = img.to_rgba8();
-        // 缩放到目标区域（sprite 可能是 HD 大图）
         let tw = w * scale;
         let th = h * scale;
         if img.width() == 0 || img.height() == 0 {
             continue;
         }
-        let resized = image::imageops::resize(
-            &img,
-            tw,
-            th,
-            image::imageops::FilterType::Nearest,
-        );
-        image::imageops::overlay(&mut atlas, &resized, (x * scale) as i64, (y * scale) as i64);
+        // 已是目标尺寸则直接贴，避免无谓重采样
+        let src = if img.width() == tw && img.height() == th {
+            img
+        } else {
+            image::imageops::resize(&img, tw, th, image::imageops::FilterType::Nearest)
+        };
+        image::imageops::overlay(&mut atlas, &src, (x * scale) as i64, (y * scale) as i64);
         any = true;
     }
     if !any {
