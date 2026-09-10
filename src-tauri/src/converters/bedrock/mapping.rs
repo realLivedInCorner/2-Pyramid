@@ -24,7 +24,21 @@ pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
         "grass_block_side" => return Some("grass_side".into()),
         "grass_block_top" => return Some("grass_top".into()),
         "grass_block_side_overlay" => return Some("grass_side_overlay".into()),
-        // 床：white_bed → bed_white（颜色枚举）
+        // 桶：Java water_bucket → Bedrock bucket_water
+        "bucket" => return Some("bucket_empty".into()),
+        "water_bucket" => return Some("bucket_water".into()),
+        "lava_bucket" => return Some("bucket_lava".into()),
+        "milk_bucket" => return Some("bucket_milk".into()),
+        "powder_snow_bucket" => return Some("bucket_powder_snow".into()),
+        "axolotl_bucket" => return Some("bucket_axolotl".into()),
+        "tadpole_bucket" => return Some("bucket_tadpole".into()),
+        "cod_bucket" => return Some("bucket_cod".into()),
+        "salmon_bucket" => return Some("bucket_salmon".into()),
+        "tropical_fish_bucket" => return Some("bucket_tropical".into()),
+        "pufferfish_bucket" => return Some("bucket_pufferfish".into()),
+        // 弓弩：Java bow.png → bow_standby；拉弓帧名一致
+        "bow" => return Some("bow_standby".into()),
+        "crossbow" => return Some("crossbow_standby".into()),
         _ => {}
     }
 
@@ -89,6 +103,19 @@ pub fn bedrock_to_java_stem(stem: &str) -> Option<String> {
         "grass_side" => return Some("grass_block_side".into()),
         "grass_top" => return Some("grass_block_top".into()),
         "grass_side_overlay" => return Some("grass_block_side_overlay".into()),
+        "bucket_empty" => return Some("bucket".into()),
+        "bucket_water" => return Some("water_bucket".into()),
+        "bucket_lava" => return Some("lava_bucket".into()),
+        "bucket_milk" => return Some("milk_bucket".into()),
+        "bucket_powder_snow" => return Some("powder_snow_bucket".into()),
+        "bucket_axolotl" => return Some("axolotl_bucket".into()),
+        "bucket_tadpole" => return Some("tadpole_bucket".into()),
+        "bucket_cod" => return Some("cod_bucket".into()),
+        "bucket_salmon" => return Some("salmon_bucket".into()),
+        "bucket_tropical" => return Some("tropical_fish_bucket".into()),
+        "bucket_pufferfish" => return Some("pufferfish_bucket".into()),
+        "bow_standby" => return Some("bow".into()),
+        "crossbow_standby" => return Some("crossbow".into()),
         _ => {}
     }
 
@@ -239,6 +266,11 @@ mod tests {
         assert_eq!(java_to_bedrock_stem("golden_sword").as_deref(), Some("gold_sword"));
         assert_eq!(java_to_bedrock_stem("totem_of_undying").as_deref(), Some("totem"));
         assert_eq!(java_to_bedrock_stem("slime_ball").as_deref(), Some("slimeball"));
+        // 桶 / 弓
+        assert_eq!(java_to_bedrock_stem("water_bucket").as_deref(), Some("bucket_water"));
+        assert_eq!(java_to_bedrock_stem("bucket").as_deref(), Some("bucket_empty"));
+        assert_eq!(java_to_bedrock_stem("bow").as_deref(), Some("bow_standby"));
+        assert_eq!(java_to_bedrock_stem("crossbow").as_deref(), Some("crossbow_standby"));
     }
 
     #[test]
