@@ -39,6 +39,50 @@ pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
         // 弓弩：Java bow.png → bow_standby；拉弓帧名一致
         "bow" => return Some("bow_standby".into()),
         "crossbow" => return Some("crossbow_standby".into()),
+        // 钓鱼竿
+        "fishing_rod" => return Some("fishing_rod_uncast".into()),
+        "lodestone_compass" => return Some("lodestonecompass_item".into()),
+        // 穿戴盔甲层：Java iron_layer_1 → Bedrock iron_1
+        "iron_layer_1" => return Some("iron_1".into()),
+        "iron_layer_2" => return Some("iron_2".into()),
+        "leather_layer_1" => return Some("leather_1".into()),
+        "leather_layer_2" => return Some("leather_2".into()),
+        "leather_layer_1_overlay" => return Some("leather_1_overlay".into()),
+        "leather_layer_2_overlay" => return Some("leather_2_overlay".into()),
+        "golden_layer_1" => return Some("gold_1".into()),
+        "golden_layer_2" => return Some("gold_2".into()),
+        "diamond_layer_1" => return Some("diamond_1".into()),
+        "diamond_layer_2" => return Some("diamond_2".into()),
+        "chainmail_layer_1" => return Some("chainmail_1".into()),
+        "chainmail_layer_2" => return Some("chainmail_2".into()),
+        "netherite_layer_1" => return Some("netherite_1".into()),
+        "netherite_layer_2" => return Some("netherite_2".into()),
+        // 木板 / 原木：Java 1.13+ oak_planks → Bedrock planks_oak
+        "oak_planks" => return Some("planks_oak".into()),
+        "spruce_planks" => return Some("planks_spruce".into()),
+        "birch_planks" => return Some("planks_birch".into()),
+        "jungle_planks" => return Some("planks_jungle".into()),
+        "acacia_planks" => return Some("planks_acacia".into()),
+        "dark_oak_planks" => return Some("planks_big_oak".into()),
+        "oak_log" => return Some("log_oak".into()),
+        "spruce_log" => return Some("log_spruce".into()),
+        "birch_log" => return Some("log_birch".into()),
+        "jungle_log" => return Some("log_jungle".into()),
+        "acacia_log" => return Some("log_acacia".into()),
+        "dark_oak_log" => return Some("log_big_oak".into()),
+        "oak_log_top" => return Some("log_oak_top".into()),
+        "spruce_log_top" => return Some("log_spruce_top".into()),
+        "birch_log_top" => return Some("log_birch_top".into()),
+        "jungle_log_top" => return Some("log_jungle_top".into()),
+        "acacia_log_top" => return Some("log_acacia_top".into()),
+        "dark_oak_log_top" => return Some("log_big_oak_top".into()),
+        // 树叶
+        "oak_leaves" => return Some("leaves_oak".into()),
+        "spruce_leaves" => return Some("leaves_spruce".into()),
+        "birch_leaves" => return Some("leaves_birch".into()),
+        "jungle_leaves" => return Some("leaves_jungle".into()),
+        "acacia_leaves" => return Some("leaves_acacia".into()),
+        "dark_oak_leaves" => return Some("leaves_big_oak".into()),
         _ => {}
     }
 
@@ -116,6 +160,37 @@ pub fn bedrock_to_java_stem(stem: &str) -> Option<String> {
         "bucket_pufferfish" => return Some("pufferfish_bucket".into()),
         "bow_standby" => return Some("bow".into()),
         "crossbow_standby" => return Some("crossbow".into()),
+        "fishing_rod_uncast" => return Some("fishing_rod".into()),
+        "lodestonecompass_item" => return Some("lodestone_compass".into()),
+        "iron_1" => return Some("iron_layer_1".into()),
+        "iron_2" => return Some("iron_layer_2".into()),
+        "leather_1" => return Some("leather_layer_1".into()),
+        "leather_2" => return Some("leather_layer_2".into()),
+        "leather_1_overlay" => return Some("leather_layer_1_overlay".into()),
+        "leather_2_overlay" => return Some("leather_layer_2_overlay".into()),
+        "gold_1" => return Some("golden_layer_1".into()),
+        "gold_2" => return Some("golden_layer_2".into()),
+        "diamond_1" => return Some("diamond_layer_1".into()),
+        "diamond_2" => return Some("diamond_layer_2".into()),
+        "chainmail_1" => return Some("chainmail_layer_1".into()),
+        "chainmail_2" => return Some("chainmail_layer_2".into()),
+        "netherite_1" => return Some("netherite_layer_1".into()),
+        "netherite_2" => return Some("netherite_layer_2".into()),
+        "planks_oak" => return Some("oak_planks".into()),
+        "planks_spruce" => return Some("spruce_planks".into()),
+        "planks_birch" => return Some("birch_planks".into()),
+        "planks_jungle" => return Some("jungle_planks".into()),
+        "planks_acacia" => return Some("acacia_planks".into()),
+        "planks_big_oak" => return Some("dark_oak_planks".into()),
+        "log_oak" => return Some("oak_log".into()),
+        "log_spruce" => return Some("spruce_log".into()),
+        "log_birch" => return Some("birch_log".into()),
+        "log_jungle" => return Some("jungle_log".into()),
+        "log_acacia" => return Some("acacia_log".into()),
+        "log_big_oak" => return Some("dark_oak_log".into()),
+        "log_oak_top" => return Some("oak_log_top".into()),
+        "leaves_oak" => return Some("oak_leaves".into()),
+        "leaves_big_oak" => return Some("dark_oak_leaves".into()),
         _ => {}
     }
 
@@ -271,6 +346,13 @@ mod tests {
         assert_eq!(java_to_bedrock_stem("bucket").as_deref(), Some("bucket_empty"));
         assert_eq!(java_to_bedrock_stem("bow").as_deref(), Some("bow_standby"));
         assert_eq!(java_to_bedrock_stem("crossbow").as_deref(), Some("crossbow_standby"));
+        // 鱼竿 / 木头 / 盔甲层
+        assert_eq!(java_to_bedrock_stem("fishing_rod").as_deref(), Some("fishing_rod_uncast"));
+        assert_eq!(java_to_bedrock_stem("oak_planks").as_deref(), Some("planks_oak"));
+        assert_eq!(java_to_bedrock_stem("oak_log").as_deref(), Some("log_oak"));
+        assert_eq!(java_to_bedrock_stem("dark_oak_planks").as_deref(), Some("planks_big_oak"));
+        assert_eq!(java_to_bedrock_stem("iron_layer_1").as_deref(), Some("iron_1"));
+        assert_eq!(java_to_bedrock_stem("leather_layer_1").as_deref(), Some("leather_1"));
     }
 
     #[test]
