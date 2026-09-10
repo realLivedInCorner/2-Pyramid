@@ -1,16 +1,25 @@
 ---
 feature: java-to-bedrock-conversion
-status: in-progress
+status: delivered
 updated: 2026-08-23
 branch: feat/java-bedrock-convert
-commits: (pending)
+commits: b7524b5..d8f214f
 ---
 
 # Java ↔ Bedrock 资源包双向转换
 
 ## Report
 
-（实现并验证后填写）
+**What was built** — 将原单文件 Bedrock 重组拆为 `converters/bedrock/{mod,mapping,textures,metadata,fsutil,j2b,b2j}`，各子模块自带单元测试。j2b / b2j 以 `Exclusive`+`Surgeon` 任务挂到 Scheduler 版本边 `(84,1000)` / `(1000,84)`；`invoke_conversion` 只 `register_tasks`，`process_zip` 负责检测 Bedrock 源、先跑 b2j、目标 1000 时先到 Java 75 再跑 j2b（GuiSurgeon 在 Bedrock 中间态跳过）。前端接受 `.mcpack`。平台独有目录在对应方向被剥离。
+
+**Verification** — `cargo test --offline --manifest-path src-tauri/Cargo.toml`：89 passed（含 bedrock 12）。`npm run build`：PASS。独立 reviewer：T1–T5 合规，无 critical。
+
+**Journey log**
+- worktree 创建被环境拦截，改为 `feat/java-bedrock-convert` 功能分支隔离 master。
+- 用户要求模块化后废弃巨型 `bedrock.rs`，按职责拆目录并用 Scheduler 边任务挂载。
+- j2b 须在删除 `pack.mcmeta` **之前**读取 description。
+- font 需在 textures 提升前抽出，否则并入 `textures/font` 后路径错误。
+- Review 提出 GuiSurgeon 在 Java 中间态 75 仍会触发 → 增加 `invoke_conversion_ex(..., run_gui_surgeon)`。
 
 ## [S1] Problem
 
