@@ -28,6 +28,14 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
             log_info!("OKAY bedrock [{} 改名 {} 个]", d, n);
         }
     }
+    // 穿戴盔甲层也在 models/armor 下改名
+    let armor = textures_dst.join("models").join("armor");
+    if armor.is_dir() {
+        let n = rename_stems_in_dir(&armor, java_to_bedrock_stem)?;
+        if n > 0 {
+            log_info!("OKAY bedrock [models/armor 改名 {} 个]", n);
+        }
+    }
 
     let gui_dir = textures_dst.join("gui");
     let ui_dir = textures_dst.join("ui");

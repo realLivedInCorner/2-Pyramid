@@ -51,11 +51,13 @@ mod tests {
         fs::create_dir_all(tex.join("item")).unwrap();
         fs::create_dir_all(tex.join("block")).unwrap();
         fs::create_dir_all(tex.join("gui/container")).unwrap();
+        fs::create_dir_all(tex.join("models/armor")).unwrap();
         fs::create_dir_all(root.join("assets/minecraft/lang")).unwrap();
         fs::create_dir_all(root.join("assets/minecraft/blockstates")).unwrap();
         fs::write(tex.join("item/golden_apple.png"), b"g").unwrap();
         fs::write(tex.join("block/stone.png"), b"s").unwrap();
         fs::write(tex.join("gui/icons.png"), b"i").unwrap();
+        fs::write(tex.join("models/armor/iron_layer_1.png"), b"a").unwrap();
         fs::write(root.join("pack.png"), b"p").unwrap();
         fs::write(
             root.join("pack.mcmeta"),
@@ -79,6 +81,8 @@ mod tests {
         assert!(root.join("textures/ui/icons.png").exists());
         assert!(!root.join("assets").exists());
         assert!(root.join("manifest.json").exists());
+        // textures/models（盔甲）不得被剥离，且层名已改
+        assert!(root.join("textures/models/armor/iron_1.png").exists());
         assert!(root.join("textures/textures_list.json").exists());
         // 不再生成 item/terrain atlas（可用包布局：仅文件路径覆盖）
         assert!(!root.join("textures/terrain_texture.json").exists());

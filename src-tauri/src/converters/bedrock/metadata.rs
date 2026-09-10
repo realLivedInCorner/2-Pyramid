@@ -364,12 +364,28 @@ pub fn convert_sounds_bedrock_to_java(temp_dir: &Path, minecraft: &Path) {
 }
 
 pub fn strip_java_only(minecraft: &Path, temp_dir: &Path) {
+    // 只删 Java 定义目录；不要删 textures/models（盔甲穿戴层在 Bedrock 仍用）
     let java_dirs = [
-        "blockstates", "models", "shaders", "atlases", "particles", "equipment", "items", "font",
-        "post_effect", "waypoint_style", "optifine", "mcpatcher", "cit", "emissive",
+        "blockstates",
+        "models",
+        "shaders",
+        "atlases",
+        "particles",
+        "equipment",
+        "items",
+        "font",
+        "post_effect",
+        "waypoint_style",
+        "optifine",
+        "mcpatcher",
+        "cit",
+        "emissive",
     ];
     for d in java_dirs {
         remove_dir_quiet(&minecraft.join(d));
+    }
+    // textures 下仅剥离明确的 Java 专用子目录
+    for d in ["optifine", "mcpatcher", "cit", "emissive"] {
         remove_dir_quiet(&minecraft.join("textures").join(d));
     }
     remove_dir_quiet(&temp_dir.join("optifine"));
