@@ -61,10 +61,37 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
     // Java colormap → Bedrock colormaps
     rename_dir_if_absent(&textures_dst.join("colormap"), &textures_dst.join("colormaps"))?;
 
+    // 床在 Java 是 block 贴图；Bedrock 物品图标在 items/bed_*
+    copy_bed_block_textures_to_items(textures_dst);
+
     // T6/T7: 贴图缓存 + atlas 短名表
     write_textures_list(textures_dst)?;
     write_bedrock_atlas_maps(textures_dst)?;
     Ok(())
+}
+
+/// 把 textures/blocks/bed_*.png 复制到 textures/items/（物品图标）。
+fn copy_bed_block_textures_to_items(textures_dst: &Path) {
+    let blocks = textures_dst.join("blocks");
+    let items = textures_dst.join("items");
+    if !blocks.is_dir() {
+        return;
+    }
+    let _ = fs::create_dir_all(&items);
+    let Ok(entries) = fs::read_dir(&blocks) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let fname = entry.file_name().to_string_lossy().to_string();
+        if fname.to_ascii_lowercase().ends_with(".png") && fname.starts_with("bed_") {
+            let dst = items.join(&fname);
+            if !dst.exists() {
+                let _ = fs::copy(&path, &dst);
+            }
+        }
+    }
 }
 
 /// j2b：生成 `textures/textures_list.json`（无扩展名相对包根路径）。
@@ -93,13 +120,10 @@ fn collect_texture_rel_paths(root: &Path, dir: &Path, out: &mut Vec<String>) {
         if !(name.ends_with(".png") || name.ends_with(".tga")) {
             continue;
         }
-        // 跳过 mcmeta 配对文件本身；flipbook/atlas json 不在 textures 子目录树的 png 里
         let Ok(rel) = path.strip_prefix(root.parent().unwrap_or(root)) else {
-            // root = textures/，包根 = parent
             continue;
         };
         let mut s = rel.to_string_lossy().replace('\\', "/");
-        // 大小写不敏感去扩展名
         let lower = s.to_ascii_lowercase();
         if lower.ends_with(".png") {
             s.truncate(s.len() - 4);
@@ -112,12 +136,46 @@ fn collect_texture_rel_paths(root: &Path, dir: &Path, out: &mut Vec<String>) {
     }
 }
 
-/// j2b：生成 terrain_texture.json / item_texture.json（shortname=文件名 stem）。
+/// j2b：生成 terrain_texture.json / item_texture.json。
+/// 多变体物品使用 vanilla shortname（bed / bucket / bow_* 等），否则用文件名 stem。
 pub fn write_bedrock_atlas_maps(textures_dst: &Path) -> Result<(), String> {
     write_atlas_file(&textures_dst.join("blocks"), "terrain_texture.json", textures_dst, Some("atlas.terrain"))?;
     write_atlas_file(&textures_dst.join("items"), "item_texture.json", textures_dst, None)?;
     Ok(())
 }
+
+const BED_VARIANT_ORDER: &[&str] = &[
+    "white",
+    "orange",
+    "magenta",
+    "light_blue",
+    "yellow",
+    "lime",
+    "pink",
+    "gray",
+    "silver",
+    "cyan",
+    "purple",
+    "blue",
+    "brown",
+    "green",
+    "red",
+    "black",
+];
+
+const BUCKET_VARIANT_ORDER: &[&str] = &[
+    "empty",
+    "milk",
+    "water",
+    "lava",
+    "cod",
+    "salmon",
+    "tropical",
+    "pufferfish",
+    "powder_snow",
+    "axolotl",
+    "tadpole",
+];
 
 fn write_atlas_file(
     src_dir: &Path,
@@ -128,7 +186,13 @@ fn write_atlas_file(
     if !src_dir.is_dir() {
         return Ok(());
     }
-    let mut data = serde_json::Map::new();
+    let folder = src_dir
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // stem 列表
+    let mut stems: Vec<String> = Vec::new();
     let Ok(entries) = fs::read_dir(src_dir) else { return Ok(()) };
     for entry in entries.flatten() {
         let path = entry.path();
@@ -140,24 +204,101 @@ fn write_atlas_file(
             continue;
         }
         let lower = fname.to_ascii_lowercase();
-        let stem = if lower.ends_with(".png") {
-            fname[..fname.len() - 4].to_string()
-        } else {
-            continue;
-        };
-        if stem.is_empty() {
+        if lower.ends_with(".png") {
+            let stem = fname[..fname.len() - 4].to_string();
+            if !stem.is_empty() {
+                stems.push(stem);
+            }
+        }
+    }
+    if stems.is_empty() {
+        return Ok(());
+    }
+    stems.sort();
+
+    let mut data = serde_json::Map::new();
+    let mut consumed: std::collections::HashSet<String> = Default::default();
+
+    // 1) vanilla 多变体组
+    if folder == "items" {
+        // bed
+        let mut bed_paths = Vec::new();
+        for color in BED_VARIANT_ORDER {
+            let stem = format!("bed_{}", color);
+            if stems.contains(&stem) {
+                bed_paths.push(format!("textures/items/{}", stem));
+                consumed.insert(stem);
+            }
+        }
+        if !bed_paths.is_empty() {
+            data.insert("bed".into(), serde_json::json!({ "textures": bed_paths }));
+        }
+        // bucket
+        let mut bucket_paths = Vec::new();
+        for name in BUCKET_VARIANT_ORDER {
+            let stem = format!("bucket_{}", name);
+            if stems.contains(&stem) {
+                bucket_paths.push(format!("textures/items/{}", stem));
+                consumed.insert(stem);
+            }
+        }
+        // 任意未在固定序中的 bucket_* 也挂到 bucket 数组末尾
+        for s in &stems {
+            if s.starts_with("bucket_") && !consumed.contains(s) {
+                bucket_paths.push(format!("textures/items/{}", s));
+                consumed.insert(s.clone());
+            }
+        }
+        if !bucket_paths.is_empty() {
+            data.insert("bucket".into(), serde_json::json!({ "textures": bucket_paths }));
+        }
+        // bow / crossbow
+        if stems.contains(&"bow_standby".to_string()) {
+            data.insert(
+                "bow_standby".into(),
+                serde_json::json!({ "textures": "textures/items/bow_standby" }),
+            );
+            consumed.insert("bow_standby".into());
+        }
+        let mut bow_pull = Vec::new();
+        for i in 0..3 {
+            let stem = format!("bow_pulling_{}", i);
+            if stems.contains(&stem) {
+                bow_pull.push(format!("textures/items/{}", stem));
+                consumed.insert(stem);
+            }
+        }
+        if !bow_pull.is_empty() {
+            data.insert("bow_pulling".into(), serde_json::json!({ "textures": bow_pull }));
+        }
+        if stems.contains(&"crossbow_standby".to_string()) {
+            data.insert(
+                "crossbow_standby".into(),
+                serde_json::json!({ "textures": "textures/items/crossbow_standby" }),
+            );
+            consumed.insert("crossbow_standby".into());
+        }
+        let mut cross_pull: Vec<String> = Vec::new();
+        for stem in ["crossbow_pulling_0", "crossbow_pulling_1", "crossbow_pulling_2", "crossbow_arrow", "crossbow_firework"] {
+            if stems.contains(&stem.to_string()) {
+                cross_pull.push(format!("textures/items/{}", stem));
+                consumed.insert(stem.to_string());
+            }
+        }
+        if !cross_pull.is_empty() {
+            data.insert("crossbow_pulling".into(), serde_json::json!({ "textures": cross_pull }));
+        }
+    }
+
+    // 2) 其余 stem → shortname=stem
+    for stem in &stems {
+        if consumed.contains(stem) {
             continue;
         }
-        let folder = src_dir
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_default();
         let rel = format!("textures/{}/{}", folder, stem);
-        data.insert(
-            stem,
-            serde_json::json!({ "textures": rel }),
-        );
+        data.insert(stem.clone(), serde_json::json!({ "textures": rel }));
     }
+
     if data.is_empty() {
         return Ok(());
     }
@@ -403,6 +544,60 @@ mod tests {
             item["texture_data"]["apple_golden"]["textures"],
             "textures/items/apple_golden"
         );
+    }
+
+    #[test]
+    fn test_bucket_bed_bow_atlas_shortnames() {
+        let temp = tempdir().unwrap();
+        let root = temp.path();
+        let mc = root.join("assets/minecraft");
+        let tex = mc.join("textures");
+        fs::create_dir_all(tex.join("item")).unwrap();
+        fs::create_dir_all(tex.join("block")).unwrap();
+        fs::write(tex.join("item/water_bucket.png"), b"w").unwrap();
+        fs::write(tex.join("item/bucket.png"), b"e").unwrap();
+        fs::write(tex.join("item/bow.png"), b"b").unwrap();
+        fs::write(tex.join("item/bow_pulling_0.png"), b"p").unwrap();
+        fs::write(tex.join("item/crossbow.png"), b"c").unwrap();
+        fs::write(tex.join("block/red_bed.png"), b"r").unwrap();
+        fs::write(tex.join("block/white_bed.png"), b"wh").unwrap();
+
+        move_java_font_to_bedrock(&mc, root);
+        reorganize_java_textures_for_bedrock(&mc, &root.join("textures")).unwrap();
+
+        assert!(root.join("textures/items/bucket_water.png").exists());
+        assert!(root.join("textures/items/bucket_empty.png").exists());
+        assert!(root.join("textures/items/bow_standby.png").exists());
+        assert!(root.join("textures/items/crossbow_standby.png").exists());
+        // 床从 blocks 复制到 items
+        assert!(root.join("textures/blocks/bed_red.png").exists());
+        assert!(root.join("textures/items/bed_red.png").exists());
+
+        let item: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join("textures/item_texture.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(item["texture_data"]["bucket"]["textures"].is_array());
+        assert_eq!(
+            item["texture_data"]["bucket"]["textures"][0],
+            "textures/items/bucket_empty"
+        );
+        assert_eq!(
+            item["texture_data"]["bed"]["textures"][0],
+            "textures/items/bed_white"
+        );
+        assert_eq!(
+            item["texture_data"]["bow_standby"]["textures"],
+            "textures/items/bow_standby"
+        );
+        assert!(item["texture_data"]["bow_pulling"]["textures"].is_array());
+        assert_eq!(
+            item["texture_data"]["crossbow_standby"]["textures"],
+            "textures/items/crossbow_standby"
+        );
+        // stem 级键不应再单独出现
+        assert!(item["texture_data"].get("bed_red").is_none());
+        assert!(item["texture_data"].get("bucket_water").is_none());
     }
 
     #[test]

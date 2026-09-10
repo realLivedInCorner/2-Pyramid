@@ -196,6 +196,7 @@ b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 用户实测反馈修正（T11）：
 
 - [x] T11: 修复可见贴图 — 药水 bottle 命名、bed 颜色前缀、grass_block_*、**撤销**错误的 netherite→*_netherite、gui/container 扁平到 ui/、totem/slimeball 等别名 — acceptance: mapping 单测 + bedrock 过滤测试通过 (covers: S2 网络调研)
+- [x] T12: 桶/弓弩/床 vanilla shortname — 桶 Java→bucket_*；bow→bow_standby；item_texture 生成 bed/bucket/bow_pulling/crossbow_pulling 数组；blocks 床复制到 items — acceptance: atlas 单测断言数组与无 bed_red 键 (covers: S2 网络调研)
 
 模块约束不变：逻辑落在 `textures.rs` / `metadata.rs`（或新增小函数），各模块保留 `#[cfg(test)]`；Scheduler 挂载方式不变。
 
