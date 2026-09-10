@@ -285,6 +285,15 @@
       "empty": "No conversions recorded yet",
       "cleared": "Conversion history cleared"
     },
+    "animationEnabled": {
+      "label": "Interface Animations",
+      "desc": "When on, pages and dialogs transition smoothly. Off or follow system reduces motion.",
+      "searchLabel": "Interface Animations",
+      "searchDesc": "On / Follow system / Off",
+      "on": "On",
+      "system": "Follow system",
+      "off": "Off"
+    },
     "animationSpeed": {
       "label": "Animation Speed",
       "desc": "Controls page transition and stagger speed",

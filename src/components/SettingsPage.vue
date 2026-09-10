@@ -325,11 +325,35 @@
         </div>
       </section>
 
-      <!-- 动画速率设置 -->
+      <!-- 动画设置：总开关 + 速率 -->
       <section class="settings-group" v-if="shouldShowGroup('animationSpeed')">
         <h3 class="group-title">{{ t('settings.groups.animation') }}</h3>
         <div class="group-card">
-          <div class="setting-item" v-if="shouldShowItem('animationSpeed')">
+          <div class="setting-item" v-if="shouldShowItem('animationEnabled')">
+            <div class="item-icon">
+              <i class="ri-magic-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.animationEnabled.label') }}</div>
+              <div class="desc">{{ t('settings.animationEnabled.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div class="segmented">
+                <button
+                  v-for="opt in animationEnabledOptions"
+                  :key="opt.value"
+                  class="seg-btn"
+                  :class="{ active: animationEnabled === opt.value }"
+                  @click="animationEnabled = opt.value"
+                >{{ t(opt.labelKey) }}</button>
+              </div>
+            </div>
+          </div>
+          <div
+            class="setting-item"
+            v-if="shouldShowItem('animationSpeed')"
+            :class="{ 'is-disabled': animationEnabled === 'off' }"
+          >
             <div class="item-icon">
               <i class="ri-speed-up-line" aria-hidden="true"></i>
             </div>
@@ -338,12 +362,13 @@
               <div class="desc">{{ t('settings.animationSpeed.desc') }}</div>
             </div>
             <div class="item-action">
-              <div class="segmented">
+              <div class="segmented" :class="{ disabled: animationEnabled === 'off' }">
                 <button
                   v-for="opt in animationSpeedOptions"
                   :key="opt.value"
                   class="seg-btn"
                   :class="{ active: animationSpeed === opt.value }"
+                  :disabled="animationEnabled === 'off'"
                   @click="animationSpeed = opt.value"
                 >{{ t(opt.labelKey) }}</button>
               </div>
@@ -924,6 +949,7 @@ const emit = defineEmits([
   'update:dev-mode',
   'update:user-name',
   'update:animation-speed',
+  'update:animation-enabled',
   'update:source-handling',
   'update:open-output-after-convert',
   'update:action-monitor',
@@ -942,11 +968,18 @@ const showOutputDialog = ref(false);
 const notificationEnabled = ref(true);
 const notificationMode = ref<NotificationMode>('both');
 type AnimationSpeed = 'slow' | 'normal' | 'fast';
+type AnimationEnabled = 'on' | 'off' | 'system';
 const animationSpeed = ref<AnimationSpeed>('normal');
+const animationEnabled = ref<AnimationEnabled>('system');
 const animationSpeedOptions: { value: AnimationSpeed; labelKey: string }[] = [
   { value: 'slow', labelKey: 'settings.animationSpeed.slow' },
   { value: 'normal', labelKey: 'settings.animationSpeed.normal' },
   { value: 'fast', labelKey: 'settings.animationSpeed.fast' },
+];
+const animationEnabledOptions: { value: AnimationEnabled; labelKey: string }[] = [
+  { value: 'on', labelKey: 'settings.animationEnabled.on' },
+  { value: 'system', labelKey: 'settings.animationEnabled.system' },
+  { value: 'off', labelKey: 'settings.animationEnabled.off' },
 ];
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>(props.sourceHandling ?? 'ask');
 const openOutputAfterConvert = ref<boolean>(props.openOutputAfterConvert ?? true);
@@ -1311,6 +1344,7 @@ const settingItems = [
   { id: 'conversionHistory', group: 'conversionHistory', label: t('settings.conversionHistory.label'), desc: t('settings.conversionHistory.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'updateSource', group: 'version', label: t('settings.updateSource.label'), desc: t('settings.updateSource.desc') },
+  { id: 'animationEnabled', group: 'animationSpeed', label: t('settings.animationEnabled.label'), desc: t('settings.animationEnabled.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
@@ -1532,6 +1566,7 @@ const confirmFactoryReset = async () => {
     localStorage.removeItem('sourceHandling');
     localStorage.removeItem('openOutputAfterConvert');
     localStorage.removeItem('animationSpeed');
+    localStorage.removeItem('animationEnabled');
     localStorage.removeItem('themeColor');
     localStorage.removeItem('language');
     showFactoryResetDialog.value = false;
@@ -1628,6 +1663,12 @@ onMounted(() => {
     animationSpeed.value = savedAnimationSpeed;
   }
   emit('update:animation-speed', animationSpeed.value);
+
+  const savedAnimationEnabled = localStorage.getItem('animationEnabled');
+  if (savedAnimationEnabled === 'on' || savedAnimationEnabled === 'off' || savedAnimationEnabled === 'system') {
+    animationEnabled.value = savedAnimationEnabled;
+  }
+  emit('update:animation-enabled', animationEnabled.value);
 
   invoke<any>('get_config')
     .then((cfg) => {
@@ -1764,6 +1805,11 @@ watch(notificationMode, (val) => {
 watch(animationSpeed, (val) => {
   localStorage.setItem('animationSpeed', val);
   emit('update:animation-speed', val);
+});
+
+watch(animationEnabled, (val) => {
+  localStorage.setItem('animationEnabled', val);
+  emit('update:animation-enabled', val);
 });
 
 watch(sourceHandling, (val) => {
@@ -2164,7 +2210,7 @@ const hexToHsv = (hex: string) => {
   flex: 0 0 auto;
 }
 .back-icon { font-size: 16px; line-height: 1; color: #111827; }
-.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-4px); }
+.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-2px); }
 .settings-scroll-area::-webkit-scrollbar-track { background: transparent; }
 
 @media (max-width: 720px) {
@@ -2231,6 +2277,8 @@ const hexToHsv = (hex: string) => {
 .setting-item:last-child { border-bottom: none; }
 .setting-item.clickable { cursor: pointer; }
 .setting-item.clickable:hover { background: rgba(0, 0, 0, 0.02); }
+.setting-item.is-disabled { opacity: 0.45; }
+.segmented.disabled { pointer-events: none; }
 
 .item-icon { width: 40px; color: #111827; display: inline-flex; align-items: center; justify-content: center; }
 .item-icon i { font-size: 20px; line-height: 1; }
@@ -2463,10 +2511,10 @@ const hexToHsv = (hex: string) => {
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
-  position: absolute; inset: 0; cursor: pointer; background-color: #e9e9eb; transition: .4s; border-radius: 34px;
+  position: absolute; inset: 0; cursor: pointer; background-color: #e9e9eb; transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 34px;
 }
 .slider:before {
-  position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
+  position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 .switch input:checked + .slider { background-color: var(--theme-color); }

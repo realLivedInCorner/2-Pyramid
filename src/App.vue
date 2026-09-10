@@ -88,19 +88,36 @@ import { resolveImageUrl } from "./utils/assetUrl";
  
  const animationStyle = ref<string>("fade-scale");
 type AnimationSpeed = "slow" | "normal" | "fast";
+type AnimationEnabled = "on" | "off" | "system";
 const animationSpeed = ref<AnimationSpeed>("normal");
+const animationEnabled = ref<AnimationEnabled>("system");
+const systemReducedMotion = ref(false);
 const devMode = ref<boolean>(false);
 const userName = ref<string>("");
- 
- const updateAnimationStyle = (value: string) => { 
-   animationStyle.value = value; 
-   localStorage.setItem("animationStyle", value); 
- }; 
+
+ const updateAnimationStyle = (value: string) => {
+   animationStyle.value = value;
+   localStorage.setItem("animationStyle", value);
+ };
 
  const updateAnimationSpeed = (value: AnimationSpeed) => {
    animationSpeed.value = value;
    localStorage.setItem("animationSpeed", value);
- }; 
+ };
+
+ const updateAnimationEnabled = (value: AnimationEnabled) => {
+   animationEnabled.value = value;
+   localStorage.setItem("animationEnabled", value);
+   applyMotionPreference();
+ };
+
+ /** 用户选「关」或「跟随系统且系统要求减少动效」时关闭界面动画。 */
+ const applyMotionPreference = () => {
+   const reduced =
+     animationEnabled.value === "off" ||
+     (animationEnabled.value === "system" && systemReducedMotion.value);
+   document.body.classList.toggle("motion-reduced", reduced);
+ };
   
  const applyThemeColor = (value: string) => { 
    if (!value) return; 
@@ -349,6 +366,8 @@ const closeWindow = async () => {
   };
   
  let focusUnlisten: UnlistenFn | null = null;
+ let reduceMotionMq: MediaQueryList | null = null;
+ let reduceMotionHandler: ((e: MediaQueryListEvent) => void) | null = null;
 
 onMounted(async () => {
   // (no per-mount window caching — see getWindow() above; we resolve
@@ -385,6 +404,21 @@ onMounted(async () => {
      if (savedAnimationSpeed === "slow" || savedAnimationSpeed === "normal" || savedAnimationSpeed === "fast") {
        animationSpeed.value = savedAnimationSpeed;
      }
+
+     const savedAnimationEnabled = localStorage.getItem("animationEnabled");
+     if (savedAnimationEnabled === "on" || savedAnimationEnabled === "off" || savedAnimationEnabled === "system") {
+       animationEnabled.value = savedAnimationEnabled;
+     }
+     try {
+       reduceMotionMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+       systemReducedMotion.value = reduceMotionMq.matches;
+       reduceMotionHandler = (e: MediaQueryListEvent) => {
+         systemReducedMotion.value = e.matches;
+         applyMotionPreference();
+       };
+       reduceMotionMq.addEventListener("change", reduceMotionHandler);
+     } catch { /* 老 WebView 无 matchMedia 时忽略 */ }
+     applyMotionPreference();
      
      // One-time cleanup: the close-action setting (ask / close /
      // minimize-to-tray) was removed from the app — purge any stale
@@ -515,6 +549,13 @@ onMounted(async () => {
     try { focusUnlisten(); } catch { /* ignore */ }
     focusUnlisten = null;
   }
+  if (reduceMotionMq && reduceMotionHandler) {
+    try {
+      reduceMotionMq.removeEventListener("change", reduceMotionHandler);
+    } catch { /* ignore */ }
+  }
+  reduceMotionMq = null;
+  reduceMotionHandler = null;
   uninstallActionMonitor();
  });
 
@@ -586,7 +627,7 @@ onMounted(async () => {
  
      <main class="main-content"> 
        <div class="page-content"> 
-         <Transition :name="animationStyle" mode="out-in"> 
+         <Transition :name="animationStyle"> 
            <div class="page-shell" :key="currentPage" :data-anim-speed="animationSpeed"> 
              <component
                :is="pageComponent"
@@ -594,6 +635,7 @@ onMounted(async () => {
                @switch-page="switchPage"
                @update:animation-style="updateAnimationStyle"
                @update:animation-speed="updateAnimationSpeed"
+               @update:animation-enabled="updateAnimationEnabled"
                @update:dev-mode="updateDevMode"
                @update:user-name="(v: string) => userName = v"
                @update:source-handling="(v: 'ask' | 'delete' | 'keep') => sourceHandling = v"
@@ -709,11 +751,52 @@ onMounted(async () => {
    --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.05); 
    --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.1); 
    --shadow-heavy: 0 8px 16px rgba(0, 0, 0, 0.15); 
-   --radius-small: 6px; 
-   --radius-medium: 12px; 
-   --radius-large: 20px; 
-   --radius-full: 50%; 
- } 
+   --radius-small: 6px;
+   --radius-medium: 12px;
+   --radius-large: 20px;
+   --radius-full: 50%;
+
+   /* ── Motion tokens ─────────────────────────────────────────
+      统一节奏：短、软、不对称（进略长、退略短）。
+      峰值延迟 + 时长控制在 ~0.6s 内，避免“舞台式”依次入场。 */
+   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+   --motion-micro: 150ms;
+   --motion-page-leave: 160ms;
+   --motion-page-enter: 240ms;
+   --motion-stagger-dur: 280ms;
+   --motion-stagger-step: 36ms;
+   --motion-stagger-base: 0ms;
+   --motion-dialog-enter: 240ms;
+   --motion-dialog-leave: 160ms;
+   --motion-dialog-quick-enter: 180ms;
+   --motion-dialog-quick-leave: 120ms;
+   --motion-toast-enter: 280ms;
+   --motion-toast-leave: 180ms;
+ }
+
+ /* 设置「关闭动画」或系统 prefers-reduced-motion 时，整体压到近零。 */
+ body.motion-reduced *,
+ body.motion-reduced *::before,
+ body.motion-reduced *::after {
+   animation-duration: 0.01ms !important;
+   animation-delay: 0ms !important;
+   animation-iteration-count: 1 !important;
+   transition-duration: 0.01ms !important;
+   transition-delay: 0ms !important;
+   scroll-behavior: auto !important;
+ }
+
+ /* 加载态例外：转圈是状态反馈，不是装饰，reduced 下保留。 */
+ body.motion-reduced .spin,
+ body.motion-reduced .ri-spin,
+ body.motion-reduced .loading,
+ body.motion-reduced [class*="spin"] {
+   animation-duration: 1s !important;
+   animation-iteration-count: infinite !important;
+   animation-timing-function: linear !important;
+ }
  
  
  .app-container { 
@@ -1007,18 +1090,18 @@ onMounted(async () => {
  } 
  
  
- .window-button { 
-   width: 36px; 
-   height: 36px; 
-   border: none; 
-   background: transparent; 
-   color: var(--text-color); 
-   display: flex; 
-   align-items: center; 
-   justify-content: center; 
-   cursor: pointer; 
-   border-radius: 6px; 
-   transition: all 0.2s ease; 
+ .window-button {
+   width: 36px;
+   height: 36px;
+   border: none;
+   background: transparent;
+   color: var(--text-color);
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   cursor: pointer;
+   border-radius: 6px;
+   transition: background-color var(--motion-micro) var(--ease-in-out);
    font-size: 14px; 
    -webkit-app-region: no-drag; 
    vertical-align: middle; 
@@ -1260,26 +1343,33 @@ onMounted(async () => {
    opacity: 0; 
  } 
  
- .fade-scale-enter-active,
- .fade-scale-leave-active {
-   transition: opacity 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+ /* 页面切换：交叉淡入淡出（非 out-in），避免中间空窗。
+   退场：旧页整体淡出。
+   进场：新页容器不压 opacity，由子节点 stagger 自己浮现——
+   旧页仍在下层淡出时，新内容从透明里长出来，衔接不断档。 */
+ .fade-scale-enter-active {
+   transition: transform var(--motion-page-enter) var(--ease-out);
    position: absolute;
    top: 0;
    left: 0;
    width: 100%;
    height: 100%;
- }
-
- .fade-scale-enter-active {
    z-index: 2;
  }
 
  .fade-scale-leave-active {
+   transition: opacity var(--motion-page-leave) var(--ease-in);
+   position: absolute;
+   top: 0;
+   left: 0;
+   width: 100%;
+   height: 100%;
    z-index: 1;
+   pointer-events: none;
  }
 
  .fade-scale-enter-from {
-   opacity: 0;
+   transform: translateY(4px);
  }
 
  .fade-scale-leave-to {
@@ -1287,7 +1377,7 @@ onMounted(async () => {
  }
 
  .fade-scale-enter-to {
-   opacity: 1;
+   transform: translateY(0);
  }
 
  .fade-scale-leave-from {
@@ -1295,86 +1385,53 @@ onMounted(async () => {
  }
 
  /*
-  * Page-entry stagger — replaces the old whole-page fade/scale wipe so
-  * each top-level block of the freshly-mounted page animates in one after
-  * another (top-to-bottom) instead of the whole page appearing as one
-  * block. The outer fade-scale transition above still handles the cross-page
-  * swap, this only governs the children of the freshly-mounted page.
+  * Page-entry stagger — 用 CSS 变量驱动延迟，避免旧版“舞台式”
+  * 0.18s→0.90s 阶梯（最后一项要等到 ~1.4s 才落位）。新节奏：
+  * 每项间隔 36ms，单项 280ms，整页约 0.6s 内完成。
   *
-  * IMPORTANT — selector shape: `.page-shell > *` would target the entire
-  * page root component (e.g. `.fanhua-home` for HomePage, `.conversion-page`
-  * for ConversionPage, etc.), which is a SINGLE element per page-shell. That
-  * would (a) leave nth-child(2..10) matching nothing, and (b) hide the whole
-  * page since that single root would receive `opacity: 0` and only animate
-  * in after the longest delay. Use the two-level `.page-shell > * > *`
-  * selector so we stagger the page root's DIRECT children (header, main,
-  * dock-wrap, …) instead of the root itself.
-  *
-  * Because Vue's <Transition :key="currentPage"> mode="out-in" mounts a
-  * fresh .page-shell on every page swap, the CSS `animation` below plays
-  * from frame 1 every time — no JS hook needed.
-  *
-  * Speed is controlled by the `data-anim-speed` attribute on .page-shell,
-  * which is bound from App.vue's animationSpeed state (slow/normal/fast).
-  * The selector `[data-anim-speed="fast"] > * > *` overrides the default
-  * delays for that speed; default (no attribute or "normal") uses the
-  * base values below.
+  * 选择器仍是 `.page-shell > * > *`（页面根的直接子节点），
+  * 跳过 dialog / sidebar 等浮层，避免它们被 opacity:0 压住。
   */
  .page-shell > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
    opacity: 0;
-   animation: stagger-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+   animation: stagger-rise var(--motion-stagger-dur) var(--ease-out) forwards;
+   animation-delay: calc(
+     var(--motion-stagger-base) + var(--stagger-i, 0) * var(--motion-stagger-step)
+   );
  }
- .page-shell > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.18s; }
- .page-shell > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.26s; }
- .page-shell > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.34s; }
- .page-shell > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.42s; }
- .page-shell > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.50s; }
- .page-shell > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.58s; }
- .page-shell > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.66s; }
- .page-shell > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.74s; }
- .page-shell > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.82s; }
- .page-shell > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { animation-delay: 0.90s; }
+ .page-shell > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 0; }
+ .page-shell > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 1; }
+ .page-shell > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 2; }
+ .page-shell > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 3; }
+ .page-shell > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 4; }
+ .page-shell > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 5; }
+ .page-shell > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 6; }
+ .page-shell > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 7; }
+ .page-shell > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 8; }
+ .page-shell > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { --stagger-i: 9; }
 
- /* Slow mode: 1.5× duration, +60ms between siblings, longer start delay */
- .page-shell[data-anim-speed="slow"] > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
-   animation-duration: 0.75s;
+ .page-shell[data-anim-speed="slow"] {
+   --motion-stagger-dur: 360ms;
+   --motion-stagger-step: 52ms;
+   --motion-stagger-base: 20ms;
  }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.25s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.40s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.55s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.70s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.85s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.00s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.15s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.30s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 1.45s; }
- .page-shell[data-anim-speed="slow"] > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { animation-delay: 1.60s; }
 
- /* Fast mode: 0.6× duration, -60ms between siblings, near-zero start delay */
- .page-shell[data-anim-speed="fast"] > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
-   animation-duration: 0.3s;
+ .page-shell[data-anim-speed="fast"] {
+   --motion-stagger-dur: 200ms;
+   --motion-stagger-step: 24ms;
+   --motion-stagger-base: 0ms;
  }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.05s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.10s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.15s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.20s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.25s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.30s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.35s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.40s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { animation-delay: 0.45s; }
- .page-shell[data-anim-speed="fast"] > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { animation-delay: 0.50s; }
 
  @keyframes stagger-rise {
    from {
      opacity: 0;
-     transform: translateY(10px);
+     transform: translateY(8px);
    }
    to {
      opacity: 1;
      transform: translateY(0);
    }
- } 
+ }
  
  .slide-enter-active, 
  .slide-leave-active { 
@@ -1453,19 +1510,20 @@ onMounted(async () => {
    transform: rotateY(0deg) translateZ(0); 
  } 
  
- .float-ripple-btn { 
-   position: relative; 
-   overflow: hidden; 
-   transition: all 0.3s ease; 
- } 
- 
- .float-ripple-btn:hover { 
-   transform: translateY(-3px); 
-   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); 
- } 
- 
- .float-ripple-btn:active { 
-   transform: translateY(-1px); 
+ .float-ripple-btn {
+   position: relative;
+   overflow: hidden;
+   transition: transform var(--motion-micro) var(--ease-in-out),
+     box-shadow var(--motion-micro) var(--ease-in-out);
+ }
+
+ .float-ripple-btn:hover {
+   transform: translateY(-1px);
+   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+ }
+
+ .float-ripple-btn:active {
+   transform: translateY(0);
  } 
  
  .float-ripple-btn::after { 
@@ -1581,10 +1639,24 @@ onMounted(async () => {
 }
 .toast-close:hover { background: rgba(0, 0, 0, 0.1); color: #1d1d1f; }
 
-.toast-slide-enter-active { transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.toast-slide-leave-active { transition: all 0.25s ease-in; }
-.toast-slide-enter-from { opacity: 0; transform: translateX(40px); }
-.toast-slide-leave-to { opacity: 0; transform: translateX(40px); }
+.toast-slide-enter-active {
+  transition:
+    opacity var(--motion-toast-enter) var(--ease-out),
+    transform var(--motion-toast-enter) var(--ease-out);
+}
+.toast-slide-leave-active {
+  transition:
+    opacity var(--motion-toast-leave) var(--ease-in),
+    transform var(--motion-toast-leave) var(--ease-in);
+}
+.toast-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+}
 
 /* ── Conversion-in-progress guard dialog ────────────── */
 /* OOBE 覆盖层的淡入淡出（工厂重置 → 首次启动引导的过渡） */
@@ -1674,66 +1746,114 @@ onMounted(async () => {
   background: #e2e8f0;
 }
 
-.dialog-pop-enter-active,
-.dialog-pop-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+/* 弹层：遮罩只做透明度，面板单独软缩放。
+   整层 scale 会把半透明遮罩一起“呼吸”，衔接发飘。 */
+.dialog-pop-enter-active {
+  transition: opacity var(--motion-dialog-enter) var(--ease-out);
 }
-
+.dialog-pop-leave-active {
+  transition: opacity var(--motion-dialog-leave) var(--ease-in);
+  pointer-events: none;
+}
 .dialog-pop-enter-from,
 .dialog-pop-leave-to {
   opacity: 0;
-  transform: scale(0.95);
+}
+.dialog-pop-enter-active .dialog-content,
+.dialog-pop-enter-active .conv-guard {
+  transition: transform var(--motion-dialog-enter) var(--ease-out);
+}
+.dialog-pop-enter-from .dialog-content,
+.dialog-pop-enter-from .conv-guard {
+  transform: scale(0.96) translateY(8px);
+}
+.dialog-pop-enter-to .dialog-content,
+.dialog-pop-enter-to .conv-guard {
+  transform: none;
+}
+.dialog-pop-leave-active .dialog-content,
+.dialog-pop-leave-active .conv-guard {
+  transition: transform var(--motion-dialog-leave) var(--ease-in);
+}
+.dialog-pop-leave-to .dialog-content,
+.dialog-pop-leave-to .conv-guard {
+  transform: scale(0.98);
 }
 
-/* Faster sibling of dialog-pop, used by small quick dialogs
-   (OverlayPage create/import, SettingsPage compact dialogs). */
+/* 小快捷弹窗 */
 .dialog-pop-quick-enter-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity var(--motion-dialog-quick-enter) var(--ease-out);
 }
 .dialog-pop-quick-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition: opacity var(--motion-dialog-quick-leave) var(--ease-in);
+  pointer-events: none;
 }
 .dialog-pop-quick-enter-from,
 .dialog-pop-quick-leave-to {
   opacity: 0;
-  transform: scale(0.96);
+}
+.dialog-pop-quick-enter-active .dialog-content,
+.dialog-pop-quick-enter-active .conv-guard {
+  transition: transform var(--motion-dialog-quick-enter) var(--ease-out);
+}
+.dialog-pop-quick-enter-from .dialog-content,
+.dialog-pop-quick-enter-from .conv-guard {
+  transform: scale(0.97) translateY(4px);
+}
+.dialog-pop-quick-enter-to .dialog-content,
+.dialog-pop-quick-enter-to .conv-guard {
+  transform: none;
+}
+.dialog-pop-quick-leave-active .dialog-content,
+.dialog-pop-quick-leave-active .conv-guard {
+  transition: transform var(--motion-dialog-quick-leave) var(--ease-in);
+}
+.dialog-pop-quick-leave-to .dialog-content,
+.dialog-pop-quick-leave-to .conv-guard {
+  transform: scale(0.99);
 }
 
-/* dialog-pop-fast: snappy enter, slow leave (ConversionPage version
-   picker needs 700ms leave so the inner version-card spring can play
-   out before the overlay disappears). */
+/* 版本选择器等：遮罩淡入淡出，面板由侧栏钩子单独驱动。 */
 .dialog-pop-fast-enter-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 200ms var(--ease-out);
 }
 .dialog-pop-fast-leave-active {
-  transition: opacity 0.7s ease, transform 0.7s ease;
+  transition: opacity 240ms var(--ease-in);
+  pointer-events: none;
 }
 .dialog-pop-fast-enter-from,
 .dialog-pop-fast-leave-to {
   opacity: 0;
-  transform: scale(0.95);
 }
 
-/* OverlayPage header status toast: slides down from the top, fades out. */
+/* OverlayPage header status toast: soft drop from the top. */
 .header-status-toast-enter-active {
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    opacity var(--motion-toast-enter) var(--ease-out),
+    transform var(--motion-toast-enter) var(--ease-out);
 }
 .header-status-toast-leave-active {
-  transition: all 0.25s ease-in;
+  transition:
+    opacity var(--motion-toast-leave) var(--ease-in),
+    transform var(--motion-toast-leave) var(--ease-in);
 }
 .header-status-toast-enter-from {
   opacity: 0;
-  transform: translateY(-16px);
+  transform: translateY(-10px);
 }
 .header-status-toast-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-4px);
 }
 
-/* ConversionPage version-picker sidebar overlay: plain opacity fade. */
-.sidebar-overlay-fade-enter-active,
+/* ConversionPage version-picker sidebar overlay:
+   进出场与侧栏面板时长对齐，避免遮罩先走/后走造成的断层。 */
+.sidebar-overlay-fade-enter-active {
+  transition: opacity 200ms var(--ease-out);
+}
 .sidebar-overlay-fade-leave-active {
-  transition: opacity 0.25s ease;
+  transition: opacity 240ms var(--ease-in);
+  pointer-events: none;
 }
 .sidebar-overlay-fade-enter-from,
 .sidebar-overlay-fade-leave-to {
