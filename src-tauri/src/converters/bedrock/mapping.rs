@@ -233,6 +233,70 @@ pub fn bedrock_to_java_stem(stem: &str) -> Option<String> {
     None
 }
 
+/// Bedrock 药水物品栏文件名（vanilla effect 变体）。Java 单图需铺满这些名。
+pub fn bedrock_potion_variant_names() -> &'static [&'static str] {
+    &[
+        "potion_bottle_drinkable",
+        "potion_bottle_empty",
+        "potion_bottle_moveSpeed",
+        "potion_bottle_moveSlowdown",
+        "potion_bottle_digSpeed",
+        "potion_bottle_damageBoost",
+        "potion_bottle_heal",
+        "potion_bottle_harm",
+        "potion_bottle_jump",
+        "potion_bottle_confusion",
+        "potion_bottle_regeneration",
+        "potion_bottle_resistance",
+        "potion_bottle_fireResistance",
+        "potion_bottle_waterBreathing",
+        "potion_bottle_invisibility",
+        "potion_bottle_blindness",
+        "potion_bottle_nightVision",
+        "potion_bottle_hunger",
+        "potion_bottle_weakness",
+        "potion_bottle_poison",
+        "potion_bottle_wither",
+        "potion_bottle_healthBoost",
+        "potion_bottle_absorption",
+        "potion_bottle_saturation",
+        "potion_bottle_levitation",
+        "potion_bottle_luck",
+        "potion_bottle_turtleMaster",
+        "potion_bottle_slowFall",
+        "potion_bottle_windCharged",
+        "potion_bottle_weaving",
+        "potion_bottle_oozing",
+        "potion_bottle_infested",
+    ]
+}
+
+pub fn bedrock_splash_potion_variant_names() -> &'static [&'static str] {
+    &[
+        "potion_bottle_splash",
+        "potion_bottle_splash_moveSpeed",
+        "potion_bottle_splash_moveSlowdown",
+        "potion_bottle_splash_damageBoost",
+        "potion_bottle_splash_heal",
+        "potion_bottle_splash_harm",
+        "potion_bottle_splash_jump",
+        "potion_bottle_splash_regeneration",
+        "potion_bottle_splash_fireResistance",
+        "potion_bottle_splash_waterBreathing",
+        "potion_bottle_splash_invisibility",
+        "potion_bottle_splash_nightVision",
+        "potion_bottle_splash_weakness",
+        "potion_bottle_splash_poison",
+        "potion_bottle_splash_wither",
+        "potion_bottle_splash_turtleMaster",
+        "potion_bottle_splash_slowFall",
+        "potion_bottle_splash_windCharged",
+        "potion_bottle_splash_weaving",
+        "potion_bottle_splash_oozing",
+        "potion_bottle_splash_infested",
+    ]
+}
+
 /// `en_us` ↔ `en_US`
 pub fn normalize_bedrock_lang_code(java_code: &str) -> String {
     if let Some((lang, region)) = java_code.split_once('_') {

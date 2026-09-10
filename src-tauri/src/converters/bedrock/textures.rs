@@ -9,7 +9,10 @@ use super::fsutil::{
     merge_dir, move_contents_up, remove_dir_quiet, remove_file_quiet, rename_dir_if_absent,
     rename_stems_in_dir,
 };
-use super::mapping::{bedrock_to_java_stem, java_to_bedrock_stem};
+use super::mapping::{
+    bedrock_potion_variant_names, bedrock_splash_potion_variant_names, bedrock_to_java_stem,
+    java_to_bedrock_stem,
+};
 
 /// j2b：提升 textures、item/block → items/blocks、改名、gui→ui、flipbook。
 pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Path) -> Result<(), String> {
@@ -75,6 +78,8 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
     ensure_crossbow_standby_files(textures_dst);
     // 药水 overlay 等常见物品栏文件
     ensure_potion_item_files(textures_dst);
+    // 快捷栏 / 背包 UI
+    convert_java_hud_to_bedrock_ui(textures_dst);
     // 实体：Java 嵌套路径旁再放 Bedrock 常用扁平名
     alias_entity_textures(textures_dst);
 
@@ -205,6 +210,75 @@ fn ensure_potion_item_files(textures_dst: &Path) {
         if src.is_file() && !dst.exists() {
             let _ = fs::copy(&src, &dst);
         }
+    }
+
+    // Java 常只有 potion.png 一张图；Bedrock 按 effect 分文件。
+    let drink = items.join("potion_bottle_drinkable.png");
+    if drink.is_file() {
+        for name in bedrock_potion_variant_names() {
+            let dst = items.join(format!("{}.png", name));
+            if !dst.exists() {
+                let _ = fs::copy(&drink, &dst);
+            }
+        }
+    }
+    let splash = items.join("potion_bottle_splash.png");
+    if splash.is_file() {
+        for name in bedrock_splash_potion_variant_names() {
+            let dst = items.join(format!("{}.png", name));
+            if !dst.exists() {
+                let _ = fs::copy(&splash, &dst);
+            }
+        }
+    }
+}
+
+/// 从 Java gui/icons.png 裁出快捷栏；inventory 直接落到 ui/inventory.png。
+fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
+    let ui = textures_dst.join("ui");
+    let _ = fs::create_dir_all(&ui);
+
+    // 背包 GUI：container/inventory.png（已扁平到 ui/inventory.png 或仍在 container）
+    for src in [
+        ui.join("inventory.png"),
+        textures_dst.join("gui").join("container").join("inventory.png"),
+        textures_dst.join("gui").join("inventory.png"),
+    ] {
+        if src.is_file() {
+            let dst = ui.join("inventory.png");
+            if src != dst && !dst.exists() {
+                let _ = fs::copy(&src, &dst);
+            }
+            break;
+        }
+    }
+
+    // 快捷栏：从 icons.png 裁 (0,0,182,22)（按图集倍数缩放）
+    let icons = ui.join("icons.png");
+    if !icons.is_file() {
+        return;
+    }
+    let Ok(img) = image::open(&icons) else { return };
+    let (w, h) = (img.width(), img.height());
+    // Java icons 标准 256x256；HD 常为 2x/4x
+    let scale = if w >= 1024 {
+        4
+    } else if w >= 512 {
+        2
+    } else {
+        1
+    };
+    let hw = 182 * scale;
+    let hh = 22 * scale;
+    if w < hw || h < hh {
+        return;
+    }
+    let crop = image::imageops::crop_imm(&img, 0, 0, hw, hh).to_image();
+    let dst = ui.join("hotbar.png");
+    if let Err(e) = crop.save(&dst) {
+        crate::log_warn!("bedrock hotbar crop failed: {}", e);
+    } else {
+        log_info!("OKAY bedrock [icons.png → ui/hotbar.png {}x{}]", hw, hh);
     }
 }
 
@@ -731,6 +805,37 @@ mod tests {
         // 不生成 atlas
         assert!(!root.join("textures/item_texture.json").exists());
         assert!(!root.join("textures/terrain_texture.json").exists());
+    }
+
+    #[test]
+    fn test_potion_variants_and_hotbar_crop() {
+        let temp = tempdir().unwrap();
+        let root = temp.path();
+        let mc = root.join("assets/minecraft");
+        let tex = mc.join("textures");
+        fs::create_dir_all(tex.join("item")).unwrap();
+        fs::create_dir_all(tex.join("gui")).unwrap();
+        fs::write(tex.join("item/potion.png"), b"p").unwrap();
+        fs::write(tex.join("item/splash_potion.png"), b"s").unwrap();
+        // 256x256 纯色 icons（含左上角快捷栏区域）
+        let mut img = image::RgbaImage::from_pixel(256, 256, image::Rgba([10, 20, 30, 255]));
+        image::imageops::replace(&mut img, &image::RgbaImage::from_pixel(182, 22, image::Rgba([200, 0, 0, 255])), 0, 0);
+        img.save(tex.join("gui/icons.png")).unwrap();
+        fs::create_dir_all(tex.join("gui/container")).unwrap();
+        fs::write(tex.join("gui/container/inventory.png"), b"inv").unwrap();
+
+        move_java_font_to_bedrock(&mc, root);
+        reorganize_java_textures_for_bedrock(&mc, &root.join("textures")).unwrap();
+
+        assert!(root.join("textures/items/potion_bottle_drinkable.png").exists());
+        assert!(root.join("textures/items/potion_bottle_moveSpeed.png").exists());
+        assert!(root.join("textures/items/potion_bottle_regeneration.png").exists());
+        assert!(root.join("textures/items/potion_bottle_splash_heal.png").exists());
+        assert!(root.join("textures/ui/hotbar.png").exists());
+        assert!(root.join("textures/ui/inventory.png").exists());
+        let hb = image::open(root.join("textures/ui/hotbar.png")).unwrap();
+        assert_eq!(hb.width(), 182);
+        assert_eq!(hb.height(), 22);
     }
 
     #[test]
