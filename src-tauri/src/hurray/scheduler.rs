@@ -71,8 +71,11 @@ impl ConversionMaps {
         forward.insert((69, 75), vec![]);
         forward.insert((75, 84), vec![]);
         forward.insert((84, 88), vec![]);
+        // Bedrock：从最新 Java 26.2（88）转入；保留 84→1000 兼容旧路径
         forward.insert((84, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
+        forward.insert((88, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
 
+        reverse.insert((1000, 88), vec!["bedrock_bedrock_to_java".to_string()]);
         reverse.insert((1000, 84), vec!["bedrock_bedrock_to_java".to_string()]);
         reverse.insert((88, 84), vec![]);
         reverse.insert((84, 75), vec![]);

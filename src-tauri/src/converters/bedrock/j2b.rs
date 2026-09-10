@@ -12,7 +12,7 @@ use super::metadata::{
 };
 use super::textures::{move_java_font_to_bedrock, reorganize_java_textures_for_bedrock};
 
-/// 把已转换到 1.21.11 的 Java 包目录重组为基岩版结构。
+/// 把已转换到最新 Java 26.2（format 88）的包目录重组为基岩版结构。
 pub fn convert_java_to_bedrock(temp_dir: &Path, pack_name: &str) -> Result<(), String> {
     let pack_png = temp_dir.join("pack.png");
     if pack_png.exists() {

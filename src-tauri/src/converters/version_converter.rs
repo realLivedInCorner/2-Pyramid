@@ -494,7 +494,8 @@ pub fn process_zip(
     // 目标为 Bedrock（1000）或输入为 Bedrock 包时的编排。
     // 结构转换逻辑在 converters/bedrock/*；此处只调度 Scheduler 边任务。
     let is_bedrock_target = pack_format2 == 1000;
-    let java_target = if is_bedrock_target { 75 } else { pack_format2 };
+    // Bedrock 中间态统一到最新 Java 26.2（pack_format 88），再经边 (88→1000) 重组
+    let java_target = if is_bedrock_target { 88 } else { pack_format2 };
 
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
@@ -504,8 +505,9 @@ pub fn process_zip(
     let mut source_version: u32;
     if crate::converters::bedrock::is_bedrock_resource_pack(temp_dir.path()) {
         log_info!("detected Bedrock resource pack source; running b2j first");
-        run_bedrock_edge_task(temp_dir.path(), 1000, 84, "Converted Pack")?;
-        source_version = 75;
+        // b2j 产出 Java 26.2（88）树
+        run_bedrock_edge_task(temp_dir.path(), 1000, 88, "Converted Pack")?;
+        source_version = 88;
         let pack_meta_path = temp_dir.path().join("pack.mcmeta");
         if pack_meta_path.exists() {
             if let Ok(v) = read_pack_format(&pack_meta_path) {
@@ -523,7 +525,7 @@ pub fn process_zip(
     }
     log_info!("detected pack_format: {}", source_version);
     if is_bedrock_target {
-        log_info!("bedrock target: convert to Java 1.21.11 (75) first");
+        log_info!("bedrock target: convert to Java 26.2 (format 88) first, then j2b");
     }
 
     // Bedrock 目标时 Java 中间态跳过 GuiSurgeon，避免 sprite 手术干扰 j2b
@@ -547,7 +549,8 @@ pub fn process_zip(
             .and_then(|s| s.to_str())
             .unwrap_or("resource_pack");
         let pack_name = strip_version_prefix(base_name);
-        run_bedrock_edge_task(temp_dir.path(), 84, 1000, &pack_name)?;
+        // 26.2 → Bedrock
+        run_bedrock_edge_task(temp_dir.path(), 88, 1000, &pack_name)?;
     }
 
     let output_path = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;
