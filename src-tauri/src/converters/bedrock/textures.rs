@@ -36,6 +36,13 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
         remove_dir_quiet(&gui_dir);
         log_info!("OKAY bedrock [textures/gui -> textures/ui]");
     }
+    // gui/container/* 扁平到 ui/（Bedrock 读 ui/widgets.png 而非 ui/container/widgets.png）
+    let container = ui_dir.join("container");
+    if container.exists() {
+        move_contents_up(&container, &ui_dir)?;
+        remove_dir_quiet(&container);
+        log_info!("OKAY bedrock [textures/ui/container 扁平化]");
+    }
     let creative = ui_dir.join("creative_inventory");
     if creative.exists() {
         move_contents_up(&creative, &ui_dir)?;

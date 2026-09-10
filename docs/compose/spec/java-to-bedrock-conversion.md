@@ -1,9 +1,9 @@
 ---
 feature: java-to-bedrock-conversion
-status: delivered
+status: in-progress
 updated: 2026-08-23
 branch: feat/java-bedrock-convert
-commits: b7524b5..86f41c5
+commits: b7524b5..3e90121
 ---
 
 # Java ↔ Bedrock 资源包双向转换
@@ -20,6 +20,7 @@ commits: b7524b5..86f41c5
 - j2b 须在删除 `pack.mcmeta` **之前**读取 description；font 须在 textures 提升前抽出。
 - GuiSurgeon 在 Bedrock 中间态跳过（`invoke_conversion_ex`）。
 - atlas shortname / flipbook `atlas_tile` 统一用文件名 stem；sounds 可能在包根或 `sounds/`。
+- 实测修正：netherite 在 Bedrock 与 Java **同名**，先前 `*_netherite` 改写是错误的；药水/床/草/UI container 需按 vanilla item_texture 对齐。
 
 ## [S1] Problem
 
@@ -191,6 +192,10 @@ b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 - [x] T8: colormap 目录互转 — acceptance: j2b `colormap→colormaps`；b2j 反向 (covers: S2 网络调研)
 - [x] T9: 音效双写/双读 — acceptance: j2b 同时写 `sounds/sound_definitions.json` 与包根 `sounds.json`；b2j 优先根目录再 sounds/ (covers: S2 网络调研)
 - [x] T10: 回归验证 — acceptance: `cargo test --offline` 全绿；`npm run build` PASS (covers: S2)
+
+用户实测反馈修正（T11）：
+
+- [x] T11: 修复可见贴图 — 药水 bottle 命名、bed 颜色前缀、grass_block_*、**撤销**错误的 netherite→*_netherite、gui/container 扁平到 ui/、totem/slimeball 等别名 — acceptance: mapping 单测 + bedrock 过滤测试通过 (covers: S2 网络调研)
 
 模块约束不变：逻辑落在 `textures.rs` / `metadata.rs`（或新增小函数），各模块保留 `#[cfg(test)]`；Scheduler 挂载方式不变。
 
