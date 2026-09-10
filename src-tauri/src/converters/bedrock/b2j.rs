@@ -1,4 +1,4 @@
-//! b2j：Bedrock 包目录 → Java 1.21.11 风格树。
+//! b2j：Bedrock 包目录 → 最新 Java 26.2 风格树（pack_format 88）。
 
 use std::fs;
 use std::path::Path;
@@ -14,7 +14,7 @@ use super::textures::{
     move_bedrock_font_to_java, move_bedrock_ui_to_java_gui, reorganize_bedrock_textures_for_java,
 };
 
-/// 把 Bedrock 资源包目录重组为 Java 风格树（pack_format 75）。
+/// 把 Bedrock 资源包目录重组为 Java 风格树（pack_format 88 / 26.2）。
 pub fn convert_bedrock_to_java(temp_dir: &Path) -> Result<(String, String), String> {
     let (pack_name, description) = read_manifest_info(temp_dir);
 
@@ -34,8 +34,9 @@ pub fn convert_bedrock_to_java(temp_dir: &Path) -> Result<(String, String), Stri
     convert_sounds_bedrock_to_java(temp_dir, &minecraft);
     strip_bedrock_only(temp_dir, &minecraft);
 
-    write_pack_mcmeta(temp_dir, 75, &description)?;
-    log_info!("OKAY java [pack.mcmeta format=75]");
+    // 统一落到最新 Java 26.2（format 88），后续流水线再转到用户目标
+    write_pack_mcmeta(temp_dir, 88, &description)?;
+    log_info!("OKAY java [pack.mcmeta format=88]");
     Ok((pack_name, description))
 }
 
@@ -74,7 +75,7 @@ mod tests {
         assert!(!root.join("attachables").exists());
         let mc: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(root.join("pack.mcmeta")).unwrap()).unwrap();
-        assert_eq!(mc["pack"]["pack_format"], 75);
+        assert_eq!(mc["pack"]["pack_format"], 88);
         assert_eq!(mc["pack"]["description"], "说明");
     }
 }
