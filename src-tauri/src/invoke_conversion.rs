@@ -535,6 +535,9 @@ pub fn invoke_conversion(
             .map_err(|e| e.to_string())
     });
 
+    // 基岩 ↔ Java 结构转换：逻辑在 converters/bedrock/*，此处仅注册到 Scheduler
+    crate::converters::bedrock::register_tasks(&mut scheduler);
+
     log_debug!("all mapping table tasks registered");
 
     // ── 通过 Engine 执行 ──
