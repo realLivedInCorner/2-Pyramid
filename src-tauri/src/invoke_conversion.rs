@@ -91,6 +91,19 @@ pub fn invoke_conversion(
     target_version: u32,
     source_version: u32,
 ) -> Result<(), Box<dyn Error>> {
+    invoke_conversion_ex(target_path, work_dir, target_version, source_version, true)
+}
+
+/// 与 [`invoke_conversion`] 相同，可控制是否执行 GuiSurgeon。
+/// 通向 Bedrock 的 Java 中间态应传 `run_gui_surgeon=false`，
+/// 避免 1.21 sprite 手术干扰后续 `gui/** → textures/ui` 重组。
+pub fn invoke_conversion_ex(
+    target_path: &Path,
+    work_dir: &Path,
+    target_version: u32,
+    source_version: u32,
+    run_gui_surgeon: bool,
+) -> Result<(), Box<dyn Error>> {
     use crate::{log_info, log_debug, log_warn};
     log_info!("==============================");
     log_info!("2-Pyramid DTD engine start");
@@ -556,11 +569,8 @@ pub fn invoke_conversion(
 
     scheduler.execute_version_conversion(&context, &mut texture_pool, source_version, target_version)?;
 
-    // Only run GuiSurgeon for target versions >= 34 (Java 1.21+)
-    // which use sprite-based UI. Pre-1.21 versions rely on atlas-based
-    // UI (inventory.png, etc.) — running GuiSurgeon would delete those
-    // atlas files and cause Minecraft to fall back to vanilla defaults.
-    if target_version >= 34 {
+    // GuiSurgeon：Java 1.21+ sprite UI。Bedrock 中间态跳过（见 invoke_conversion_ex）。
+    if run_gui_surgeon && target_version >= 34 {
         let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
         let _ = resolution.detect_resolution(work_dir);
         crate::converters::gui_surgeon::GuiSurgeon::execute_transformation(

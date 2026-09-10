@@ -390,7 +390,7 @@ const showBedrockWarn = ref(false);
 const versionSidebar = ref<HTMLElement | null>(null);
 const showItemsDialog = ref(false);
 const previewLimit = 3;
-// 拖入不受支持的文件（如 .mcpack）时的提示
+// 拖入不支持的扩展名时的提示（当前 zip/mcpack 均接受）
 const dropHint = ref('');
 let dropHintTimer: ReturnType<typeof setTimeout> | null = null;
 

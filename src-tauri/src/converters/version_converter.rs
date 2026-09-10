@@ -526,11 +526,13 @@ pub fn process_zip(
         log_info!("bedrock target: convert to Java 1.21.11 (75) first");
     }
 
-    crate::invoke_conversion::invoke_conversion(
+    // Bedrock 目标时 Java 中间态跳过 GuiSurgeon，避免 sprite 手术干扰 j2b
+    crate::invoke_conversion::invoke_conversion_ex(
         input_zip,
         temp_dir.path(),
         java_target,
         source_version,
+        !is_bedrock_target,
     )
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
 
