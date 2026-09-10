@@ -22,11 +22,102 @@ pub fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
     copy_java_sprite_hud(textures_dst, &ui);
     flatten_java120_ui_sprite_dirs(&ui);
     extract_from_icons_atlas(&ui);
+    // Bedrock HUD 主要读 textures/gui/icons.png（可用包均保留该文件）
+    ensure_bedrock_icons_atlas(textures_dst, &ui);
     // Bedrock 容器 UV 按 256/512 POT 资源；Java 常为 176×166 等，需垫到 POT
     pad_container_textures_to_pot(&ui);
 }
 
-/// Java 1.20+ 将 GUI 拆到 `ui/<name>/container.png`、`ui/heart/full.png` 等子目录。
+/// Bedrock HUD 以 `textures/gui/icons.png` 为准（可用包均含此文件）。
+/// 1) 源已有 icons.png → 放到 gui/icons.png  
+/// 2) 仅有 1.20+ sprites → 按 Java UV 拼一张 icons 图集
+fn ensure_bedrock_icons_atlas(textures_dst: &Path, ui: &Path) {
+    let gui = textures_dst.join("gui");
+    let _ = fs::create_dir_all(&gui);
+    let gui_icons = gui.join("icons.png");
+
+    // 已有 ui/icons.png 或 gui/icons.png
+    for src in [ui.join("icons.png"), gui_icons.clone()] {
+        if src.is_file() {
+            if src != gui_icons {
+                let _ = fs::copy(&src, &gui_icons);
+            }
+            log_info!("OKAY bedrock [gui/icons.png]");
+            return;
+        }
+    }
+
+    // 从扁平后的 sprite 拼 icons.png
+    if assemble_icons_from_sprites(ui, &gui_icons) {
+        log_info!("OKAY bedrock [assembled gui/icons.png from sprites]");
+    }
+}
+
+/// 用 UI sprite 按 Java icons 标准 UV 拼 256×scale 图集。
+fn assemble_icons_from_sprites(ui: &Path, out: &Path) -> bool {
+    // 用任一 9×9 图元推断倍数
+    let scale = [
+        ui.join("heart_full.png"),
+        ui.join("armor_full.png"),
+        ui.join("hunger_effect_full.png"),
+        ui.join("food_full.png"),
+    ]
+    .iter()
+    .find_map(|p| image::open(p).ok().map(|i| i.width().max(1) / 9))
+    .unwrap_or(1)
+    .max(1);
+
+    let base = 256u32 * scale;
+    let mut atlas = RgbaImage::from_pixel(base, base, image::Rgba([0, 0, 0, 0]));
+
+    // (src 文件, dest x,y,w,h 在 256 坐标系)
+    let stamps: &[(&str, u32, u32, u32, u32)] = &[
+        ("hotbar.png", 0, 0, 182, 22),
+        ("hotbar_selection.png", 0, 22, 24, 24),
+        ("cross_hair.png", 0, 0, 15, 15),
+        ("heart_empty.png", 16, 0, 9, 9),
+        ("heart_full.png", 52, 0, 9, 9),
+        ("heart_half.png", 61, 0, 9, 9),
+        ("armor_empty.png", 16, 9, 9, 9),
+        ("armor_half.png", 34, 9, 9, 9),
+        ("armor_full.png", 43, 9, 9, 9),
+        ("hunger_effect.png", 16, 27, 9, 9),
+        ("food_empty.png", 16, 27, 9, 9),
+        ("hunger_effect_full.png", 52, 27, 9, 9),
+        ("food_full.png", 52, 27, 9, 9),
+        ("hunger_effect_half.png", 61, 27, 9, 9),
+        ("food_half.png", 61, 27, 9, 9),
+        ("experiencebarfull.png", 0, 69, 182, 5),
+        ("experience_bar_progress.png", 0, 69, 182, 5),
+        ("experiencebarempty.png", 0, 64, 182, 5),
+        ("experience_bar_background.png", 0, 64, 182, 5),
+    ];
+
+    let mut any = false;
+    for (name, x, y, w, h) in stamps {
+        let path = ui.join(name);
+        let Ok(img) = image::open(&path) else { continue };
+        let img = img.to_rgba8();
+        // 缩放到目标区域（sprite 可能是 HD 大图）
+        let tw = w * scale;
+        let th = h * scale;
+        if img.width() == 0 || img.height() == 0 {
+            continue;
+        }
+        let resized = image::imageops::resize(
+            &img,
+            tw,
+            th,
+            image::imageops::FilterType::Nearest,
+        );
+        image::imageops::overlay(&mut atlas, &resized, (x * scale) as i64, (y * scale) as i64);
+        any = true;
+    }
+    if !any {
+        return false;
+    }
+    atlas.save(out).is_ok()
+}
 /// Bedrock 读的是 `ui/furnace.png`、`ui/heart_full.png` 这类扁平名。
 fn flatten_java120_ui_sprite_dirs(ui: &Path) {
     // 容器：ui/<id>/container.png → ui/<id>.png
@@ -700,5 +791,31 @@ mod tests {
         assert!(ui.join("furnace.png").exists(), "熔炉容器");
         assert!(!ui.join("heart").exists());
         assert!(!ui.join("furnace").exists());
+    }
+
+    #[test]
+    fn test_assemble_icons_from_sprites() {
+        let temp = tempdir().unwrap();
+        let textures = temp.path();
+        let ui = textures.join("ui");
+        fs::create_dir_all(&ui).unwrap();
+        // 2x 心：18×18
+        let full = RgbaImage::from_pixel(18, 18, image::Rgba([255, 0, 0, 255]));
+        full.save(ui.join("heart_full.png")).unwrap();
+        let half = RgbaImage::from_pixel(18, 18, image::Rgba([128, 0, 0, 255]));
+        half.save(ui.join("heart_half.png")).unwrap();
+        let empty = RgbaImage::from_pixel(18, 18, image::Rgba([40, 0, 0, 255]));
+        empty.save(ui.join("heart_empty.png")).unwrap();
+        let hot = RgbaImage::from_pixel(364, 44, image::Rgba([10, 10, 10, 255]));
+        hot.save(ui.join("hotbar.png")).unwrap();
+        let food = RgbaImage::from_pixel(18, 18, image::Rgba([80, 40, 0, 255]));
+        food.save(ui.join("food_full.png")).unwrap();
+
+        ensure_bedrock_icons_atlas(textures, &ui);
+
+        assert!(textures.join("gui/icons.png").exists(), "应生成 gui/icons.png");
+        let icons = image::open(textures.join("gui/icons.png")).unwrap();
+        assert_eq!(icons.width(), 512, "2x 图集 512");
+        assert_eq!(icons.height(), 512);
     }
 }
