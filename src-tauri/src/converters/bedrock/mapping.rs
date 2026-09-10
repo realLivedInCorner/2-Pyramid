@@ -2,19 +2,58 @@
 
 /// Java stem → Bedrock stem。None 表示不改名。
 pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
+    // 药水：Java potion/splash_potion/lingering → Bedrock bottle 命名
     match stem {
+        "potion" => return Some("potion_bottle_drinkable".into()),
+        "splash_potion" => return Some("potion_bottle_splash".into()),
+        "lingering_potion" => return Some("potion_bottle_lingering".into()),
+        "glass_bottle" => return Some("potion_bottle_empty".into()),
         "golden_apple" => return Some("apple_golden".into()),
         "golden_carrot" => return Some("carrot_golden".into()),
         "golden_horse_armor" => return Some("horsearmor_gold".into()),
         "iron_horse_armor" => return Some("horsearmor_iron".into()),
         "diamond_horse_armor" => return Some("horsearmor_diamond".into()),
         "leather_horse_armor" => return Some("horsearmor_leather".into()),
-        "recovery_compass" => return Some("compass_recovery".into()),
+        "recovery_compass" => return Some("recovery_compass_item".into()),
+        "dragon_breath" => return Some("dragons_breath".into()),
+        "slime_ball" => return Some("slimeball".into()),
+        "totem_of_undying" => return Some("totem".into()),
+        "heart_of_the_sea" => return Some("heartofthesea_closed".into()),
+        "nautilus_shell" => return Some("nautilus".into()),
+        // 草方块：Java grass_block_* → Bedrock grass_*
+        "grass_block_side" => return Some("grass_side".into()),
+        "grass_block_top" => return Some("grass_top".into()),
+        "grass_block_side_overlay" => return Some("grass_side_overlay".into()),
+        // 床：white_bed → bed_white（颜色枚举）
         _ => {}
     }
-    if let Some(rest) = stem.strip_prefix("netherite_") {
-        return Some(format!("{}_netherite", rest));
+
+    // 彩色床：{color}_bed → bed_{color}
+    const BED_COLORS: &[&str] = &[
+        "white",
+        "orange",
+        "magenta",
+        "light_blue",
+        "yellow",
+        "lime",
+        "pink",
+        "gray",
+        "light_gray",
+        "silver",
+        "cyan",
+        "purple",
+        "blue",
+        "brown",
+        "green",
+        "red",
+        "black",
+    ];
+    for c in BED_COLORS {
+        if stem == format!("{}_bed", c) {
+            return Some(format!("bed_{}", c));
+        }
     }
+
     if let Some(rest) = stem.strip_prefix("music_disc_") {
         return Some(format!("record_{}", rest));
     }
@@ -24,29 +63,63 @@ pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
     if let Some(rest) = stem.strip_prefix("wooden_") {
         return Some(format!("wood_{}", rest));
     }
+    // 注意：netherite_* 在 Bedrock 与 Java 同名，勿改写为 *_netherite
     None
 }
 
 /// Bedrock stem → Java stem。
 pub fn bedrock_to_java_stem(stem: &str) -> Option<String> {
     match stem {
+        "potion_bottle_drinkable" => return Some("potion".into()),
+        "potion_bottle_splash" => return Some("splash_potion".into()),
+        "potion_bottle_lingering" => return Some("lingering_potion".into()),
+        "potion_bottle_empty" => return Some("glass_bottle".into()),
         "apple_golden" => return Some("golden_apple".into()),
         "carrot_golden" => return Some("golden_carrot".into()),
         "horsearmor_gold" => return Some("golden_horse_armor".into()),
         "horsearmor_iron" => return Some("iron_horse_armor".into()),
         "horsearmor_diamond" => return Some("diamond_horse_armor".into()),
         "horsearmor_leather" => return Some("leather_horse_armor".into()),
-        "compass_recovery" => return Some("recovery_compass".into()),
+        "recovery_compass_item" | "compass_recovery" => return Some("recovery_compass".into()),
+        "dragons_breath" => return Some("dragon_breath".into()),
+        "slimeball" => return Some("slime_ball".into()),
+        "totem" => return Some("totem_of_undying".into()),
+        "heartofthesea_closed" => return Some("heart_of_the_sea".into()),
+        "nautilus" => return Some("nautilus_shell".into()),
+        "grass_side" => return Some("grass_block_side".into()),
+        "grass_top" => return Some("grass_block_top".into()),
+        "grass_side_overlay" => return Some("grass_block_side_overlay".into()),
         _ => {}
     }
+
+    const BED_COLORS: &[&str] = &[
+        "white",
+        "orange",
+        "magenta",
+        "light_blue",
+        "yellow",
+        "lime",
+        "pink",
+        "gray",
+        "silver",
+        "cyan",
+        "purple",
+        "blue",
+        "brown",
+        "green",
+        "red",
+        "black",
+    ];
+    for c in BED_COLORS {
+        if stem == format!("bed_{}", c) {
+            let java_c = if *c == "silver" { "light_gray" } else { *c };
+            return Some(format!("{}_bed", java_c));
+        }
+    }
+
     if let Some(rest) = stem.strip_prefix("record_") {
         if rest.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') && !rest.is_empty() {
             return Some(format!("music_disc_{}", rest));
-        }
-    }
-    if let Some(rest) = stem.strip_suffix("_netherite") {
-        if !rest.is_empty() {
-            return Some(format!("netherite_{}", rest));
         }
     }
     if let Some(rest) = stem.strip_prefix("gold_") {
@@ -133,11 +206,39 @@ mod tests {
         assert_eq!(bedrock_to_java_stem("apple_golden").as_deref(), Some("golden_apple"));
         assert_eq!(java_to_bedrock_stem("music_disc_13").as_deref(), Some("record_13"));
         assert_eq!(bedrock_to_java_stem("record_13").as_deref(), Some("music_disc_13"));
-        assert_eq!(java_to_bedrock_stem("netherite_sword").as_deref(), Some("sword_netherite"));
-        assert_eq!(bedrock_to_java_stem("sword_netherite").as_deref(), Some("netherite_sword"));
+        // netherite 与 Bedrock 同名，不得改写
+        assert_eq!(java_to_bedrock_stem("netherite_sword"), None);
         assert_eq!(java_to_bedrock_stem("wooden_sword").as_deref(), Some("wood_sword"));
         assert_eq!(bedrock_to_java_stem("wood_sword").as_deref(), Some("wooden_sword"));
         assert_eq!(java_to_bedrock_stem("stone"), None);
+    }
+
+    #[test]
+    fn test_visible_pack_renames() {
+        // 药水
+        assert_eq!(
+            java_to_bedrock_stem("potion").as_deref(),
+            Some("potion_bottle_drinkable")
+        );
+        assert_eq!(
+            java_to_bedrock_stem("splash_potion").as_deref(),
+            Some("potion_bottle_splash")
+        );
+        assert_eq!(
+            java_to_bedrock_stem("lingering_potion").as_deref(),
+            Some("potion_bottle_lingering")
+        );
+        // 草方块
+        assert_eq!(java_to_bedrock_stem("grass_block_side").as_deref(), Some("grass_side"));
+        assert_eq!(java_to_bedrock_stem("grass_block_top").as_deref(), Some("grass_top"));
+        // 床
+        assert_eq!(java_to_bedrock_stem("white_bed").as_deref(), Some("bed_white"));
+        assert_eq!(java_to_bedrock_stem("light_gray_bed").as_deref(), Some("bed_light_gray"));
+        assert_eq!(bedrock_to_java_stem("bed_red").as_deref(), Some("red_bed"));
+        // 合金/材料
+        assert_eq!(java_to_bedrock_stem("golden_sword").as_deref(), Some("gold_sword"));
+        assert_eq!(java_to_bedrock_stem("totem_of_undying").as_deref(), Some("totem"));
+        assert_eq!(java_to_bedrock_stem("slime_ball").as_deref(), Some("slimeball"));
     }
 
     #[test]
