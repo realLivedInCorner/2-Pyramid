@@ -53,17 +53,27 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
         remove_dir_quiet(&root_container);
         log_info!("OKAY bedrock [textures/container -> textures/ui]");
     }
-    // gui/container/* 扁平到 ui/（Bedrock 读 ui/widgets.png 而非 ui/container/widgets.png）
-    let container = ui_dir.join("container");
-    if container.exists() {
-        move_contents_up(&container, &ui_dir)?;
-        remove_dir_quiet(&container);
-        log_info!("OKAY bedrock [textures/ui/container 扁平化]");
+    // gui/container/* 扁平到 ui/（Bedrock 读 ui/furnace.png）
+    // Java 1.20+ 为 gui/sprites/container/* → 合并后在 ui/sprites/container/
+    for sub in [
+        "container",
+        "sprites/container",
+        "sprites/hud",
+        "creative_inventory",
+    ] {
+        let nested = ui_dir.join(sub);
+        if nested.exists() && nested.is_dir() {
+            move_contents_up(&nested, &ui_dir)?;
+            remove_dir_quiet(&nested);
+            log_info!("OKAY bedrock [textures/ui/{} 扁平化]", sub);
+        }
     }
-    let creative = ui_dir.join("creative_inventory");
-    if creative.exists() {
-        move_contents_up(&creative, &ui_dir)?;
-        remove_dir_quiet(&creative);
+    // 清理空的 ui/sprites
+    let sprites = ui_dir.join("sprites");
+    if sprites.is_dir() {
+        if fs::read_dir(&sprites).map(|mut d| d.next().is_none()).unwrap_or(false) {
+            let _ = fs::remove_dir(&sprites);
+        }
     }
 
     let flipbooks = collect_flipbooks(textures_dst);
@@ -815,5 +825,29 @@ mod tests {
         assert!(root.join("textures/ui/furnace.png").exists(), "熔炉应进 ui/");
         assert!(root.join("textures/ui/anvil.png").exists(), "铁砧应进 ui/");
         assert!(!root.join("textures/container").exists());
+    }
+
+    #[test]
+    fn test_java120_sprites_container_flattened() {
+        let temp = tempdir().unwrap();
+        let root = temp.path();
+        let mc = root.join("assets/minecraft");
+        let tex = mc.join("textures");
+        // Java 1.20+ 布局
+        fs::create_dir_all(tex.join("gui/sprites/container")).unwrap();
+        fs::create_dir_all(tex.join("gui/sprites/hud")).unwrap();
+        fs::write(tex.join("gui/sprites/container/furnace.png"), b"f").unwrap();
+        fs::write(tex.join("gui/sprites/container/anvil.png"), b"a").unwrap();
+        fs::write(tex.join("gui/sprites/hud/hotbar.png"), b"h").unwrap();
+        fs::create_dir_all(tex.join("item")).unwrap();
+
+        move_java_font_to_bedrock(&mc, root);
+        reorganize_java_textures_for_bedrock(&mc, &root.join("textures")).unwrap();
+
+        assert!(root.join("textures/ui/furnace.png").exists(), "sprites/container 应扁平到 ui/");
+        assert!(root.join("textures/ui/anvil.png").exists());
+        assert!(root.join("textures/ui/hotbar.png").exists(), "sprites/hud 应进 ui/");
+        assert!(!root.join("textures/ui/sprites").exists());
+        assert!(!root.join("textures/gui").exists());
     }
 }
