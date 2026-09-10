@@ -9,10 +9,9 @@ use super::fsutil::{
     merge_dir, move_contents_up, remove_dir_quiet, remove_file_quiet, rename_dir_if_absent,
     rename_stems_in_dir,
 };
-use super::mapping::{
-    bedrock_potion_variant_names, bedrock_splash_potion_variant_names, bedrock_to_java_stem,
-    java_to_bedrock_stem,
-};
+use super::mapping::{bedrock_to_java_stem, java_to_bedrock_stem};
+use super::potions::ensure_potion_item_files;
+use super::ui::convert_java_hud_to_bedrock_ui;
 
 /// j2b：提升 textures、item/block → items/blocks、改名、gui→ui、flipbook。
 pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Path) -> Result<(), String> {
@@ -171,114 +170,6 @@ fn ensure_crossbow_standby_files(textures_dst: &Path) {
     // 若只有 standby，再写回 crossbow.png 兼容
     if standby.exists() && !legacy.exists() {
         let _ = fs::copy(&standby, &legacy);
-    }
-}
-
-/// 药水物品栏：确保 potion_bottle_* 与 potion_overlay 在 items/。
-/// Java 的 overlay 可能在 gui/ 或 item/，缺文件时从常见位置补齐。
-fn ensure_potion_item_files(textures_dst: &Path) {
-    let items = textures_dst.join("items");
-    let gui = textures_dst.join("gui");
-    let _ = fs::create_dir_all(&items);
-
-    // overlay：可能在 gui（已并入 ui）或 item/
-    for src in [
-        textures_dst.join("ui").join("potion_overlay.png"),
-        textures_dst.join("ui").join("container").join("potion_overlay.png"),
-        gui.join("potion_overlay.png"),
-        items.join("potion_overlay.png"),
-    ] {
-        if src.is_file() {
-            let dst = items.join("potion_overlay.png");
-            if src != dst && !dst.exists() {
-                let _ = fs::copy(&src, &dst);
-            }
-            break;
-        }
-    }
-
-    // 若仍有未改名的 Java 药水文件（potion.png 等），补标准名
-    let aliases: &[(&str, &str)] = &[
-        ("potion.png", "potion_bottle_drinkable.png"),
-        ("splash_potion.png", "potion_bottle_splash.png"),
-        ("lingering_potion.png", "potion_bottle_lingering.png"),
-        ("glass_bottle.png", "potion_bottle_empty.png"),
-    ];
-    for (from, to) in aliases {
-        let src = items.join(from);
-        let dst = items.join(to);
-        if src.is_file() && !dst.exists() {
-            let _ = fs::copy(&src, &dst);
-        }
-    }
-
-    // Java 常只有 potion.png 一张图；Bedrock 按 effect 分文件。
-    let drink = items.join("potion_bottle_drinkable.png");
-    if drink.is_file() {
-        for name in bedrock_potion_variant_names() {
-            let dst = items.join(format!("{}.png", name));
-            if !dst.exists() {
-                let _ = fs::copy(&drink, &dst);
-            }
-        }
-    }
-    let splash = items.join("potion_bottle_splash.png");
-    if splash.is_file() {
-        for name in bedrock_splash_potion_variant_names() {
-            let dst = items.join(format!("{}.png", name));
-            if !dst.exists() {
-                let _ = fs::copy(&splash, &dst);
-            }
-        }
-    }
-}
-
-/// 从 Java gui/icons.png 裁出快捷栏；inventory 直接落到 ui/inventory.png。
-fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
-    let ui = textures_dst.join("ui");
-    let _ = fs::create_dir_all(&ui);
-
-    // 背包 GUI：container/inventory.png（已扁平到 ui/inventory.png 或仍在 container）
-    for src in [
-        ui.join("inventory.png"),
-        textures_dst.join("gui").join("container").join("inventory.png"),
-        textures_dst.join("gui").join("inventory.png"),
-    ] {
-        if src.is_file() {
-            let dst = ui.join("inventory.png");
-            if src != dst && !dst.exists() {
-                let _ = fs::copy(&src, &dst);
-            }
-            break;
-        }
-    }
-
-    // 快捷栏：从 icons.png 裁 (0,0,182,22)（按图集倍数缩放）
-    let icons = ui.join("icons.png");
-    if !icons.is_file() {
-        return;
-    }
-    let Ok(img) = image::open(&icons) else { return };
-    let (w, h) = (img.width(), img.height());
-    // Java icons 标准 256x256；HD 常为 2x/4x
-    let scale = if w >= 1024 {
-        4
-    } else if w >= 512 {
-        2
-    } else {
-        1
-    };
-    let hw = 182 * scale;
-    let hh = 22 * scale;
-    if w < hw || h < hh {
-        return;
-    }
-    let crop = image::imageops::crop_imm(&img, 0, 0, hw, hh).to_image();
-    let dst = ui.join("hotbar.png");
-    if let Err(e) = crop.save(&dst) {
-        crate::log_warn!("bedrock hotbar crop failed: {}", e);
-    } else {
-        log_info!("OKAY bedrock [icons.png → ui/hotbar.png {}x{}]", hw, hh);
     }
 }
 
