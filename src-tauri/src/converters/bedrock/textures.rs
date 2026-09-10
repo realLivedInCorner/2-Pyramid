@@ -46,6 +46,13 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
         remove_dir_quiet(&gui_dir);
         log_info!("OKAY bedrock [textures/gui -> textures/ui]");
     }
+    // 某些包在 textures/container（无 gui 前缀）；也要并入 ui/
+    let root_container = textures_dst.join("container");
+    if root_container.exists() {
+        merge_dir(&root_container, &ui_dir)?;
+        remove_dir_quiet(&root_container);
+        log_info!("OKAY bedrock [textures/container -> textures/ui]");
+    }
     // gui/container/* 扁平到 ui/（Bedrock 读 ui/widgets.png 而非 ui/container/widgets.png）
     let container = ui_dir.join("container");
     if container.exists() {
@@ -636,6 +643,7 @@ mod tests {
         assert!(root.join("textures/items/apple_golden.png").exists());
         assert!(root.join("textures/blocks/water_still.png").exists());
         assert!(root.join("textures/ui/icons.png").exists());
+        assert!(!root.join("textures/container").exists(), "container 应并入 ui");
         assert!(root.join("font/default8.png").exists());
         let flip: serde_json::Value = serde_json::from_str(
             &fs::read_to_string(root.join("textures/flipbook_textures.json")).unwrap(),
@@ -788,5 +796,24 @@ mod tests {
         assert!(!mc.join("textures/item_texture.json").exists());
         assert!(!root.join("textures").exists());
         assert!(!root.join("font").exists());
+    }
+
+    #[test]
+    fn test_root_container_folder_merged_to_ui() {
+        let temp = tempdir().unwrap();
+        let root = temp.path();
+        let mc = root.join("assets/minecraft");
+        let tex = mc.join("textures");
+        fs::create_dir_all(tex.join("container")).unwrap();
+        fs::write(tex.join("container/furnace.png"), b"f").unwrap();
+        fs::write(tex.join("container/anvil.png"), b"a").unwrap();
+        fs::create_dir_all(tex.join("item")).unwrap();
+
+        move_java_font_to_bedrock(&mc, root);
+        reorganize_java_textures_for_bedrock(&mc, &root.join("textures")).unwrap();
+
+        assert!(root.join("textures/ui/furnace.png").exists(), "熔炉应进 ui/");
+        assert!(root.join("textures/ui/anvil.png").exists(), "铁砧应进 ui/");
+        assert!(!root.join("textures/container").exists());
     }
 }
