@@ -65,12 +65,14 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
     write_bed_textures(textures_dst);
     // 弩：确保 standby 文件存在
     ensure_crossbow_standby_files(textures_dst);
+    // 药水 overlay 等常见物品栏文件
+    ensure_potion_item_files(textures_dst);
     // 实体：Java 嵌套路径旁再放 Bedrock 常用扁平名
     alias_entity_textures(textures_dst);
 
-    // T6/T7: 贴图缓存 + atlas 短名表
+    // 经典 Bedrock 资源包靠文件路径覆盖（可用包均无 item_texture/terrain_texture）。
+    // 自写 atlas 会覆盖 vanilla 查找，导致床/药水/弩等物品栏图标异常，故不再生成。
     write_textures_list(textures_dst)?;
-    write_bedrock_atlas_maps(textures_dst)?;
     Ok(())
 }
 
@@ -156,6 +158,45 @@ fn ensure_crossbow_standby_files(textures_dst: &Path) {
     // 若只有 standby，再写回 crossbow.png 兼容
     if standby.exists() && !legacy.exists() {
         let _ = fs::copy(&standby, &legacy);
+    }
+}
+
+/// 药水物品栏：确保 potion_bottle_* 与 potion_overlay 在 items/。
+/// Java 的 overlay 可能在 gui/ 或 item/，缺文件时从常见位置补齐。
+fn ensure_potion_item_files(textures_dst: &Path) {
+    let items = textures_dst.join("items");
+    let gui = textures_dst.join("gui");
+    let _ = fs::create_dir_all(&items);
+
+    // overlay：可能在 gui（已并入 ui）或 item/
+    for src in [
+        textures_dst.join("ui").join("potion_overlay.png"),
+        textures_dst.join("ui").join("container").join("potion_overlay.png"),
+        gui.join("potion_overlay.png"),
+        items.join("potion_overlay.png"),
+    ] {
+        if src.is_file() {
+            let dst = items.join("potion_overlay.png");
+            if src != dst && !dst.exists() {
+                let _ = fs::copy(&src, &dst);
+            }
+            break;
+        }
+    }
+
+    // 若仍有未改名的 Java 药水文件（potion.png 等），补标准名
+    let aliases: &[(&str, &str)] = &[
+        ("potion.png", "potion_bottle_drinkable.png"),
+        ("splash_potion.png", "potion_bottle_splash.png"),
+        ("lingering_potion.png", "potion_bottle_lingering.png"),
+        ("glass_bottle.png", "potion_bottle_empty.png"),
+    ];
+    for (from, to) in aliases {
+        let src = items.join(from);
+        let dst = items.join(to);
+        if src.is_file() && !dst.exists() {
+            let _ = fs::copy(&src, &dst);
+        }
     }
 }
 
@@ -639,38 +680,27 @@ mod tests {
         assert!(arr.iter().any(|v| v.as_str() == Some("textures/blocks/water_still")));
         assert!(arr.iter().any(|v| v.as_str() == Some("textures/items/apple_golden")));
 
-        // T7 atlas
-        let terrain: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(root.join("textures/terrain_texture.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            terrain["texture_data"]["water_still"]["textures"],
-            "textures/blocks/water_still"
-        );
-        let item: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(root.join("textures/item_texture.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            item["texture_data"]["apple_golden"]["textures"],
-            "textures/items/apple_golden"
-        );
+        // 不再自写 atlas（可用包均无这些文件；写错会覆盖 vanilla 查找）
+        assert!(!root.join("textures/item_texture.json").exists());
+        assert!(!root.join("textures/terrain_texture.json").exists());
     }
 
     #[test]
-    fn test_bucket_bed_bow_atlas_shortnames() {
+    fn test_bucket_bed_bow_classic_paths() {
         let temp = tempdir().unwrap();
         let root = temp.path();
         let mc = root.join("assets/minecraft");
         let tex = mc.join("textures");
         fs::create_dir_all(tex.join("item")).unwrap();
         fs::create_dir_all(tex.join("block")).unwrap();
+        fs::create_dir_all(tex.join("gui")).unwrap();
         fs::write(tex.join("item/water_bucket.png"), b"w").unwrap();
         fs::write(tex.join("item/bucket.png"), b"e").unwrap();
         fs::write(tex.join("item/bow.png"), b"b").unwrap();
         fs::write(tex.join("item/bow_pulling_0.png"), b"p").unwrap();
         fs::write(tex.join("item/crossbow.png"), b"c").unwrap();
+        fs::write(tex.join("item/potion.png"), b"p").unwrap();
+        fs::write(tex.join("gui/potion_overlay.png"), b"o").unwrap();
         fs::write(tex.join("block/red_bed.png"), b"r").unwrap();
         fs::write(tex.join("block/white_bed.png"), b"wh").unwrap();
 
@@ -681,47 +711,18 @@ mod tests {
         assert!(root.join("textures/items/bucket_empty.png").exists());
         assert!(root.join("textures/items/bow_standby.png").exists());
         assert!(root.join("textures/items/crossbow_standby.png").exists());
-        // 床从 blocks 复制到 items
+        assert!(root.join("textures/items/crossbow.png").exists());
+        // 床
         assert!(root.join("textures/blocks/bed_red.png").exists());
         assert!(root.join("textures/items/bed_red.png").exists());
-        // 经典手持
         assert!(root.join("textures/items/bed.png").exists());
-        // 方块分面 stub
         assert!(root.join("textures/blocks/bed_head_top.png").exists());
-
-        let item: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(root.join("textures/item_texture.json")).unwrap(),
-        )
-        .unwrap();
-        assert!(item["texture_data"]["bucket"]["textures"].is_array());
-        assert_eq!(
-            item["texture_data"]["bucket"]["textures"][0],
-            "textures/items/bucket_empty"
-        );
-        assert_eq!(
-            item["texture_data"]["bed"]["textures"],
-            "textures/items/bed"
-        );
-        assert_eq!(
-            item["texture_data"]["bow_standby"]["textures"],
-            "textures/items/bow_standby"
-        );
-        assert!(item["texture_data"]["bow_pulling"]["textures"].is_array());
-        assert_eq!(
-            item["texture_data"]["crossbow_standby"]["textures"],
-            "textures/items/crossbow_standby"
-        );
-        assert_eq!(
-            item["texture_data"]["bed"]["textures"],
-            "textures/items/bed"
-        );
-        assert_eq!(
-            item["texture_data"]["crossbow"]["textures"],
-            "textures/items/crossbow_standby"
-        );
-        // stem 级键不应再单独出现
-        assert!(item["texture_data"].get("bed_red").is_none());
-        assert!(item["texture_data"].get("bucket_water").is_none());
+        // 药水
+        assert!(root.join("textures/items/potion_bottle_drinkable.png").exists());
+        assert!(root.join("textures/items/potion_overlay.png").exists());
+        // 不生成 atlas
+        assert!(!root.join("textures/item_texture.json").exists());
+        assert!(!root.join("textures/terrain_texture.json").exists());
     }
 
     #[test]

@@ -80,8 +80,9 @@ mod tests {
         assert!(!root.join("assets").exists());
         assert!(root.join("manifest.json").exists());
         assert!(root.join("textures/textures_list.json").exists());
-        assert!(root.join("textures/terrain_texture.json").exists());
-        assert!(root.join("textures/item_texture.json").exists());
+        // 不再生成 item/terrain atlas（可用包布局：仅文件路径覆盖）
+        assert!(!root.join("textures/terrain_texture.json").exists());
+        assert!(!root.join("textures/item_texture.json").exists());
         let m: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(root.join("manifest.json")).unwrap()).unwrap();
         assert_eq!(m["header"]["name"], "测试");
