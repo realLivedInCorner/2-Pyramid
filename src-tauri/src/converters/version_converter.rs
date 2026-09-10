@@ -445,6 +445,39 @@ pub fn convert_resource_pack(file_path: &str, target_version: u32) -> Result<Str
     process_zip(file_path, target_version, None, 1.0, None, None)
 }
 
+/// 仅执行 Bedrock 结构转换边任务（j2b: 84→1000 / b2j: 1000→84）。
+/// 任务注册与逻辑均在 converters/bedrock；此处只驱动 Scheduler。
+fn run_bedrock_edge_task(
+    work_dir: &Path,
+    source_version: u32,
+    target_version: u32,
+    pack_name: &str,
+) -> Result<(), String> {
+    use crate::hurray::context::HurrayContext;
+    use crate::hurray::scheduler::Scheduler;
+    use crate::hurray::texture::TexturePool;
+
+    let mut scheduler = Scheduler::new();
+    crate::converters::bedrock::register_tasks(&mut scheduler);
+
+    let work_dir_str = work_dir.to_str().unwrap_or("");
+    let context = HurrayContext::new(work_dir_str);
+    context.set_data("pack_name", pack_name);
+    let mut texture_pool = TexturePool::new();
+    scheduler
+        .execute_version_conversion(
+            &context,
+            &mut texture_pool,
+            source_version,
+            target_version,
+        )
+        .map_err(|e| format!("bedrock edge task failed: {}", e))?;
+    context
+        .execute_cleanup()
+        .map_err(|e| format!("bedrock cleanup failed: {}", e))?;
+    Ok(())
+}
+
 pub fn process_zip(
     original_file_path: &str,
     pack_format2: u32,
@@ -458,32 +491,41 @@ pub fn process_zip(
         return Err(format!("input file not found: {}", input_zip.display()));
     }
 
-    // Bedrock Latest（pack_format 1000）：先按 Java 1.21.11（75）走完整
-    // 转换流水线，再执行 Bedrock 结构重组（见 converters/bedrock.rs）。
-    let is_bedrock = pack_format2 == 1000;
-    let java_target = if is_bedrock { 75 } else { pack_format2 };
+    // 目标为 Bedrock（1000）或输入为 Bedrock 包时的编排。
+    // 结构转换逻辑在 converters/bedrock/*；此处只调度 Scheduler 边任务。
+    let is_bedrock_target = pack_format2 == 1000;
+    let java_target = if is_bedrock_target { 75 } else { pack_format2 };
 
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
 
     extract_resource_pack(original_file_path, &temp_dir_path)?;
 
-    // 目录规整最先执行：定位/提升 pack.mcmeta（含 pack.mcmeta.txt 防呆）
-    let pack_meta_path = normalize_pack_structure(temp_dir.path())
-        .or_else(|| find_pack_mcmeta(temp_dir.path()))
-        .unwrap_or_else(|| temp_dir.path().join("pack.mcmeta"));
-    if !pack_meta_path.exists() {
-        log_warn!("pack.mcmeta not found, creating a new one at {}", pack_meta_path.display());
+    let mut source_version: u32;
+    if crate::converters::bedrock::is_bedrock_resource_pack(temp_dir.path()) {
+        log_info!("detected Bedrock resource pack source; running b2j first");
+        run_bedrock_edge_task(temp_dir.path(), 1000, 84, "Converted Pack")?;
+        source_version = 75;
+        let pack_meta_path = temp_dir.path().join("pack.mcmeta");
+        if pack_meta_path.exists() {
+            if let Ok(v) = read_pack_format(&pack_meta_path) {
+                source_version = v;
+            }
+        }
+    } else {
+        let pack_meta_path = normalize_pack_structure(temp_dir.path())
+            .or_else(|| find_pack_mcmeta(temp_dir.path()))
+            .unwrap_or_else(|| temp_dir.path().join("pack.mcmeta"));
+        if !pack_meta_path.exists() {
+            log_warn!("pack.mcmeta not found, creating a new one at {}", pack_meta_path.display());
+        }
+        source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
     }
-
-    let source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
     log_info!("detected pack_format: {}", source_version);
-    if is_bedrock {
+    if is_bedrock_target {
         log_info!("bedrock target: convert to Java 1.21.11 (75) first");
     }
 
-    // Always run conversion pipeline regardless of version difference
-    // This ensures all conversion tasks are executed even if version hasn't changed
     crate::invoke_conversion::invoke_conversion(
         input_zip,
         temp_dir.path(),
@@ -492,16 +534,18 @@ pub fn process_zip(
     )
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
 
-    write_pack_format(&pack_meta_path, java_target)?;
+    let pack_meta_path = temp_dir.path().join("pack.mcmeta");
+    if pack_meta_path.exists() {
+        write_pack_format(&pack_meta_path, java_target)?;
+    }
 
-    if is_bedrock {
-        // Bedrock 第二阶段：结构重组 + manifest.json
+    if is_bedrock_target {
         let base_name = input_zip
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("resource_pack");
         let pack_name = strip_version_prefix(base_name);
-        crate::converters::bedrock::convert_java_to_bedrock(temp_dir.path(), &pack_name)?;
+        run_bedrock_edge_task(temp_dir.path(), 84, 1000, &pack_name)?;
     }
 
     let output_path = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;

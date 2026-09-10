@@ -466,15 +466,6 @@ const confirmBedrockPick = () => {
   selectedVersion.value = 'Bedrock Latest';
 };
 
-/// 显示拖拽提示（自动消失）
-const showDropHint = (text: string) => {
-  dropHint.value = text;
-  if (dropHintTimer) clearTimeout(dropHintTimer);
-  dropHintTimer = setTimeout(() => {
-    dropHint.value = '';
-  }, 4000);
-};
-
 const versionsByEra = computed(() => {
   const groups: Record<VersionEra, VersionEntry[]> = {
     classic: [], modern: [], cavesCliffs: [], trailsTales: [], trickyTrials: [], bravery: [], bedrock: [],
@@ -548,12 +539,7 @@ onMounted(async () => {
           const fileName = p.split('/').pop() || p.split('\\').pop() || p;
           const ext = fileName.toLowerCase().split('.').pop() || '';
           if (importMode.value === 'file') {
-            // Bedrock 输入未完善：拒绝 .mcpack，并给出明确提示
-            if (ext === 'mcpack') {
-              showDropHint(t('conversion.mcpackRejected'));
-              continue;
-            }
-            if (ext !== 'zip') continue;
+            if (ext !== 'zip' && ext !== 'mcpack') continue;
             selectedItems.value.push({ name: fileName, size: '', path: p, isDir: false });
           } else {
             selectedItems.value.push({ name: fileName, size: 'Folder', path: p, isDir: true });
@@ -689,7 +675,7 @@ const triggerPicker = async () => {
       multiple: true,
       directory: importMode.value === 'folder',
       filters: importMode.value === 'file' ? [
-        { name: t('conversion.resourcePackFilter'), extensions: ['zip'] },
+        { name: t('conversion.resourcePackFilter'), extensions: ['zip', 'mcpack'] },
         { name: t('conversion.allFilesFilter'), extensions: ['*'] }
       ] : undefined
     });

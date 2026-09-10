@@ -1,12 +1,12 @@
 ---
 feature: java-to-bedrock-conversion
-status: designed
+status: in-progress
 updated: 2026-08-23
-branch: (pending)
+branch: feat/java-bedrock-convert
 commits: (pending)
 ---
 
-# Java → Bedrock 资源包转换完善
+# Java ↔ Bedrock 资源包双向转换
 
 ## Report
 
@@ -14,75 +14,102 @@ commits: (pending)
 
 ## [S1] Problem
 
-当前「Bedrock Latest」目标（`pack_format=1000`）是实验性流水线：先把包转到 Java 1.21.11（75），再做一层很薄的目录重组。CHANGELOG 与 UI 均标明「未完成、存在严重问题」。对照 Minecraft Wiki / Bedrock 资源包约定后，主要缺口如下：
+「Bedrock Latest」目标目前只是薄层目录重组，且 **拒绝 `.mcpack` 输入**。用户需要：
 
-1. **路径映射不全**
-   - 只处理了 `textures/item → textures/items`，未处理 `textures/block → textures/blocks`。
-   - `textures/gui` 只搬了 `container`，其余（`icons.png`、`options_background.png` 等）仍留在 `gui/`，基岩不会加载。
-   - 字体：`font/ascii.png` 未映射为基岩的 `default8.png`。
+1. **j2b**：Java 资源包 → 可用的 Bedrock `.mcpack`
+2. **b2j**：Bedrock `.mcpack`/zip → 可用的 Java 资源包（任意 Java pack_format 目标）
+3. **平台独有内容直接丢弃**：不尝试保留/翻译对端不存在的系统（模型 JSON、geometry、flipbook 专用结构、Ore UI、OptiFine 等）
 
-2. **物品/方块 id 命名差异覆盖过窄**
-   - 仅有 `golden_apple→apple_golden`、`golden_*→gold_*`、`wooden_*→wood_*`。
-   - 缺常见别名：`music_disc_*→record_*`、`netherite_*→*_netherite`、马铠、`recovery_compass` 等。
-
-3. **Java 专用内容仍被打进 `.mcpack`**
-   - `blockstates` / `models` / `shaders` / `atlases` / `particles` / `font` providers json / `optifine` / `mcpatcher` 等基岩不会读，徒增体积与混淆。
-
-4. **动画与元数据未转换**
-   - `.png.mcmeta` 原样保留；基岩动画走 `textures/flipbook_textures.json`。
-   - `pack.mcmeta` 保留在包内（基岩不识别）。
-   - `assets/*/lang/*.json` 未转为 `texts/*.lang`。
-   - `sounds.json` + `sounds/` 未映射为 `sounds/sound_definitions.json`。
-
-5. **manifest 过旧**
-   - `min_engine_version: [1,16,2]`，无 `metadata.generated_with`，不利于识别与排查。
+`min_engine_version` 仅用于固定可用性基线（本设计取 `[1, 20, 0]`），不承担功能语义。
 
 ## [S2] Design
 
-### 总体流程（不变）
+### 共同原则
+
+| 原则 | 含义 |
+|---|---|
+| 对称中间态 | 两端都先落到「Java 1.21.11 / pack_format 75」可识别的纹理树，再走版本边或打包 |
+| 丢弃独有 | 源端独有、目标端无对应运行时的目录/文件 **删除**，不伪造半成品 |
+| 保守改名 | 仅使用下表中的确定性别名；未列出的文件名保持原样 |
+| 成对改名 | `foo.png` / `foo.png.mcmeta` / `foo.tga` 必须一起改，避免拆散动画对 |
+
+### j2b（Java → Bedrock）
+
+入口：`pack_format2 == 1000`，或用户选择 Bedrock Latest。
 
 ```
-输入 zip
-  → 目录规整（pack.mcmeta 提升）
-  → Java 流水线 → pack_format 75
-  → Bedrock 阶段（本设计增强 converters/bedrock.rs）
-  → 打包 .mcpack
+zip → 规整 → Java 流水线 → 75 → convert_java_to_bedrock → .mcpack
 ```
-
-入口仍在 `version_converter::process_zip`：`pack_format2 == 1000` 时先转 Java 75，再调用 `bedrock::convert_java_to_bedrock`。
-
-### Bedrock 阶段步骤（目标行为）
 
 | 步骤 | 行为 |
 |---|---|
-| 图标/元数据 | `pack.png → pack_icon.png`；**删除** `pack.mcmeta` |
+| 图标 | `pack.png → pack_icon.png`；删除 `pack.mcmeta` |
 | 字体 | `textures/font → font/`；`ascii.png → default8.png` |
-| 贴图提升 | `assets/minecraft/textures → textures/`（合并，不覆盖已有） |
-| 目录名单数化 | `item→items`（已存在则跳过）；**新增** `block→blocks` |
-| id 改名 | 在 items/blocks 上对 png / png.mcmeta / tga 成对改名 |
-| GUI | `gui/container → ui`；**其余 gui/* 合并进 ui/** 后删 gui |
-| 创造栏 | `ui/creative_inventory/* → ui/` 后删目录 |
-| 动画 | 扫描 `**/*.png.mcmeta` 的 `animation`，写入 `textures/flipbook_textures.json`（`flipbook_texture` / `atlas_tile` / `ticks_per_frame`），并删除 Java mcmeta |
-| 语言 | `assets/minecraft/lang/*.json` → `texts/<Lang_REGION>.lang`；键前缀尽力映射（见下表） |
+| 贴图 | `assets/minecraft/textures → textures/`（合并） |
+| 目录 | `item→items`（目标不存在时）；`block→blocks`（同上） |
+| 改名 | items/blocks 下按下表改名 |
+| GUI | `gui/**` 全部合并进 `textures/ui/`；`ui/creative_inventory/*` 上提 |
+| 动画 | `**/*.png.mcmeta` 的 `animation` → `textures/flipbook_textures.json`；删除 Java mcmeta |
+| 语言 | `lang/*.json` → `texts/<Lang_REGION>.lang`（前缀映射 + 其余原样） |
 | 音效 | `assets/minecraft/sounds/** → sounds/**`；`sounds.json` → `sounds/sound_definitions.json` |
-| 剥离 | 删除 Java 专用目录与根级 optifine/mcpatcher 等 |
-| 收尾 | 清理空 `assets/`；写 `manifest.json` |
+| 剥离 | 见「j2b 剥离」 |
+| manifest | format 2、UUID、`min_engine_version [1,20,0]`、`metadata.generated_with` |
 
-### id 改名表（保守，避免误伤）
+**j2b 剥离（丢弃 Java 独有）**  
+`blockstates`, `models`, `shaders`, `atlases`, `particles`, `equipment`, `items`(json), `font` providers, `post_effect`, `waypoint_style`, `optifine`, `mcpatcher`, `cit`, `emissive`；根级 `optifine`/`mcpatcher`。
 
-| Java stem | Bedrock stem |
+### b2j（Bedrock → Java）
+
+入口：检测到 Bedrock 包（见检测规则）且目标为 Java pack_format；或未来显式源选择。
+
+```
+mcpack/zip → 解包 → convert_bedrock_to_java（→ 伪 Java 75 树）→ Java 流水线到目标 format → .zip
+```
+
+| 步骤 | 行为 |
+|---|---|
+| 图标 | `pack_icon.png → pack.png` |
+| 元数据 | 从 `manifest.json` 读 name/description → 生成 `pack.mcmeta`（`pack_format` 由后续流水线写入目标值） |
+| 贴图 | `textures → assets/minecraft/textures` |
+| 目录 | `items→item`；`blocks→block` |
+| 改名 | 反向别名表 |
+| 字体 | `font/default8.png → assets/minecraft/textures/font/ascii.png`；其余 `font/*` 合并进 `textures/font/` |
+| GUI | `textures/ui → assets/minecraft/textures/gui/container`（无 container 语义时仍放此目录，Java 能加载 gui 贴图） |
+| 语言 | `texts/*.lang` → `assets/minecraft/lang/<java_code>.json`（反向前缀映射） |
+| 音效 | `sounds/** → assets/minecraft/sounds/**`；`sound_definitions.json` → 尽力生成 `assets/minecraft/sounds.json`（无定义则跳过） |
+| 剥离 | 见「b2j 剥离」 |
+
+**b2j 剥离（丢弃 Bedrock 独有）**  
+`manifest.json`, `pack_icon.png`（已改名）, `flipbook_textures.json`, `textures_list.json`, `terrain_texture.json`, `blocks.json`, `biomes_client.json`, `splashes.json`, `bug_pack_icon.png`, `animation_controllers/`, `animations/`, `attachables/`, `entity/`(json 定义), `fogs/`, `particles/`(json), `materials/`, `models/`(geo), `render_controllers/`, `items/`(json 定义，注意与 textures/items 区分), `ui/*.json`（UI 脚本，非贴图）, `texts/languages.json`, `texts/language_names.json`, PBR/`atmospherics`/`color_grading`/`cubemaps`/`lighting`/`local_lighting`/`shadows`/`water`/`pbr` 目录。
+
+### 检测规则（b2j 触发）
+
+解压后满足任一即视为 Bedrock 源：
+
+1. 根目录存在 `manifest.json`，且 JSON 含 `modules` 且任一 `type == "resources"`
+2. 根目录存在 `pack_icon.png` 且 **不存在** `pack.mcmeta`，且存在 `textures/` 或 `manifest.json`
+
+`.mcpack` 与 `.zip` 均允许作输入（前端去掉拒绝逻辑）。
+
+### 别名表
+
+| Java | Bedrock |
 |---|---|
 | `golden_apple` | `apple_golden` |
 | `golden_carrot` | `carrot_golden` |
-| `golden_*` / `wooden_*` | `gold_*` / `wood_*`（既有规则） |
+| `golden_*` | `gold_*` |
+| `wooden_*` | `wood_*` |
 | `music_disc_*` | `record_*` |
-| `netherite_<tool/armor>` | `<tool/armor>_netherite` |
-| `*_horse_armor` | `horsearmor_<mat>`（leather/iron/diamond/gold） |
+| `netherite_<part>` | `<part>_netherite` |
+| `golden_horse_armor` | `horsearmor_gold` |
+| `iron_horse_armor` | `horsearmor_iron` |
+| `diamond_horse_armor` | `horsearmor_diamond` |
+| `leather_horse_armor` | `horsearmor_leather` |
 | `recovery_compass` | `compass_recovery` |
 
-不在表内的名字一律保持不动。
+b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 
-### 语言键映射（尽力）
+### 语言键映射
 
 | Java | Bedrock |
 |---|---|
@@ -90,74 +117,47 @@ commits: (pending)
 | `item.minecraft.X` | `item.X.name` |
 | `entity.minecraft.X` | `entity.X.name` |
 | `enchantment.minecraft.X` | `enchantment.X.name` |
-| 其他键 | 原样写出（菜单/自定义） |
 
-语言代码：`zh_cn → zh_CN`、`en_us → en_US`。
+代码：`en_us ↔ en_US`，`zh_cn ↔ zh_CN`。无法映射的键：j2b 原样写入；b2j 原样写入 JSON。
 
-### sound_definitions 结构
+### 流水线接线（version_converter::process_zip）
 
-```json
-{
-  "format_version": "1.14.0",
-  "sound_definitions": {
-    "<event>": {
-      "category": "<java category or block>",
-      "sounds": [{ "name": "sounds/<path>", "stream": false }]
-    }
-  }
-}
-```
+1. 解压到 temp
+2. 若检测为 Bedrock 源 → `convert_bedrock_to_java`，得到 `pack.mcmeta`（临时 format 75）+ Java 树；`source_version = 75`
+3. 走现有 `invoke_conversion` 到 `java_target`
+4. 若 `pack_format2 == 1000` → `convert_java_to_bedrock`，扩展名 `.mcpack`
+5. 否则 `.zip`
 
-无扩展名路径补 `sounds/` 前缀；已是 `sounds/` 开头则原样。
+### 测试边界
 
-### manifest
-
-- `format_version: 2`
-- `min_engine_version: [1, 20, 0]`
-- `header` / `modules`：`type: resources`，独立 UUID
-- `metadata.generated_with["2-Pyramid"] = [CARGO_PKG_VERSION]`
-- `metadata.authors = ["2-Pyramid"]`
-
-### 剥离清单（目录）
-
-`blockstates`, `models`, `shaders`, `atlases`, `particles`, `equipment`, `items`（Java 1.21 item model）, `font` providers json, `post_effect`, `waypoint_style`, `optifine`, `mcpatcher`, `cit`, `emissive`；以及根目录 `optifine` / `mcpatcher`。
-
-### 测试边界（单元测试覆盖）
-
-在 `converters/bedrock.rs` 现有测试上扩展夹具：
-
-1. `block/` 提升为 `blocks/`，`item/` 为 `items/`
-2. `ascii.png` → `default8.png`
-3. `music_disc_13` → `record_13`
-4. `water_still.png.mcmeta` → flipbook 条目且 mcmeta 删除
-5. `gui/icons.png` → `textures/ui/icons.png`
-6. `lang/zh_cn.json` → `texts/zh_CN.lang` 含 `tile.stone.name=…`
-7. `sounds.json` + ogg → `sound_definitions.json` + `sounds/...`
-8. `blockstates`/`models` 不出现在产物
-9. `pack.mcmeta` 已删除；manifest 含 `min_engine_version [1,20,0]` 与 `metadata`
+- j2b：现有夹具 + block/blocks、icons→ui、ascii→default8、flipbook、lang、sounds、剥离、manifest
+- b2j：对称夹具（items→item、record→music_disc、default8→ascii、ui→gui/container、lang 反向、manifest→mcmeta、bedrock json 目录被删除）
+- 检测：有 manifest resources 模块 → 识别为 Bedrock
 
 ## [S3] Out of Scope
 
-- **不做** Java JSON model → Bedrock geometry / attachables 完整转换（无通用算法，需人工建模）。
-- **不做** Ore UI 覆盖（官方限制资源包无法修改 Ore UI）。
-- **不做** Bedrock → Java 反向转换。
-- **不做** PBR / Vibrant Visuals / MERS 材质生成。
-- **不做** 语言与音效的 100% 键级对照表（仅常见前缀 + 原样透传）。
-- **不改** 前端版本选择与 `.mcpack` 扩展名逻辑（已存在）。
-- UI 警告文案是否从「未完成」改为「实验性、模型/UI 不完整」— 可作为可选后续，本规格不强制。
+- Java model/blockstate ↔ Bedrock geometry/attachables 完整互转
+- Ore UI 覆盖；PBR/Vibrant Visuals
+- 语言/音效 100% 键级对照
+- UI 去掉「未完成」警示的文案大改（可保留 beta 标识）
+- 自动选择「最新」Java pack_format 以外的中间版本策略（固定 75）
+
+### 模块与调度（实现约束）
+
+- 代码在 `converters/bedrock/{mod,mapping,textures,metadata,fsutil,j2b,b2j}.rs`，各子模块自带 `#[cfg(test)]`。
+- `invoke_conversion` 仅调用 `bedrock::register_tasks`，**不写转换逻辑**。
+- 任务名 `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java`，`TaskType::Exclusive` + `TaskTier::Surgeon`。
+- 版本边：forward `(84,1000)`、reverse `(1000,84)`。
+- `process_zip`：Bedrock 源先 `execute_version_conversion(1000,84)`；目标 1000 时 Java 管线到 75 后 `execute_version_conversion(84,1000)`。
 
 ## Tasks
 
-- [ ] T1: 扩展 `convert_java_to_bedrock` 路径映射（block→blocks、gui 其余→ui、ascii→default8、删 pack.mcmeta）— acceptance: 单测断言这些路径 (covers: S2)
-- [ ] T2: 扩展 id 改名表并在 items+blocks 上成对处理 png/mcmeta/tga — acceptance: music_disc/netherite/horsearmor 夹具通过 (covers: S2)
-- [ ] T3: 生成 flipbook_textures.json 并移除已消费的 .png.mcmeta — acceptance: water_still 夹具含 ticks_per_frame 且无残留 mcmeta (covers: S2)
-- [ ] T4: lang JSON → texts/*.lang 与 sounds.json → sound_definitions.json — acceptance: zh_CN.lang 与 sound_definitions 夹具通过 (covers: S2)
-- [ ] T5: 剥离 Java 专用目录 + 更新 manifest（min_engine 1.20.0 + metadata）— acceptance: blockstates/models 不在产物；manifest 字段断言 (covers: S2)
-- [ ] T6: 跑 `cargo test --offline --manifest-path src-tauri/Cargo.toml` 与 `npm run build` — acceptance: 命令退出码 0，bedrock 模块测试全绿 (covers: S2)
+- [x] T1: `converters/bedrock/` 模块化 + 各子模块单测 — acceptance: bedrock 过滤测试 12 绿 (covers: S2)
+- [x] T2: Scheduler 注册 Exclusive/Surgeon 任务与版本边 — acceptance: invoke_conversion 仅 register_tasks (covers: S2)
+- [x] T3: process_zip 检测 Bedrock 源并经 Scheduler 跑 b2j/j2b — acceptance: 无直调 convert_java_to_bedrock (covers: S2)
+- [x] T4: 前端允许 `.mcpack` 拖入/选择 — acceptance: zip+mcpack 过滤 (covers: S2)
+- [x] T5: `cargo test --offline` 89 passed；`npm run build` 成功 — acceptance: 退出码 0 (covers: S2)
 
 ## 审查时请确认
 
-1. 改名表是否足够/过激（尤其 `netherite_*` 方向）。
-2. `min_engine_version` 用 `[1,20,0]` 还是保持 `[1,16,2]`。
-3. 动画：只写 flipbook 条目是否可接受（不生成完整 `terrain_texture.json` 映射时，部分贴图可能仍需用户手工 atlas 键）。
-4. 是否允许在本仓库 `master` 上直接实现，或需要独立 worktree/分支。
+（实现前用户已确认方向；实现后如有偏差见 Report）
