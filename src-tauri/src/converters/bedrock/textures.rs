@@ -61,8 +61,12 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
     // Java colormap → Bedrock colormaps
     rename_dir_if_absent(&textures_dst.join("colormap"), &textures_dst.join("colormaps"))?;
 
-    // 床在 Java 是 block 贴图；Bedrock 物品图标在 items/bed_*
-    copy_bed_block_textures_to_items(textures_dst);
+    // 床：物品栏/手持用 items/bed.png；方块面贴图尽力铺 bed_*；并保留 bed_color 供现代 atlas
+    write_bed_textures(textures_dst);
+    // 弩：确保 standby 文件存在
+    ensure_crossbow_standby_files(textures_dst);
+    // 实体：Java 嵌套路径旁再放 Bedrock 常用扁平名
+    alias_entity_textures(textures_dst);
 
     // T6/T7: 贴图缓存 + atlas 短名表
     write_textures_list(textures_dst)?;
@@ -70,28 +74,122 @@ pub fn reorganize_java_textures_for_bedrock(minecraft: &Path, textures_dst: &Pat
     Ok(())
 }
 
-/// 把 textures/blocks/bed_*.png 复制到 textures/items/（物品图标）。
-fn copy_bed_block_textures_to_items(textures_dst: &Path) {
+/// 床手持/物品图标：经典 Bedrock 使用 textures/items/bed.png（参考可用包）。
+/// 同时把 Java 床贴图铺到 blocks/bed_*.png 面贴图（尽力），并复制 bed_color 到 items/。
+fn write_bed_textures(textures_dst: &Path) {
     let blocks = textures_dst.join("blocks");
     let items = textures_dst.join("items");
     if !blocks.is_dir() {
         return;
     }
     let _ = fs::create_dir_all(&items);
-    let Ok(entries) = fs::read_dir(&blocks) else { return };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-        let fname = entry.file_name().to_string_lossy().to_string();
-        if fname.to_ascii_lowercase().ends_with(".png") && fname.starts_with("bed_") {
-            let dst = items.join(&fname);
-            if !dst.exists() {
-                let _ = fs::copy(&path, &dst);
+
+    // 收集 blocks 下 bed_*.png
+    let mut bed_files: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(entries) = fs::read_dir(&blocks) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let fname = entry.file_name().to_string_lossy().to_string();
+            if fname.to_ascii_lowercase().ends_with(".png") && fname.starts_with("bed_") {
+                bed_files.push(path);
             }
         }
     }
+    if bed_files.is_empty() {
+        return;
+    }
+
+    // 优先 white，否则取第一个，作为手持图标源
+    bed_files.sort();
+    let source = bed_files
+        .iter()
+        .find(|p| {
+            p.file_name()
+                .map(|n| n.to_string_lossy() == "bed_white.png")
+                .unwrap_or(false)
+        })
+        .cloned()
+        .unwrap_or_else(|| bed_files[0].clone());
+
+    // 1) 经典手持/物品图标
+    let _ = fs::copy(&source, items.join("bed.png"));
+    // 2) 现代 item atlas 仍用 bed_white 等
+    for path in &bed_files {
+        let fname = path.file_name().unwrap().to_string_lossy().to_string();
+        let dst = items.join(&fname);
+        if !dst.exists() {
+            let _ = fs::copy(path, &dst);
+        }
+    }
+    // 3) 方块面贴图：若缺失则用 source 铺满（Java 整床图 → Bedrock 分面 UV，近似）
+    for face in [
+        "bed_feet_end.png",
+        "bed_feet_side.png",
+        "bed_feet_top.png",
+        "bed_head_end.png",
+        "bed_head_side.png",
+        "bed_head_top.png",
+    ] {
+        let dst = blocks.join(face);
+        if !dst.exists() {
+            let _ = fs::copy(&source, &dst);
+        }
+    }
+    log_info!("OKAY bedrock [bed items/bed.png + face stubs]");
+}
+
+/// Java crossbow.png 已改名为 crossbow_standby；若仍有旧名则复制。
+fn ensure_crossbow_standby_files(textures_dst: &Path) {
+    let items = textures_dst.join("items");
+    if !items.is_dir() {
+        return;
+    }
+    // 若只有 crossbow.png（未改名成功等），补一份 standby
+    let legacy = items.join("crossbow.png");
+    let standby = items.join("crossbow_standby.png");
+    if legacy.exists() && !standby.exists() {
+        let _ = fs::copy(&legacy, &standby);
+    }
+    // 若只有 standby，再写回 crossbow.png 兼容
+    if standby.exists() && !legacy.exists() {
+        let _ = fs::copy(&standby, &legacy);
+    }
+}
+
+/// 实体贴图别名：在嵌套 Java 路径旁放置 Bedrock 常见扁平文件名。
+fn alias_entity_textures(textures_dst: &Path) {
+    let entity = textures_dst.join("entity");
+    if !entity.is_dir() {
+        return;
+    }
+    // (子目录, 文件名, 根 entity/ 下别名)
+    let aliases: &[(&str, &str, &str)] = &[
+        ("zombie", "zombie.png", "zombie.png"),
+        ("sheep", "sheep.png", "sheep.png"),
+        ("sheep", "sheep_fur.png", "sheep_fur.png"),
+        ("skeleton", "skeleton.png", "skeleton.png"),
+        ("creeper", "creeper.png", "creeper.png"),
+    ];
+    for (folder, file, alias) in aliases {
+        let src = entity.join(folder).join(file);
+        let dst = entity.join(alias);
+        if src.is_file() && !dst.exists() {
+            let _ = fs::copy(&src, &dst);
+        }
+    }
+    // 反向：扁平存在时补回嵌套（部分 Java 包用扁平）
+    for (folder, file, alias) in aliases {
+        let src = entity.join(alias);
+        let dst = entity.join(folder).join(file);
+        if src.is_file() && !dst.exists() {
+            let _ = fs::create_dir_all(entity.join(folder));
+            let _ = fs::copy(&src, &dst);
+        }
+    }
+    log_info!("OKAY bedrock [entity texture aliases]");
 }
 
 /// j2b：生成 `textures/textures_list.json`（无扩展名相对包根路径）。
@@ -233,6 +331,14 @@ fn write_atlas_file(
         if !bed_paths.is_empty() {
             data.insert("bed".into(), serde_json::json!({ "textures": bed_paths }));
         }
+        // 经典手持图标 bed.png 优先（可用包布局）；无 bed.png 时保留颜色数组
+        if stems.contains(&"bed".to_string()) {
+            data.insert(
+                "bed".into(),
+                serde_json::json!({ "textures": "textures/items/bed" }),
+            );
+            consumed.insert("bed".into());
+        }
         // bucket
         let mut bucket_paths = Vec::new();
         for name in BUCKET_VARIANT_ORDER {
@@ -276,7 +382,13 @@ fn write_atlas_file(
                 "crossbow_standby".into(),
                 serde_json::json!({ "textures": "textures/items/crossbow_standby" }),
             );
+            // 兼容仍查 crossbow 的路径
+            data.insert(
+                "crossbow".into(),
+                serde_json::json!({ "textures": "textures/items/crossbow_standby" }),
+            );
             consumed.insert("crossbow_standby".into());
+            consumed.insert("crossbow".into());
         }
         let mut cross_pull: Vec<String> = Vec::new();
         for stem in ["crossbow_pulling_0", "crossbow_pulling_1", "crossbow_pulling_2", "crossbow_arrow", "crossbow_firework"] {
@@ -572,6 +684,10 @@ mod tests {
         // 床从 blocks 复制到 items
         assert!(root.join("textures/blocks/bed_red.png").exists());
         assert!(root.join("textures/items/bed_red.png").exists());
+        // 经典手持
+        assert!(root.join("textures/items/bed.png").exists());
+        // 方块分面 stub
+        assert!(root.join("textures/blocks/bed_head_top.png").exists());
 
         let item: serde_json::Value = serde_json::from_str(
             &fs::read_to_string(root.join("textures/item_texture.json")).unwrap(),
@@ -583,8 +699,8 @@ mod tests {
             "textures/items/bucket_empty"
         );
         assert_eq!(
-            item["texture_data"]["bed"]["textures"][0],
-            "textures/items/bed_white"
+            item["texture_data"]["bed"]["textures"],
+            "textures/items/bed"
         );
         assert_eq!(
             item["texture_data"]["bow_standby"]["textures"],
@@ -595,9 +711,41 @@ mod tests {
             item["texture_data"]["crossbow_standby"]["textures"],
             "textures/items/crossbow_standby"
         );
+        assert_eq!(
+            item["texture_data"]["bed"]["textures"],
+            "textures/items/bed"
+        );
+        assert_eq!(
+            item["texture_data"]["crossbow"]["textures"],
+            "textures/items/crossbow_standby"
+        );
         // stem 级键不应再单独出现
         assert!(item["texture_data"].get("bed_red").is_none());
         assert!(item["texture_data"].get("bucket_water").is_none());
+    }
+
+    #[test]
+    fn test_entity_aliases_and_crossbow_files() {
+        let temp = tempdir().unwrap();
+        let root = temp.path();
+        let mc = root.join("assets/minecraft");
+        let tex = mc.join("textures");
+        fs::create_dir_all(tex.join("entity/zombie")).unwrap();
+        fs::create_dir_all(tex.join("entity/sheep")).unwrap();
+        fs::create_dir_all(tex.join("item")).unwrap();
+        fs::write(tex.join("entity/zombie/zombie.png"), b"z").unwrap();
+        fs::write(tex.join("entity/sheep/sheep.png"), b"s").unwrap();
+        fs::write(tex.join("entity/sheep/sheep_fur.png"), b"f").unwrap();
+        fs::write(tex.join("item/crossbow.png"), b"c").unwrap();
+
+        move_java_font_to_bedrock(&mc, root);
+        reorganize_java_textures_for_bedrock(&mc, &root.join("textures")).unwrap();
+
+        assert!(root.join("textures/entity/zombie.png").exists());
+        assert!(root.join("textures/entity/sheep.png").exists());
+        assert!(root.join("textures/entity/sheep_fur.png").exists());
+        assert!(root.join("textures/items/crossbow_standby.png").exists());
+        assert!(root.join("textures/items/crossbow.png").exists());
     }
 
     #[test]
