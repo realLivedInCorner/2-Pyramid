@@ -36,6 +36,9 @@ release/
 # Claude
 .claude/
 
+# Compose / agent working docs
+docs/compose/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
