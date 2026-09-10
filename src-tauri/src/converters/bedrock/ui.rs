@@ -10,6 +10,8 @@ use image::RgbaImage;
 
 use crate::log_info;
 
+use super::fsutil::remove_dir_quiet;
+
 /// 由 reorganize 在 gui→ui 扁平化之后调用。
 pub fn convert_java_hud_to_bedrock_ui(textures_dst: &Path) {
     let ui = textures_dst.join("ui");
@@ -252,13 +254,14 @@ fn copy_inventory_gui(textures_dst: &Path, ui: &Path) {
     }
 }
 
-/// Java 1.20+ sprites/hud/* → Bedrock ui/*（同名优先）。
+/// Java 1.20+ sprites/hud/* → Bedrock ui/*。
+/// 注意：调用时 gui 可能已合并进 ui，故同时扫 ui/sprites/hud 与 gui/sprites/hud。
 fn copy_java_sprite_hud(textures_dst: &Path, ui: &Path) {
-    let hud = textures_dst.join("gui").join("sprites").join("hud");
-    if !hud.is_dir() {
-        return;
-    }
-    // 常见精灵名 → Bedrock ui 文件名
+    let mut hud_dirs = vec![
+        ui.join("sprites").join("hud"),
+        textures_dst.join("gui").join("sprites").join("hud"),
+    ];
+    // 已扁平的 hud 文件也在 ui/ 根
     let map: &[(&str, &str)] = &[
         ("hotbar.png", "hotbar.png"),
         ("hotbar_selection.png", "hotbar_selection.png"),
@@ -273,16 +276,21 @@ fn copy_java_sprite_hud(textures_dst: &Path, ui: &Path) {
         ("armor_half.png", "armor_half.png"),
         ("armor_empty.png", "armor_empty.png"),
     ];
-    // 递归收集 hud 下 png
     let mut copied = 0usize;
-    copy_dir_rename(&hud, ui, map, &mut copied);
-    // 原名文件也拷一份（保证路径存在）
-    merge_keep_names(&hud, ui, &mut copied);
-    if copied > 0 {
-        log_info!("OKAY bedrock [gui/sprites/hud → ui × {}]", copied);
+    for hud in &hud_dirs {
+        if !hud.is_dir() {
+            continue;
+        }
+        copy_dir_rename(hud, ui, map, &mut copied);
+        merge_keep_names(hud, ui, &mut copied);
     }
-    // sprites 本身不再需要（已消费）
+    if copied > 0 {
+        log_info!("OKAY bedrock [sprites/hud → ui × {}]", copied);
+    }
+    // 消费后清理
+    remove_dir_quiet(&ui.join("sprites"));
     let _ = fs::remove_dir_all(textures_dst.join("gui").join("sprites"));
+    hud_dirs.clear();
 }
 
 fn copy_dir_rename(
