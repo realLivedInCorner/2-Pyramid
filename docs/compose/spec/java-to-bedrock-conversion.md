@@ -1,9 +1,9 @@
 ---
 feature: java-to-bedrock-conversion
-status: delivered
+status: in-progress
 updated: 2026-08-23
 branch: feat/java-bedrock-convert
-commits: b7524b5..ac573ec
+commits: b7524b5..675f8cb
 ---
 
 # Java ↔ Bedrock 资源包双向转换
@@ -143,6 +143,20 @@ b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 - b2j：对称夹具（items→item、record→music_disc、default8→ascii、ui→gui/container、lang 反向、manifest→mcmeta、bedrock json 目录被删除）
 - 检测：有 manifest resources 模块 → 识别为 Bedrock
 
+### 网络调研补充（2026-08-23）
+
+来源：Minecraft Wiki Resource pack、Bedrock Wiki pack-structure / texture-atlases / flipbook-textures / textures-list。
+
+| 差异 | Java | Bedrock | 转换策略 |
+|---|---|---|---|
+| 贴图缓存 | 无 | `textures/textures_list.json` 数组（无扩展名路径） | j2b **生成**；b2j 删除 |
+| 方块 atlas | 路径即用 | `terrain_texture.json` shortname → path | j2b 为 blocks 下 png 写入 shortname=文件名 stem |
+| 物品 atlas | 路径即用 | `item_texture.json` shortname → path | j2b 为 items 下 png 写入 |
+| flipbook 锚点 | `.png.mcmeta` | `atlas_tile` 须对齐 shortname | 现用文件名 stem；生成 atlas 后一致 |
+| 色图目录 | `textures/colormap/` | `textures/colormaps/` | j2b 改名；b2j 反向 |
+| 音效定义 | `assets/.../sounds.json` | `sounds/sound_definitions.json` **且** 包根 `sounds.json` | j2b 写 `sounds/sound_definitions.json` + 根 `sounds.json`（同内容）；b2j 优先读根再读 sounds/ |
+| 字体 | `textures/font` png + font json | `font/` png/ttf/metadata | 已做 png；json 继续剥离 |
+
 ## [S3] Out of Scope
 
 - Java model/blockstate ↔ Bedrock geometry/attachables 完整互转
@@ -150,6 +164,7 @@ b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 - 语言/音效 100% 键级对照
 - UI 去掉「未完成」警示的文案大改（可保留 beta 标识）
 - 自动选择「最新」Java pack_format 以外的中间版本策略（固定 75）
+- 为**自定义**新方块生成完整 block definition（仅覆盖原版贴图路径）
 
 ### 模块与调度（实现约束）
 
@@ -161,12 +176,26 @@ b2j 使用同一表的逆映射（冲突时 Java 名优先作为规范形）。
 
 ## Tasks
 
+已完成（T1–T5）：
+
 - [x] T1: `converters/bedrock/` 模块化 + 各子模块单测 — acceptance: bedrock 过滤测试 12 绿 (covers: S2)
 - [x] T2: Scheduler 注册 Exclusive/Surgeon 任务与版本边 — acceptance: invoke_conversion 仅 register_tasks (covers: S2)
-- [x] T3: process_zip 检测 Bedrock 源并经 Scheduler 跑 b2j/j2b — acceptance: 无直调 convert_java_to_bedrock (covers: S2)
+- [x] T3: process_zip 检测 Bedrock 源并经 Scheduler 跑 b2j/j2j — acceptance: 无直调 convert_java_to_bedrock (covers: S2)
 - [x] T4: 前端允许 `.mcpack` 拖入/选择 — acceptance: zip+mcpack 过滤 (covers: S2)
 - [x] T5: `cargo test --offline` 89 passed；`npm run build` 成功 — acceptance: 退出码 0 (covers: S2)
 
+待实现（调研增补，**待审批**）：
+
+- [ ] T6: j2b 生成 `textures/textures_list.json`（扫描 textures 下 png/tga，写无扩展名相对路径）— acceptance: j2b 夹具含列表且路径正确；b2j 删除该文件 (covers: S2 网络调研)
+- [ ] T7: j2b 生成 `textures/terrain_texture.json` + `item_texture.json`（shortname=文件名 stem，path 相对包根）— acceptance: stone→`textures/blocks/stone`；flipbook `atlas_tile` 与 shortname 一致 (covers: S2 网络调研)
+- [ ] T8: colormap 目录互转 — acceptance: j2b `colormap→colormaps`；b2j 反向 (covers: S2 网络调研)
+- [ ] T9: 音效双写/双读 — acceptance: j2b 同时写 `sounds/sound_definitions.json` 与包根 `sounds.json`；b2j 优先根目录再 sounds/ (covers: S2 网络调研)
+- [ ] T10: 回归验证 — acceptance: `cargo test --offline` 全绿；`npm run build` PASS (covers: S2)
+
+模块约束不变：逻辑落在 `textures.rs` / `metadata.rs`（或新增小函数），各模块保留 `#[cfg(test)]`；Scheduler 挂载方式不变。
+
 ## 审查时请确认
 
-（实现前用户已确认方向；实现后如有偏差见 Report）
+1. 是否批准 T6–T10 全部实现，或只要子集（例如只要 T6+T8）。
+2. atlas shortname 用「文件名 stem」是否足够（不引入 namespace: 前缀）。
+3. 根 `sounds.json` 与 `sounds/sound_definitions.json` 双写是否可接受。
