@@ -515,6 +515,16 @@
                 <span class="fact-value">{{ appBuildNumber }}</span>
               </div>
             </div>
+            <div class="authors-block">
+              <div class="authors-title">{{ t('settings.versionInfo.authors') }}</div>
+              <div class="authors-list">
+                <div v-for="a in authors" :key="a.id" class="author-row">
+                  <span class="author-id">#{{ a.id }}</span>
+                  <span class="author-name">{{ t(a.nameKey) }}</span>
+                  <span class="author-note">{{ t(a.noteKey) }}</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="dialog-footer">
             <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
@@ -961,6 +971,13 @@ const emit = defineEmits([
 
 const { notify, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
 const { build: appBuildNumber, isBeta: appIsBeta } = useAppInfo();
+
+const authors = [
+  { id: 0, nameKey: 'settings.versionInfo.author0Name', noteKey: 'settings.versionInfo.author0Note' },
+  { id: 1, nameKey: 'settings.versionInfo.author1Name', noteKey: 'settings.versionInfo.author1Note' },
+  { id: 2, nameKey: 'settings.versionInfo.author2Name', noteKey: 'settings.versionInfo.author2Note' },
+  { id: 3, nameKey: 'settings.versionInfo.author3Name', noteKey: 'settings.versionInfo.author3Note' },
+];
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
@@ -2131,6 +2148,51 @@ const hexToHsv = (hex: string) => {
 
 .fact-row + .fact-row {
   border-top: 1px solid #eef2f7;
+}
+
+.authors-block {
+  margin-top: 16px;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+}
+.authors-title {
+  padding: 10px 18px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #86868b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.authors-list {
+  display: flex;
+  flex-direction: column;
+}
+.author-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 120px) 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 18px 12px;
+  font-size: 13px;
+}
+.author-row + .author-row {
+  border-top: 1px solid #eef2f7;
+  padding-top: 10px;
+}
+.author-id {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--theme-color) 75%, #000);
+  font-variant-numeric: tabular-nums;
+}
+.author-name {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+.author-note {
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .fact-label {

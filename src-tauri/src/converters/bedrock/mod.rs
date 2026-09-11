@@ -19,6 +19,7 @@ pub mod mapping;
 pub mod metadata;
 pub mod potions;
 pub mod shaders;
+pub mod skybox;
 pub mod textures;
 pub mod ui;
 
