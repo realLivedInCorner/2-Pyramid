@@ -1037,12 +1037,6 @@ const exportLogsToFile = async () => {
   flex-shrink: 0;
 }
 .title-group { display: flex; flex-direction: column; min-width: 0; }
-.back-btn {
-  /* 全局 .back-btn 已套玻璃按钮；此处仅补布局 */
-  flex-shrink: 0;
-}
-.back-btn:hover { transform: translateX(-2px); }
-.back-icon { font-size: 16px; line-height: 1; }
 .page-title {
   font-size: 26px;
   font-weight: 800;

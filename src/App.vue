@@ -966,6 +966,35 @@ onMounted(async () => {
    transition: box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease, color 0.2s ease;
  }
 
+ /* ── 返回按钮：全局统一（Conversion / Overlay / Settings） ── */
+ .app-container .back-btn {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 6px;
+   height: 36px;
+   padding: 0 14px 0 10px;
+   font-size: 13px;
+   font-weight: 600;
+   font-family: inherit;
+   color: #374151;
+   cursor: pointer;
+   flex-shrink: 0;
+   user-select: none;
+ }
+ .app-container .back-btn .back-icon {
+   font-size: 15px;
+   line-height: 1;
+   color: inherit;
+ }
+ .app-container .back-btn:hover {
+   color: #111827;
+   transform: translateY(-1px);
+ }
+ .app-container .back-btn:active {
+   transform: translateY(0);
+ }
+
  /* 对话框关闭按钮（×）单独处理：保持透明无背景，hover 才有淡淡的底
     （此前被并入统一按钮皮肤，出现一块奇怪的玻璃色背景） */
  .app-container .dialog-close {

@@ -2195,22 +2195,6 @@ const hexToHsv = (hex: string) => {
   color: #ef4444;
 }
 
-.back-btn {
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
-  padding: 10px 18px;
-  border-radius: 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: #111827;
-  transition: 0.3s;
-  flex: 0 0 auto;
-}
-.back-icon { font-size: 16px; line-height: 1; color: #111827; }
-.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-2px); }
 .settings-scroll-area::-webkit-scrollbar-track { background: transparent; }
 
 @media (max-width: 720px) {
