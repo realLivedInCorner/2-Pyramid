@@ -10,6 +10,7 @@ use super::metadata::{
     cleanup_empty_assets, convert_lang_java_to_bedrock, convert_sounds_java_to_bedrock,
     read_description_from_mcmeta, strip_java_only, write_manifest,
 };
+use super::shaders::adapt_java_shaders_for_bedrock;
 use super::textures::{move_java_font_to_bedrock, reorganize_java_textures_for_bedrock};
 
 /// 把已转换到最新 Java 26.2（format 88）的包目录重组为基岩版结构。
@@ -30,6 +31,8 @@ pub fn convert_java_to_bedrock(temp_dir: &Path, pack_name: &str) -> Result<(), S
     reorganize_java_textures_for_bedrock(&minecraft, &temp_dir.join("textures"))?;
     convert_lang_java_to_bedrock(&minecraft, temp_dir);
     convert_sounds_java_to_bedrock(&minecraft, temp_dir);
+    // 着色器：先于 strip（strip 会删 assets/minecraft/shaders）
+    adapt_java_shaders_for_bedrock(&minecraft, temp_dir);
     strip_java_only(&minecraft, temp_dir);
     cleanup_empty_assets(temp_dir);
 
