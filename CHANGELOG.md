@@ -6,6 +6,27 @@
 
 （暂无）
 
+## [2.1.1] - 2026-08-23（BUILD 20037）
+
+### Added
+
+- **Java → Bedrock（j2b）HUD / 容器 UI 补全**：从 `icons.png` 按标准 UV 裁快捷栏、选中框、心 / 饥饿 / 护甲、经验条；优先消费 Java 1.20+ `gui/sprites/hud`；容器界面（箱子 / 工作台 / 熔炉与高炉·烟熏炉 / 酿造 / 附魔 / 砂轮 / 铁砧等）写入 `textures/ui/`，并按实际尺寸垫到 2 的幂。
+- **生成 `textures/gui/icons.png`**：可用包均以该图集驱动 HUD；无源 icons 时从 sprite 拼一张（倍数按 hotbar 宽度 / 182 推断）。
+- **j2j 着色器适配（1.20 → 26.x）**：不再在关键版本边整目录删除 shaders；补全 core JSON、JSON `mat2/mat3→mat4`、`#moj_import` 命名空间（1.21.4+）、必要时注入 `include/globals.glsl`（1.21.6+）、`fog_distance()` 标记提示。
+- **j2b 着色器结构落盘**：Java core shader 复制到 `shaders/glsl|hlsl` 并生成 `materials/*.material` stub（Render Dragon 下可能无效，仅结构保留）。
+
+### Changed
+
+- **Bedrock 中间态统一到 Java 26.2（pack_format 88）**，不再停在 1.21.11；调度边改为 `(88,1000)` / `(1000,88)`。
+- 转换页 UI 对齐全局玻璃卡片与主题色主按钮；三页返回按钮样式统一（紧凑 pill，去掉左冲 hover）。
+
+### Fixed
+
+- **可见贴图与 UI 路径**：床手持 `items/bed.png`；桶 / 弓 / 弩 / 木板·原木 / 盔甲层 `iron_layer_1→iron_1` 等；不再误删 `textures/models/armor`；`textures/container` 与 Java 1.20+ `gui/sprites/{container,hud}`、`ui/heart`、`ui/<容器>/container.png` 正确扁平到 `ui/`。
+- **停止写入自生成 `item_texture.json` / `terrain_texture.json`**（可用包均无此文件，自写 atlas 会覆盖 vanilla 查找）。
+- 药水单图铺开到全部 `potion_bottle_*` 与 splash 变体；音效根 `sounds.json` 解析失败时回退 `sounds/sound_definitions.json`。
+- **覆盖包 small_item** 写到 `assets/minecraft/models/item/`（此前误写到 `textures/models/item/`，缩小物品不生效）。
+
 ## [2.1.0] - 2026-08-23（BUILD 20035）
 
 ### Added
