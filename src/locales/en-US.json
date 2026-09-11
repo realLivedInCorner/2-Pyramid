@@ -326,12 +326,21 @@
     },
     "versionInfo": {
       "label": "Version Info",
-      "desc": "View current version and build number",
+      "desc": "View current version, build number, and authors",
       "searchLabel": "Version Info",
       "searchDesc": "View current version and build number",
       "dialogTitle": "Version Information",
       "mainVersion": "Main Version",
-      "buildNumber": "Build Number"
+      "buildNumber": "Build Number",
+      "authors": "Authors & Credits",
+      "author0Name": "Me",
+      "author0Note": "Current developer",
+      "author1Name": "五香蛋e",
+      "author1Note": "Former lead developer and project founder (departed)",
+      "author2Name": "亚克力",
+      "author2Note": "Provided Skybox conversion source",
+      "author3Name": "我小张7272635",
+      "author3Note": "Provided the mirror update source"
     },
     "checkUpdate": {
       "label": "Check for Updates",
