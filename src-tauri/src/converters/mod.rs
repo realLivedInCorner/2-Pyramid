@@ -18,6 +18,7 @@ pub mod delete_enchanted_item_glint;
 pub mod delete_font_folder;
 pub mod delete_horse_folder;
 pub mod delete_shaders_folder;
+pub mod java_shaders;
 pub mod fix2_horse_ui;
 pub mod fix_armor_models;
 pub mod fix_alpha_layers_in_textures;

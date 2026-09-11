@@ -60,34 +60,37 @@ impl ConversionMaps {
         forward.insert((13, 15), vec![]);
         forward.insert((15, 18), vec!["cut_gui".to_string()]);
         forward.insert((18, 22), vec![]);
-        forward.insert((22, 32), vec![]);
-        forward.insert((32, 34), vec!["delete_shaders_folder".to_string()]);
-        forward.insert((34, 42), vec!["delete_shaders_folder".to_string()]);
-        forward.insert((42, 46), vec!["fix2_horse_ui".to_string(), "fix_armor_models".to_string(), "generate_pale_planks".to_string()]);
-        forward.insert((46, 55), vec![]);
+        forward.insert((22, 32), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((32, 34), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((34, 42), vec!["adapt_java_shaders".to_string()]);
+        // 1.17 着色器体系边界（format 7）
+        forward.insert((6, 7), vec!["adapt_java_shaders".to_string()]);
+        reverse.insert((7, 6), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((42, 46), vec!["fix2_horse_ui".to_string(), "fix_armor_models".to_string(), "generate_pale_planks".to_string(), "adapt_java_shaders".to_string()]);
+        forward.insert((46, 55), vec!["adapt_java_shaders".to_string()]);
         forward.insert((55, 63), vec![]);
         forward.insert((63, 64), vec![]);
         forward.insert((64, 69), vec!["generate_copper_ingot".to_string(), "generate_copper_block".to_string(), "generate_copper_tools".to_string(), "generate_copper_armor_models".to_string()]);
-        forward.insert((69, 75), vec![]);
-        forward.insert((75, 84), vec![]);
-        forward.insert((84, 88), vec![]);
-        // Bedrock：从最新 Java 26.2（88）转入；保留 84→1000 兼容旧路径
+        forward.insert((69, 75), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((75, 84), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((84, 88), vec!["adapt_java_shaders".to_string()]);
+        // Bedrock：最新 Java 26.2（88）↔ 1000
         forward.insert((84, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
         forward.insert((88, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
-
         reverse.insert((1000, 88), vec!["bedrock_bedrock_to_java".to_string()]);
         reverse.insert((1000, 84), vec!["bedrock_bedrock_to_java".to_string()]);
-        reverse.insert((88, 84), vec![]);
-        reverse.insert((84, 75), vec![]);
-        reverse.insert((75, 69), vec![]);
+
+        reverse.insert((88, 84), vec!["adapt_java_shaders".to_string()]);
+        reverse.insert((84, 75), vec!["adapt_java_shaders".to_string()]);
+        reverse.insert((75, 69), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((69, 64), vec![]);
         reverse.insert((64, 63), vec![]);
         reverse.insert((63, 55), vec![]);
-        reverse.insert((55, 46), vec![]);
-        reverse.insert((46, 42), vec!["reverse_fix_armor_models".to_string(), "reverse_fix2_horse_ui".to_string(), "reverse_generate_pale_planks".to_string()]);
-        reverse.insert((42, 34), vec!["reverse_fix2_horse_ui".to_string()]);
-        reverse.insert((34, 32), vec![]);
-        reverse.insert((32, 22), vec![]);
+        reverse.insert((55, 46), vec!["adapt_java_shaders".to_string()]);
+        reverse.insert((46, 42), vec!["reverse_fix_armor_models".to_string(), "reverse_fix2_horse_ui".to_string(), "reverse_generate_pale_planks".to_string(), "adapt_java_shaders".to_string()]);
+        reverse.insert((42, 34), vec!["reverse_fix2_horse_ui".to_string(), "adapt_java_shaders".to_string()]);
+        reverse.insert((34, 32), vec!["adapt_java_shaders".to_string()]);
+        reverse.insert((32, 22), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((22, 18), vec![]);
         reverse.insert((18, 15), vec!["reverse_cut_gui".to_string()]);
         reverse.insert((15, 13), vec![]);

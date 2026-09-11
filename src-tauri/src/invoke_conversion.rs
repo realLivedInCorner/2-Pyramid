@@ -159,6 +159,9 @@ pub fn invoke_conversion_ex(
             .map_err(|e| e.to_string())
     });
 
+    // j2j 着色器：1.20→26.x 等边界用适配，而非整目录删除
+    crate::converters::java_shaders::register_scheduler_task(&mut scheduler);
+
     scheduler.register_task("delete_font_folder", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         delete_font_folder::delete_font_folder(ctx)
             .map_err(|e| e.to_string())
@@ -566,6 +569,8 @@ pub fn invoke_conversion_ex(
         .and_then(|s| s.to_str())
         .unwrap_or("pack");
     context.set_data("pack_name", pack_name);
+    // 着色器适配需要知道目标 pack_format（1.20→26.x 等）
+    context.set_data("target_pack_format", &target_version.to_string());
 
     scheduler.execute_version_conversion(&context, &mut texture_pool, source_version, target_version)?;
 
