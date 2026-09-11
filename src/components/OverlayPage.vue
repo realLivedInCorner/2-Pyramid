@@ -518,24 +518,6 @@ onMounted(() => {
   margin-right: 140px; /* 增加边距，确保不遮挡无边框窗口的三个按钮 */
 }
 
-.back-btn {
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
-  padding: 10px 18px;
-  border-radius: 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: #111827;
-  transition: 0.3s;
-}
-
-.back-btn:hover { background: rgba(0, 0, 0, 0.1); transform: translateX(-4px); }
-
-.back-icon { font-size: 16px; line-height: 1; color: #111827; }
-
 .title { font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
 
 .page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
