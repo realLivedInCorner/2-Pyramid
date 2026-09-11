@@ -63,15 +63,18 @@ pub fn adapt_java_shaders_at(pack_root: &Path, target_pack_format: u32) -> Resul
     let core = shaders.join("core");
     let mut stats = ShaderStats::default();
 
-    // 1) JSON：补缺失 + mat2/mat3 → mat4（1.17+ 只允许 mat4）
+    // 1) JSON：仅在成对 .vsh+.fsh 且缺失 JSON 时补最小定义；
+    //    1.21.6+（JSON 体系收缩）不再生成 stub，避免无效定义导致「着色器重载失败」。
     if core.is_dir() {
-        ensure_core_json(&core, &mut stats);
+        if target_pack_format < FMT_GLOBALS_INCLUDE {
+            ensure_core_json(&core, &mut stats);
+        }
         if target_pack_format >= FMT_MODERN_JSON {
             rewrite_json_matrix_types(&core, &mut stats);
         }
     }
 
-    // 2) 源码遍历：include 命名空间、globals 注入、fog_distance
+    // 2) 源码遍历（跳过 include/，避免写坏被 #moj_import 的公共文件）
     walk_and_rewrite(&shaders, target_pack_format, &mut stats);
 
     if stats.ensured_json > 0 {
@@ -138,6 +141,15 @@ fn ensure_core_json(core: &Path, stats: &mut ShaderStats) {
             .trim_end_matches(".vsh")
             .trim_end_matches(".fsh")
             .to_string();
+        // 共享顶点程序（screenquad / animate_sprite）不能按 stem 补 JSON
+        if stem == "screenquad" || stem == "animate_sprite" || stem == "position_color" {
+            continue;
+        }
+        // 必须成对存在，避免 vertex/fragment 指到不存在的文件
+        if !core.join(format!("{}.vsh", stem)).is_file() || !core.join(format!("{}.fsh", stem)).is_file()
+        {
+            continue;
+        }
         let json_path = core.join(format!("{}.json", stem));
         if json_path.is_file() {
             continue;
@@ -165,19 +177,14 @@ fn rewrite_json_matrix_types(core: &Path, stats: &mut ShaderStats) {
         }
         let Ok(raw) = fs::read_to_string(&path) else { continue };
         let mut out = raw.clone();
-        let pairs = [
-            ("\"mat2\"", "\"mat4\""),
-            ("\"mat3\"", "\"mat4\""),
-            ("mat2\"", "mat4\""), // 容错
-        ];
+        // 只替换 type 字段里的 mat2/mat3，避免误伤其它字符串
         let mut changed = false;
-        for (from, to) in pairs {
+        for from in ["\"type\": \"mat2\"", "\"type\": \"mat3\""] {
             if out.contains(from) {
-                out = out.replace(from, to);
+                out = out.replace(from, "\"type\": \"mat4\"");
                 changed = true;
             }
         }
-        // 仅替换 type 字段更稳妥：上面已覆盖常见写法
         if changed && out != raw {
             if fs::write(&path, out).is_ok() {
                 stats.mat_upgraded += 1;
@@ -195,6 +202,11 @@ fn walk_dir(dir: &Path, target: u32, stats: &mut ShaderStats) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            // include/ 被 #moj_import 引用，写坏会导致整个包 shader 重载失败
+            let folder = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            if folder.eq_ignore_ascii_case("include") {
+                continue;
+            }
             walk_dir(&path, target, stats);
             continue;
         }
@@ -202,12 +214,13 @@ fn walk_dir(dir: &Path, target: u32, stats: &mut ShaderStats) {
         if !(name.ends_with(".vsh") || name.ends_with(".fsh") || name.ends_with(".glsl")) {
             continue;
         }
+        let is_core = dir.file_name().and_then(|s| s.to_str()) == Some("core");
         let Ok(raw) = fs::read_to_string(&path) else { continue };
         let mut out = raw.clone();
         let mut changed = false;
 
-        // 1.21.4+：#moj_import <foo.glsl> → <minecraft:foo.glsl>
-        if target >= FMT_IMPORT_NS {
+        // 1.21.4+：仅 core 下，无冒号的 <foo.glsl> 补 minecraft: 前缀
+        if is_core && target >= FMT_IMPORT_NS {
             let (next, n) = namespace_moj_imports(&out);
             if n > 0 {
                 out = next;
@@ -216,8 +229,9 @@ fn walk_dir(dir: &Path, target: u32, stats: &mut ShaderStats) {
             }
         }
 
-        // 1.21.6+：用到 ScreenSize/GameTime 且无 globals include 时注入
-        if target >= FMT_GLOBALS_INCLUDE {
+        // 1.21.6+：仅 core 的 vsh/fsh 注入 globals
+        if is_core && target >= FMT_GLOBALS_INCLUDE && (name.ends_with(".vsh") || name.ends_with(".fsh"))
+        {
             if needs_globals_import(&out) && !has_globals_import(&out) {
                 out = inject_globals_import(&out);
                 changed = true;
@@ -225,10 +239,9 @@ fn walk_dir(dir: &Path, target: u32, stats: &mut ShaderStats) {
             }
         }
 
-        // 1.20.5+：标记 fog_distance 可能不兼容（不盲目改函数体，避免破坏自定义 fog.glsl）
+        // 1.20.5+：仅标记，不改函数体
         if target >= FMT_FOG_DISTANCE && out.contains("fog_distance(") {
-            // 旧三参 fog_distance(start, end, dist) 在新 fog.glsl 已改签名
-            if count_args_likely_three(&out, "fog_distance") {
+            if count_args_likely_three(&out, "fog_distance") && !out.contains("2PYR: fog_distance") {
                 out = format!(
                     "// 2PYR: fog_distance() 1.20.5+ 签名变更，请对照 vanilla fog.glsl\n{}",
                     out
@@ -264,6 +277,12 @@ fn namespace_moj_imports(src: &str) -> (String, usize) {
                         &rest[1..rest.len() - 1]
                     };
                     let inner = inner.trim_start_matches('/');
+                    // 已是 include/xxx 时只补命名空间，不改成 include/include
+                    if inner.starts_with("include/") || inner.contains(':') {
+                        out.push_str(line);
+                        out.push('\n');
+                        continue;
+                    }
                     out.push_str(&format!("#moj_import <minecraft:{}>\n", inner));
                     n += 1;
                     continue;
@@ -277,7 +296,8 @@ fn namespace_moj_imports(src: &str) -> (String, usize) {
 }
 
 fn needs_globals_import(src: &str) -> bool {
-    src.contains("ScreenSize") || src.contains("GameTime") || src.contains("Globals")
+    // 只看标识符使用，避免把注释里的 Globals 也算进去
+    src.contains("ScreenSize") || src.contains("GameTime")
 }
 
 fn has_globals_import(src: &str) -> bool {
@@ -473,17 +493,18 @@ mod tests {
     #[test]
     fn test_fog_distance_flagged_for_1205() {
         let temp = tempdir().unwrap();
-        let core = temp.path().join("assets/minecraft/shaders/include");
+        let core = temp.path().join("assets/minecraft/shaders/core");
         fs::create_dir_all(&core).unwrap();
+        // include/ 不改写；放在 core 下验证标记逻辑
         fs::write(
-            core.join("fog.glsl"),
+            core.join("fog_helper.glsl"),
             "vec4 fog_distance(vec4 a, float b, float c) { return a; }\n",
         )
         .unwrap();
 
         adapt_java_shaders_at(temp.path(), 32).unwrap();
 
-        let fog = fs::read_to_string(core.join("fog.glsl")).unwrap();
+        let fog = fs::read_to_string(core.join("fog_helper.glsl")).unwrap();
         assert!(fog.contains("2PYR"));
         assert!(fog.contains("fog_distance"));
     }
