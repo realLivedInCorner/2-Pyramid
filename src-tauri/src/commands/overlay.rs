@@ -606,8 +606,9 @@ fn apply_overlay_changes(project_name: &str, overlay_dir: &Path) -> Result<(), S
     }
 
     if let Some(small_items) = config.get("small_item").and_then(|v| v.as_object()) {
-        let textures_item_dir = output_root.join("assets").join("minecraft").join("textures").join("models").join("item");
-        fs::create_dir_all(&textures_item_dir).map_err(|e| format!("Failed to create textures/models/item directory: {}", e))?;
+        // 与 overlay.py 对齐：缩小物品模板写入 models/item（不是 textures/models/item）
+        let models_dir = output_root.join("assets").join("minecraft").join("models").join("item");
+        fs::create_dir_all(&models_dir).map_err(|e| format!("Failed to create models/item directory: {}", e))?;
 
         for (item_name, item_config) in small_items {
             if item_config.get("type").and_then(|v| v.as_str()) == Some("zoom_out")
@@ -615,10 +616,10 @@ fn apply_overlay_changes(project_name: &str, overlay_dir: &Path) -> Result<(), S
             {
                 let source_file = big_item_templates.join(format!("{}.json", item_name));
                 if source_file.exists() {
-                    let dest_file = textures_item_dir.join(format!("{}.json", item_name));
+                    let dest_file = models_dir.join(format!("{}.json", item_name));
                     fs::copy(&source_file, &dest_file).map_err(|e| format!("Failed to copy shrink item: {}", e))?;
                     crate::overlay::fix_json_placeholders(&dest_file)?;
-                    crate::log_info!("copied small_item: {} to textures/models/item/", item_name);
+                    crate::log_info!("copied small_item: {} to models/item/", item_name);
                 }
             }
         }
