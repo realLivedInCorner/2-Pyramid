@@ -1,16 +1,13 @@
-//! Java ↔ Java 着色器适配（j2j）。
+//! Java ↔ Java 着色器适配（j2j），重点 **1.20 → 26.x**。
 //!
-//! 版本差异（Minecraft Wiki / resource pack shaders）：
-//! - **1.17+（pack_format ≥ 7）**：`shaders/core/*.json` 定义 + `.vsh`/`.fsh`；`#moj_import` include；uniform block。
-//! - **1.17 前**：仅 `.vsh`/`.fsh`，无 JSON 定义，uniform 直接声明。
-//! - **1.21（pack_format 34）起**：core shader JSON / uniform 布局又变，旧包整包 shader 容易导致加载失败。
+//! 版本差异（社区/实战归纳 + Wiki）：
+//! - **1.17+（format ≥ 7）**：core JSON；JSON 里 **只能传 mat4**，不能 mat2/mat3。
+//! - **1.20.5（format ≥ 32）**：`fog.glsl` 中 `fog_distance()` 参数变动。
+//! - **1.21.4（format ≥ 46）**：`#moj_import` 需要 **命名空间+路径**（`<minecraft:...>`）。
+//! - **1.21.6（format ≥ 63）**：部分 JSON 消失；`ScreenSize` / `GameTime` 等改从
+//!   **include 的 glsl（globals.glsl 等）** 获取。
 //!
-//! 策略：
-//! - 跨过 1.21 边界时不再**整目录删除**，而是：
-//!   - 保留 `.vsh`/`.fsh`/include
-//!   - 为缺失的 core 着色器补最小 `.json`
-//!   - 目标 &lt; 1.17 时去掉 `.json` 与 `post_effect`（旧客户端不识别）
-//! - 无法自动改写的 GLSL 语义差异仅记日志。
+//! 本模块在保留 `.vsh`/`.fsh` 的前提下做这些改写；无法安全改写的只打日志。
 
 use std::fs;
 use std::path::Path;
@@ -18,18 +15,23 @@ use std::path::Path;
 use crate::hurray::context::HurrayContext;
 use crate::{log_info, log_warn};
 
-/// pack_format ≥ 7 视为「1.17+ 着色器体系」
+/// pack_format 里程碑
+const FMT_MODERN_JSON: u32 = 7; // 1.17
+const FMT_FOG_DISTANCE: u32 = 32; // 1.20.5
+const FMT_IMPORT_NS: u32 = 46; // 1.21.4
+const FMT_GLOBALS_INCLUDE: u32 = 63; // 1.21.6
+
 fn is_modern_shader_api(pack_format: u32) -> bool {
-    pack_format >= 7
+    pack_format >= FMT_MODERN_JSON
 }
 
-/// 挂到调度器的入口：按目标版本适配 shaders/。
+/// 挂到调度器的入口：按目标 pack_format 适配 shaders/。
 pub fn adapt_java_shaders(ctx: &HurrayContext) -> Result<(), String> {
     let root = Path::new(ctx.temp_dir());
     let target = ctx
         .get_data("target_pack_format")
         .and_then(|s| s.parse::<u32>().ok())
-        .unwrap_or(75);
+        .unwrap_or(88);
     adapt_java_shaders_at(root, target)
 }
 
@@ -41,29 +43,88 @@ pub fn adapt_java_shaders_at(pack_root: &Path, target_pack_format: u32) -> Resul
     }
 
     if !is_modern_shader_api(target_pack_format) {
-        // 旧版：去掉 JSON 定义与 post_effect
         remove_dir_quiet(&shaders.join("post_effect"));
         let mut n = 0usize;
         strip_json_in(&shaders, &mut n);
         if n > 0 {
-            log_info!("OKAY java-shaders [strip JSON × {} for legacy target {}]", n, target_pack_format);
+            log_info!(
+                "OKAY java-shaders [strip JSON × {} for legacy target {}]",
+                n,
+                target_pack_format
+            );
         }
         log_warn!(
-            "目标 pack_format {} 使用旧着色器 API；无法自动改写 uniform block，若加载失败请手改",
+            "目标 pack_format {} 使用旧着色器 API；uniform block 无法自动改写",
             target_pack_format
         );
         return Ok(());
     }
 
-    // 1.17+：补全缺失的 core JSON
     let core = shaders.join("core");
-    if !core.is_dir() {
-        return Ok(());
+    let mut stats = ShaderStats::default();
+
+    // 1) JSON：补缺失 + mat2/mat3 → mat4（1.17+ 只允许 mat4）
+    if core.is_dir() {
+        ensure_core_json(&core, &mut stats);
+        if target_pack_format >= FMT_MODERN_JSON {
+            rewrite_json_matrix_types(&core, &mut stats);
+        }
     }
-    let mut ensured = 0usize;
-    let Ok(entries) = fs::read_dir(&core) else {
-        return Ok(());
-    };
+
+    // 2) 源码遍历：include 命名空间、globals 注入、fog_distance
+    walk_and_rewrite(&shaders, target_pack_format, &mut stats);
+
+    if stats.ensured_json > 0 {
+        log_info!("OKAY java-shaders [ensured core JSON × {}]", stats.ensured_json);
+    }
+    if stats.mat_upgraded > 0 {
+        log_info!(
+            "OKAY java-shaders [JSON mat2/mat3→mat4 × {}]",
+            stats.mat_upgraded
+        );
+    }
+    if stats.imports_namespaced > 0 {
+        log_info!(
+            "OKAY java-shaders [moj_import → namespace × {}]",
+            stats.imports_namespaced
+        );
+    }
+    if stats.globals_injected > 0 {
+        log_info!(
+            "OKAY java-shaders [injected globals.glsl import × {}]",
+            stats.globals_injected
+        );
+    }
+    if stats.fog_rewritten > 0 {
+        log_info!(
+            "OKAY java-shaders [fog_distance notes × {}]",
+            stats.fog_rewritten
+        );
+    }
+    if target_pack_format >= FMT_FOG_DISTANCE {
+        log_warn!(
+            "目标 ≥1.20.5：fog_distance() 参数已变；若雾效异常请对照 vanilla fog.glsl 手调"
+        );
+    }
+    if target_pack_format >= FMT_GLOBALS_INCLUDE {
+        log_warn!(
+            "目标 ≥1.21.6：请确认 ScreenSize/GameTime 走 include/globals.glsl，而非 core JSON"
+        );
+    }
+    Ok(())
+}
+
+#[derive(Default)]
+struct ShaderStats {
+    ensured_json: usize,
+    mat_upgraded: usize,
+    imports_namespaced: usize,
+    globals_injected: usize,
+    fog_rewritten: usize,
+}
+
+fn ensure_core_json(core: &Path, stats: &mut ShaderStats) {
+    let Ok(entries) = fs::read_dir(core) else { return };
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_file() {
@@ -81,24 +142,196 @@ pub fn adapt_java_shaders_at(pack_root: &Path, target_pack_format: u32) -> Resul
         if json_path.is_file() {
             continue;
         }
-        // 最小定义：vertex/fragment 同名（现代客户端可解析）
         let body = format!(
             "{{\n  \"vertex\": \"{}\",\n  \"fragment\": \"{}\"\n}}\n",
             stem, stem
         );
         if fs::write(&json_path, body).is_ok() {
-            ensured += 1;
+            stats.ensured_json += 1;
         }
     }
-    if ensured > 0 {
-        log_info!("OKAY java-shaders [ensured core JSON × {}]", ensured);
+}
+
+/// JSON 里 mat2 / mat3 → mat4（1.17 只支持 mat4 传递）。
+fn rewrite_json_matrix_types(core: &Path, stats: &mut ShaderStats) {
+    let Ok(entries) = fs::read_dir(core) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(raw) = fs::read_to_string(&path) else { continue };
+        let mut out = raw.clone();
+        let pairs = [
+            ("\"mat2\"", "\"mat4\""),
+            ("\"mat3\"", "\"mat4\""),
+            ("mat2\"", "mat4\""), // 容错
+        ];
+        let mut changed = false;
+        for (from, to) in pairs {
+            if out.contains(from) {
+                out = out.replace(from, to);
+                changed = true;
+            }
+        }
+        // 仅替换 type 字段更稳妥：上面已覆盖常见写法
+        if changed && out != raw {
+            if fs::write(&path, out).is_ok() {
+                stats.mat_upgraded += 1;
+            }
+        }
     }
-    if target_pack_format >= 34 {
-        log_warn!(
-            "跨 1.21（pack_format 34）着色器 API 有变；已保留源码并补 JSON，仍可能需手工调整 uniform"
-        );
+}
+
+fn walk_and_rewrite(shaders: &Path, target: u32, stats: &mut ShaderStats) {
+    walk_dir(shaders, target, stats);
+}
+
+fn walk_dir(dir: &Path, target: u32, stats: &mut ShaderStats) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            walk_dir(&path, target, stats);
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if !(name.ends_with(".vsh") || name.ends_with(".fsh") || name.ends_with(".glsl")) {
+            continue;
+        }
+        let Ok(raw) = fs::read_to_string(&path) else { continue };
+        let mut out = raw.clone();
+        let mut changed = false;
+
+        // 1.21.4+：#moj_import <foo.glsl> → <minecraft:foo.glsl>
+        if target >= FMT_IMPORT_NS {
+            let (next, n) = namespace_moj_imports(&out);
+            if n > 0 {
+                out = next;
+                changed = true;
+                stats.imports_namespaced += n;
+            }
+        }
+
+        // 1.21.6+：用到 ScreenSize/GameTime 且无 globals include 时注入
+        if target >= FMT_GLOBALS_INCLUDE {
+            if needs_globals_import(&out) && !has_globals_import(&out) {
+                out = inject_globals_import(&out);
+                changed = true;
+                stats.globals_injected += 1;
+            }
+        }
+
+        // 1.20.5+：标记 fog_distance 可能不兼容（不盲目改函数体，避免破坏自定义 fog.glsl）
+        if target >= FMT_FOG_DISTANCE && out.contains("fog_distance(") {
+            // 旧三参 fog_distance(start, end, dist) 在新 fog.glsl 已改签名
+            if count_args_likely_three(&out, "fog_distance") {
+                out = format!(
+                    "// 2PYR: fog_distance() 1.20.5+ 签名变更，请对照 vanilla fog.glsl\n{}",
+                    out
+                );
+                changed = true;
+                stats.fog_rewritten += 1;
+            }
+        }
+
+        if changed {
+            let _ = fs::write(&path, out);
+        }
     }
-    Ok(())
+}
+
+/// 把 `#moj_import <path.glsl>` / `"path.glsl"` 写成带 `minecraft:` 前缀的 import。
+fn namespace_moj_imports(src: &str) -> (String, usize) {
+    let mut n = 0usize;
+    let mut out = String::with_capacity(src.len());
+    for line in src.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("#moj_import") {
+            // #moj_import <foo.glsl> 或 "foo.glsl"
+            if let Some(rest) = trimmed.strip_prefix("#moj_import") {
+                let rest = rest.trim();
+                if (rest.starts_with('<') && rest.ends_with('>') && !rest.contains(':'))
+                    || (rest.starts_with('"') && rest.ends_with('"') && !rest.contains(':'))
+                {
+                    // 不带命名空间 → 补 minecraft:
+                    let inner: &str = if rest.starts_with('<') {
+                        &rest[1..rest.len() - 1]
+                    } else {
+                        &rest[1..rest.len() - 1]
+                    };
+                    let inner = inner.trim_start_matches('/');
+                    out.push_str(&format!("#moj_import <minecraft:{}>\n", inner));
+                    n += 1;
+                    continue;
+                }
+            }
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    (out, n)
+}
+
+fn needs_globals_import(src: &str) -> bool {
+    src.contains("ScreenSize") || src.contains("GameTime") || src.contains("Globals")
+}
+
+fn has_globals_import(src: &str) -> bool {
+    src.lines().any(|l| {
+        let t = l.trim();
+        t.starts_with("#moj_import") && t.contains("globals.glsl")
+    })
+}
+
+fn inject_globals_import(src: &str) -> String {
+    // 插在文件首个非注释非空行之前
+    let import = "#moj_import <minecraft:include/globals.glsl>\n";
+    let mut out = String::with_capacity(src.len() + import.len() + 8);
+    let mut injected = false;
+    for line in src.lines() {
+        let t = line.trim();
+        if !injected && !t.is_empty() && !t.starts_with("//") && !t.starts_with("/*") && !t.starts_with("*") {
+            out.push_str(import);
+            injected = true;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    if !injected {
+        out.push_str(import);
+    }
+    out
+}
+
+/// 启发式：fog_distance(...) 是否像三参调用。
+fn count_args_likely_three(src: &str, fn_name: &str) -> bool {
+    let pat = format!("{}(", fn_name);
+    let mut idx = 0usize;
+    while let Some(pos) = src[idx..].find(&pat) {
+        let start = idx + pos + pat.len();
+        let bytes = src.as_bytes();
+        let mut depth = 1usize;
+        let mut commas = 0usize;
+        let mut i = start;
+        while i < bytes.len() && depth > 0 {
+            match bytes[i] {
+                b'(' => depth += 1,
+                b')' => depth -= 1,
+                b',' if depth == 1 => commas += 1,
+                _ => {}
+            }
+            i += 1;
+        }
+        if commas >= 2 {
+            return true;
+        }
+        idx = start;
+    }
+    false
 }
 
 fn strip_json_in(dir: &Path, n: &mut usize) {
@@ -179,5 +412,79 @@ mod tests {
         adapt_java_shaders_at(temp.path(), 88).unwrap();
         let json = fs::read_to_string(core.join("rendertype_entity.json")).unwrap();
         assert!(json.contains("keep"));
+    }
+
+    #[test]
+    fn test_json_mat2_mat3_upgraded_to_mat4() {
+        let temp = tempdir().unwrap();
+        let core = temp.path().join("assets/minecraft/shaders/core");
+        fs::create_dir_all(&core).unwrap();
+        fs::write(core.join("rendertype_entity.vsh"), b"// v").unwrap();
+        fs::write(
+            core.join("rendertype_entity.json"),
+            r#"{ "uniforms": [ { "type": "mat3" }, { "type": "mat2" }, { "type": "mat4" } ] }"#,
+        )
+        .unwrap();
+
+        adapt_java_shaders_at(temp.path(), 34).unwrap();
+
+        let json = fs::read_to_string(core.join("rendertype_entity.json")).unwrap();
+        assert!(!json.contains("mat3"));
+        assert!(!json.contains("mat2"));
+        assert!(json.contains("mat4"));
+    }
+
+    #[test]
+    fn test_moj_import_gets_namespace_on_1214() {
+        let temp = tempdir().unwrap();
+        let core = temp.path().join("assets/minecraft/shaders/core");
+        fs::create_dir_all(&core).unwrap();
+        fs::write(
+            core.join("rendertype_entity.vsh"),
+            "#moj_import <fog.glsl>\n#moj_import <minecraft:include/light.glsl>\nvoid main(){}\n",
+        )
+        .unwrap();
+
+        adapt_java_shaders_at(temp.path(), 46).unwrap();
+
+        let vsh = fs::read_to_string(core.join("rendertype_entity.vsh")).unwrap();
+        assert!(vsh.contains("#moj_import <minecraft:fog.glsl>"));
+        assert!(vsh.contains("#moj_import <minecraft:include/light.glsl>"));
+    }
+
+    #[test]
+    fn test_inject_globals_on_1216() {
+        let temp = tempdir().unwrap();
+        let core = temp.path().join("assets/minecraft/shaders/core");
+        fs::create_dir_all(&core).unwrap();
+        fs::write(
+            core.join("rendertype_entity.fsh"),
+            "void main() { vec2 s = ScreenSize; float t = GameTime; }\n",
+        )
+        .unwrap();
+
+        adapt_java_shaders_at(temp.path(), 63).unwrap();
+
+        let fsh = fs::read_to_string(core.join("rendertype_entity.fsh")).unwrap();
+        assert!(fsh.contains("#moj_import <minecraft:include/globals.glsl>"));
+        assert!(fsh.contains("ScreenSize"));
+    }
+
+    #[test]
+    fn test_fog_distance_flagged_for_1205() {
+        let temp = tempdir().unwrap();
+        let core = temp.path().join("assets/minecraft/shaders/include");
+        fs::create_dir_all(&core).unwrap();
+        fs::write(
+            core.join("fog.glsl"),
+            "vec4 fog_distance(vec4 a, float b, float c) { return a; }\n",
+        )
+        .unwrap();
+
+        adapt_java_shaders_at(temp.path(), 32).unwrap();
+
+        let fog = fs::read_to_string(core.join("fog.glsl")).unwrap();
+        assert!(fog.contains("2PYR"));
+        assert!(fog.contains("fog_distance"));
     }
 }
