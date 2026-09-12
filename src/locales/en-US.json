@@ -668,6 +668,9 @@
         "rainbow": "Dynamic Rainbow",
         "chord": "Chord Rainbow"
       },
+      "outlineColor": "Outline color",
+      "outlineAlpha": "Opacity",
+      "outlineThickness": "Line thickness",
       "saved": "Visual settings saved",
       "saveFailed": "Save failed: {error}"
     },

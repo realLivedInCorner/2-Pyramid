@@ -668,6 +668,9 @@
         "rainbow": "动态彩虹",
         "chord": "和弦彩虹"
       },
+      "outlineColor": "描边颜色",
+      "outlineAlpha": "不透明度",
+      "outlineThickness": "线条粗细",
       "saved": "视觉设置已保存",
       "saveFailed": "保存失败: {error}"
     },
