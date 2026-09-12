@@ -664,9 +664,8 @@
       "outlineDesc": "为实体添加不同风格的描边效果",
       "outlineTypes": {
         "none": "无",
-        "standard": "标准白",
-        "rainbow": "动态彩虹",
-        "chord": "和弦彩虹"
+        "standard": "传统描边（N 卡 / 通用）",
+        "rainbow": "彩虹描边（核显）"
       },
       "outlineColor": "描边颜色",
       "outlineAlpha": "不透明度",

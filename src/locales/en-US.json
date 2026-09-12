@@ -664,9 +664,8 @@
       "outlineDesc": "Add different outline styles to entities",
       "outlineTypes": {
         "none": "None",
-        "standard": "Standard White",
-        "rainbow": "Dynamic Rainbow",
-        "chord": "Chord Rainbow"
+        "standard": "Traditional (NVIDIA / general)",
+        "rainbow": "Rainbow (integrated GPU)"
       },
       "outlineColor": "Outline color",
       "outlineAlpha": "Opacity",

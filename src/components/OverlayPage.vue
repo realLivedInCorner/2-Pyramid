@@ -478,22 +478,37 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: 24px 48px 40px;
+  padding: 20px 40px 28px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .content {
-  max-width: 1200px;
+  width: 100%;
+  max-width: 920px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 编辑模式：操作条贴底，避免悬在半空 */
+.content .editor-actions {
+  margin-top: auto;
+  padding-top: 18px;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
+  margin-bottom: 18px;
   position: relative;
   z-index: 10;
+  flex-shrink: 0;
 }
 
 /* Header layout (matches ConversionPage exactly):
@@ -619,14 +634,14 @@ onMounted(() => {
 
 /* 卡片走全局玻璃皮肤 */
 .card {
-  padding: 20px 22px;
-  margin-bottom: 16px;
+  padding: 16px 18px;
+  margin-bottom: 0;
 }
 
 .card-title {
   font-size: 13px; font-weight: 700; color: #6b7280;
   letter-spacing: 0.04em; text-transform: uppercase;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .meta-item {
@@ -645,16 +660,21 @@ onMounted(() => {
 .path-value {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px; color: #475569;
-  max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* 三列入口卡：描述完整可读，不截断 */
 .options-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
 }
 
 .option-card {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 18px;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px;
+  min-height: 110px;
   background: var(--ui-card-surface);
   backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
   border: var(--ui-border);
@@ -668,24 +688,38 @@ onMounted(() => {
 
 .option-card:hover {
   box-shadow: var(--ui-shadow-hover);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .option-icon {
-  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
   background: color-mix(in srgb, var(--theme-color) 12%, transparent);
   color: var(--theme-color);
-  display: flex; align-items: center; justify-content: center; font-size: 20px;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  margin-top: 2px;
 }
 
 .option-text { flex: 1; min-width: 0; }
-.option-card h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #1d1d1f; }
-.option-card p { margin: 0; font-size: 12px; color: #86868b; line-height: 1.4; }
+.option-card h4 { margin: 0 0 6px 0; font-size: 14px; font-weight: 700; color: #1d1d1f; }
+.option-card p {
+  margin: 0;
+  font-size: 12px;
+  color: #86868b;
+  line-height: 1.5;
+  /* 允许折行，不截断 */
+  white-space: normal;
+  word-break: break-word;
+}
 .option-arrow {
-  font-size: 18px; color: #c6c6c8; flex-shrink: 0;
+  font-size: 16px; color: #c6c6c8; flex-shrink: 0; margin-top: 2px;
   transition: color 0.15s ease, transform 0.15s ease;
 }
 .option-card:hover .option-arrow { color: var(--theme-color); transform: translateX(2px); }
+
+@media (max-width: 900px) {
+  .options-grid { grid-template-columns: 1fr; }
+  .overlay-container { padding: 16px 20px 24px; }
+}
 
 /* 底部操作条 */
 .editor-actions {
