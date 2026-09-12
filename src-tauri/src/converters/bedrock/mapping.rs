@@ -83,6 +83,31 @@ pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
         "jungle_leaves" => return Some("leaves_jungle".into()),
         "acacia_leaves" => return Some("leaves_acacia".into()),
         "dark_oak_leaves" => return Some("leaves_big_oak".into()),
+        // ── 1.16+ 新木种（至 1.21.4 pale_oak；26.3 未发布不加入）──
+        "crimson_planks" => return Some("planks_crimson".into()),
+        "warped_planks" => return Some("planks_warped".into()),
+        "mangrove_planks" => return Some("planks_mangrove".into()),
+        "cherry_planks" => return Some("planks_cherry".into()),
+        "bamboo_planks" => return Some("planks_bamboo".into()),
+        "pale_oak_planks" => return Some("planks_pale_oak".into()),
+        // 下界菌柄 / 新原木
+        "crimson_stem" => return Some("crimson_stem".into()),
+        "warped_stem" => return Some("warped_stem".into()),
+        "crimson_stem_top" => return Some("crimson_stem_top".into()),
+        "warped_stem_top" => return Some("warped_stem_top".into()),
+        "mangrove_log" => return Some("mangrove_log".into()),
+        "mangrove_log_top" => return Some("mangrove_log_top".into()),
+        "cherry_log" => return Some("cherry_log".into()),
+        "cherry_log_top" => return Some("cherry_log_top".into()),
+        "pale_oak_log" => return Some("pale_oak_log".into()),
+        "pale_oak_log_top" => return Some("pale_oak_log_top".into()),
+        "bamboo_block" => return Some("bamboo_block".into()),
+        "bamboo_block_top" => return Some("bamboo_block_top".into()),
+        "bamboo_mosaic" => return Some("bamboo_mosaic".into()),
+        // 树叶（下界木无树叶）
+        "mangrove_leaves" => return Some("mangrove_leaves".into()),
+        "cherry_leaves" => return Some("cherry_leaves".into()),
+        "pale_oak_leaves" => return Some("pale_oak_leaves".into()),
         _ => {}
     }
 
@@ -191,6 +216,13 @@ pub fn bedrock_to_java_stem(stem: &str) -> Option<String> {
         "log_oak_top" => return Some("oak_log_top".into()),
         "leaves_oak" => return Some("oak_leaves".into()),
         "leaves_big_oak" => return Some("dark_oak_leaves".into()),
+        // 1.16+ 新木种
+        "planks_crimson" => return Some("crimson_planks".into()),
+        "planks_warped" => return Some("warped_planks".into()),
+        "planks_mangrove" => return Some("mangrove_planks".into()),
+        "planks_cherry" => return Some("cherry_planks".into()),
+        "planks_bamboo" => return Some("bamboo_planks".into()),
+        "planks_pale_oak" => return Some("pale_oak_planks".into()),
         _ => {}
     }
 
@@ -415,6 +447,15 @@ mod tests {
         assert_eq!(java_to_bedrock_stem("oak_planks").as_deref(), Some("planks_oak"));
         assert_eq!(java_to_bedrock_stem("oak_log").as_deref(), Some("log_oak"));
         assert_eq!(java_to_bedrock_stem("dark_oak_planks").as_deref(), Some("planks_big_oak"));
+        // 1.16–1.21.4 新木种
+        assert_eq!(java_to_bedrock_stem("crimson_planks").as_deref(), Some("planks_crimson"));
+        assert_eq!(java_to_bedrock_stem("warped_planks").as_deref(), Some("planks_warped"));
+        assert_eq!(java_to_bedrock_stem("mangrove_planks").as_deref(), Some("planks_mangrove"));
+        assert_eq!(java_to_bedrock_stem("cherry_planks").as_deref(), Some("planks_cherry"));
+        assert_eq!(java_to_bedrock_stem("bamboo_planks").as_deref(), Some("planks_bamboo"));
+        assert_eq!(java_to_bedrock_stem("pale_oak_planks").as_deref(), Some("planks_pale_oak"));
+        assert_eq!(bedrock_to_java_stem("planks_cherry").as_deref(), Some("cherry_planks"));
+        assert_eq!(bedrock_to_java_stem("planks_pale_oak").as_deref(), Some("pale_oak_planks"));
         assert_eq!(java_to_bedrock_stem("iron_layer_1").as_deref(), Some("iron_1"));
         assert_eq!(java_to_bedrock_stem("leather_layer_1").as_deref(), Some("leather_1"));
     }

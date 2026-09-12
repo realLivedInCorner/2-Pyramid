@@ -20,21 +20,14 @@
       </transition>
     </div>
 
-    <!-- 列表模式: 历史项目管理 -->
-    <div v-if="viewMode === 'list'" class="content">
-      <div class="history-section">
-        <div class="section-header">
-          <h2 class="section-title">{{ t('overlay.myProjects') }}</h2>
-          <div class="header-btns">
-            <button class="ghost-btn import-share-btn" @click="showImportDialog = true">
-              <i class="ri-download-cloud-2-line"></i>
-              <span>{{ t('overlay.importCode') }}</span>
-            </button>
-            <button class="create-btn" @click="showCreateDialog = true">
-              <i class="ri-add-line"></i>
-              <span>{{ t('overlay.newProject') }}</span>
-            </button>
-          </div>
+    <!-- 列表 / 编辑：淡入淡出 + 轻微缩放 -->
+    <div class="flip-viewport">
+      <Transition name="view-fade" mode="out-in">
+        <div v-if="viewMode === 'list'" key="list" class="panel-grid list-grid">
+      <div class="card card-projects">
+        <div class="card-header-row">
+          <div class="card-title">{{ t('overlay.myProjects') }}</div>
+          <span class="project-count" v-if="overlayHistory.length">{{ overlayHistory.length }}</span>
         </div>
 
         <div v-if="overlayHistory.length === 0" class="empty-history">
@@ -42,15 +35,16 @@
           <p>{{ t('overlay.emptyHistory') }}</p>
         </div>
 
-        <div v-else class="history-grid">
-          <TransitionGroup name="staggered-fade">
-            <div 
-              v-for="(item, index) in overlayHistory" 
-              :key="item.id" 
-              class="history-card"
-              :style="{ '--index': index }"
-              @click="loadOverlay(item)"
-            >
+        <div v-else class="history-list">
+          <div
+            v-for="item in overlayHistory"
+            :key="item.id"
+            class="history-row"
+            @click="loadOverlay(item)"
+          >
+              <div class="row-icon" aria-hidden="true">
+                <i class="ri-file-copy-line"></i>
+              </div>
               <div class="card-info">
                 <h3 class="card-name">{{ item.name }}</h3>
                 <p class="card-meta">
@@ -66,36 +60,57 @@
                 </button>
               </div>
             </div>
-          </TransitionGroup>
         </div>
+      </div>
+
+      <div class="card card-actions-panel">
+        <div class="card-title">{{ t('overlay.quickStart') }}</div>
+        <p class="card-hint">{{ t('overlay.quickStartHint') }}</p>
+
+        <button class="action-tile create-tile" @click="showCreateDialog = true">
+          <div class="tile-icon"><i class="ri-add-circle-line" aria-hidden="true"></i></div>
+          <div class="tile-text">
+            <h4>{{ t('overlay.newProject') }}</h4>
+            <p>{{ t('overlay.newProjectHint') }}</p>
+          </div>
+          <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
+        </button>
+
+        <button class="action-tile" @click="showImportDialog = true">
+          <div class="tile-icon"><i class="ri-download-cloud-2-line" aria-hidden="true"></i></div>
+          <div class="tile-text">
+            <h4>{{ t('overlay.importCode') }}</h4>
+            <p>{{ t('overlay.importDesc') }}</p>
+          </div>
+          <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
 
-    <!-- 编辑模式: 具体项目配置 -->
-    <div v-else class="content">
+    <!-- 编辑模式: 左配置 / 右功能，主按钮落在右栏底部 -->
+    <div v-else key="editor" class="panel-grid editor-grid">
       <div class="card card-config">
         <div class="card-title">{{ t('overlay.projectConfig', { name: currentOverlay.name }) }}</div>
-
-        <div class="meta-list">
-          <div class="meta-item">
-            <span class="meta-label">{{ t('overlay.parentPackPath') }}</span>
-            <div class="meta-content">
-              <span class="meta-value path-value">{{ currentOverlay.parentPackPath || t('overlay.notSelected') }}</span>
-              <button class="icon-btn" @click="selectParentPack" :title="t('overlay.selectParent')">
-                <i class="ri-folder-open-line"></i>
-              </button>
-            </div>
+        <div class="config-block">
+          <span class="meta-label">{{ t('overlay.parentPackPath') }}</span>
+          <div class="path-row">
+            <span class="path-value">{{ currentOverlay.parentPackPath || t('overlay.notSelected') }}</span>
+            <button class="select-pack-btn" @click="selectParentPack">
+              <i class="ri-folder-open-line" aria-hidden="true"></i>
+              <span>{{ t('overlay.selectParent') }}</span>
+            </button>
           </div>
         </div>
+        <p class="card-hint">{{ t('overlay.parentPackHint') }}</p>
       </div>
 
-      <div class="options-grid">
-        <TransitionGroup name="staggered-fade">
+      <div class="card card-options">
+        <div class="card-title">{{ t('overlay.optionsTitle') }}</div>
+        <div class="options-list">
           <button
-            v-for="(option, index) in options"
+            v-for="option in options"
             :key="option.id"
-            class="option-card"
-            :style="{ '--index': index }"
+            class="option-row"
             @click="option.action"
           >
             <div class="option-icon"><i :class="option.icon" aria-hidden="true"></i></div>
@@ -105,21 +120,22 @@
             </div>
             <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
           </button>
-        </TransitionGroup>
-      </div>
+        </div>
 
-      <!-- 底部操作条（非悬浮，避免遮挡内容） -->
-      <div class="editor-actions">
-        <button class="ghost-btn" @click="viewMode = 'list'">
-          <i class="ri-arrow-go-back-line"></i>
-          <span>{{ t('overlay.exitEdit') }}</span>
-        </button>
-        <button class="primary-btn package-btn" :disabled="isPackaging" @click="handlePackage">
-          <i class="ri-archive-line" v-if="!isPackaging"></i>
-          <i class="ri-loader-4-line spin" v-else></i>
-          <span>{{ isPackaging ? t('overlay.packaging') : t('overlay.startPackaging') }}</span>
-        </button>
+        <div class="editor-actions">
+          <button class="ghost-btn" @click="viewMode = 'list'">
+            <i class="ri-arrow-go-back-line"></i>
+            <span>{{ t('overlay.exitEdit') }}</span>
+          </button>
+          <button class="primary-btn package-btn" :disabled="isPackaging" @click="handlePackage">
+            <i class="ri-archive-line" v-if="!isPackaging"></i>
+            <i class="ri-loader-4-line spin" v-else></i>
+            <span>{{ isPackaging ? t('overlay.packaging') : t('overlay.startPackaging') }}</span>
+          </button>
+        </div>
       </div>
+      </div>
+      </Transition>
     </div>
 
     <!-- 新建项目对话框 -->
@@ -147,30 +163,30 @@
       </div>
     </transition>
 
-    <!-- 对话框 -->
-    <transition name="dialog-pop">
+    <!-- 自定义内容：右侧侧栏（自带滑入，Transition 提供滑出） -->
+    <Transition name="sidebar-out">
       <ItemNameDialog
         v-if="showCustomNameDialog"
         :projectName="currentOverlay.name"
         @close="showCustomNameDialog = false"
       />
-    </transition>
+    </Transition>
 
-    <transition name="dialog-pop">
+    <Transition name="sidebar-out">
       <ItemSizeDialog
         v-if="showItemSizeDialog"
         :projectName="currentOverlay.name"
         @close="showItemSizeDialog = false"
       />
-    </transition>
+    </Transition>
 
-    <transition name="dialog-pop">
+    <Transition name="sidebar-out">
       <VisualDialog
         v-if="showVisualDialog"
         :projectName="currentOverlay.name"
         @close="showVisualDialog = false"
       />
-    </transition>
+    </Transition>
 
     <!-- 导入分享码对话框 -->
     <transition name="dialog-pop-quick">
@@ -236,7 +252,7 @@
 import { ref, onMounted, reactive } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import ItemNameDialog from './ItemNameDialog.vue';
 import ItemSizeDialog from './ItemSizeDialog.vue';
 import VisualDialog from './VisualDialog.vue';
@@ -450,14 +466,27 @@ const selectParentPack = async () => {
 };
 
 const handlePackage = async () => {
+  const defaultName = (currentOverlay.name || '你的覆盖包').replace(/[\\/:*?"<>|]/g, '_');
+  let picked: string | null = null;
+  try {
+    picked = await save({
+      filters: [{ name: t('overlay.zipFilter', { defaultValue: '资源包 ZIP' }), extensions: ['zip'] }],
+      defaultPath: `${defaultName}.zip`
+    });
+  } catch {
+    picked = null;
+  }
+  // 用户取消保存对话框：不打包
+  if (!picked) return;
+
   isPackaging.value = true;
   statusMsg.value = null;
   try {
     const outputPath = await invoke<string>('overlay_package', {
-      projectName: currentOverlay.name
+      projectName: currentOverlay.name,
+      outputPath: picked
     });
     statusMsg.value = { text: t('overlay.packSuccess', { path: outputPath }), type: 'success' };
-    // 打包成功提示可以多停留一会
     setTimeout(() => statusMsg.value = null, 8000);
   } catch (e) {
     statusMsg.value = { text: t('overlay.packFailed', { error: e }), type: 'error' };
@@ -477,35 +506,67 @@ onMounted(() => {
 .overlay-container {
   width: 100%;
   height: 100%;
-  overflow-y: auto;
-  padding: 20px 40px 28px;
+  overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-.content {
+/* 翻页视口：两页绝对定位叠在同一层，才能看见「一页推出、一页推入」 */
+.flip-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.flip-viewport > .panel-grid {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 920px;
-  margin: 0 auto;
+  height: 100%;
+  flex: none;
+  will-change: transform;
+}
+
+/* 与 ConversionPage .panel-grid 同构：双栏卡片网格铺满视口 */
+.panel-grid {
+  min-height: 0;
+  z-index: 2;
+  padding: 12px 40px 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 14px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.list-grid {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.editor-grid {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.panel-grid .card {
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  flex: 1 1 auto;
+  gap: 12px;
   min-height: 0;
-}
-
-/* 编辑模式：操作条贴底，避免悬在半空 */
-.content .editor-actions {
-  margin-top: auto;
-  padding-top: 18px;
+  overflow: hidden;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 0;
+  padding: 28px 40px 10px;
   position: relative;
   z-index: 10;
   flex-shrink: 0;
@@ -568,130 +629,206 @@ onMounted(() => {
 /* status enter/leave 走全局 CSS class 模式(`<transition name="header-status-toast">`,
    见 App.vue 全局 .header-status-toast-* 规则)。 */
 
-.history-section { display: flex; flex-direction: column; gap: 14px; }
-
-.section-header {
+.card-header-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.section-title {
+.project-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--theme-color) 80%, #000);
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.card-title {
   font-size: 13px;
   font-weight: 700;
   color: #6b7280;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  flex-shrink: 0;
   margin: 0;
 }
 
-.header-btns { display: flex; align-items: center; gap: 8px; }
-
-.import-share-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.create-btn {
-  display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
-  background: var(--theme-color); color: #fff; border: none;
-  border-radius: var(--ui-radius-btn);
-  font-weight: 700; font-size: 13px; font-family: inherit; cursor: pointer;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-color) 26%, transparent);
-  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
-}
-
-.create-btn:hover {
-  background: color-mix(in srgb, var(--theme-color) 88%, #000);
-  transform: translateY(-1px);
+.card-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .empty-history {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 48px 0; color: #94a3b8; gap: 10px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  color: #94a3b8;
+  gap: 10px;
   border: 1px dashed rgba(0, 0, 0, 0.1);
-  border-radius: var(--ui-radius-card);
+  border-radius: var(--ui-radius-btn);
   background: rgba(255, 255, 255, 0.35);
 }
 
 .empty-history i { font-size: 36px; }
+.empty-history p { margin: 0; font-size: 13px; }
 
-/* 项目列表：通栏行卡片，避免 auto-fill 留出空列把单卡挤在左侧 */
-.history-grid {
+.history-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 2px;
 }
 
-.history-card {
-  width: 100%;
-  background: var(--ui-card-surface);
-  backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
-  border: var(--ui-border);
-  border-radius: var(--ui-radius-card);
-  box-shadow: var(--ui-shadow);
-  padding: 14px 16px;
-  cursor: pointer;
+.history-list::-webkit-scrollbar { width: 6px; }
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+.history-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  transition: box-shadow 0.25s ease, transform 0.18s ease;
+  padding: 12px 14px;
+  border-radius: var(--ui-radius-btn);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
 }
 
-.history-card:hover {
-  box-shadow: var(--ui-shadow-hover);
-  transform: translateY(-1px);
+.history-row:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, var(--theme-color) 32%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 10%, transparent);
+}
+
+.row-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  color: var(--theme-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
 }
 
 .card-info { min-width: 0; flex: 1; }
 
 .card-name {
-  font-size: 15px; font-weight: 700; color: #1d1d1f; margin-bottom: 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1d1d1f;
+  margin: 0 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-meta {
-  font-size: 12px; color: #86868b; display: flex; align-items: center; gap: 4px;
+  font-size: 12px;
+  color: #86868b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
 }
 
 .card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 
 .icon-btn {
-  width: 32px; height: 32px; border: none; background: transparent;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; cursor: pointer; color: #64748b;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #64748b;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .icon-btn:hover { background: rgba(0, 0, 0, 0.05); color: #1d1d1f; }
 .delete-btn { color: #94a3b8; }
 .delete-btn:hover { color: #ef4444; background: #fee2e2; }
 
-/* 卡片走全局玻璃皮肤 */
-.card {
-  padding: 16px 18px;
-  margin-bottom: 0;
-}
-
-.card-title {
-  font-size: 13px; font-weight: 700; color: #6b7280;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  margin-bottom: 12px;
-}
-
-.meta-item {
-  display: flex; justify-content: space-between; align-items: center;
+/* 右栏：快速开始 */
+.action-tile {
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
-  padding: 12px 14px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: var(--ui-radius-btn);
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.action-tile:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, var(--theme-color) 32%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 10%, transparent);
+}
+
+.tile-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  color: var(--theme-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.create-tile {
+  border-color: color-mix(in srgb, var(--theme-color) 22%, transparent);
+  background: color-mix(in srgb, var(--theme-color) 6%, #ffffff);
+}
+
+.tile-text { flex: 1; min-width: 0; }
+.tile-text h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+.tile-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #86868b;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* 编辑：母包配置 */
+.config-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(0, 0, 0, 0.04);
   border-radius: var(--ui-radius-btn);
@@ -699,79 +836,130 @@ onMounted(() => {
 
 .meta-label { font-size: 13px; font-weight: 600; color: #64748b; }
 
-.meta-content { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
 
 .path-value {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px; color: #475569;
-  max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px;
+  color: #475569;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 三列入口卡：描述完整可读，不截断 */
-.options-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.select-pack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1d1d1f;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.select-pack-btn:hover {
+  border-color: color-mix(in srgb, var(--theme-color) 35%, transparent);
+  background: #fff;
+}
+
+/* 编辑：功能入口竖排 */
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  align-content: start;
-}
-
-.option-card {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 16px;
-  min-height: 110px;
-  background: var(--ui-card-surface);
-  backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
-  border: var(--ui-border);
-  border-radius: var(--ui-radius-card);
-  box-shadow: var(--ui-shadow);
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: var(--ui-radius-btn);
+  background: rgba(255, 255, 255, 0.55);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: box-shadow 0.25s ease, transform 0.18s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.option-card:hover {
-  box-shadow: var(--ui-shadow-hover);
-  transform: translateY(-1px);
+.option-row:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, var(--theme-color) 32%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 10%, transparent);
 }
 
 .option-icon {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
   background: color-mix(in srgb, var(--theme-color) 12%, transparent);
   color: var(--theme-color);
-  display: flex; align-items: center; justify-content: center; font-size: 18px;
-  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
 }
 
 .option-text { flex: 1; min-width: 0; }
-.option-card h4 { margin: 0 0 6px 0; font-size: 14px; font-weight: 700; color: #1d1d1f; }
-.option-card p {
+.option-row h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #1d1d1f; }
+.option-row p {
   margin: 0;
   font-size: 12px;
   color: #86868b;
-  line-height: 1.5;
-  /* 允许折行，不截断 */
+  line-height: 1.45;
   white-space: normal;
   word-break: break-word;
 }
+
 .option-arrow {
-  font-size: 16px; color: #c6c6c8; flex-shrink: 0; margin-top: 2px;
+  font-size: 16px;
+  color: #c6c6c8;
+  flex-shrink: 0;
   transition: color 0.15s ease, transform 0.15s ease;
 }
-.option-card:hover .option-arrow { color: var(--theme-color); transform: translateX(2px); }
-
-@media (max-width: 900px) {
-  .options-grid { grid-template-columns: 1fr; }
-  .overlay-container { padding: 16px 20px 24px; }
+.option-row:hover .option-arrow,
+.action-tile:hover .option-arrow {
+  color: var(--theme-color);
+  transform: translateX(2px);
 }
 
-/* 底部操作条 */
+@media (max-width: 900px) {
+  .panel-grid {
+    grid-template-columns: 1fr;
+    padding: 12px 20px 24px;
+  }
+  .header { padding: 20px 20px 8px; }
+}
+
+/* 底部操作条：贴在右栏卡片内 */
 .editor-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
-  padding-top: 4px;
+  margin-top: auto;
+  padding-top: 8px;
+  flex-shrink: 0;
 }
 
 .editor-actions .ghost-btn,
@@ -797,7 +985,7 @@ onMounted(() => {
 }
 .package-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--theme-color) 88%, #000);
-  transform: translateY(-1px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-color) 32%, transparent);
 }
 .package-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
@@ -881,7 +1069,7 @@ onMounted(() => {
   background: var(--theme-color); color: #fff; font-weight: 700; cursor: pointer;
   transition: all 0.2s;
 }
-.primary-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.primary-btn:hover:not(:disabled) { opacity: 0.92; }
 .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .danger-btn {
@@ -889,21 +1077,27 @@ onMounted(() => {
   background: #ef4444; color: #fff; font-weight: 700; cursor: pointer;
   transition: all 0.2s;
 }
-.danger-btn:hover { background: #dc2626; transform: translateY(-1px); }
+.danger-btn:hover { background: #dc2626; }
 
 /* 动画相关 */
 .page-transition { animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-.staggered-fade-enter-active {
-  animation: card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--index) * 0.1s);
+/* 列表 ↔ 编辑：淡入淡出 + 轻微缩放（out-in，干净不叠影） */
+.view-fade-enter-active {
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.staggered-fade-leave-active {
-  animation: card-out 0.25s ease both;
+.view-fade-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
-@keyframes card-in { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes card-out { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(0.92) translateY(-8px); } }
+.view-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.985);
+}
+.view-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.01);
+}
 
 /* dialog enter/leave 走全局 CSS class 模式(`<transition name="dialog-pop">`,
    见 App.vue 全局 .dialog-pop-* 规则)。Vue 3 在 element insert 时直接加
@@ -912,4 +1106,19 @@ onMounted(() => {
 
 .spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* 侧栏滑出：Transition 加在组件根上，要用 :deep 才能动到子组件里的 .dialog-container */
+.sidebar-out-leave-active {
+  transition: opacity 0.22s ease;
+}
+.sidebar-out-leave-active :deep(.dialog-container) {
+  animation: none !important;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1) !important;
+}
+.sidebar-out-leave-to {
+  opacity: 0;
+}
+.sidebar-out-leave-to :deep(.dialog-container) {
+  transform: translateX(100%) !important;
+}
 </style>

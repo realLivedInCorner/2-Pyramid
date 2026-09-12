@@ -1,4 +1,4 @@
-﻿// fix_sign.rs
+// fix_sign.rs
 //
 // Generates 11 wood-variant sign textures from the base oak_sign.png using
 // hue/brightness/saturation adjustment in HSV color space (matches pack.py
@@ -70,7 +70,7 @@ pub fn fix_sign(context: &HurrayContext) -> Result<(), String> {
         ("mangrove_sign.png", -59.0,  -10.0,    0.0),
         ("pale_oak_sign.png",   0.0,   30.0, -100.0),
         ("bamboo_sign.png",    25.0,   20.0,    0.0),
-        ("cherry_sign.png",   -80.0,   20.0,    0.0),
+        ("cherry_sign.png",   -45.0,   30.0,  -18.0),
     ];
 
     for (filename, hue, bright, sat) in sign_variants.iter() {

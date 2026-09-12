@@ -44,7 +44,8 @@ impl LegacyProcessor {
         let variants = [
             ("pale_oak_planks.png", 0, 30, -100),
             ("mangrove_planks.png", -59, -15, 0),
-            ("cherry_planks.png", -80, 40, 0),
+            // 樱花：对齐原版浅粉，避免旧 -80° 品红偏深
+            ("cherry_planks.png", -45, 45, -45),
             ("bamboo_planks.png", 25, 20, 0),
         ];
 
