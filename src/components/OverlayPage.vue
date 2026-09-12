@@ -91,29 +91,30 @@
 
       <div class="options-grid">
         <TransitionGroup name="staggered-fade">
-          <button 
-            v-for="(option, index) in options" 
+          <button
+            v-for="(option, index) in options"
             :key="option.id"
-            class="option-card" 
+            class="option-card"
             :style="{ '--index': index }"
             @click="option.action"
           >
             <div class="option-icon"><i :class="option.icon" aria-hidden="true"></i></div>
-            <div>
+            <div class="option-text">
               <h4>{{ option.title }}</h4>
               <p>{{ option.description }}</p>
             </div>
+            <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
           </button>
         </TransitionGroup>
       </div>
 
-      <!-- 悬浮操作按钮组 (右下角) -->
-      <div class="floating-actions">
-        <button class="action-btn exit-btn" @click="viewMode = 'list'">
+      <!-- 底部操作条（非悬浮，避免遮挡内容） -->
+      <div class="editor-actions">
+        <button class="ghost-btn" @click="viewMode = 'list'">
           <i class="ri-arrow-go-back-line"></i>
           <span>{{ t('overlay.exitEdit') }}</span>
         </button>
-        <button class="action-btn package-btn" :disabled="isPackaging" @click="handlePackage">
+        <button class="primary-btn package-btn" :disabled="isPackaging" @click="handlePackage">
           <i class="ri-archive-line" v-if="!isPackaging"></i>
           <i class="ri-loader-4-line spin" v-else></i>
           <span>{{ isPackaging ? t('overlay.packaging') : t('overlay.startPackaging') }}</span>
@@ -518,9 +519,9 @@ onMounted(() => {
   margin-right: 140px; /* 增加边距，确保不遮挡无边框窗口的三个按钮 */
 }
 
-.title { font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
+.title { font-size: 26px; font-weight: 800; color: #1d1d1f; letter-spacing: -0.6px; margin: 0; }
 
-.page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
+.page-subtitle { margin: 4px 0 0; color: #86868b; font-size: 13px; }
 
 .header-status {
   display: flex;
@@ -559,13 +560,18 @@ onMounted(() => {
 .section-title { font-size: 20px; font-weight: 700; color: #1e293b; }
 
 .create-btn {
-  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
-  background: var(--theme-color); color: #fff; border: none; border-radius: 12px;
-  font-weight: 700; cursor: pointer; transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(var(--theme-color-rgb), 0.2);
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+  background: var(--theme-color); color: #fff; border: none;
+  border-radius: var(--ui-radius-btn);
+  font-weight: 700; font-size: 13px; font-family: inherit; cursor: pointer;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-color) 26%, transparent);
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
 }
 
-.create-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(var(--theme-color-rgb), 0.3); }
+.create-btn:hover {
+  background: color-mix(in srgb, var(--theme-color) 88%, #000);
+  transform: translateY(-1px);
+}
 
 .empty-history {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -579,108 +585,143 @@ onMounted(() => {
 }
 
 .history-card {
-  background: #fff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 20px;
-  cursor: pointer; display: flex; justify-content: space-between; align-items: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--ui-card-surface);
+  backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+  border: var(--ui-border);
+  border-radius: var(--ui-radius-card);
+  box-shadow: var(--ui-shadow);
+  padding: 18px 20px;
+  cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  transition: box-shadow 0.25s ease, transform 0.2s ease, background 0.25s ease;
 }
 
 .history-card:hover {
-  border-color: var(--theme-color); transform: translateY(-4px);
-  box-shadow: 0 12px 24px -8px rgba(var(--theme-color-rgb), 0.15);
+  box-shadow: var(--ui-shadow-hover);
+  transform: translateY(-2px);
 }
 
-.card-name { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.card-name { font-size: 16px; font-weight: 700; color: #1d1d1f; margin-bottom: 4px; }
 
 .card-meta {
-  font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #86868b; display: flex; align-items: center; gap: 4px;
 }
 
-.delete-btn { color: #94a3b8; padding: 8px; border-radius: 8px; transition: all 0.2s; }
+.icon-btn {
+  width: 32px; height: 32px; border: none; background: transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; cursor: pointer; color: #64748b;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.icon-btn:hover { background: rgba(0, 0, 0, 0.05); color: #1d1d1f; }
+.delete-btn { color: #94a3b8; }
 .delete-btn:hover { color: #ef4444; background: #fee2e2; }
 
+/* 卡片走全局玻璃皮肤 */
 .card {
-  background: #fff; border-radius: 24px; padding: 32px; border: 1px solid #f1f5f9;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-bottom: 32px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
 }
 
-.card-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 24px; }
+.card-title {
+  font-size: 13px; font-weight: 700; color: #6b7280;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  margin-bottom: 14px;
+}
 
 .meta-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 16px; background: #f8fafc; border-radius: 16px;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: var(--ui-radius-btn);
 }
 
-.meta-label { font-size: 14px; font-weight: 600; color: #64748b; }
+.meta-label { font-size: 13px; font-weight: 600; color: #64748b; }
 
-.meta-content { display: flex; align-items: center; gap: 12px; }
+.meta-content { display: flex; align-items: center; gap: 8px; min-width: 0; }
 
 .path-value {
-  font-family: monospace; font-size: 13px; color: #64748b;
-  max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px; color: #475569;
+  max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .options-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;
 }
 
 .option-card {
-  display: flex; align-items: center; gap: 20px; padding: 24px; background: #fff;
-  border: 1px solid #f1f5f9; border-radius: 20px; cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); text-align: left;
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px;
+  background: var(--ui-card-surface);
+  backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+  border: var(--ui-border);
+  border-radius: var(--ui-radius-card);
+  box-shadow: var(--ui-shadow);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: box-shadow 0.25s ease, transform 0.18s ease;
 }
 
 .option-card:hover {
-  transform: translateY(-4px); border-color: var(--theme-color);
-  box-shadow: 0 12px 24px -8px rgba(var(--theme-color-rgb), 0.2);
+  box-shadow: var(--ui-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .option-icon {
-  width: 56px; height: 56px; border-radius: 16px;
-  background: rgba(var(--theme-color-rgb), 0.1); color: var(--theme-color);
-  display: flex; align-items: center; justify-content: center; font-size: 24px;
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  color: var(--theme-color);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
 }
 
-.option-card h4 { margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #0f172a; }
-.option-card p { margin: 0; font-size: 13px; color: #64748b; line-height: 1.4; }
+.option-text { flex: 1; min-width: 0; }
+.option-card h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #1d1d1f; }
+.option-card p { margin: 0; font-size: 12px; color: #86868b; line-height: 1.4; }
+.option-arrow {
+  font-size: 18px; color: #c6c6c8; flex-shrink: 0;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.option-card:hover .option-arrow { color: var(--theme-color); transform: translateX(2px); }
 
-.action-btn {
-  display: flex; align-items: center; gap: 8px; padding: 12px 24px;
-  border-radius: 14px; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s;
+/* 底部操作条 */
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 4px;
 }
 
-.exit-btn { background: #f1f5f9; color: #475569; }
-.exit-btn:hover { background: #e2e8f0; color: #0f172a; }
+.editor-actions .ghost-btn,
+.editor-actions .primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  border-radius: var(--ui-radius-btn);
+  cursor: pointer;
+}
 
 .package-btn {
-  background: var(--theme-color); color: #fff;
-  box-shadow: 0 8px 16px -4px rgba(var(--theme-color-rgb), 0.3);
+  background: var(--theme-color);
+  color: #fff;
+  border: none;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-color) 28%, transparent);
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
-
 .package-btn:hover:not(:disabled) {
-  transform: translateY(-2px); box-shadow: 0 12px 20px -4px rgba(var(--theme-color-rgb), 0.4);
+  background: color-mix(in srgb, var(--theme-color) 88%, #000);
+  transform: translateY(-1px);
 }
-
-.package-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-
-/* 悬浮操作按钮组 (右下角) */
-.floating-actions {
-  position: fixed;
-  right: 40px;
-  bottom: 40px;
-  display: flex;
-  gap: 16px;
-  z-index: 100;
-  animation: actions-slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.floating-actions .action-btn {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-}
-
-@keyframes actions-slide-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.package-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
 /* 弹窗样式 */
 .dialog-overlay {
