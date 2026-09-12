@@ -131,7 +131,7 @@ const saveStatus = ref<{ text: string, type: 'success' | 'error' } | null>(null)
 const settings = reactive({
   no_shadow: false,
   custom_glint: false,
-  outline_type: 'none' as 'none' | 'default' | 'rainbow' | 'rainbow_hexian',
+  outline_type: 'none' as 'none' | 'default' | 'rainbow',
   core_outline: {
     color: { r: 1, g: 1, b: 1, a: 1 },
     thickness: 2
@@ -140,9 +140,10 @@ const settings = reactive({
 
 const outlineTypes = [
   { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: '#f1f5f9' },
+  // 传统：core_outline（N 卡 / 通用）
   { id: 'default' as const, name: t('dialog.visual.outlineTypes.standard'), color: '#fff' },
-  { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' },
-  { id: 'rainbow_hexian' as const, name: t('dialog.visual.outlineTypes.chord'), color: 'linear-gradient(45deg, #f0f, #0ff)' }
+  // 核显：core_rainbow_outline
+  { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' }
 ];
 
 function hexFromRgba(c: { r: number; g: number; b: number }) {
@@ -163,7 +164,10 @@ const loadSettings = async () => {
     const data = await invoke<any>('get_overlay_json', { projectName: props.projectName });
     settings.no_shadow = !!data.no_shadow;
     settings.custom_glint = !!data.custom_glint;
-    settings.outline_type = data.outline_type || 'none';
+    // 旧配置里的 hexian 归入彩虹（核显）档
+    let ot = data.outline_type || 'none';
+    if (ot === 'rainbow_hexian') ot = 'rainbow';
+    settings.outline_type = ot;
     // 兼容 Python core_outline.color / thickness
     const co = data.core_outline;
     if (co && typeof co === 'object') {
@@ -251,7 +255,7 @@ onMounted(loadSettings);
 .group-label { font-weight: 700; color: #1e293b; font-size: 15px; }
 .group-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 
-.outline-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.outline-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
 .outline-card {
   padding: 12px; border-radius: 12px; border: 2px solid #f1f5f9;
