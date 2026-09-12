@@ -3,9 +3,6 @@
     <div class="dialog-container dialog-content">
       <div class="dialog-header">
         <h2 class="dialog-title">{{ t('dialog.itemSize.title') }}</h2>
-        <button class="icon-button close-btn" @click="closeDialog" :aria-label="t('common.close')">
-          <i class="ri-close-line"></i>
-        </button>
       </div>
 
       <div class="dialog-content">
@@ -66,7 +63,6 @@
 
       <div class="dialog-footer">
         <div class="footer-btns">
-          <button class="ghost-btn" @click="closeDialog">{{ t('common.cancel') }}</button>
           <button
             class="primary-btn"
             :disabled="isSaving"
@@ -75,6 +71,10 @@
             <i class="ri-save-line" v-if="!isSaving"></i>
             <i class="ri-loader-4-line spin" v-else></i>
             {{ isSaving ? t('common.saving') : t('common.save') }}
+          </button>
+          <button class="ghost-btn back-btn" @click="closeDialog">
+            <i class="ri-arrow-go-back-line"></i>
+            <span>{{ t('common.back') }}</span>
           </button>
         </div>
       </div>
@@ -217,38 +217,43 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 右侧侧栏：对齐转换页版本选择 */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(0, 0, 0, 0.28);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   z-index: 1000;
-  backdrop-filter: blur(12px);
+  animation: overlay-fade 0.28s ease;
 }
 
 .dialog-container {
-  width: min(800px, 90vw);
-  height: 80vh;
+  width: min(520px, 94vw);
+  height: 100vh;
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* 原来 0 25px 50px -12px rgba(0,0,0,0.25) — blur 50px 太大,leave 期间
-     shadow 跟着 opacity 渐变时 "淡出拖尾" 比 dialog 本身还久。改紧凑点
-     跟 550ms leave 同步消失。 */
-  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.18);
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  opacity: 1 !important;
+  animation: sidebar-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sidebar-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 .dialog-header {
-  padding: 20px 24px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 1.25rem 1.5rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .dialog-title {
@@ -379,40 +384,56 @@ onMounted(() => {
 }
 
 .dialog-footer {
-  padding: 16px 24px;
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  padding: 12px 1.5rem;
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .footer-btns {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  align-items: center;
 }
 
-.ghost-btn {
-  padding: 8px 16px;
+.primary-btn,
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
   border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
   font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
+  border: none;
 }
 
 .primary-btn {
-  padding: 8px 20px;
-  border-radius: 10px;
-  border: none;
   background: var(--theme-color);
   color: #fff;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(var(--theme-color-rgb), 0.2);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.primary-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--theme-color) 88%, #000);
+}
+
+.back-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #64748b;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.back-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1d1d1f;
 }
 
 .spin {
@@ -422,5 +443,10 @@ onMounted(() => {
 @keyframes ri-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

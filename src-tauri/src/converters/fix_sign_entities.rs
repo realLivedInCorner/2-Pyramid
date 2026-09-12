@@ -34,7 +34,7 @@ pub fn fix_sign_entities(path: &Path) -> Result<(), String> {
         ("mangrove.png", -59.0, -10.0, 0.0),
         ("pale_oak.png", 0.0, 30.0, -100.0),
         ("bamboo.png", 25.0, 20.0, 0.0),
-        ("cherry.png", -80.0, 20.0, 0.0),
+        ("cherry.png", -45.0, 30.0, -18.0),
     ];
 
     for (filename, hue, bright, sat) in &sign_variants {

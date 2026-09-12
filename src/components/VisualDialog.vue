@@ -3,9 +3,6 @@
     <div class="dialog-container dialog-content">
       <div class="dialog-header">
         <h2 class="dialog-title">{{ t('dialog.visual.title') }}</h2>
-        <button class="icon-button close-btn" @click="emit('close')" :aria-label="t('common.close')">
-          <i class="ri-close-line"></i>
-        </button>
       </div>
 
       <div class="dialog-content">
@@ -91,6 +88,23 @@
               <span class="range-val">{{ settings.core_outline.thickness }}x</span>
             </div>
           </div>
+
+          <!-- 双色循环（N 卡）：HSV 取色 + 实时预览 -->
+          <div v-if="settings.outline_type === 'gradient'" class="outline-detail">
+            <div class="gradient-preview" :style="gradientPreviewStyle" aria-hidden="true">
+              <span class="preview-label">{{ t('dialog.visual.gradientPreview') }}</span>
+            </div>
+
+            <div class="detail-block">
+              <label class="detail-label">{{ t('dialog.visual.gradientColorA') }}</label>
+              <HsvColorPicker v-model="settings.core_gradient_outline.color_a" />
+            </div>
+            <div class="detail-block">
+              <label class="detail-label">{{ t('dialog.visual.gradientColorB') }}</label>
+              <HsvColorPicker v-model="settings.core_gradient_outline.color_b" />
+            </div>
+            <p class="detail-hint">{{ t('dialog.visual.gradientHint') }}</p>
+          </div>
         </div>
       </div>
 
@@ -100,11 +114,14 @@
           {{ saveStatus.text }}
         </div>
         <div class="footer-btns">
-          <button class="ghost-btn" @click="emit('close')">{{ t('common.cancel') }}</button>
           <button class="primary-btn" :disabled="isSaving" @click="handleSave">
             <i class="ri-save-line" v-if="!isSaving"></i>
             <i class="ri-loader-4-line spin" v-else></i>
             {{ isSaving ? t('common.saving') : t('common.save') }}
+          </button>
+          <button class="ghost-btn back-btn" @click="emit('close')">
+            <i class="ri-arrow-go-back-line"></i>
+            <span>{{ t('common.back') }}</span>
           </button>
         </div>
       </div>
@@ -113,9 +130,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { invoke } from '@tauri-apps/api/core';
+import HsvColorPicker from './HsvColorPicker.vue';
 
 const { t } = useI18n();
 
@@ -131,25 +149,54 @@ const saveStatus = ref<{ text: string, type: 'success' | 'error' } | null>(null)
 const settings = reactive({
   no_shadow: false,
   custom_glint: false,
-  outline_type: 'none' as 'none' | 'default' | 'rainbow',
+  outline_type: 'none' as 'none' | 'default' | 'rainbow' | 'rainbow_hexian' | 'gradient',
   core_outline: {
     color: { r: 1, g: 1, b: 1, a: 1 },
     thickness: 2
+  },
+  // 双色循环（N 卡）：默认浅紫 ↔ 黑
+  core_gradient_outline: {
+    color_a: { r: 0.7, g: 0.4, b: 0.9, a: 1 },
+    color_b: { r: 0, g: 0, b: 0, a: 1 }
   }
 });
 
 const outlineTypes = [
   { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: '#f1f5f9' },
-  // 传统：core_outline（N 卡 / 通用）
-  { id: 'default' as const, name: t('dialog.visual.outlineTypes.standard'), color: '#fff' },
-  // 核显：core_rainbow_outline
-  { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' }
+  // core_rainbow_outline：N 卡彩虹
+  { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' },
+  // core_rainbow_outline_hexian：其他显卡彩虹
+  { id: 'rainbow_hexian' as const, name: t('dialog.visual.outlineTypes.rainbowHexian'), color: 'linear-gradient(135deg, #ff8a00, #e52e71, #9b59b6)' },
+  // core_gradient_outline：N 卡双色循环
+  { id: 'gradient' as const, name: t('dialog.visual.outlineTypes.gradient'), color: 'linear-gradient(90deg, #b366e6, #000000)' },
+  // core_outline：可改颜色 / 粗细
+  { id: 'default' as const, name: t('dialog.visual.outlineTypes.standard'), color: '#fff' }
 ];
 
 function hexFromRgba(c: { r: number; g: number; b: number }) {
   const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0');
   return `#${to(c.r)}${to(c.g)}${to(c.b)}`;
 }
+
+function rgbaCss(c: { r: number; g: number; b: number; a: number }) {
+  const r = Math.round(Math.min(1, Math.max(0, c.r)) * 255);
+  const g = Math.round(Math.min(1, Math.max(0, c.g)) * 255);
+  const b = Math.round(Math.min(1, Math.max(0, c.b)) * 255);
+  return `rgba(${r}, ${g}, ${b}, ${c.a})`;
+}
+
+/** 贴近着色器：sin(GameTime·5000 + pos) 在 A/B 间往返 */
+const gradientPreviewStyle = computed(() => {
+  const a = rgbaCss(settings.core_gradient_outline.color_a);
+  const b = rgbaCss(settings.core_gradient_outline.color_b);
+  return {
+    '--grad-a': a,
+    '--grad-b': b,
+    background: `linear-gradient(90deg, ${a}, ${b}, ${a})`,
+    backgroundSize: '200% 100%',
+    animation: 'grad-cycle 2.4s linear infinite'
+  };
+});
 
 function onColorInput(e: Event) {
   const hex = (e.target as HTMLInputElement).value.replace('#', '');
@@ -164,10 +211,10 @@ const loadSettings = async () => {
     const data = await invoke<any>('get_overlay_json', { projectName: props.projectName });
     settings.no_shadow = !!data.no_shadow;
     settings.custom_glint = !!data.custom_glint;
-    // 旧配置里的 hexian 归入彩虹（核显）档
-    let ot = data.outline_type || 'none';
-    if (ot === 'rainbow_hexian') ot = 'rainbow';
-    settings.outline_type = ot;
+    const ot = data.outline_type || 'none';
+    settings.outline_type = (
+      ot === 'none' || ot === 'default' || ot === 'rainbow' || ot === 'rainbow_hexian' || ot === 'gradient'
+    ) ? ot : 'none';
     // 兼容 Python core_outline.color / thickness
     const co = data.core_outline;
     if (co && typeof co === 'object') {
@@ -179,6 +226,21 @@ const loadSettings = async () => {
       }
       if (typeof co.thickness === 'number') {
         settings.core_outline.thickness = co.thickness;
+      }
+    }
+    const go = data.core_gradient_outline;
+    if (go && typeof go === 'object') {
+      if (go.color_a && typeof go.color_a === 'object') {
+        settings.core_gradient_outline.color_a.r = Number(go.color_a.r ?? 0.7);
+        settings.core_gradient_outline.color_a.g = Number(go.color_a.g ?? 0.4);
+        settings.core_gradient_outline.color_a.b = Number(go.color_a.b ?? 0.9);
+        settings.core_gradient_outline.color_a.a = Number(go.color_a.a ?? 1);
+      }
+      if (go.color_b && typeof go.color_b === 'object') {
+        settings.core_gradient_outline.color_b.r = Number(go.color_b.r ?? 0);
+        settings.core_gradient_outline.color_b.g = Number(go.color_b.g ?? 0);
+        settings.core_gradient_outline.color_b.b = Number(go.color_b.b ?? 0);
+        settings.core_gradient_outline.color_b.a = Number(go.color_b.a ?? 1);
       }
     }
   } catch (e) {
@@ -204,7 +266,12 @@ const handleSave = async () => {
         color: { ...settings.core_outline.color },
         thickness: settings.core_outline.thickness
       },
-      core_outline_rainbow: { enabled: ot === 'rainbow' }
+      core_outline_rainbow: { enabled: ot === 'rainbow' || ot === 'rainbow_hexian' },
+      core_gradient_outline: {
+        enabled: ot === 'gradient',
+        color_a: { ...settings.core_gradient_outline.color_a },
+        color_b: { ...settings.core_gradient_outline.color_b }
+      }
     };
     await invoke('save_overlay_json', { projectName: props.projectName, data: mergedData });
     saveStatus.value = { text: t('dialog.visual.saved'), type: 'success' };
@@ -220,28 +287,60 @@ onMounted(loadSettings);
 </script>
 
 <style scoped>
+/* 右侧侧栏：对齐转换页版本选择 */
 .dialog-overlay {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(12px);
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 1000;
+  animation: overlay-fade 0.28s ease;
 }
 
 .dialog-container {
-  width: 500px; background: #ffffff; border-radius: 20px;
-  display: flex; flex-direction: column;
-  /* 原来 0 25px 50px -12px rgba(0,0,0,0.25) — blur 50px 太大,leave 期间
-     shadow 跟着 opacity 渐变时 "淡出拖尾" 比 dialog 本身还久。改紧凑点
-     跟 550ms leave 同步消失。 */
-  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.18);
+  width: min(420px, 94vw);
+  height: 100vh;
+  background: #ffffff;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  opacity: 1 !important;
+  animation: sidebar-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sidebar-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 .dialog-header {
-  padding: 20px 24px; border-bottom: 1px solid #e2e8f0;
-  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .dialog-title { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
 
-.dialog-content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+.dialog-content {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.dialog-content::-webkit-scrollbar { width: 6px; }
+.dialog-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
 
 .option-item {
   display: flex; justify-content: space-between; align-items: center;
@@ -255,7 +354,14 @@ onMounted(loadSettings);
 .group-label { font-weight: 700; color: #1e293b; font-size: 15px; }
 .group-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 
-.outline-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.outline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.detail-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
 
 .outline-card {
   padding: 12px; border-radius: 12px; border: 2px solid #f1f5f9;
@@ -277,7 +383,39 @@ onMounted(loadSettings);
   border: 1px solid #eef2f7;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+
+.detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gradient-preview {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+@keyframes grad-cycle {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
 }
 .detail-row {
   display: grid;
@@ -315,26 +453,63 @@ input:checked + .slider { background-color: var(--theme-color); }
 input:checked + .slider:before { transform: translateX(22px); }
 
 .dialog-footer {
-  padding: 20px 24px; border-top: 1px solid #e2e8f0;
-  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 1.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .save-status { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
 .save-status.success { color: #10b981; }
 .save-status.error { color: #ef4444; }
 
-.footer-btns { display: flex; gap: 12px; margin-left: auto; }
+.footer-btns { display: flex; gap: 8px; align-items: center; }
 
-.primary-btn {
-  padding: 10px 24px; background: var(--theme-color); color: #fff;
-  border-radius: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+.primary-btn,
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
 }
 
-.ghost-btn { padding: 10px 20px; color: #64748b; font-weight: 700; }
+.primary-btn {
+  background: var(--theme-color);
+  color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.primary-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--theme-color) 88%, #000);
+}
+
+.back-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #64748b;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.back-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1d1d1f;
+}
 
 .icon-button { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 20px; }
 .icon-button:hover { color: #0f172a; }
 
 .spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
 </style>

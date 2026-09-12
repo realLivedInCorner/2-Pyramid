@@ -303,7 +303,11 @@ pub fn import_overlay_share_code(share_code: String) -> Result<OverlayProject, S
 }
 
 #[tauri::command]
-pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<String, String> {
+pub fn overlay_package(
+    app: tauri::AppHandle,
+    project_name: String,
+    output_path: Option<String>,
+) -> Result<String, String> {
     let temp_dir = overlay_temp_dir(Some(&project_name))?;
 
     if !temp_dir.exists() {
@@ -313,7 +317,10 @@ pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<St
     let overlay_dir = overlay_templates_dir_from_app(&app)?;
     apply_overlay_changes(&project_name, &overlay_dir)?;
 
-    package_overlay_zip(&temp_dir, &project_name)
+    let dest = output_path
+        .map(|p| PathBuf::from(p))
+        .filter(|p| !p.as_os_str().is_empty());
+    package_overlay_zip_to(&temp_dir, &project_name, dest.as_deref())
 }
 
 /// 核心 zip 打包逻辑（独立函数，无 Tauri 依赖，可在测试中调用）。
@@ -322,9 +329,18 @@ pub fn overlay_package(app: tauri::AppHandle, project_name: String) -> Result<St
 ///   `workspace` 字段防止泄露内部路径
 /// - 独立模式：写入临时 pack.mcmeta，打包为 `{project_name}.zip`（空名 fallback 为
 ///   `你的覆盖包.zip`），再删除 mcmeta
+/// - `output_path`：用户指定的完整 zip 路径；未提供时写回项目 temp 目录
 ///
 /// 包名 `[覆盖]` 与 Python 参考实现 (`overlay.py:759`) 一致，本地化标识。
 pub fn package_overlay_zip(temp_dir: &Path, project_name: &str) -> Result<String, String> {
+    package_overlay_zip_to(temp_dir, project_name, None)
+}
+
+pub fn package_overlay_zip_to(
+    temp_dir: &Path,
+    project_name: &str,
+    output_path: Option<&Path>,
+) -> Result<String, String> {
     let name = project_name;
 
     let overlay_json_path = temp_dir.join("overlay.json");
@@ -346,8 +362,13 @@ pub fn package_overlay_zip(temp_dir: &Path, project_name: &str) -> Result<String
         }
 
         let original_name = ws_root.file_name().and_then(|n| n.to_str()).unwrap_or(name);
-        let output_name = format!("[覆盖]{}.zip", original_name);
-        let output_path = temp_dir.join(&output_name);
+        let output_path = match output_path {
+            Some(p) => p.to_path_buf(),
+            None => {
+                let output_name = format!("[覆盖]{}.zip", original_name);
+                temp_dir.join(&output_name)
+            }
+        };
 
         crate::log_info!("packaging from workspace: {} -> {}", ws_root.display(), output_path.display());
 
@@ -392,12 +413,17 @@ pub fn package_overlay_zip(temp_dir: &Path, project_name: &str) -> Result<String
         fs::write(&pack_mcmeta, serde_json::to_string(&mcmeta).unwrap_or_default())
             .map_err(|e| format!("Failed to write pack.mcmeta: {}", e))?;
 
-        let output_name = if name.is_empty() {
-            "你的覆盖包.zip".to_string()
-        } else {
-            format!("{}.zip", name)
+        let output_path = match output_path {
+            Some(p) => p.to_path_buf(),
+            None => {
+                let output_name = if name.is_empty() {
+                    "你的覆盖包.zip".to_string()
+                } else {
+                    format!("{}.zip", name)
+                };
+                temp_dir.join(&output_name)
+            }
         };
-        let output_path = temp_dir.join(&output_name);
         let assets_dir = temp_dir.join("assets");
 
         let file = fs::File::create(&output_path).map_err(|e| format!("Failed to create archive: {}", e))?;
@@ -640,6 +666,7 @@ fn apply_overlay_changes(project_name: &str, overlay_dir: &Path) -> Result<(), S
             let src_dir_name = match outline_type {
                 "rainbow" => "core_rainbow_outline",
                 "rainbow_hexian" => "core_rainbow_outline_hexian",
+                "gradient" => "core_gradient_outline",
                 _ => "core_outline"
             };
             let src_dir = overlay_dir.join(src_dir_name);
@@ -674,6 +701,23 @@ fn apply_overlay_changes(project_name: &str, overlay_dir: &Path) -> Result<(), S
                                 crate::overlay::replace_outline_placeholders(&dest, color, thickness)?;
                             }
                         }
+                    } else if outline_type == "gradient" {
+                        // 默认：浅紫 ↔ 黑（与用户参考包一致）
+                        let default_a = serde_json::json!({"r":0.7,"g":0.4,"b":0.9,"a":1.0});
+                        let default_b = serde_json::json!({"r":0.0,"g":0.0,"b":0.0,"a":1.0});
+                        let (mut color_a, mut color_b) = (default_a.clone(), default_b.clone());
+                        if let Some(g) = config.get("core_gradient_outline") {
+                            if let Some(c) = g.get("color_a") { color_a = c.clone(); }
+                            if let Some(c) = g.get("color_b") { color_b = c.clone(); }
+                        } else {
+                            let global_cfg = read_overlay_config()?;
+                            let global_settings = global_cfg.settings.unwrap_or_else(|| serde_json::json!({}));
+                            if let Some(g) = global_settings.get("core_gradient_outline") {
+                                if let Some(c) = g.get("color_a") { color_a = c.clone(); }
+                                if let Some(c) = g.get("color_b") { color_b = c.clone(); }
+                            }
+                        }
+                        crate::overlay::replace_gradient_placeholders(&dest, &color_a, &color_b)?;
                     }
                 }
             }
@@ -1019,5 +1063,21 @@ mod tests {
         let expected = project.path().join("你的覆盖包.zip");
         assert_eq!(out, expected.to_string_lossy().to_string());
         assert!(expected.exists());
+    }
+
+    #[test]
+    fn package_respects_custom_output_path() {
+        let project = tempdir().unwrap();
+        let assets_dir = project.path().join("assets/minecraft/lang");
+        fs::create_dir_all(&assets_dir).unwrap();
+        fs::write(assets_dir.join("zh_cn.json"), r#"{"item.apple":"苹果"}"#).unwrap();
+
+        let out_dir = tempdir().unwrap();
+        let custom = out_dir.path().join("自定义输出.zip");
+        let out = package_overlay_zip_to(project.path(), "MyOverlay", Some(&custom)).unwrap();
+        assert_eq!(out, custom.to_string_lossy().to_string());
+        assert!(custom.exists());
+        // 不应再往项目 temp 目录写 zip
+        assert!(!project.path().join("MyOverlay.zip").exists());
     }
 }

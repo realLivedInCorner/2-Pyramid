@@ -37,6 +37,12 @@ lazy_static::lazy_static! {
         regex::Regex::new(r"#define\s+BORDER_LINE_WIDTH\s+@").expect("valid regex: RE_BORDER_WIDTH");
     static ref RE_THICKNESS: regex::Regex =
         regex::Regex::new(r"\[\s*@\s*\]").expect("valid regex: RE_THICKNESS");
+
+    // 双色循环描边 — GRADIENT_COLOR_A/B 占位符
+    static ref RE_GRADIENT_A: regex::Regex =
+        regex::Regex::new(r"vec4\(\s*@\s*,\s*@\s*,\s*@\s*,\s*@\s*\)").expect("valid regex: RE_GRADIENT_A");
+    static ref RE_GRADIENT_B: regex::Regex =
+        regex::Regex::new(r"vec4\(\s*\$\s*,\s*\$\s*,\s*\$\s*,\s*\$\s*\)").expect("valid regex: RE_GRADIENT_B");
 }
 
 // ── 路径解析（委托给 resource_resolver）───────────────────────────────
@@ -228,6 +234,45 @@ pub fn apply_scale_to_json_files(target_dir: &Path, big_items_config: &Value) ->
         crate::log_info!("applied scale (handheld:{}x, dropped:{}x) to {}", handheld_scale, dropped_scale, path.display());
     }
 
+    Ok(())
+}
+
+/// 替换双色循环描边占位符：A=vec4(@,@,@,@)，B=vec4($,$,$,$)
+pub fn replace_gradient_placeholders(
+    file_path: &Path,
+    color_a: &Value,
+    color_b: &Value,
+) -> Result<(), String> {
+    fn rgba(c: &Value) -> String {
+        let r = c.get("r").and_then(|v| v.as_f64()).unwrap_or(1.0);
+        let g = c.get("g").and_then(|v| v.as_f64()).unwrap_or(1.0);
+        let b = c.get("b").and_then(|v| v.as_f64()).unwrap_or(1.0);
+        let a = c.get("a").and_then(|v| v.as_f64()).unwrap_or(1.0);
+        format!("{r}, {g}, {b}, {a}")
+    }
+
+    let file_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    if !file_name.ends_with(".fsh") && !file_name.ends_with(".vsh") {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| format!("读取 {} 失败: {}", file_path.display(), e))?;
+    let a = rgba(color_a);
+    let b = rgba(color_b);
+    let fixed = RE_GRADIENT_A.replace_all(&content, format!("vec4({a})"));
+    let fixed = RE_GRADIENT_B.replace_all(&fixed, format!("vec4({b})"));
+    fs::write(file_path, fixed.as_bytes())
+        .map_err(|e| format!("写入 {} 失败: {}", file_path.display(), e))?;
+    crate::log_info!(
+        "replaced gradient placeholders in {}: A=({}) B=({})",
+        file_path.display(),
+        a,
+        b
+    );
     Ok(())
 }
 
@@ -582,6 +627,31 @@ mod tests {
         let content = fs::read_to_string(&path).unwrap();
         assert!(content.contains("[0.1, 0.2, 0.3, 0.4]"));
         assert!(content.contains("[3.5]"));
+    }
+
+    #[test]
+    fn replace_gradient_placeholders_swaps_a_and_b() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("rendertype_lines.fsh");
+        fs::write(
+            &path,
+            r#"
+                #define GRADIENT_COLOR_A vec4(@, @, @, @)
+                #define GRADIENT_COLOR_B vec4($, $, $, $)
+                void main() { vec3 c = mix(GRADIENT_COLOR_B.rgb, GRADIENT_COLOR_A.rgb, 0.5); }
+            "#,
+        )
+        .unwrap();
+
+        let a = serde_json::json!({"r": 0.7, "g": 0.4, "b": 0.9, "a": 1.0});
+        let b = serde_json::json!({"r": 0.0, "g": 0.0, "b": 0.0, "a": 1.0});
+        replace_gradient_placeholders(&path, &a, &b).unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("vec4(0.7, 0.4, 0.9, 1)"));
+        assert!(content.contains("vec4(0, 0, 0, 1)"));
+        assert!(!content.contains("vec4(@, @, @, @)"));
+        assert!(!content.contains("vec4($, $, $, $)"));
     }
 
     // ── process_core_shadow ──
