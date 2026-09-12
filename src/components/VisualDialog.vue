@@ -40,8 +40,8 @@
             <div class="group-desc">{{ t('dialog.visual.outlineDesc') }}</div>
           </div>
           <div class="outline-grid">
-            <button 
-              v-for="type in outlineTypes" 
+            <button
+              v-for="type in outlineTypes"
               :key="type.id"
               class="outline-card"
               :class="{ active: settings.outline_type === type.id }"
@@ -50,6 +50,46 @@
               <div class="outline-preview" :style="{ background: type.color }"></div>
               <div class="outline-name">{{ type.name }}</div>
             </button>
+          </div>
+
+          <!-- 标准描边：对齐 overlay.py 的 core_outline.color / thickness -->
+          <div v-if="settings.outline_type === 'default'" class="outline-detail">
+            <div class="detail-row">
+              <label class="detail-label">{{ t('dialog.visual.outlineColor') }}</label>
+              <div class="color-row">
+                <input
+                  type="color"
+                  class="color-input"
+                  :value="hexFromRgba(settings.core_outline.color)"
+                  @input="onColorInput($event)"
+                />
+                <span class="color-hex">{{ hexFromRgba(settings.core_outline.color) }}</span>
+              </div>
+            </div>
+            <div class="detail-row">
+              <label class="detail-label">{{ t('dialog.visual.outlineAlpha') }}</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                v-model.number="settings.core_outline.color.a"
+                class="range-input"
+              />
+              <span class="range-val">{{ settings.core_outline.color.a.toFixed(2) }}</span>
+            </div>
+            <div class="detail-row">
+              <label class="detail-label">{{ t('dialog.visual.outlineThickness') }}</label>
+              <input
+                type="range"
+                min="0.5"
+                max="6"
+                step="0.5"
+                v-model.number="settings.core_outline.thickness"
+                class="range-input"
+              />
+              <span class="range-val">{{ settings.core_outline.thickness }}x</span>
+            </div>
           </div>
         </div>
       </div>
@@ -91,15 +131,32 @@ const saveStatus = ref<{ text: string, type: 'success' | 'error' } | null>(null)
 const settings = reactive({
   no_shadow: false,
   custom_glint: false,
-  outline_type: 'none'
+  outline_type: 'none' as 'none' | 'default' | 'rainbow' | 'rainbow_hexian',
+  core_outline: {
+    color: { r: 1, g: 1, b: 1, a: 1 },
+    thickness: 2
+  }
 });
 
 const outlineTypes = [
-  { id: 'none', name: t('dialog.visual.outlineTypes.none'), color: '#f1f5f9' },
-  { id: 'default', name: t('dialog.visual.outlineTypes.standard'), color: '#fff' },
-  { id: 'rainbow', name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' },
-  { id: 'rainbow_hexian', name: t('dialog.visual.outlineTypes.chord'), color: 'linear-gradient(45deg, #f0f, #0ff)' }
+  { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: '#f1f5f9' },
+  { id: 'default' as const, name: t('dialog.visual.outlineTypes.standard'), color: '#fff' },
+  { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' },
+  { id: 'rainbow_hexian' as const, name: t('dialog.visual.outlineTypes.chord'), color: 'linear-gradient(45deg, #f0f, #0ff)' }
 ];
+
+function hexFromRgba(c: { r: number; g: number; b: number }) {
+  const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0');
+  return `#${to(c.r)}${to(c.g)}${to(c.b)}`;
+}
+
+function onColorInput(e: Event) {
+  const hex = (e.target as HTMLInputElement).value.replace('#', '');
+  if (hex.length !== 6) return;
+  settings.core_outline.color.r = parseInt(hex.slice(0, 2), 16) / 255;
+  settings.core_outline.color.g = parseInt(hex.slice(2, 4), 16) / 255;
+  settings.core_outline.color.b = parseInt(hex.slice(4, 6), 16) / 255;
+}
 
 const loadSettings = async () => {
   try {
@@ -107,6 +164,19 @@ const loadSettings = async () => {
     settings.no_shadow = !!data.no_shadow;
     settings.custom_glint = !!data.custom_glint;
     settings.outline_type = data.outline_type || 'none';
+    // 兼容 Python core_outline.color / thickness
+    const co = data.core_outline;
+    if (co && typeof co === 'object') {
+      if (co.color && typeof co.color === 'object') {
+        settings.core_outline.color.r = Number(co.color.r ?? 1);
+        settings.core_outline.color.g = Number(co.color.g ?? 1);
+        settings.core_outline.color.b = Number(co.color.b ?? 1);
+        settings.core_outline.color.a = Number(co.color.a ?? 1);
+      }
+      if (typeof co.thickness === 'number') {
+        settings.core_outline.thickness = co.thickness;
+      }
+    }
   } catch (e) {
     console.error('加载设置失败:', e);
   }
@@ -117,9 +187,20 @@ const handleSave = async () => {
   saveStatus.value = null;
   try {
     const currentData = await invoke<any>('get_overlay_json', { projectName: props.projectName });
-    const mergedData = { 
-      ...currentData, 
-      ...settings 
+    const ot = settings.outline_type;
+    // 同时写入 Vue 简化键 + Python 兼容键，保证打包逻辑与旧 overlay.json 都能读
+    const mergedData = {
+      ...currentData,
+      no_shadow: settings.no_shadow,
+      custom_glint: settings.custom_glint,
+      outline_type: ot,
+      core_shadow: { enabled: settings.no_shadow },
+      core_outline: {
+        enabled: ot === 'default',
+        color: { ...settings.core_outline.color },
+        thickness: settings.core_outline.thickness
+      },
+      core_outline_rainbow: { enabled: ot === 'rainbow' }
     };
     await invoke('save_overlay_json', { projectName: props.projectName, data: mergedData });
     saveStatus.value = { text: t('dialog.visual.saved'), type: 'success' };
@@ -183,6 +264,38 @@ onMounted(loadSettings);
 .outline-preview { width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.05); }
 
 .outline-name { font-size: 14px; font-weight: 600; color: #475569; }
+
+.outline-detail {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid #eef2f7;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.detail-row {
+  display: grid;
+  grid-template-columns: 88px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.detail-label { color: #64748b; font-weight: 600; }
+.color-row { display: flex; align-items: center; gap: 8px; }
+.color-input {
+  width: 36px; height: 28px; padding: 0; border: 1px solid #e2e8f0;
+  border-radius: 6px; cursor: pointer; background: none;
+}
+.color-hex {
+  font-family: ui-monospace, monospace; font-size: 12px; color: #475569;
+}
+.range-input { width: 100%; accent-color: var(--theme-color); }
+.range-val {
+  font-variant-numeric: tabular-nums;
+  color: #374151; font-weight: 600; min-width: 36px; text-align: right;
+}
 
 .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
 .switch input { opacity: 0; width: 0; height: 0; }
