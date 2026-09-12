@@ -568,11 +568,38 @@ onMounted(() => {
 /* status enter/leave 走全局 CSS class 模式(`<transition name="header-status-toast">`,
    见 App.vue 全局 .header-status-toast-* 规则)。 */
 
-.history-section { display: flex; flex-direction: column; gap: 24px; }
+.history-section { display: flex; flex-direction: column; gap: 14px; }
 
-.section-header { display: flex; justify-content: space-between; align-items: center; }
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
-.section-title { font-size: 20px; font-weight: 700; color: #1e293b; }
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.header-btns { display: flex; align-items: center; gap: 8px; }
+
+.import-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
 
 .create-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
@@ -590,37 +617,54 @@ onMounted(() => {
 
 .empty-history {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 80px 0; color: #94a3b8; gap: 12px;
+  padding: 48px 0; color: #94a3b8; gap: 10px;
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+  border-radius: var(--ui-radius-card);
+  background: rgba(255, 255, 255, 0.35);
 }
 
-.empty-history i { font-size: 48px; }
+.empty-history i { font-size: 36px; }
 
+/* 项目列表：通栏行卡片，避免 auto-fill 留出空列把单卡挤在左侧 */
 .history-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .history-card {
+  width: 100%;
   background: var(--ui-card-surface);
   backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
   border: var(--ui-border);
   border-radius: var(--ui-radius-card);
   box-shadow: var(--ui-shadow);
-  padding: 18px 20px;
+  padding: 14px 16px;
   cursor: pointer;
-  display: flex; justify-content: space-between; align-items: center;
-  transition: box-shadow 0.25s ease, transform 0.2s ease, background 0.25s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: box-shadow 0.25s ease, transform 0.18s ease;
 }
 
 .history-card:hover {
   box-shadow: var(--ui-shadow-hover);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
-.card-name { font-size: 16px; font-weight: 700; color: #1d1d1f; margin-bottom: 4px; }
+.card-info { min-width: 0; flex: 1; }
+
+.card-name {
+  font-size: 15px; font-weight: 700; color: #1d1d1f; margin-bottom: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .card-meta {
   font-size: 12px; color: #86868b; display: flex; align-items: center; gap: 4px;
 }
+
+.card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 
 .icon-btn {
   width: 32px; height: 32px; border: none; background: transparent;
