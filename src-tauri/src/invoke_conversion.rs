@@ -8,82 +8,82 @@ use crate::hurray::texture::TexturePool;
 
 // ========== 映射表模块导入（仅 pack.py ADJACENT_CONVERSIONS 中的任务） ==========
 // Eraser 层
-use crate::converters::delete_blockstates_models;
-use crate::converters::delete_enchanted_item_glint;
-use crate::converters::delete_font_folder;
-use crate::converters::delete_horse_folder;
-use crate::converters::delete_shaders_folder;
-use crate::converters::rename_blocks_items;
-use crate::converters::convert_animated_textures;
-use crate::converters::rename_mcpatcher_to_optifine;
-use crate::converters::process_chest_folder;
+use crate::converters::textures::drop_blockstates_models;
+use crate::converters::textures::drop_enchanted_glint;
+use crate::converters::textures::drop_font;
+use crate::converters::textures::drop_horse;
+use crate::converters::textures::drop_shaders;
+use crate::converters::textures::rename_blocks;
+use crate::converters::textures::animated;
+use crate::converters::textures::mcpatcher_to_optifine;
+use crate::converters::ui::process_chest_folder;
 
 // Architect 层 —— generate_*
-use crate::converters::generate_boat;
-use crate::converters::generate_copper;
-use crate::converters::generate_crossbow;
-use crate::converters::generate_fish_bucket;
-use crate::converters::generate_furnace;
-use crate::converters::generate_netherite;
-use crate::converters::generate_planks;
-use crate::converters::generate_potion_lingering;
-use crate::converters::generate_shulker_box_ui;
-use crate::converters::generate_smithing_ui;
-use crate::converters::generate_snow_bucket;
-use crate::converters::generate_tipped_arrow_images;
+use crate::converters::textures::boat;
+use crate::converters::textures::copper;
+use crate::converters::textures::crossbow;
+use crate::converters::textures::fish_bucket;
+use crate::converters::textures::furnace;
+use crate::converters::textures::netherite;
+use crate::converters::textures::planks;
+use crate::converters::textures::potion_lingering;
+use crate::converters::ui::shulker_box;
+use crate::converters::ui::smithing_ui;
+use crate::converters::textures::snow_bucket;
+use crate::converters::textures::tipped_arrows;
 
 // Surgeon 层 —— fix_* / overlay_icons / cut_gui
-use crate::converters::cut_gui;
-use crate::converters::fix2_horse_ui;
-use crate::converters::fix_armor_models;
-use crate::converters::fix_brewing_stand_ui;
-use crate::converters::fix_clock_compass;
-use crate::converters::fix_horse_ui;
-use crate::converters::fix_machinery_ui;
-use crate::converters::fix_particles;
-use crate::converters::fix_sign;
-use crate::converters::fix_sign_entities;
-use crate::converters::fix_slider;
-use crate::converters::fix_smithing2_villager2_ui;
-use crate::converters::fix_tabs;
-use crate::converters::fix_ui_creative;
-use crate::converters::fix_ui_sub_hand;
-use crate::converters::fix_ui_survival;
-use crate::converters::overlay_icons;
+use crate::converters::ui::cut_gui;
+use crate::converters::ui::horse_v2;
+use crate::converters::ui::brewing_stand;
+use crate::converters::ui::clock_compass;
+use crate::converters::ui::horse;
+use crate::converters::ui::machinery;
+use crate::converters::ui::sign;
+use crate::converters::ui::sign_entities;
+use crate::converters::ui::slider;
+use crate::converters::ui::smithing_villager;
+use crate::converters::ui::tabs;
+use crate::converters::ui::creative;
+use crate::converters::ui::sub_hand;
+use crate::converters::ui::survival;
+use crate::converters::ui::overlay_icons;
+use crate::converters::textures::armor as armor_tex;
+use crate::converters::textures::particles as particles_tex;
 
-// 逆向转换
-use crate::converters::reverse_fix_armor_models;
-use crate::converters::reverse_fix_brewing_stand_ui;
-use crate::converters::reverse_fix_clock_compass;
-use crate::converters::reverse_fix_particles;
-use crate::converters::reverse_fix_ui_creative;
-use crate::converters::reverse_fix_ui_survival;
-use crate::converters::reverse_process_chest_folder;
-use crate::converters::reverse_rename_blocks_items;
-use crate::converters::reverse_cut_gui;
-use crate::converters::reverse_fix2_horse_ui;
-use crate::converters::reverse_fix_horse_ui;
-use crate::converters::reverse_fix_machinery_ui;
-use crate::converters::reverse_fix_sign;
-use crate::converters::reverse_fix_sign_entities;
-use crate::converters::reverse_fix_slider;
-use crate::converters::reverse_fix_smithing2_villager2_ui;
-use crate::converters::reverse_fix_tabs;
-use crate::converters::reverse_fix_ui_sub_hand;
-use crate::converters::reverse_generate_boat;
-use crate::converters::reverse_generate_copper;
-use crate::converters::reverse_generate_crossbow;
-use crate::converters::reverse_generate_fish_bucket;
-use crate::converters::reverse_generate_furnace;
-use crate::converters::reverse_generate_netherite;
-use crate::converters::reverse_generate_planks;
-use crate::converters::reverse_generate_potion_lingering;
-use crate::converters::reverse_generate_shulker_box_ui;
-use crate::converters::reverse_generate_smithing_ui;
-use crate::converters::reverse_generate_snow_bucket;
-use crate::converters::reverse_generate_tipped_arrow_images;
-use crate::converters::reverse_overlay_icons;
-use crate::converters::reverse_rename_mcpatcher_to_optifine;
+// 逆向转换（与 ui/textures 同名，用 rev_ 前缀）
+use crate::converters::reverse::armor as rev_armor;
+use crate::converters::reverse::brewing_stand as rev_brewing_stand;
+use crate::converters::reverse::clock_compass as rev_clock_compass;
+use crate::converters::reverse::particles as rev_particles;
+use crate::converters::reverse::creative as rev_creative;
+use crate::converters::reverse::survival as rev_survival;
+use crate::converters::reverse::chest_folder as rev_chest_folder;
+use crate::converters::reverse::rename_blocks as rev_rename_blocks;
+use crate::converters::reverse::cut_gui as rev_cut_gui;
+use crate::converters::reverse::horse_v2 as rev_horse_v2;
+use crate::converters::reverse::horse as rev_horse;
+use crate::converters::reverse::machinery as rev_machinery;
+use crate::converters::reverse::sign as rev_sign;
+use crate::converters::reverse::sign_entities as rev_sign_entities;
+use crate::converters::reverse::slider as rev_slider;
+use crate::converters::reverse::smithing_villager as rev_smithing_villager;
+use crate::converters::reverse::tabs as rev_tabs;
+use crate::converters::reverse::sub_hand as rev_sub_hand;
+use crate::converters::reverse::boat as rev_boat;
+use crate::converters::reverse::copper as rev_copper;
+use crate::converters::reverse::crossbow as rev_crossbow;
+use crate::converters::reverse::fish_bucket as rev_fish_bucket;
+use crate::converters::reverse::furnace as rev_furnace;
+use crate::converters::reverse::netherite as rev_netherite;
+use crate::converters::reverse::planks as rev_planks;
+use crate::converters::reverse::potion_lingering as rev_potion_lingering;
+use crate::converters::reverse::shulker_box as rev_shulker_box;
+use crate::converters::reverse::smithing_ui as rev_smithing_ui;
+use crate::converters::reverse::snow_bucket as rev_snow_bucket;
+use crate::converters::reverse::tipped_arrows as rev_tipped_arrows;
+use crate::converters::reverse::overlay_icons as rev_overlay_icons;
+use crate::converters::reverse::mcpatcher_to_optifine as rev_mcpatcher_to_optifine;
 
 pub fn invoke_conversion(
     target_path: &Path,
@@ -91,18 +91,21 @@ pub fn invoke_conversion(
     target_version: u32,
     source_version: u32,
 ) -> Result<(), Box<dyn Error>> {
-    invoke_conversion_ex(target_path, work_dir, target_version, source_version, true)
+    invoke_conversion_ex(target_path, work_dir, target_version, source_version, true, false)
 }
 
 /// 与 [`invoke_conversion`] 相同，可控制是否执行 GuiSurgeon。
 /// 通向 Bedrock 的 Java 中间态应传 `run_gui_surgeon=false`，
 /// 避免 1.21 sprite 手术干扰后续 `gui/** → textures/ui` 重组。
+/// `fix_alpha_layers`：用户在转换页勾选「图层修复」时为 true，
+/// 在 Surgeon 阶段对 item/block/entity/gui/misc 下 PNG 做 alpha/RGB 修复。
 pub fn invoke_conversion_ex(
     target_path: &Path,
     work_dir: &Path,
     target_version: u32,
     source_version: u32,
     run_gui_surgeon: bool,
+    fix_alpha_layers: bool,
 ) -> Result<(), Box<dyn Error>> {
     use crate::{log_info, log_debug, log_warn};
     log_info!("==============================");
@@ -126,7 +129,7 @@ pub fn invoke_conversion_ex(
     // ── Eraser 层：删除旧结构，必须串行 ──
     scheduler.register_task("rename_blocks_items", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         let temp_dir = ctx.temp_dir();
-        rename_blocks_items::rename_blocks_items(Path::new(temp_dir))
+        rename_blocks::rename_blocks_items(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
@@ -135,35 +138,35 @@ pub fn invoke_conversion_ex(
     // 按同名 png 尺寸推导帧数，改写为 { frametime, interpolate } 高版本格式。
     scheduler.register_task("convert_animated_textures", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         let temp_dir = ctx.temp_dir();
-        convert_animated_textures::convert_animated_textures(Path::new(temp_dir))
+        animated::convert_animated_textures(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("delete_blockstates_models", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        delete_blockstates_models::delete_blockstates_models(ctx)
+        drop_blockstates_models::delete_blockstates_models(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("delete_horse_folder", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        delete_horse_folder::delete_horse_folder(ctx)
+        drop_horse::delete_horse_folder(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("delete_enchanted_item_glint", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        delete_enchanted_item_glint::delete_enchanted_item_glint(ctx)
+        drop_enchanted_glint::delete_enchanted_item_glint(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("delete_shaders_folder", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        delete_shaders_folder::delete_shaders_folder(ctx)
+        drop_shaders::delete_shaders_folder(ctx)
             .map_err(|e| e.to_string())
     });
 
     // j2j 着色器：1.20→26.x 等边界用适配，而非整目录删除
-    crate::converters::java_shaders::register_scheduler_task(&mut scheduler);
+    crate::converters::shaders::java::register_scheduler_task(&mut scheduler);
 
     scheduler.register_task("delete_font_folder", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        delete_font_folder::delete_font_folder(ctx)
+        drop_font::delete_font_folder(ctx)
             .map_err(|e| e.to_string())
     });
 
@@ -175,202 +178,206 @@ pub fn invoke_conversion_ex(
 
     scheduler.register_task("rename_mcpatcher_to_optifine", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         let temp_dir = ctx.temp_dir();
-        rename_mcpatcher_to_optifine::rename_mcpatcher_to_optifine(Path::new(temp_dir))
+        mcpatcher_to_optifine::rename_mcpatcher_to_optifine(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     // 逆向 Eraser
     scheduler.register_task("reverse_rename_blocks_items", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         let temp_dir = ctx.temp_dir();
-        reverse_rename_blocks_items::reverse_rename_blocks_items(Path::new(temp_dir))
+        rev_rename_blocks::reverse_rename_blocks_items(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("reverse_process_chest_folder", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         let temp_dir = ctx.temp_dir();
-        reverse_process_chest_folder::reverse_process_chest_folder(Path::new(temp_dir))
+        rev_chest_folder::reverse_process_chest_folder(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     // ── Architect 层：生成新资源，可并行 ──
     scheduler.register_task("generate_tipped_arrow_images", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_tipped_arrow_images::generate_tipped_arrow_images(ctx.temp_dir())
+        tipped_arrows::generate_tipped_arrow_images(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_boat", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_boat::generate_boat(ctx.temp_dir())
+        boat::generate_boat(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_potion_lingering", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_potion_lingering::generate_potion_lingering(ctx.temp_dir())
+        potion_lingering::generate_potion_lingering(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_shulker_box_ui", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_shulker_box_ui::generate_shulker_box_ui(ctx.temp_dir())
+        shulker_box::generate_shulker_box_ui(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_furnace", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_furnace::generate_furnace(ctx.temp_dir())
+        furnace::generate_furnace(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_fish_bucket", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_fish_bucket::generate_fish_bucket(ctx.temp_dir())
+        fish_bucket::generate_fish_bucket(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_crossbow", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_crossbow::generate_crossbow(ctx.temp_dir())
+        crossbow::generate_crossbow(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_netherite_block", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_netherite::generate_netherite_block(ctx.temp_dir())
+        netherite::generate_netherite_block(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_netherite_ingot", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_netherite::generate_netherite_ingot(ctx.temp_dir())
+        netherite::generate_netherite_ingot(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_netherite_tools", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_netherite::generate_netherite_tools(ctx.temp_dir())
+        netherite::generate_netherite_tools(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_netherite_armor_models", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_netherite::generate_netherite_armor_models(ctx.temp_dir())
+        netherite::generate_netherite_armor_models(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_copper_ingot", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_copper::generate_copper_ingot(ctx.temp_dir())
+        copper::generate_copper_ingot(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_copper_block", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_copper::generate_copper_block(ctx.temp_dir())
+        copper::generate_copper_block(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_copper_tools", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_copper::generate_copper_tools(ctx.temp_dir())
+        copper::generate_copper_tools(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_copper_armor_models", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_copper::generate_copper_armor_models(ctx.temp_dir())
+        copper::generate_copper_armor_models(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_snow_bucket", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_snow_bucket::generate_snow_bucket(ctx.temp_dir())
+        snow_bucket::generate_snow_bucket(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_smithing_ui", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_smithing_ui::generate_smithing_ui(ctx.temp_dir())
+        smithing_ui::generate_smithing_ui(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_redwood_cherry_bamboo_planks", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_planks::generate_redwood_cherry_bamboo_planks(ctx.temp_dir())
+        planks::generate_redwood_cherry_bamboo_planks(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("generate_pale_planks", TaskType::Parallel, TaskTier::Architect, |ctx| {
-        generate_planks::generate_pale_planks(ctx.temp_dir())
+        planks::generate_pale_planks(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
 
     // ── Surgeon 层：修改已有资源，Hybrid（并行内部安全操作 + 串行独占操作） ──
+    if fix_alpha_layers {
+        crate::converters::textures::alpha_layers::register_scheduler_task(&mut scheduler);
+    }
+
     scheduler.register_task("fix_clock_compass", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        fix_clock_compass::fix_clock_compass(ctx)
+        clock_compass::fix_clock_compass(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_brewing_stand_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_brewing_stand_ui::fix_brewing_stand_ui(Path::new(temp_dir))
+        brewing_stand::fix_brewing_stand_ui(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_particles", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_particles::fix_particles(Path::new(temp_dir))
+        particles_tex::fix_particles(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_sign", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        fix_sign::fix_sign(ctx)
+        sign::fix_sign(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_sign_entities", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_sign_entities::fix_sign_entities(Path::new(temp_dir))
+        sign_entities::fix_sign_entities(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_ui_creative", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        fix_ui_creative::fix_ui_creative(ctx)
+        creative::fix_ui_creative(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_ui_sub_hand", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        fix_ui_sub_hand::fix_ui_sub_hand(ctx)
+        sub_hand::fix_ui_sub_hand(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_ui_survival", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        fix_ui_survival::fix_ui_survival(ctx)
+        survival::fix_ui_survival(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_armor_models", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_armor_models::fix_armor_models(Path::new(temp_dir))
+        armor_tex::fix_armor_models(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_horse_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_horse_ui::fix_horse_ui(Path::new(temp_dir))
+        horse::fix_horse_ui(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix2_horse_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix2_horse_ui::fix2_horse_ui(Path::new(temp_dir))
+        horse_v2::fix2_horse_ui(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_machinery_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_machinery_ui::fix_machinery_ui(Path::new(temp_dir))
+        machinery::fix_machinery_ui(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_tabs", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_tabs::fix_tabs(Path::new(temp_dir))
+        tabs::fix_tabs(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_slider", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_slider::fix_slider(Path::new(temp_dir))
+        slider::fix_slider(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("fix_smithing2_villager2_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        fix_smithing2_villager2_ui::fix_smithing2_villager2_ui(Path::new(temp_dir))
+        smithing_villager::fix_smithing2_villager2_ui(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
@@ -387,35 +394,35 @@ pub fn invoke_conversion_ex(
     // 逆向 Surgeon
     scheduler.register_task("reverse_fix_armor_models", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        reverse_fix_armor_models::reverse_fix_armor_models(Path::new(temp_dir))
+        rev_armor::reverse_fix_armor_models(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("reverse_fix_brewing_stand_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        reverse_fix_brewing_stand_ui::reverse_fix_brewing_stand_ui(Path::new(temp_dir))
+        rev_brewing_stand::reverse_fix_brewing_stand_ui(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("reverse_fix_clock_compass", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_fix_clock_compass::reverse_fix_clock_compass(ctx)
+        rev_clock_compass::reverse_fix_clock_compass(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("reverse_fix_particles", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_fix_particles::reverse_fix_particles(ctx)
+        rev_particles::reverse_fix_particles(ctx)
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("reverse_fix_ui_creative", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        reverse_fix_ui_creative::reverse_fix_ui_creative(Path::new(temp_dir))
+        rev_creative::reverse_fix_ui_creative(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
     scheduler.register_task("reverse_fix_ui_survival", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
         let temp_dir = ctx.temp_dir();
-        reverse_fix_ui_survival::reverse_fix_ui_survival(Path::new(temp_dir))
+        rev_survival::reverse_fix_ui_survival(Path::new(temp_dir))
             .map_err(|e| e.to_string())
     });
 
@@ -423,131 +430,131 @@ pub fn invoke_conversion_ex(
 
     // reverse generate_* (delete generated files)
     scheduler.register_task("reverse_generate_boat", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_boat::reverse_generate_boat(ctx)
+        rev_boat::reverse_generate_boat(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_potion_lingering", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_potion_lingering::reverse_generate_potion_lingering(ctx)
+        rev_potion_lingering::reverse_generate_potion_lingering(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_shulker_box_ui", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_shulker_box_ui::reverse_generate_shulker_box_ui(ctx)
+        rev_shulker_box::reverse_generate_shulker_box_ui(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_furnace", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_furnace::reverse_generate_furnace(ctx)
+        rev_furnace::reverse_generate_furnace(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_netherite_block", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_netherite::reverse_generate_netherite_block(ctx)
+        rev_netherite::reverse_generate_netherite_block(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_netherite_ingot", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_netherite::reverse_generate_netherite_ingot(ctx)
+        rev_netherite::reverse_generate_netherite_ingot(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_netherite_tools", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_netherite::reverse_generate_netherite_tools(ctx)
+        rev_netherite::reverse_generate_netherite_tools(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_netherite_armor_models", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_netherite::reverse_generate_netherite_armor_models(ctx)
+        rev_netherite::reverse_generate_netherite_armor_models(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_copper_ingot", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_copper::reverse_generate_copper_ingot(ctx)
+        rev_copper::reverse_generate_copper_ingot(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_copper_block", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_copper::reverse_generate_copper_block(ctx)
+        rev_copper::reverse_generate_copper_block(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_copper_tools", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_copper::reverse_generate_copper_tools(ctx)
+        rev_copper::reverse_generate_copper_tools(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_copper_armor_models", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_copper::reverse_generate_copper_armor_models(ctx)
+        rev_copper::reverse_generate_copper_armor_models(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_smithing_ui", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_smithing_ui::reverse_generate_smithing_ui(ctx)
+        rev_smithing_ui::reverse_generate_smithing_ui(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_crossbow", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_crossbow::reverse_generate_crossbow(ctx)
+        rev_crossbow::reverse_generate_crossbow(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_fish_bucket", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_fish_bucket::reverse_generate_fish_bucket(ctx)
+        rev_fish_bucket::reverse_generate_fish_bucket(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_snow_bucket", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_snow_bucket::reverse_generate_snow_bucket(ctx)
+        rev_snow_bucket::reverse_generate_snow_bucket(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_tipped_arrow_images", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_tipped_arrow_images::reverse_generate_tipped_arrow_images(ctx)
+        rev_tipped_arrows::reverse_generate_tipped_arrow_images(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_redwood_cherry_bamboo_planks", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_planks::reverse_generate_redwood_cherry_bamboo_planks(ctx)
+        rev_planks::reverse_generate_redwood_cherry_bamboo_planks(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_generate_pale_planks", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_generate_planks::reverse_generate_pale_planks(ctx)
+        rev_planks::reverse_generate_pale_planks(ctx)
             .map_err(|e| e.to_string())
     });
 
     // reverse rename
     scheduler.register_task("reverse_rename_mcpatcher_to_optifine", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_rename_mcpatcher_to_optifine::reverse_rename_mcpatcher_to_optifine(Path::new(ctx.temp_dir()))
+        rev_mcpatcher_to_optifine::reverse_rename_mcpatcher_to_optifine(Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
 
     // reverse fix_* (delete generated or no-op)
     scheduler.register_task("reverse_fix_sign", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_fix_sign::reverse_fix_sign(ctx)
+        rev_sign::reverse_fix_sign(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_sign_entities", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_fix_sign_entities::reverse_fix_sign_entities(ctx)
+        rev_sign_entities::reverse_fix_sign_entities(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_slider", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_fix_slider::reverse_fix_slider(ctx)
+        rev_slider::reverse_fix_slider(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_tabs", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_fix_tabs::reverse_fix_tabs(Path::new(ctx.temp_dir()))
+        rev_tabs::reverse_fix_tabs(Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_horse_ui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_fix_horse_ui::reverse_fix_horse_ui(Path::new(ctx.temp_dir()))
+        rev_horse::reverse_fix_horse_ui(Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix2_horse_ui", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_fix2_horse_ui::reverse_fix2_horse_ui(ctx)
+        rev_horse_v2::reverse_fix2_horse_ui(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_machinery_ui", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_fix_machinery_ui::reverse_fix_machinery_ui(ctx)
+        rev_machinery::reverse_fix_machinery_ui(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_ui_sub_hand", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_fix_ui_sub_hand::reverse_fix_ui_sub_hand(Path::new(ctx.temp_dir()))
+        rev_sub_hand::reverse_fix_ui_sub_hand(Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_fix_smithing2_villager2_ui", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
-        reverse_fix_smithing2_villager2_ui::reverse_fix_smithing2_villager2_ui(ctx)
+        rev_smithing_villager::reverse_fix_smithing2_villager2_ui(ctx)
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_overlay_icons", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_overlay_icons::reverse_overlay_icons(Path::new(ctx.temp_dir()))
+        rev_overlay_icons::reverse_overlay_icons(Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
     scheduler.register_task("reverse_cut_gui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        reverse_cut_gui::reverse_cut_gui(Path::new(ctx.temp_dir()))
+        rev_cut_gui::reverse_cut_gui(Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
 
@@ -578,7 +585,7 @@ pub fn invoke_conversion_ex(
     if run_gui_surgeon && target_version >= 34 {
         let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
         let _ = resolution.detect_resolution(work_dir);
-        crate::converters::gui_surgeon::GuiSurgeon::execute_transformation(
+        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
             &context,
             &mut texture_pool,
             &resolution,

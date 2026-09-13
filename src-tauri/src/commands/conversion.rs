@@ -96,6 +96,7 @@ pub async fn convert_zip(
             1.0,
             parent_folder_path.as_deref(),
             None,
+            false,
         )
     }).await;
 
@@ -157,17 +158,21 @@ pub async fn convert_resource_packs_batch(
     file_paths: Vec<String>,
     target_format: u32,
     output_dirs: Option<Vec<String>>,
+    fix_alpha_layers: Option<bool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     use std::time::Instant;
 
     use crate::log_info;
     use crate::log_error;
 
+    let fix_alpha = fix_alpha_layers.unwrap_or(false);
+
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
     let parallelism = concurrent_packs();
     log_info!("Files to process: {} (parallelism: {})", file_paths.len(), parallelism);
     log_info!("Target pack_format: {} ({})", target_format, pack_format_label_for_output(target_format));
+    log_info!("fix_alpha_layers: {}", fix_alpha);
     log_info!("{}", "=".repeat(60));
 
     let start_time = Instant::now();
@@ -218,6 +223,7 @@ pub async fn convert_resource_packs_batch(
                 1.0,
                 None,
                 output_path.as_deref(),
+                fix_alpha,
             ) {
                 Ok(result_path) => {
                     let elapsed = file_start.elapsed();

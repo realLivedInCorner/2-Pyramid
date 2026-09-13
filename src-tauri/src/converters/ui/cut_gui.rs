@@ -1,4 +1,4 @@
-use crate::converters::gui_surgeon::GuiSurgeon;
+use crate::converters::ui::gui_surgeon::GuiSurgeon;
 use crate::hurray::context::HurrayContext;
 use crate::hurray::resolution::ResolutionTransducer;
 use crate::hurray::scheduler::{TaskType, TaskTier};

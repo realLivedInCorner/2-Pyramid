@@ -442,7 +442,7 @@ pub fn process_extracted_dir_only(
 }
 
 pub fn convert_resource_pack(file_path: &str, target_version: u32) -> Result<String, String> {
-    process_zip(file_path, target_version, None, 1.0, None, None)
+    process_zip(file_path, target_version, None, 1.0, None, None, false)
 }
 
 /// 仅执行 Bedrock 结构转换边任务（j2b: 84→1000 / b2j: 1000→84）。
@@ -485,6 +485,7 @@ pub fn process_zip(
     _file_weight: f64,
     parent_folder_path: Option<&str>,
     output_dir_override: Option<&str>,
+    fix_alpha_layers: bool,
 ) -> Result<String, String> {
     let input_zip = Path::new(original_file_path);
     if !input_zip.exists() {
@@ -535,6 +536,7 @@ pub fn process_zip(
         java_target,
         source_version,
         !is_bedrock_target,
+        fix_alpha_layers,
     )
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
 

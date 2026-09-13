@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::converters::adjust_hue_brightness::adjust_hue_brightness;
+use crate::converters::color::hue::adjust_hue_brightness;
 
 pub fn generate_boat(resource_pack_path: &Path) -> Result<(), String> {
     let items_path = resource_pack_path.join("assets/minecraft/textures/items");

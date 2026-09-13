@@ -12,7 +12,7 @@
 use std::path::Path;
 use std::fs;
 
-use crate::converters::adjust_hue_brightness::adjust_hue_brightness;
+use crate::converters::color::hue::adjust_hue_brightness;
 use crate::hurray::context::HurrayContext;
 use crate::hurray::scheduler::{TaskType, TaskTier};
 

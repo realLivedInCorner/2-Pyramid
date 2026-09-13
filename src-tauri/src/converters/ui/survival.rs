@@ -1,4 +1,4 @@
-﻿// fix_ui_survival编码.rs
+// fix_ui_survival编码.rs
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::env;
@@ -22,7 +22,10 @@ pub fn fix_ui_survival(context: &HurrayContext) -> Result<(), String> {
 
     // 从 HurrayContext 获取纹理，或从文件加载
     let mut img = if context.is_texture_cached(&inventory_path) {
-        context.get_cached_texture(&inventory_path).ok_or_else(|| "texture cache inconsistency for inventory.png".to_string())?
+        let shared = context
+            .get_cached_texture(&inventory_path)
+            .ok_or_else(|| "texture cache inconsistency for inventory.png".to_string())?;
+        (*shared).clone()
     } else {
         image::open(&inventory_path).map_err(|e| e.to_string())?.to_rgba8()
     };

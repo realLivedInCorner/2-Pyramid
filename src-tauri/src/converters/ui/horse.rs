@@ -60,7 +60,7 @@ pub fn fix_horse_ui(path: &Path) -> Result<(), String> {
     crate::log_info!("copied region (36,202)-(54,220) to (36,220)");
 
     // Step 4: External overlay from horse/horse_{width}.png
-    if let Ok(uimage) = super::get_uimage_path() {
+    if let Ok(uimage) = crate::converters::get_uimage_path() {
         let overlay_path = uimage.join("horse").join(format!("horse_{}.png", width));
         crate::log_info!("looking for horse overlay: {}", overlay_path.display());
         if overlay_path.exists() {

@@ -64,7 +64,7 @@ fn fix_brewing_stand_ui_impl(ctx: &HurrayContext) -> Result<(), String> {
     }
 
     // External overlay from brewing_stand/
-    if let Ok(uimage_path) = super::get_uimage_path() {
+    if let Ok(uimage_path) = crate::converters::get_uimage_path() {
         let overlay_candidate = uimage_path
             .join("brewing_stand")
             .join(format!("brewing_stand_{}.png", width));

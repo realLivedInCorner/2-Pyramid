@@ -37,7 +37,7 @@ pub fn overlay_icons(ctx: &HurrayContext) -> Result<(), String> {
         }
     };
 
-    if let Ok(uimage) = super::get_uimage_path() {
+    if let Ok(uimage) = crate::converters::get_uimage_path() {
         let overlay_path = uimage.join("icons").join(overlay_filename);
         crate::log_info!("looking for icons overlay: {}", overlay_path.display());
 
