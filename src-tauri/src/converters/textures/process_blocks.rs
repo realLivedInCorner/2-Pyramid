@@ -4,7 +4,7 @@ use std::path::Path;
 
 use image::{Rgba, RgbaImage};
 
-use crate::converters::color_utils::{hsv_to_rgba, rgb_to_hsv};
+use crate::converters::color::utils::{hsv_to_rgba, rgb_to_hsv};
 
 pub fn rename_items(items_path: &Path, rename_pairs: &HashMap<&str, &str>) -> Result<(), String> {
     for (old_name, new_name) in rename_pairs {

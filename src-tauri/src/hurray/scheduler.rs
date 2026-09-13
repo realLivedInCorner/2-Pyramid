@@ -29,7 +29,7 @@ type TaskFn = Arc<dyn Fn(&HurrayContext) -> Result<(), String> + Send + Sync>;
 
 #[derive(Clone)]
 struct Task {
-    name: String,
+    name: Arc<str>,
     task_type: TaskType,
     tier: TaskTier,
     task: TaskFn,
@@ -130,7 +130,7 @@ impl Scheduler {
         F: Fn(&HurrayContext) -> Result<(), String> + Send + Sync + 'static,
     {
         let task = Task {
-            name: name.to_string(),
+            name: Arc::from(name),
             task_type,
             tier,
             task: Arc::new(task),
@@ -276,6 +276,7 @@ impl Scheduler {
         let total_tasks = filtered_tasks.len();
         let pack_name = context.get_data("pack_name").unwrap_or_default();
         let progress = Arc::new(ProgressTracker::new(total_tasks, pack_name));
+        // 用引用执行，避免再 clone 一整份 Task 列表
         self.execute_tasks(&filtered_tasks, context, texture_pool, Some(progress))?;
         texture_pool.clear_unused();
 
@@ -294,17 +295,18 @@ impl Scheduler {
         texture_pool: &mut TexturePool,
         progress: Option<Arc<ProgressTracker>>,
     ) -> EngineResult<()> {
-        let mut eraser = Vec::new();
-        let mut architect = Vec::new();
-        let mut surgeon = Vec::new();
-        let mut closure = Vec::new();
+        // 只按 tier 分桶保存引用；Arc<TaskFn>/Arc<str> 保证并行阶段廉价克隆
+        let mut eraser: Vec<&Task> = Vec::new();
+        let mut architect: Vec<&Task> = Vec::new();
+        let mut surgeon: Vec<&Task> = Vec::new();
+        let mut closure: Vec<&Task> = Vec::new();
 
         for task in tasks {
             match task.tier {
-                TaskTier::Eraser => eraser.push(task.clone()),
-                TaskTier::Architect => architect.push(task.clone()),
-                TaskTier::Surgeon => surgeon.push(task.clone()),
-                TaskTier::Closure => closure.push(task.clone()),
+                TaskTier::Eraser => eraser.push(task),
+                TaskTier::Architect => architect.push(task),
+                TaskTier::Surgeon => surgeon.push(task),
+                TaskTier::Closure => closure.push(task),
             }
         }
 
@@ -320,7 +322,7 @@ impl Scheduler {
     fn execute_serial_tier(
         &self,
         tier_name: &'static str,
-        tasks: &[Task],
+        tasks: &[&Task],
         context: &HurrayContext,
         progress: Option<Arc<ProgressTracker>>,
     ) -> EngineResult<()> {
@@ -337,7 +339,7 @@ impl Scheduler {
             }
             if let Err(reason) = (task.task)(context) {
                 let wrapped = EngineError::Task {
-                    task: task.name.clone(),
+                    task: task.name.to_string(),
                     reason,
                 }
                 .to_string();
@@ -363,7 +365,7 @@ impl Scheduler {
     fn execute_parallel_capable_tier(
         &self,
         tier_name: &'static str,
-        tasks: &[Task],
+        tasks: &[&Task],
         context: &HurrayContext,
         use_pool_guard: bool,
         progress: Option<Arc<ProgressTracker>>,
@@ -374,9 +376,12 @@ impl Scheduler {
 
         log_info!("tier start [{}], tasks={}", tier_name, tasks.len());
 
-        let (parallel, serial): (Vec<Task>, Vec<Task>) = tasks
+        // Hybrid 与 Exclusive 仍串行；仅 TaskType::Parallel 并行。
+        // pool_guard：并行批持有读锁，随后串行任务持写锁 —— 保证同层
+        // 内「先并行、后独占」的 happens-before，而不是保护贴图池本身。
+        let (parallel, serial): (Vec<&Task>, Vec<&Task>) = tasks
             .iter()
-            .cloned()
+            .copied()
             .partition(|task| matches!(task.task_type, TaskType::Parallel));
 
         let mut failures = Vec::new();
@@ -387,7 +392,7 @@ impl Scheduler {
             .par_iter()
             .filter_map(|task| {
                 let run = || (task.task)(context).map_err(|reason| EngineError::Task {
-                    task: task.name.clone(),
+                    task: task.name.to_string(),
                     reason,
                 });
 
@@ -414,7 +419,7 @@ impl Scheduler {
         failures.extend(parallel_failures);
 
         for task in serial {
-            let task_name = task.name.clone();
+            let task_name = task.name.as_ref();
             let result = if use_pool_guard {
                 match pool_guard.write() {
                     Ok(_guard) => (task.task)(context),
@@ -426,7 +431,7 @@ impl Scheduler {
 
             if let Err(reason) = result {
                 let wrapped = EngineError::Task {
-                    task: task_name.clone(),
+                    task: task_name.to_string(),
                     reason,
                 }
                 .to_string();
@@ -434,7 +439,7 @@ impl Scheduler {
                 failures.push(wrapped);
             }
             if let Some(progress) = &progress {
-                progress.bump(&task_name);
+                progress.bump(task_name);
             }
         }
 

@@ -54,7 +54,7 @@ fn process_smithing2(container_path: &Path) -> Result<(), String> {
     }
 
     // External overlay
-    if let Ok(uimage) = super::get_uimage_path() {
+    if let Ok(uimage) = crate::converters::get_uimage_path() {
         let overlay_path = uimage.join("smithing2").join(format!("smithing2_{}.png", width));
         if overlay_path.exists() {
             let overlay_img = image::open(&overlay_path)
@@ -118,7 +118,7 @@ fn process_villager2(container_path: &Path) -> Result<(), String> {
     imageops::overlay(&mut villager2_img, &cropped, scaled(100) as i64, 0);
 
     // External overlay from villager2/
-    if let Ok(uimage) = super::get_uimage_path() {
+    if let Ok(uimage) = crate::converters::get_uimage_path() {
         let overlay_path = uimage.join("villager2").join(format!("villager2_{}.png", 256 * s));
         if overlay_path.exists() {
             let overlay_img = image::open(&overlay_path)

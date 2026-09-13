@@ -77,7 +77,9 @@ impl TexturePool {
         }
 
         if let Some(context) = &self.context {
-            if let Some(texture) = context.get_cached_texture(path) {
+            if let Some(shared) = context.get_cached_texture(path) {
+                // Arc 解引用克隆一次，比再从磁盘 decode 便宜；池内仍持有副本供脏写。
+                let texture = (*shared).clone();
                 self.textures.insert(path.to_path_buf(), texture.clone());
                 return Ok(texture);
             }

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::converters::adjust_hue_brightness::adjust_hue_brightness;
+use crate::converters::color::hue::adjust_hue_brightness;
 
 fn process_block_image(blocks_path: &Path, source: &str, target: &str, hue_shift: f32, brightness: f32, saturation: f32) -> Result<(), String> {
     let source_path = blocks_path.join(source);

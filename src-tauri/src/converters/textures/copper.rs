@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::converters::color_utils::adjust_copper_color;
+use crate::converters::color::utils::adjust_copper_color;
 
 pub fn generate_copper_ingot(resource_pack_path: &Path) -> Result<(), String> {
     let item_path = resource_pack_path.join("assets/minecraft/textures/item");

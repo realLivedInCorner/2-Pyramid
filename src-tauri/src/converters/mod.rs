@@ -1,96 +1,27 @@
-// Converter modules and re-exports.
-// 所有 pub use 必须对齐 pack.py ADJACENT_CONVERSIONS 映射表
+// Converter modules grouped by domain.
+// ui/       GUI & HUD fixes
+// textures/ block/item texture generation, rename, delete
+// reverse/  undo counterparts of forward converters
+// color/    HSV helpers
+// audio/    sound conversion
+// shaders/  Java shader adaptation
+// bedrock/  Java <-> Bedrock pipeline
 
-pub use fix_sign_entities::fix_sign_entities;
-pub use rename_mcpatcher_to_optifine::rename_mcpatcher_to_optifine;
+pub use ui::sign_entities::fix_sign_entities;
+pub use textures::mcpatcher_to_optifine::rename_mcpatcher_to_optifine;
 
-pub mod adjust_hue_brightness;
-pub mod anims_folder_conversion;
+pub mod audio;
 pub mod bedrock;
 pub mod blockstate_adapter;
-pub mod convert_old_texture_paths;
-pub mod convert_animated_textures;
-pub mod convert_sound_files;
-pub mod color_utils;
-pub mod cut_gui;
-pub mod delete_blockstates_models;
-pub mod delete_enchanted_item_glint;
-pub mod delete_font_folder;
-pub mod delete_horse_folder;
-pub mod delete_shaders_folder;
-pub mod java_shaders;
-pub mod fix2_horse_ui;
-pub mod fix_armor_models;
-pub mod fix_alpha_layers_in_textures;
-pub mod fix_brewing_stand_ui;
-pub mod fix_clock_compass;
-pub mod fix_horse_ui;
-pub mod fix_machinery_ui;
-pub mod fix_particles;
-pub mod fix_sign;
-pub mod fix_sign_entities;
-pub mod fix_slider;
-pub mod fix_smithing2_villager2_ui;
-pub mod fix_tabs;
-pub mod fix_ui_creative;
-pub mod fix_ui_sub_hand;
-pub mod fix_ui_survival;
-pub mod gui_surgeon;
-pub mod generate_boat;
-pub mod generate_furnace;
-pub mod generate_copper;
-pub mod generate_crossbow;
-pub mod generate_fish_bucket;
-pub mod generate_netherite;
-pub mod generate_planks;
-pub mod generate_smithing_ui;
-pub mod generate_snow_bucket;
-pub mod generate_potion_lingering;
-pub mod generate_shulker_box_ui;
-pub mod generate_tipped_arrow_images;
+pub mod color;
 pub mod legacy_eraser;
 pub mod legacy_processor;
 pub mod main_converter;
-pub mod overlay_icons;
-pub mod process_chest_folder;
-pub mod rename_blocks_items;
-pub mod rename_and_process_blocks;
-pub mod rename_mcpatcher_to_optifine;
+pub mod reverse;
 pub mod scale_factor;
-pub mod reverse_fix_armor_models;
-pub mod reverse_fix_brewing_stand_ui;
-pub mod reverse_fix_clock_compass;
-pub mod reverse_fix_particles;
-pub mod reverse_fix_ui_creative;
-pub mod reverse_fix_ui_survival;
-pub mod reverse_process_chest_folder;
-pub mod reverse_rename_blocks_items;
-
-// New reverse modules
-pub mod reverse_cut_gui;
-pub mod reverse_fix2_horse_ui;
-pub mod reverse_fix_horse_ui;
-pub mod reverse_fix_machinery_ui;
-pub mod reverse_fix_sign;
-pub mod reverse_fix_sign_entities;
-pub mod reverse_fix_slider;
-pub mod reverse_fix_smithing2_villager2_ui;
-pub mod reverse_fix_tabs;
-pub mod reverse_fix_ui_sub_hand;
-pub mod reverse_generate_boat;
-pub mod reverse_generate_copper;
-pub mod reverse_generate_crossbow;
-pub mod reverse_generate_fish_bucket;
-pub mod reverse_generate_furnace;
-pub mod reverse_generate_netherite;
-pub mod reverse_generate_planks;
-pub mod reverse_generate_potion_lingering;
-pub mod reverse_generate_shulker_box_ui;
-pub mod reverse_generate_smithing_ui;
-pub mod reverse_generate_snow_bucket;
-pub mod reverse_generate_tipped_arrow_images;
-pub mod reverse_overlay_icons;
-pub mod reverse_rename_mcpatcher_to_optifine;
+pub mod shaders;
+pub mod textures;
+pub mod ui;
 pub mod version_converter;
 pub mod zip;
 

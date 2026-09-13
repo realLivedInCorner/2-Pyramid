@@ -56,7 +56,7 @@ fn process_ui_from_shulker(
     }
 
     // External overlay
-    if let Ok(uimage) = super::get_uimage_path() {
+    if let Ok(uimage) = crate::converters::get_uimage_path() {
         let overlay_path = uimage.join(overlay_subdir).join(format!("{}_{}.png", overlay_prefix, width));
         if overlay_path.exists() {
             let overlay_img = image::open(&overlay_path)
@@ -171,7 +171,7 @@ fn process_villager2_machinery(container_path: &Path) -> Result<(), String> {
     imageops::overlay(&mut villager2_img, &cropped, (100 * s) as i64, 0);
 
     // Overlay external villager2
-    if let Ok(uimage) = super::get_uimage_path() {
+    if let Ok(uimage) = crate::converters::get_uimage_path() {
         let overlay_path = uimage.join("villager2").join(format!("villager2_{}.png", 256 * s));
         if overlay_path.exists() {
             let overlay = image::open(&overlay_path)

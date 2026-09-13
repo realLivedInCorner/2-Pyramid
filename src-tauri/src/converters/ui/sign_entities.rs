@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::converters::adjust_hue_brightness::adjust_hue_brightness;
+use crate::converters::color::hue::adjust_hue_brightness;
 use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Generate 11 wood-variant sign entity textures from the base sign.png using

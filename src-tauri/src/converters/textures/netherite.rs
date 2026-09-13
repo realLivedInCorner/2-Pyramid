@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::converters::color_utils::{apply_netherite_transform, apply_spectral_arrow_transform};
+use crate::converters::color::utils::{apply_netherite_transform, apply_spectral_arrow_transform};
 
 pub fn generate_netherite_block(resource_pack_path: &Path) -> Result<(), String> {
     let block_path = resource_pack_path.join("assets/minecraft/textures/block");

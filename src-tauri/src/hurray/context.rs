@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use image::RgbaImage;
 
@@ -62,7 +62,8 @@ impl CleanupList {
 pub struct HurrayContext {
     temp_dir: PathBuf,
     shared_data: RwLock<HashMap<String, String>>,
-    texture_cache: RwLock<HashMap<PathBuf, RgbaImage>>,
+    /// Arc 共享贴图：并行读取只 clone 指针，不复制整图。
+    texture_cache: RwLock<HashMap<PathBuf, Arc<RgbaImage>>>,
     cleanup: RwLock<CleanupList>,
 }
 
@@ -115,10 +116,10 @@ impl HurrayContext {
 
     pub fn cache_texture(&self, path: &Path, texture: RgbaImage) {
         let mut cache = Self::write_unpoisoned(&self.texture_cache, "context.texture_cache");
-        cache.insert(path.to_path_buf(), texture);
+        cache.insert(path.to_path_buf(), Arc::new(texture));
     }
 
-    pub fn get_cached_texture(&self, path: &Path) -> Option<RgbaImage> {
+    pub fn get_cached_texture(&self, path: &Path) -> Option<Arc<RgbaImage>> {
         let cache = Self::read_unpoisoned(&self.texture_cache, "context.texture_cache");
         cache.get(path).cloned()
     }

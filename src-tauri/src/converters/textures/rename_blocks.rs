@@ -257,7 +257,7 @@ pub fn rename_blocks_items(resource_pack_path: &Path) -> io::Result<()> {
         rename_with_mcmeta(&old_path, &new_path)?;
     }
 
-    let _ = crate::converters::rename_and_process_blocks::rename_and_process_blocks(&block_path, false);
+    let _ = crate::converters::textures::process_blocks::rename_and_process_blocks(&block_path, false);
 
     Ok(())
 }

@@ -46,7 +46,7 @@ impl HurrayEngine {
             .execute(&self.context, &mut self.texture_pool, &self.resolution_transducer)?;
         
         // 直接执行GuiSurgeon的转换，因为它需要texture_pool和resolution参数
-        crate::converters::gui_surgeon::GuiSurgeon::execute_transformation(
+        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
             &self.context,
             &mut self.texture_pool,
             &self.resolution_transducer
@@ -70,7 +70,7 @@ impl HurrayEngine {
         
         // 如果目标版本需要GUI裁剪，执行GuiSurgeon的转换
         // 这里简单处理，只要版本转换完成就执行GUI裁剪
-        crate::converters::gui_surgeon::GuiSurgeon::execute_transformation(
+        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
             &self.context,
             &mut self.texture_pool,
             &self.resolution_transducer
