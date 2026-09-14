@@ -310,7 +310,7 @@ const closeWindow = async () => {
           <button class="btn ghost" @click="closeWindow">关闭</button>
         </div>
         <div v-else-if="failed" class="status-actions">
-          <button v-if="step === 2" class="btn ghost" @click="prev">返回重试</button>
+          <button v-if="step === 3" class="btn ghost" @click="prev">返回重试</button>
           <button class="btn ghost" @click="closeWindow">关闭</button>
         </div>
         <div v-else class="status-actions">
