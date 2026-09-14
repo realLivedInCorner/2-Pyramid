@@ -203,7 +203,7 @@
             <button class="ghost-btn" @click="showImportDialog = false">{{ t('common.cancel') }}</button>
             <button
               class="primary-btn"
-              :disabled="!shareCodeToImport.startsWith('HRCN-')"
+              :disabled="!shareCodeToImport.startsWith('2PYR-') && !shareCodeToImport.startsWith('HRCN-')"
               @click="handleImportShareCode"
             >
               {{ t('common.import') }}

@@ -32,7 +32,7 @@
     "off": "Off"
   },
   "home": {
-    "subtitle": "The Nextgen Multi-Version Universal Resource Pack Converter",
+    "subtitle": "Modern Universal Multi-Version Resource Pack Converter",
     "navConvert": "Convert",
     "navOverlay": "Overlay",
     "navSettings": "Settings",
@@ -47,11 +47,11 @@
     "dropHint": "Drag or click the card below to import",
     "targetVersion": "Target Version",
     "fixAlphaLabel": "Fix Alpha Layer",
-    "adaptShadersLabel": "Shader Adapt",
-    "adaptShadersHelp": "Rewrite shaders for the target version (fog / #moj_import / globals.glsl). Off keeps them as-is, which may break on newer versions.",
+    "adaptShadersLabel": "Shader Adaptation",
+    "adaptShadersHelp": "Rewrites shaders for the target version (fog / #moj_import / globals.glsl, etc.). When off, shaders are kept as-is and may fail on newer versions.",
     "adaptShadersHint": "Experimental: try a small shader pack first",
-    "fixAlphaHelp": "Fix abnormal RGB values in PNG transparent pixels (common black/dirty edges, gray semi-transparency). Enabling will directly overwrite texture pixels.",
-    "fixAlphaHint": "Fixes edge artifacts caused by alpha layer issues; only affects PNG files within the imported pack",
+    "fixAlphaHelp": "Fix abnormal RGB in transparent PNG pixels (black/dirty edges, muddy translucent pixels). This overwrites texture pixels.",
+    "fixAlphaHint": "Fixes edge artifacts from alpha-layer issues; PNG files inside the imported pack only",
     "progressTitle": "Progress",
     "stepImport": "Import Pack",
     "stepProcessing": "Converting",
@@ -97,10 +97,10 @@
     "ready": "Ready",
     "resourcePackFilter": "Resource Pack",
     "allFilesFilter": "All Files",
-    "mcpackRejected": ".mcpack import is not supported yet (Bedrock conversion is incomplete, testing only)",
+    "mcpackRejected": ".mcpack import is not supported yet (Bedrock conversion is still in progress, testing only)",
     "bedrockWarn": {
-      "title": "Bedrock Conversion Incomplete",
-      "body": "The Bedrock conversion is incomplete and known to be broken. For testing only. Continue?",
+      "title": "Bedrock Conversion (Experimental)",
+      "body": "Bedrock conversion is still experimental and may have visual or compatibility issues. Prefer a test pack first. Continue?",
       "confirm": "Continue Testing"
     },
     "fileSelectErrorTitle": "Error",
@@ -444,8 +444,8 @@
     "createTitle": "New Overlay Project",
     "createPlaceholder": "Enter project name (e.g. MyCoolPack)",
     "importTitle": "Import Share Code",
-    "importDesc": "Paste a share code starting with HRCN to import a project",
-    "importPlaceholder": "HRCN-...",
+    "importDesc": "Paste a share code starting with 2PYR (legacy HRCN codes still work)",
+    "importPlaceholder": "2PYR-...",
     "exportTitle": "Share Code Generated",
     "exportDesc": "Copy the code below to share with other users",
     "copyCode": "Copy Share Code",
@@ -706,7 +706,7 @@
     "next": "Next",
     "getStarted": "Get Started",
     "quit": "Quit app",
-    "asideTagline": "Multi-version Minecraft resource pack converter",
+    "asideTagline": "Modern Universal Multi-Version Resource Pack Converter",
     "step1": {
       "title": "Choose Your Language",
       "desc": "Select your preferred language",
@@ -721,7 +721,7 @@
     },
     "step3": {
       "title": "Welcome, {name}!",
-      "desc": "Great to meet you. 2-Pyramid is a multi-version Minecraft resource pack converter that makes version migration effortless.",
+      "desc": "Great to meet you. 2-Pyramid is a modern universal multi-version Minecraft resource pack converter.",
       "card": "Great to see you, {name}! Just a few quick options and you're ready to go."
     },
     "step4": {

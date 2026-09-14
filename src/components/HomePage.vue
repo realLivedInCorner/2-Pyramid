@@ -30,7 +30,7 @@
         ></div>
         <h1 class="brand-title">2-Pyramid</h1>
         <p class="brand-subtitle">{{ t('home.subtitle') }}</p>
-        <p class="brand-subtitle en">The Nextgen Multi‑Version Universal Resource Pack Converter</p>
+        <p class="brand-subtitle en">Modern Universal Multi-Version Resource Pack Converter</p>
       </div>
     </main>
 

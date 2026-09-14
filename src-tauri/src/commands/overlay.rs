@@ -224,6 +224,30 @@ pub fn save_overlay_json(project_name: String, data: serde_json::Value) -> Resul
     Ok(())
 }
 
+/// 递归去掉 false / null / 空对象 / 空数组，压缩分享载荷体积。
+fn strip_json_defaults(v: &serde_json::Value) -> serde_json::Value {
+    match v {
+        serde_json::Value::Object(map) => {
+            let mut out = serde_json::Map::new();
+            for (k, val) in map {
+                let cleaned = strip_json_defaults(val);
+                let skip = matches!(cleaned, serde_json::Value::Null)
+                    || cleaned == serde_json::Value::Bool(false)
+                    || (cleaned.is_object() && cleaned.as_object().map(|m| m.is_empty()).unwrap_or(false))
+                    || (cleaned.is_array() && cleaned.as_array().map(|a| a.is_empty()).unwrap_or(false));
+                if !skip {
+                    out.insert(k.clone(), cleaned);
+                }
+            }
+            serde_json::Value::Object(out)
+        }
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(strip_json_defaults).collect())
+        }
+        other => other.clone(),
+    }
+}
+
 #[tauri::command]
 pub fn export_overlay_share_code(project_name: String) -> Result<String, String> {
     let temp_dir = overlay_temp_dir(Some(&project_name))?;
@@ -236,31 +260,40 @@ pub fn export_overlay_share_code(project_name: String) -> Result<String, String>
         serde_json::json!({})
     };
 
+    let config = strip_json_defaults(&data);
     let share_data = serde_json::json!({
-        "version": "1.0",
+        "v": 2,
         "name": project_name,
-        "config": data
+        "config": config
     });
 
+    // 紧凑 JSON（无空格）+ zlib best + URL-safe base64 无填充，缩短可复制文本
     let json_str = serde_json::to_string(&share_data).map_err(|e| format!("Failed to serialize: {}", e))?;
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
     encoder.write_all(json_str.as_bytes()).map_err(|e| format!("Compression failed: {}", e))?;
     let compressed = encoder.finish().map_err(|e| format!("Failed to finish compression: {}", e))?;
 
-    let code = general_purpose::STANDARD.encode(compressed);
-    Ok(format!("HRCN-{}", code))
+    let code = general_purpose::URL_SAFE_NO_PAD.encode(compressed);
+    Ok(format!("2PYR-{}", code))
 }
 
 #[tauri::command]
 pub fn import_overlay_share_code(share_code: String) -> Result<OverlayProject, String> {
-    if !share_code.starts_with("HRCN-") {
+    let trimmed = share_code.trim();
+    let code = if let Some(rest) = trimmed.strip_prefix("2PYR-") {
+        rest
+    } else if let Some(rest) = trimmed.strip_prefix("HRCN-") {
+        // 兼容 2.1.3 及更早版本导出的分享码
+        rest
+    } else {
         return Err("Invalid share code format".to_string());
-    }
+    };
 
-    let code = &share_code[5..];
-
-    let compressed = general_purpose::STANDARD.decode(code).map_err(|e| format!("Decode failed: {}", e))?;
+    let compressed = general_purpose::URL_SAFE_NO_PAD
+        .decode(code)
+        .or_else(|_| general_purpose::STANDARD.decode(code))
+        .map_err(|e| format!("Decode failed: {}", e))?;
 
     let mut decoder = ZlibDecoder::new(&compressed[..]);
     let mut json_str = String::new();
@@ -1079,5 +1112,54 @@ mod tests {
         assert!(custom.exists());
         // 不应再往项目 temp 目录写 zip
         assert!(!project.path().join("MyOverlay.zip").exists());
+    }
+
+    #[test]
+    fn strip_json_defaults_drops_false_null_empty() {
+        let v = serde_json::json!({
+            "a": true,
+            "b": false,
+            "c": null,
+            "d": {},
+            "e": [],
+            "f": { "g": false, "h": 1 }
+        });
+        let out = super::strip_json_defaults(&v);
+        assert_eq!(out.get("a").and_then(|x| x.as_bool()), Some(true));
+        assert!(out.get("b").is_none());
+        assert!(out.get("c").is_none());
+        assert!(out.get("d").is_none());
+        assert!(out.get("e").is_none());
+        assert_eq!(out["f"]["h"], 1);
+        assert!(out["f"].get("g").is_none());
+    }
+
+    #[test]
+    fn share_code_roundtrip_2pyr_and_legacy_hrcn() {
+        use base64::{Engine as _, engine::general_purpose};
+        use flate2::write::ZlibEncoder;
+        use std::io::Write;
+
+        let payload = serde_json::json!({
+            "v": 2,
+            "name": "demo",
+            "config": { "no_shadow": true, "empty": {} }
+        });
+        let json = serde_json::to_string(&payload).unwrap();
+        let mut enc = ZlibEncoder::new(Vec::new(), flate2::Compression::best());
+        enc.write_all(json.as_bytes()).unwrap();
+        let compressed = enc.finish().unwrap();
+
+        // 新格式：URL-safe 无填充
+        let new_code = format!("2PYR-{}", general_purpose::URL_SAFE_NO_PAD.encode(&compressed));
+        assert!(new_code.starts_with("2PYR-"));
+        assert!(!new_code.contains('='));
+
+        // 旧格式：STANDARD + HRCN
+        let old_code = format!("HRCN-{}", general_purpose::STANDARD.encode(&compressed));
+        assert!(old_code.starts_with("HRCN-"));
+
+        // 两种前缀都能 strip 成 payload 字节
+        assert_eq!(new_code[5..].len() <= old_code[5..].len(), true);
     }
 }
