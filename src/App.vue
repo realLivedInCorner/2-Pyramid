@@ -1487,13 +1487,14 @@ onMounted(async () => {
  }
 
  @keyframes stagger-rise {
+   /* 只动 opacity，不要 transform：
+      页面根一旦带 transform，内部 position:fixed 的极光/光斑
+      会变成相对该元素定位，窗口左侧会露出白边。 */
    from {
      opacity: 0;
-     transform: translateY(8px);
    }
    to {
      opacity: 1;
-     transform: translateY(0);
    }
  }
  
