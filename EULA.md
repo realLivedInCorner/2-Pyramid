@@ -1,49 +1,53 @@
-# 2-Pyramid 最终用户许可协议（EULA）
+# 2-Pyramid 最终用户协议（End User Agreement）
 
 **生效日期：** 2026-09-14  
-**适用对象：** 通过安装包或其它渠道获取并使用 2-Pyramid 可执行程序（以下简称「本软件」）的个人或组织。
-
-本协议约束的是**二进制发行物**的使用。本软件**源代码**另以 MIT 许可证开放，详见仓库根目录 `LICENSE`。二者冲突时：对源代码的复制、修改与再分发以 MIT 为准；对安装包与可执行程序的使用以本协议为准。
+**适用对象：** 获取并使用 2-Pyramid 安装包或可执行程序的个人或组织。
 
 ---
 
-## 1. 许可授予
+## 0. 与开源许可证的关系（请先读这一条）
 
-在你遵守本协议的前提下，2-Pyramid Studio 授予你一项全球范围内、免费、非独占、可撤销的许可，允许你安装与使用本软件，用于合法的 Minecraft 资源包版本转换与相关创作。
+本项目**源代码与官方构建产物**均以 **MIT 许可证** 提供，见仓库根目录 [`LICENSE`](./LICENSE)。
 
-## 2. 你必须遵守的事项
+- 你依据 MIT 已享有使用、复制、修改、合并、发布、再分发、再许可及销售副本的权利。**本协议不撤销、不缩减这些权利**，也不向你施加 MIT 之外的额外限制。
+- MIT 与本协议表述不一致时，**以 MIT 为准**。
+- 本协议的作用仅限于：
+  1. 提醒你遵守 **Minecraft EULA** 等第三方规则；
+  2. 请你阅读并确认 [`DISCLAIMER.md`](./DISCLAIMER.md) 与 [`PRIVACY.md`](./PRIVACY.md)；
+  3. 说明 **商标** 与「非官方」身份的正确表述方式。
 
-1. **遵守 Minecraft EULA / 使用条款。** 使用本软件转换、分发资源包时，你须自行确保符合 Mojang Studios / Microsoft 以及资源包原作者的相关条款与授权。
-2. **仅用于合法用途。** 不得将本软件用于侵犯他人著作权、破坏技术保护措施或任何违法活动。
-3. **保留许可与声明。** 再分发本软件（含安装包）时，须完整保留 `LICENSE`、`DISCLAIMER.md`、`THIRD-PARTY-NOTICES.md` 及本协议。
-
-## 3. 禁止行为
-
-- 对本软件进行逆向工程、反编译或反汇编（适用法律明确允许者除外）；
-- 删除、遮蔽或伪造软件内的版权、商标与法律声明；
-- 将本软件用于恶意破坏他人计算机系统或数据；
-- 冒充 2-Pyramid Studio 或暗示获得 Mojang / Microsoft 官方授权。
-
-## 4. 知识产权
-
-本软件（不含第三方开源组件）的著作权归 2-Pyramid Studio 及贡献者所有。Minecraft、相关商标与素材归 Mojang Studios / Microsoft 所有。本软件与 Mojang / Microsoft **无隶属、无赞助、未获认可**。
-
-## 5. 终止
-
-你违反本协议时，本许可自动终止。终止后应停止使用并销毁本软件副本。第 3、4、6、7 条在终止后仍然有效。
-
-## 6. 免责与责任限制
-
-本软件按「现状」提供，不附带任何明示或默示担保。在法律允许的最大范围内，作者不对因使用或无法使用本软件导致的任何间接、附带或后果性损失承担责任。完整说明见 `DISCLAIMER.md`。
-
-## 7. 适用法律
-
-本协议适用中华人民共和国法律（不含冲突法规则）。争议应先友好协商；协商不成的，提交 2-Pyramid Studio 所在地有管辖权的人民法院处理。
-
-## 8. 协议变更
-
-我们可能更新本协议。重大变更将在仓库或应用内说明。继续使用即视为接受更新后的协议。
+安装或使用本软件，即表示你已阅读上述文件；若不同意，可停止使用（你仍可按 MIT 取得源码自行构建）。
 
 ---
 
-**联系方式：** 请通过项目仓库 [Issues](https://github.com/realLivedInCorner/2-Pyramid/issues) 联系。
+## 1. 你使用软件时的自身责任
+
+1. **Minecraft 条款。** 转换、使用或分发资源包时，你须自行确保符合 Mojang Studios / Microsoft 的 EULA 与使用条款，以及资源包原作者的授权。本软件不帮你判断合法性。
+2. **合法用途。** 不得将本软件用于侵犯他人权利或任何违法活动。
+3. **备份与验证。** 转换属启发式处理，可能失败或损坏文件。请先备份原件并在测试环境验证。
+
+## 2. 商标与「非官方」表述
+
+- 你可以按 MIT 再分发本软件；再分发时请保留 `LICENSE` 与版权声明（MIT 唯一硬性条件）。
+- 「2-Pyramid」名称与标识用于指称本项目。请勿暗示你分发的版本得到 2-Pyramid Studio 官方背书，除非确属官方发布。
+- 本软件与 **Mojang Studios / Microsoft 无隶属、无赞助、未获认可**。请勿使用其商标暗示官方合作；指称 Minecraft 时仅作说明性使用。
+
+## 3. 免责（摘要）
+
+本软件按「现状」提供，不附带担保；作者不承担因使用产生的损失。完整文本见 [`DISCLAIMER.md`](./DISCLAIMER.md)。该摘要不替代 MIT 中的 AS IS 条款，亦不额外加重你的义务。
+
+## 4. 隐私
+
+默认完全本地处理、无账号、无遥测；仅在你主动检查/下载更新时访问网络。详见 [`PRIVACY.md`](./PRIVACY.md)。
+
+## 5. 第三方组件
+
+依赖库按各自许可证提供，见 [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md)。
+
+## 6. 变更与联系
+
+本协议更新会在仓库说明；继续使用即表示知悉。疑问请开 [Issues](https://github.com/realLivedInCorner/2-Pyramid/issues)。
+
+---
+
+**English (summary):** The Software is MIT-licensed; this agreement does **not** add restrictions beyond MIT. It reminds you to comply with the Minecraft EULA, read the disclaimer and privacy notice, and use trademarks without implying official Mojang/Microsoft affiliation. If anything here conflicts with MIT, **MIT controls**.
