@@ -529,6 +529,9 @@
               <div class="authors-title">{{ t('settings.legal.title') }}</div>
               <p class="legal-hint">{{ t('settings.legal.hint') }}</p>
               <div class="legal-actions">
+                <button class="btn-text" @click="openLegalSidebar">
+                  <i class="ri-book-open-line"></i> {{ t('settings.legal.browse') }}
+                </button>
                 <button class="btn-text" @click="openLegalFolder">
                   <i class="ri-folder-open-line"></i> {{ t('settings.legal.openFolder') }}
                 </button>
@@ -541,6 +544,38 @@
         </div>
       </div>
     </transition>
+
+    <!-- 法律文件侧栏 -->
+    <div v-if="showLegalSidebar" class="legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
+    <aside v-if="showLegalSidebar" class="legal-sidebar" @click.stop>
+      <div class="legal-sidebar-header">
+        <div>
+          <h3>{{ t('settings.legal.title') }}</h3>
+          <p>{{ t('settings.legal.hint') }}</p>
+        </div>
+        <button class="dialog-close" @click="showLegalSidebar = false" :aria-label="t('common.close')">×</button>
+      </div>
+      <div class="legal-sidebar-body">
+        <ul class="legal-file-list">
+          <li
+            v-for="f in legalFiles"
+            :key="f.file"
+            :class="{ active: selectedLegalFile === f.file }"
+            @click="loadLegalFile(f.file)"
+          >
+            <i class="ri-file-text-line"></i>
+            <span>{{ f.label }}</span>
+          </li>
+        </ul>
+        <div class="legal-file-view">
+          <div v-if="legalLoading" class="legal-loading">
+            <i class="ri-loader-4-line spin"></i>
+          </div>
+          <pre v-else-if="legalContent" class="legal-pre">{{ legalContent }}</pre>
+          <div v-else class="legal-empty">{{ legalError || t('settings.legal.pickFile') }}</div>
+        </div>
+      </div>
+    </aside>
 
     <transition name="dialog-pop">
       <div v-if="showDevUnlockDialog" class="dialog-overlay" @click="cancelDevUnlock">
@@ -1257,6 +1292,41 @@ const tempThemeRgba = computed({
 const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
 const showVersionInfo = ref(false);
+
+const showLegalSidebar = ref(false);
+const selectedLegalFile = ref("");
+const legalContent = ref("");
+const legalError = ref("");
+const legalLoading = ref(false);
+const legalFiles = [
+  { file: "EULA.md", label: "EULA" },
+  { file: "PRIVACY.md", label: "Privacy" },
+  { file: "DISCLAIMER.md", label: "Disclaimer" },
+  { file: "THIRD-PARTY-NOTICES.md", label: "Third-Party" },
+  { file: "SECURITY.md", label: "Security" },
+  { file: "CONTRIBUTING.md", label: "Contributing" },
+];
+
+function openLegalSidebar() {
+  showLegalSidebar.value = true;
+  if (!selectedLegalFile.value) {
+    void loadLegalFile("EULA.md");
+  }
+}
+
+async function loadLegalFile(name: string) {
+  selectedLegalFile.value = name;
+  legalLoading.value = true;
+  legalError.value = "";
+  legalContent.value = "";
+  try {
+    legalContent.value = await invoke<string>("read_legal_file", { filename: name });
+  } catch (e) {
+    legalError.value = String(e);
+  } finally {
+    legalLoading.value = false;
+  }
+}
 
 async function openLegalFolder() {
   try {
@@ -2039,7 +2109,17 @@ const resetThemeColor = async () => {
   background: rgba(0,0,0,0.22);
 }
 .version-dialog {
-  max-width: 500px;
+  max-width: min(520px, 92vw);
+  max-height: min(86vh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.version-dialog .dialog-body {
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 8px;
 }
 
 .version-hero {
@@ -2126,6 +2206,132 @@ const resetThemeColor = async () => {
 .legal-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 法律文件侧栏：右侧滑出，可选 6 个文件 */
+.legal-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  z-index: 1100;
+}
+
+.legal-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(560px, 94vw);
+  height: 100vh;
+  background: #fff;
+  z-index: 1101;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.12);
+  animation: legal-slide-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes legal-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.legal-sidebar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.legal-sidebar-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.legal-sidebar-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #86868b;
+  line-height: 1.5;
+  max-width: 42ch;
+}
+
+.legal-sidebar-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 0;
+}
+
+.legal-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legal-file-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.legal-file-list li:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #1d1d1f;
+}
+
+.legal-file-list li.active {
+  background: color-mix(in srgb, var(--theme-color, #007bff) 10%, #fff);
+  color: var(--theme-color, #007bff);
+}
+
+.legal-file-view {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.legal-pre {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 16px 18px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "PingFang SC", "Microsoft YaHei", monospace;
+}
+
+.legal-loading,
+.legal-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
 }
 
 .authors-list {

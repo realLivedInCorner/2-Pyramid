@@ -212,6 +212,13 @@
       "follow": "Follow",
       "fixed": "Fixed"
     },
+    "legal": {
+      "title": "Legal Notices",
+      "hint": "EULA, disclaimer, privacy and third-party notices are installed under legal/ and also live in the repo legal/ folder.",
+      "openFolder": "Open legal folder",
+      "browse": "Browse legal files",
+      "pickFile": "Select a file on the left"
+    },
     "outputPath": {
       "label": "Fixed Output Directory",
       "dialogTitle": "Set Fixed Output Directory",
@@ -337,11 +344,6 @@
       "mainVersion": "Main Version",
       "buildNumber": "Build Number",
       "authors": "Authors & Credits",
-      "legal": {
-        "title": "Legal Notices",
-        "hint": "EULA, disclaimer, privacy and third-party notices are installed under legal/ and also live in the repo legal/ folder.",
-        "openFolder": "Open legal folder"
-      },
       "author0Name": "LivedInCorner",
       "author0Note": "Current developer",
       "author1Name": "五香蛋e",
