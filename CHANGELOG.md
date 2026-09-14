@@ -2,6 +2,17 @@
 
 （暂无）
 
+## [2.1.4] - 2026-09-14（BUILD 20040）
+
+### Added
+
+- **覆盖包分享码 2PYR-**：前缀改为 `2PYR-`；载荷先剔除 false/null/空对象再 zlib + URL-safe base64，文本更短。旧 `HRCN-` 码仍可导入。
+
+### Changed
+
+- **产品标语**：中文「现代化通用多版本资源包转换器」；英文 `Modern Universal Multi-Version Resource Pack Converter`。
+- **i18n 用语**：统一「资源包」而非「材质包」；弱化基岩测试警告措辞；缩短导入清单/进度等短文案；OOBE 与主页标语对齐。
+
 ## [2.1.3] - 2026-09-14（BUILD 20039）
 
 ### Added

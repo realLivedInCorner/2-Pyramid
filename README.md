@@ -7,11 +7,11 @@
 <h1 align="center">2-Pyramid</h1>
 
 <p align="center">
-  <strong>跨任意版本转换 Minecraft 资源包 · The Nextgen Multi-Version Universal Resource Pack Converter</strong>
+  <strong>跨任意版本转换 Minecraft 资源包 · Modern Universal Multi-Version Resource Pack Converter</strong>
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.1.3-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.1.4-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
