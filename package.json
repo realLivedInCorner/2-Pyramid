@@ -10,8 +10,8 @@
     "tauri": "tauri",
     "2-pyramid": "tauri dev",
     "2pyr": "tauri dev",
-    "test": "cd src-tauri && cargo test --lib",
-    "test:offline": "cd src-tauri && cargo test --offline --lib",
+    "test": "cargo test --lib --manifest-path src-tauri/Cargo.toml",
+    "test:offline": "cargo test --offline --lib --manifest-path src-tauri/Cargo.toml",
     "buildproject": "tauri build",
     "build2pyr": "tauri build",
     "buildrelease": "python tools/build_release.py",
@@ -43,7 +43,6 @@
     "vue-tsc": "^2.1.10"
   },
   "description": "Modern universal multi-version Minecraft resource pack converter for Windows.",
-  "main": "vite.config.js",
   "keywords": [
     "minecraft",
     "resource-pack",
@@ -51,6 +50,5 @@
     "tauri"
   ],
   "author": "2-Pyramid Studio",
-  "license": "MIT",
-  "types": "./vite.config.d.ts"
+  "license": "MIT"
 }
