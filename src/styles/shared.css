@@ -1,0 +1,142 @@
+/**
+ * 全局共享 UI 样式（按钮 / 开关 / 分段控件 / 弹窗骨架）。
+ * 在 main.ts 一次性 import；页面 SFC 内不再重复定义这些原子样式。
+ * 注意：不要在此放页面专有布局。
+ */
+
+/* ── 文本按钮 ── */
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.btn-text:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1d1d1f;
+}
+.btn-text.secondary {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ── 幽灵按钮（对话框 / 侧栏） ── */
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #64748b;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ghost-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1d1d1f;
+}
+
+/* ── 分段控件 ── */
+.segmented {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.045);
+  border-radius: calc(var(--ui-radius-btn, 10px) + 4px);
+  padding: 3px;
+  gap: 3px;
+}
+.seg-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: calc(var(--ui-radius-btn, 10px) + 2px);
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.seg-btn:hover { color: #1d1d1f; }
+.seg-btn.active {
+  background: #fff;
+  color: #1d1d1f;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ── 帮助问号 ── */
+.help-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  background: rgba(0, 0, 0, 0.06);
+  cursor: help;
+  user-select: none;
+}
+
+/* ── 实验标签 ── */
+.exp-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
+
+/* ── 弹窗关闭钮 ── */
+.dialog-close {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+.dialog-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1d1d1f;
+}
+
+/* ── 旋转图标 ── */
+.spin {
+  animation: ri-spin 1s linear infinite;
+}
+@keyframes ri-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
