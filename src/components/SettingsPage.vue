@@ -543,10 +543,15 @@
       </div>
     </transition>
 
-    <!-- 法律文件侧栏：动画与版本选择器同一套 inline transition -->
+    <!-- 法律文件侧栏：结构与转换页版本选择器对齐 -->
     <transition name="sidebar-overlay-fade">
-      <div v-if="showLegalSidebar" class="sidebar-overlay legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
+      <div
+        v-if="showLegalSidebar"
+        class="sidebar-overlay"
+        @click="showLegalSidebar = false"
+      ></div>
     </transition>
+
     <transition
       :css="false"
       @before-enter="onLegalBeforeEnter"
@@ -556,7 +561,12 @@
       @leave="onLegalLeave"
       @after-leave="onLegalAfterLeave"
     >
-      <aside v-if="showLegalSidebar" class="legal-sidebar sidebar-content" @click.stop tabindex="-1">
+      <aside
+        v-if="showLegalSidebar"
+        class="sidebar-content legal-sidebar"
+        @click.stop
+        tabindex="-1"
+      >
       <div class="legal-sidebar-header">
         <div class="legal-sidebar-header-text">
           <h3>{{ t('settings.legal.title') }}</h3>
@@ -2281,27 +2291,19 @@ const resetThemeColor = async () => {
   flex-wrap: wrap;
 }
 
-/* 法律文件侧栏：动画与转换页版本选择器同一套 inline transition */
-.legal-sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.28);
-  z-index: 1100;
-  /* 跟转换页 .sidebar-overlay 同策略：不用 backdrop-filter，避免 leave 时动画被打断 */
-}
-
-.legal-sidebar {
+/* 法律侧栏：复制转换页 .sidebar-content 关键定位（那边是 scoped，设置页拿不到） */
+.legal-sidebar.sidebar-content {
   position: fixed;
   top: 0;
   right: 0;
   width: min(560px, 94vw);
   height: 100vh;
-  background: #fff;
-  z-index: 1101;
+  background: white;
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.12);
-  /* enter/leave 由 onLegal* 钩子驱动 inline style */
+  outline: none;
+  z-index: 201;
   transform: translateX(100%);
   opacity: 1 !important;
   will-change: transform, box-shadow;
