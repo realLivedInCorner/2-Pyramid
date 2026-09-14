@@ -305,7 +305,7 @@ npm run build                                               # frontend build
 | File | Purpose |
 |------|---------|
 | [LICENSE](./LICENSE) | MIT — source code |
-| [EULA.md](./EULA.md) | End-user agreement for binary releases |
+| [EULA.md](./EULA.md) | End-user notice; does **not** restrict MIT rights |
 | [DISCLAIMER.md](./DISCLAIMER.md) | Warranty disclaimer; unofficial Mojang/Microsoft tool |
 | [PRIVACY.md](./PRIVACY.md) | Local-first privacy; no telemetry |
 | [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) | Open-source dependency notices |
