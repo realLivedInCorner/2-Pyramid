@@ -543,11 +543,19 @@
       </div>
     </transition>
 
-    <!-- 法律文件侧栏 -->
-    <Transition name="legal-fade">
+    <!-- 法律文件侧栏：动画与版本选择器同一套 inline transition -->
+    <transition name="sidebar-overlay-fade">
       <div v-if="showLegalSidebar" class="legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
-    </Transition>
-    <Transition name="legal-slide">
+    </transition>
+    <transition
+      :css="false"
+      @before-enter="onLegalBeforeEnter"
+      @enter="onLegalEnter"
+      @after-enter="onLegalAfterEnter"
+      @before-leave="onLegalBeforeLeave"
+      @leave="onLegalLeave"
+      @after-leave="onLegalAfterLeave"
+    >
       <aside v-if="showLegalSidebar" class="legal-sidebar" @click.stop>
       <div class="legal-sidebar-header">
         <div class="legal-sidebar-header-text">
@@ -582,7 +590,7 @@
         </div>
       </div>
     </aside>
-    </Transition>
+    </transition>
 
     <transition name="dialog-pop">
       <div v-if="showDevUnlockDialog" class="dialog-overlay" @click="cancelDevUnlock">
@@ -1313,6 +1321,72 @@ const legalFiles = [
   { file: "SECURITY.md", label: "Security" },
   { file: "CONTRIBUTING.md", label: "Contributing" },
 ];
+
+function legalReducedMotion() {
+  return document.body.classList.contains("motion-reduced");
+}
+
+function onLegalBeforeEnter(el: Element) {
+  const h = el as HTMLElement;
+  h.style.transition = "none";
+  h.style.transform = "translateX(100%)";
+  h.style.boxShadow = "none";
+  h.style.opacity = "1";
+}
+
+function onLegalEnter(el: Element, done: () => void) {
+  const h = el as HTMLElement;
+  if (legalReducedMotion()) {
+    h.style.transition = "";
+    h.style.transform = "translateX(0)";
+    h.style.boxShadow = "-12px 0 36px rgba(0, 0, 0, 0.12)";
+    h.style.opacity = "1";
+    done();
+    return;
+  }
+  h.offsetHeight;
+  requestAnimationFrame(() => {
+    h.style.transition =
+      "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1)";
+    h.style.transform = "translateX(0)";
+    h.style.boxShadow = "-12px 0 36px rgba(0, 0, 0, 0.12)";
+    setTimeout(done, 330);
+  });
+}
+
+function onLegalAfterEnter(el: Element) {
+  const h = el as HTMLElement;
+  h.style.transition = "";
+  h.style.transform = "translateX(0)";
+  h.style.boxShadow = "-12px 0 36px rgba(0, 0, 0, 0.12)";
+  h.style.opacity = "1";
+}
+
+function onLegalBeforeLeave(el: Element) {
+  const h = el as HTMLElement;
+  if (legalReducedMotion()) {
+    h.style.transition = "";
+    h.style.transform = "translateX(100%)";
+    h.style.boxShadow = "none";
+    return;
+  }
+  h.style.transition =
+    "transform 240ms cubic-bezier(0.4, 0, 1, 1), box-shadow 240ms cubic-bezier(0.4, 0, 1, 1)";
+  h.style.transform = "translateX(100%)";
+  h.style.boxShadow = "none";
+}
+
+function onLegalLeave(_el: Element, done: () => void) {
+  setTimeout(done, legalReducedMotion() ? 0 : 250);
+}
+
+function onLegalAfterLeave(el: Element) {
+  const h = el as HTMLElement;
+  h.style.transition = "";
+  h.style.transform = "";
+  h.style.boxShadow = "";
+  h.style.opacity = "";
+}
 
 function openLegalSidebar() {
   showLegalSidebar.value = true;
@@ -2207,11 +2281,11 @@ const resetThemeColor = async () => {
   flex-wrap: wrap;
 }
 
-/* 法律文件侧栏：右侧滑出，可选 6 个文件 */
+/* 法律文件侧栏：动画与转换页版本选择器同一套 inline transition */
 .legal-sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(0, 0, 0, 0.28);
   z-index: 1100;
 }
 
@@ -2226,32 +2300,10 @@ const resetThemeColor = async () => {
   display: flex;
   flex-direction: column;
   box-shadow: -12px 0 36px rgba(0, 0, 0, 0.12);
-}
-
-.legal-fade-enter-active,
-.legal-fade-leave-active {
-  transition: opacity 0.24s ease;
-}
-.legal-fade-enter-from,
-.legal-fade-leave-to {
-  opacity: 0;
-}
-
-.legal-slide-enter-active {
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.legal-slide-leave-active {
-  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1);
-  /* leave 时面板在 overlay 之上，需保持定位 */
-  position: fixed;
-  top: 0;
-  right: 0;
-}
-.legal-slide-enter-from {
+  /* enter/leave 由 onLegal* 钩子驱动 inline style */
   transform: translateX(100%);
-}
-.legal-slide-leave-to {
-  transform: translateX(100%);
+  opacity: 1 !important;
+  will-change: transform, box-shadow;
 }
 
 .legal-sidebar-header {
