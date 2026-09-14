@@ -121,7 +121,8 @@ const doInstall = async () => {
       },
     });
     installed.value = true;
-    step.value = 3;
+    progressPercent.value = 100;
+    step.value = 4;
   } catch (e) {
     failed.value = true;
     resultMessage.value = String(e);

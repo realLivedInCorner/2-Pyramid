@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::path::Path;
 use std::sync::Mutex;
 
 #[tauri::command]
@@ -418,6 +419,29 @@ pub fn get_install_dir() -> Option<String> {
     std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_string_lossy().to_string()))
+}
+
+/// 读取安装目录 legal/ 下的法律文本（开发时回落到仓库根 legal/）。
+#[tauri::command]
+pub fn read_legal_file(filename: String) -> Result<String, String> {
+    let name = Path::new(&filename)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    if name.is_empty() || name.contains("..") || name.contains('/') || name.contains('\\') {
+        return Err("invalid filename".into());
+    }
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(dir) = get_install_dir() {
+        candidates.push(std::path::PathBuf::from(dir).join("legal").join(name));
+    }
+    candidates.push(std::path::PathBuf::from("legal").join(name));
+    for p in candidates {
+        if p.is_file() {
+            return std::fs::read_to_string(&p).map_err(|e| format!("read {}: {}", p.display(), e));
+        }
+    }
+    Err(format!("legal file not found: {name}"))
 }
 
 #[tauri::command]
