@@ -18,6 +18,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod legal_text;
+
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
@@ -482,6 +484,14 @@ fn is_uninstall_mode() -> bool {
 }
 
 #[tauri::command]
+fn get_eula() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({
+        "title": legal_text::EULA_TITLE,
+        "body": legal_text::EULA_BODY,
+    }))
+}
+
+#[tauri::command]
 fn install(app: AppHandle, dir: String, shortcuts: ShortcutOptions) -> Result<String, String> {
     let path = PathBuf::from(dir);
     install_impl(&path, shortcuts, |current, total, name| {
@@ -550,6 +560,7 @@ fn main() {
             get_version,
             get_channel,
             get_github_url,
+            get_eula,
             is_installed,
             is_uninstall_mode,
             get_installed_dir,

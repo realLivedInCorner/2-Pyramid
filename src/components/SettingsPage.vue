@@ -525,6 +525,15 @@
                 </div>
               </div>
             </div>
+            <div class="authors-block">
+              <div class="authors-title">{{ t('settings.legal.title') }}</div>
+              <p class="legal-hint">{{ t('settings.legal.hint') }}</p>
+              <div class="legal-actions">
+                <button class="btn-text" @click="openLegalFolder">
+                  <i class="ri-folder-open-line"></i> {{ t('settings.legal.openFolder') }}
+                </button>
+              </div>
+            </div>
           </div>
           <div class="dialog-footer">
             <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
@@ -1248,6 +1257,29 @@ const tempThemeRgba = computed({
 const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
 const showVersionInfo = ref(false);
+
+async function openLegalFolder() {
+  try {
+    const exeDir = await invoke<string | null>("get_install_dir");
+    // 安装包释放 legal/ 到主程序旁；开发构建可能没有，回落仓库路径
+    const candidates = [
+      exeDir ? `${exeDir}\\legal` : "",
+      "legal",
+    ].filter(Boolean);
+    let lastErr: unknown = null;
+    for (const p of candidates) {
+      try {
+        await invoke("open_folder", { path: p });
+        return;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    console.error("open legal folder failed", lastErr);
+  } catch (e) {
+    console.error("open legal folder failed", e);
+  }
+}
 const devModeEnabled = ref(!!props.devMode);
 const versionTapCount = ref(0);
 const devHint = ref('');
@@ -2076,6 +2108,25 @@ const resetThemeColor = async () => {
   overflow: hidden;
 }
 .authors-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.legal-hint {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.legal-actions {
+  display: flex;
+  gap: 8px;
+}
   padding: 10px 18px 6px;
   font-size: 12px;
   font-weight: 700;
