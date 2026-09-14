@@ -544,8 +544,11 @@
     </transition>
 
     <!-- 法律文件侧栏 -->
-    <div v-if="showLegalSidebar" class="legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
-    <aside v-if="showLegalSidebar" class="legal-sidebar" @click.stop>
+    <Transition name="legal-fade">
+      <div v-if="showLegalSidebar" class="legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
+    </Transition>
+    <Transition name="legal-slide">
+      <aside v-if="showLegalSidebar" class="legal-sidebar" @click.stop>
       <div class="legal-sidebar-header">
         <div class="legal-sidebar-header-text">
           <h3>{{ t('settings.legal.title') }}</h3>
@@ -579,6 +582,7 @@
         </div>
       </div>
     </aside>
+    </Transition>
 
     <transition name="dialog-pop">
       <div v-if="showDevUnlockDialog" class="dialog-overlay" @click="cancelDevUnlock">
@@ -2222,12 +2226,32 @@ const resetThemeColor = async () => {
   display: flex;
   flex-direction: column;
   box-shadow: -12px 0 36px rgba(0, 0, 0, 0.12);
-  animation: legal-slide-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes legal-slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+.legal-fade-enter-active,
+.legal-fade-leave-active {
+  transition: opacity 0.24s ease;
+}
+.legal-fade-enter-from,
+.legal-fade-leave-to {
+  opacity: 0;
+}
+
+.legal-slide-enter-active {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.legal-slide-leave-active {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1);
+  /* leave 时面板在 overlay 之上，需保持定位 */
+  position: fixed;
+  top: 0;
+  right: 0;
+}
+.legal-slide-enter-from {
+  transform: translateX(100%);
+}
+.legal-slide-leave-to {
+  transform: translateX(100%);
 }
 
 .legal-sidebar-header {
