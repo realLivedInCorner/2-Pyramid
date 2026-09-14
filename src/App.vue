@@ -725,7 +725,10 @@ onMounted(async () => {
  html, body { 
    height: 100%; 
    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
-   background-color: var(--bg-color); 
+   /* 与主页底色一致：页面切换缩放时不会露出刺眼白边 */
+   background-color: var(--bg-color);
+   background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+   background-attachment: fixed;
    color: var(--text-color); 
    line-height: 1.6; 
    transition: background-color 0.3s, color 0.3s; 
@@ -1379,7 +1382,7 @@ onMounted(async () => {
    进场也从轻微模糊收束到清晰，两页交叠时读感更像景深过渡。 */
  .fade-scale-enter-active {
    transition:
-     transform var(--motion-page-enter) var(--ease-out),
+     opacity var(--motion-page-enter) var(--ease-out),
      filter var(--motion-page-enter) var(--ease-out);
    position: absolute;
    top: 0;
@@ -1387,15 +1390,13 @@ onMounted(async () => {
    width: 100%;
    height: 100%;
    z-index: 2;
-   will-change: transform, filter;
+   will-change: opacity, filter;
  }
 
  .fade-scale-leave-active {
    transition:
      opacity var(--motion-page-leave) var(--ease-in),
-     /* blur 先到位：旧页尽快糊掉，淡出再慢慢收，衔接更干净 */
-     filter var(--motion-page-blur-ms, 160ms) var(--ease-in),
-     transform var(--motion-page-leave) var(--ease-in);
+     filter var(--motion-page-blur-ms, 160ms) var(--ease-in);
    position: absolute;
    top: 0;
    left: 0;
@@ -1403,31 +1404,29 @@ onMounted(async () => {
    height: 100%;
    z-index: 1;
    pointer-events: none;
-   will-change: opacity, filter, transform;
-   /* 隔离层，避免旧页 filter 影响新页 */
+   will-change: opacity, filter;
    isolation: isolate;
  }
 
  .fade-scale-enter-from {
-   transform: translateY(4px);
+   opacity: 0;
    filter: blur(4px);
  }
 
  .fade-scale-enter-to {
-   transform: translateY(0);
+   opacity: 1;
    filter: blur(0);
  }
 
  .fade-scale-leave-from {
    opacity: 1;
    filter: blur(0);
-   transform: scale(1);
  }
 
+ /* 不做 scale：离场缩小会露出 body 底色，形成「收缩白边」 */
  .fade-scale-leave-to {
    opacity: 0;
    filter: blur(var(--motion-page-blur));
-   transform: scale(0.985);
  }
 
  /*
