@@ -20,8 +20,8 @@ const failed = ref(false);
 const resultMessage = ref("");
 const installed = ref(false);
 
-// EULA
-const eulaTitle = ref("最终用户协议");
+// 阅读确认（非「同意许可」——本项目 MIT，不额外限制用户权利）
+const eulaTitle = ref("使用须知与免责声明");
 const eulaBody = ref("");
 const eulaAgreed = ref(false);
 
@@ -243,7 +243,7 @@ const closeWindow = async () => {
         <div class="eula-box">{{ eulaBody }}</div>
         <label class="check-row eula-agree">
           <input type="checkbox" v-model="eulaAgreed" />
-          <span>我已阅读并同意上述协议与免责声明</span>
+          <span>我已阅读并知悉上述说明（含免责声明与 Minecraft 条款提醒）</span>
         </label>
       </div>
 
