@@ -545,7 +545,7 @@
 
     <!-- 法律文件侧栏：动画与版本选择器同一套 inline transition -->
     <transition name="sidebar-overlay-fade">
-      <div v-if="showLegalSidebar" class="legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
+      <div v-if="showLegalSidebar" class="sidebar-overlay legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
     </transition>
     <transition
       :css="false"
@@ -556,7 +556,7 @@
       @leave="onLegalLeave"
       @after-leave="onLegalAfterLeave"
     >
-      <aside v-if="showLegalSidebar" class="legal-sidebar" @click.stop>
+      <aside v-if="showLegalSidebar" class="legal-sidebar sidebar-content" @click.stop tabindex="-1">
       <div class="legal-sidebar-header">
         <div class="legal-sidebar-header-text">
           <h3>{{ t('settings.legal.title') }}</h3>
@@ -2287,6 +2287,7 @@ const resetThemeColor = async () => {
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
   z-index: 1100;
+  /* 跟转换页 .sidebar-overlay 同策略：不用 backdrop-filter，避免 leave 时动画被打断 */
 }
 
 .legal-sidebar {
