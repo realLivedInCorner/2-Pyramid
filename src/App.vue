@@ -810,7 +810,9 @@ onMounted(async () => {
   height: 100dvh; 
   width: 100%; 
    overflow: hidden; 
-   background-color: var(--bg-color); 
+   /* 与主页同底色：页面切换/布局空隙时不露刺眼白边 */
+   background-color: var(--bg-color);
+   background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
    position: relative;
    z-index: 2;
  } 
@@ -1155,11 +1157,12 @@ onMounted(async () => {
  .main-content { 
    flex: 1; 
    display: flex; 
-   overflow: auto; 
+   overflow: hidden; 
    padding: 0; 
    margin-top: 0; 
    box-sizing: border-box; 
   min-height: 0;
+  background: transparent;
  } 
  
  .page-content {
@@ -1169,12 +1172,15 @@ onMounted(async () => {
    flex-direction: column;
    overflow: hidden;
    position: relative;
+   /* 切页期间旧页 absolute 离场时，底色不能是白 */
+   background: transparent;
  }
- 
+
  .page-shell { 
    width: 100%; 
    height: 100%; 
    position: relative; 
+   background: transparent;
  } 
  
 
