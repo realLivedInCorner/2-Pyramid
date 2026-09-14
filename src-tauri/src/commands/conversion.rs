@@ -97,6 +97,7 @@ pub async fn convert_zip(
             parent_folder_path.as_deref(),
             None,
             false,
+            true,
         )
     }).await;
 
@@ -159,6 +160,7 @@ pub async fn convert_resource_packs_batch(
     target_format: u32,
     output_dirs: Option<Vec<String>>,
     fix_alpha_layers: Option<bool>,
+    adapt_shaders: Option<bool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     use std::time::Instant;
 
@@ -166,13 +168,15 @@ pub async fn convert_resource_packs_batch(
     use crate::log_error;
 
     let fix_alpha = fix_alpha_layers.unwrap_or(false);
+    // 实验项：默认开启，保持 2.1.1 以来的着色器适配行为
+    let adapt_shaders = adapt_shaders.unwrap_or(true);
 
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
     let parallelism = concurrent_packs();
     log_info!("Files to process: {} (parallelism: {})", file_paths.len(), parallelism);
     log_info!("Target pack_format: {} ({})", target_format, pack_format_label_for_output(target_format));
-    log_info!("fix_alpha_layers: {}", fix_alpha);
+    log_info!("fix_alpha_layers: {}, adapt_shaders: {}", fix_alpha, adapt_shaders);
     log_info!("{}", "=".repeat(60));
 
     let start_time = Instant::now();
@@ -224,6 +228,7 @@ pub async fn convert_resource_packs_batch(
                 None,
                 output_path.as_deref(),
                 fix_alpha,
+                adapt_shaders,
             ) {
                 Ok(result_path) => {
                     let elapsed = file_start.elapsed();

@@ -91,14 +91,21 @@ pub fn invoke_conversion(
     target_version: u32,
     source_version: u32,
 ) -> Result<(), Box<dyn Error>> {
-    invoke_conversion_ex(target_path, work_dir, target_version, source_version, true, false)
+    invoke_conversion_ex(
+        target_path,
+        work_dir,
+        target_version,
+        source_version,
+        true,
+        false,
+        true,
+    )
 }
 
-/// 与 [`invoke_conversion`] 相同，可控制是否执行 GuiSurgeon。
-/// 通向 Bedrock 的 Java 中间态应传 `run_gui_surgeon=false`，
-/// 避免 1.21 sprite 手术干扰后续 `gui/** → textures/ui` 重组。
-/// `fix_alpha_layers`：用户在转换页勾选「图层修复」时为 true，
-/// 在 Surgeon 阶段对 item/block/entity/gui/misc 下 PNG 做 alpha/RGB 修复。
+/// 与 [`invoke_conversion`] 相同，可控制 GuiSurgeon / 图层修复 / 着色器适配。
+/// - `run_gui_surgeon=false`：Bedrock 中间态，避免 sprite 手术干扰 j2b
+/// - `fix_alpha_layers`：转换页「图层修复」
+/// - `adapt_shaders`：转换页实验项「着色器适配」（默认开）
 pub fn invoke_conversion_ex(
     target_path: &Path,
     work_dir: &Path,
@@ -106,6 +113,7 @@ pub fn invoke_conversion_ex(
     source_version: u32,
     run_gui_surgeon: bool,
     fix_alpha_layers: bool,
+    adapt_shaders: bool,
 ) -> Result<(), Box<dyn Error>> {
     use crate::{log_info, log_debug, log_warn};
     log_info!("==============================");
@@ -163,7 +171,12 @@ pub fn invoke_conversion_ex(
     });
 
     // j2j 着色器：1.20→26.x 等边界用适配，而非整目录删除
-    crate::converters::shaders::java::register_scheduler_task(&mut scheduler);
+    // 实验项：默认开启；关闭时保留原 shaders 不改写（可能在新版本失效）
+    if adapt_shaders {
+        crate::converters::shaders::java::register_scheduler_task(&mut scheduler);
+    } else {
+        log_info!("adapt_java_shaders disabled by user (experimental)");
+    }
 
     scheduler.register_task("delete_font_folder", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         drop_font::delete_font_folder(ctx)

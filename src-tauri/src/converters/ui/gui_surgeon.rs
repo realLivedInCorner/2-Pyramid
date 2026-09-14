@@ -793,76 +793,65 @@ impl GuiSurgeon {
         _res: &ResolutionTransducer,
     ) -> Result<(), String> {
         let tabs_path = base_path.join("assets/minecraft/textures/gui/container/creative_inventory/tabs.png");
-        
+
         if !tabs_path.exists() {
             crate::log_info!("tabs.png not found, skip");
             return Ok(());
         }
 
         if let Ok(img) = pool.load_texture(&tabs_path) {
-            let scale = Self::scale_from_image(&img);
-            let has_seventh = |y: u32, height: u32| -> bool {
-                let (x1, y1, w, h) = Self::scale_rect(scale, 168, y, 196, y + height);
-                for yy in y1..(y1 + h) {
-                    for xx in x1..(x1 + w) {
-                        if img.get_pixel(xx, yy).0[3] > 0 {
-                            return true;
-                        }
-                    }
+            // 对齐 pack.py process_tabs_in_dir：仅接受 256/512/1024/2048 精确尺寸
+            let (w, h) = img.dimensions();
+            let scale = match (w.max(h), w == h) {
+                (256, true) => 1u32,
+                (512, true) => 2,
+                (1024, true) => 4,
+                (2048, true) => 8,
+                _ => {
+                    crate::log_info!("unsupported tabs.png size {}x{}, skip", w, h);
+                    return Ok(());
                 }
-                false
             };
 
-            let mut store_tabs = |crop_rect: (u32, u32, u32, u32),
-                                slice_size: (u32, u32),
-                                names: [&str; 7],
-                                has_seventh_row: bool|
-             -> Result<(), String> {
-                let (cx, cy, _cw, ch) = crop_rect;
-                let base_width = if has_seventh_row { slice_size.0 * 7 } else { slice_size.0 * 6 };
-                let (x1, y1, w, h) = Self::scale_rect(scale, cx, cy, cx + base_width, cy + ch);
+            // pack.py 始终裁 168 宽（6 个 tab），第 7 个复制第 6 个。
+            // 不去探测 168-196：1.8 图集该区域可能残留像素，会导致误裁。
+            let mut store_tabs = |cy: u32, ch: u32, slice_h: u32, names: [&str; 7]| -> Result<(), String> {
+                let x1 = 0;
+                let y1 = cy * scale;
+                let w = 168 * scale;
+                let h = ch * scale;
                 let cropped = imageops::crop_imm(&img, x1, y1, w, h).to_image();
 
-                let slice_width = Self::scale_coordinate(scale, slice_size.0);
-                let slice_height = Self::scale_coordinate(scale, slice_size.1);
+                let slice_width = 28 * scale;
+                let slice_height = slice_h * scale;
 
                 let mut last_slice = None;
-                let count = if has_seventh_row { 7 } else { 6 };
-                for i in 0..count {
-                    let tab = imageops::crop_imm(
-                        &cropped,
-                        i * slice_width,
-                        0,
-                        slice_width,
-                        slice_height,
-                    )
-                    .to_image();
+                for i in 0..6u32 {
+                    let tab = imageops::crop_imm(&cropped, i * slice_width, 0, slice_width, slice_height).to_image();
                     let target = base_path.join(format!(
                         "assets/minecraft/textures/gui/sprites/container/creative_inventory/{}",
                         names[i as usize]
                     ));
                     pool.store_texture(&target, tab.clone());
-                    if i + 1 == count {
-                        last_slice = Some(tab);
-                    }
+                    last_slice = Some(tab);
                 }
 
-                if !has_seventh_row {
-                    if let Some(tab7) = last_slice {
-                        let target = base_path.join(format!(
-                            "assets/minecraft/textures/gui/sprites/container/creative_inventory/{}",
-                            names[6]
-                        ));
-                        pool.store_texture(&target, tab7);
-                    }
+                if let Some(tab7) = last_slice {
+                    let target = base_path.join(format!(
+                        "assets/minecraft/textures/gui/sprites/container/creative_inventory/{}",
+                        names[6]
+                    ));
+                    pool.store_texture(&target, tab7);
                 }
 
                 Ok(())
             };
 
+            // y 区间与 pack.py crop 一致：(0,2)-(168,32) / (0,32)-(168,64) / …
             store_tabs(
-                (0, 2, 168, 30),
-                (28, 30),
+                2,
+                30,
+                30,
                 [
                     "tab_top_unselected_1.png",
                     "tab_top_unselected_2.png",
@@ -872,12 +861,12 @@ impl GuiSurgeon {
                     "tab_top_unselected_6.png",
                     "tab_top_unselected_7.png",
                 ],
-                has_seventh(2, 30),
             )?;
 
             store_tabs(
-                (0, 32, 168, 32),
-                (28, 32),
+                32,
+                32,
+                32,
                 [
                     "tab_top_selected_1.png",
                     "tab_top_selected_2.png",
@@ -887,12 +876,12 @@ impl GuiSurgeon {
                     "tab_top_selected_6.png",
                     "tab_top_selected_7.png",
                 ],
-                has_seventh(32, 32),
             )?;
 
             store_tabs(
-                (0, 64, 168, 30),
-                (28, 30),
+                64,
+                30,
+                30,
                 [
                     "tab_bottom_unselected_1.png",
                     "tab_bottom_unselected_2.png",
@@ -902,12 +891,12 @@ impl GuiSurgeon {
                     "tab_bottom_unselected_6.png",
                     "tab_bottom_unselected_7.png",
                 ],
-                has_seventh(64, 30),
             )?;
 
             store_tabs(
-                (0, 96, 168, 32),
-                (28, 32),
+                96,
+                32,
+                32,
                 [
                     "tab_bottom_selected_1.png",
                     "tab_bottom_selected_2.png",
@@ -917,7 +906,6 @@ impl GuiSurgeon {
                     "tab_bottom_selected_6.png",
                     "tab_bottom_selected_7.png",
                 ],
-                has_seventh(96, 32),
             )?;
         }
 
@@ -1062,5 +1050,114 @@ impl GuiSurgeon {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::Rgba;
+    use tempfile::tempdir;
+
+    /// 对齐 pack.py process_tabs_in_dir：只裁 168 宽、6 片，第7=第6；
+    /// 168–196 的残留像素不得进入切片。
+    #[test]
+    fn process_tabs_crops_six_and_duplicates_last() {
+        let dir = tempdir().unwrap();
+        let base = dir.path();
+        let tabs_path = base.join("assets/minecraft/textures/gui/container/creative_inventory/tabs.png");
+        std::fs::create_dir_all(tabs_path.parent().unwrap()).unwrap();
+
+        let mut img = RgbaImage::new(256, 256);
+        for (i, gray) in [40u8, 70, 100, 130, 160, 190].iter().enumerate() {
+            for y in 0..128u32 {
+                for x in (i as u32 * 28)..(i as u32 * 28 + 28) {
+                    img.put_pixel(x, y, Rgba([*gray, *gray, *gray, 255]));
+                }
+            }
+        }
+        // 168–196 故意放红色残留：旧 has_seventh 会误判成第7页
+        for y in 0..30u32 {
+            for x in 168..196u32 {
+                img.put_pixel(x, y, Rgba([255, 0, 0, 255]));
+            }
+        }
+        img.save(&tabs_path).unwrap();
+
+        let ctx = HurrayContext::new(base.to_str().unwrap());
+        let mut pool = TexturePool::new();
+        let res = ResolutionTransducer::new();
+        GuiSurgeon::process_tabs(base, &mut pool, &res).unwrap();
+        pool.commit_all().unwrap();
+
+        let out_dir = base.join("assets/minecraft/textures/gui/sprites/container/creative_inventory");
+        let t6 = image::open(out_dir.join("tab_top_unselected_6.png")).unwrap().to_rgba8();
+        let t7 = image::open(out_dir.join("tab_top_unselected_7.png")).unwrap().to_rgba8();
+        assert_eq!(t6.get_pixel(0, 0).0[0], 190, "tab6 should be gray 190");
+        assert_eq!(t7.get_pixel(0, 0).0[0], 190, "tab7 must duplicate tab6");
+        assert_ne!(t7.get_pixel(0, 0).0[0], 255, "red leftover at 168-196 must not leak");
+    }
+
+    /// 非 256/512/1024/2048 尺寸：对齐 pack.py，直接跳过不产出
+    #[test]
+    fn process_tabs_skips_nonstandard_size() {
+        let dir = tempdir().unwrap();
+        let base = dir.path();
+        let tabs_path = base.join("assets/minecraft/textures/gui/container/creative_inventory/tabs.png");
+        std::fs::create_dir_all(tabs_path.parent().unwrap()).unwrap();
+        RgbaImage::new(300, 300).save(&tabs_path).unwrap();
+
+        let ctx_note = "no pool store expected";
+        let _ = ctx_note;
+        let mut pool = TexturePool::new();
+        let res = ResolutionTransducer::new();
+        GuiSurgeon::process_tabs(base, &mut pool, &res).unwrap();
+        pool.commit_all().unwrap();
+
+        let out = base.join("assets/minecraft/textures/gui/sprites/container/creative_inventory/tab_top_unselected_1.png");
+        assert!(!out.exists(), "nonstandard tabs.png should be skipped");
+    }
+
+    /// 2x（512）图集：四行切片尺寸与文件齐全
+    #[test]
+    fn process_tabs_2x_emits_all_rows() {
+        let dir = tempdir().unwrap();
+        let base = dir.path();
+        let tabs_path = base.join("assets/minecraft/textures/gui/container/creative_inventory/tabs.png");
+        std::fs::create_dir_all(tabs_path.parent().unwrap()).unwrap();
+        RgbaImage::new(512, 512).save(&tabs_path).unwrap();
+
+        let mut pool = TexturePool::new();
+        let res = ResolutionTransducer::new();
+        GuiSurgeon::process_tabs(base, &mut pool, &res).unwrap();
+        pool.commit_all().unwrap();
+
+        let out_dir = base.join("assets/minecraft/textures/gui/sprites/container/creative_inventory");
+        for name in [
+            "tab_top_unselected_1.png",
+            "tab_top_unselected_7.png",
+            "tab_top_selected_1.png",
+            "tab_bottom_unselected_1.png",
+            "tab_bottom_selected_7.png",
+        ] {
+            let p = out_dir.join(name);
+            assert!(p.exists(), "missing {}", name);
+            let img = image::open(&p).unwrap().to_rgba8();
+            assert_eq!(img.width(), 56, "{} should be 28*2 wide", name);
+        }
+        // 顶未选中高 30*2；顶选中高 32*2
+        let u = image::open(out_dir.join("tab_top_unselected_1.png")).unwrap().to_rgba8();
+        let s = image::open(out_dir.join("tab_top_selected_1.png")).unwrap().to_rgba8();
+        assert_eq!(u.height(), 60);
+        assert_eq!(s.height(), 64);
+    }
+
+    /// 缺 tabs.png 时安静跳过
+    #[test]
+    fn process_tabs_missing_is_ok() {
+        let dir = tempdir().unwrap();
+        let mut pool = TexturePool::new();
+        let res = ResolutionTransducer::new();
+        assert!(GuiSurgeon::process_tabs(dir.path(), &mut pool, &res).is_ok());
     }
 }

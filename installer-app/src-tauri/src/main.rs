@@ -518,7 +518,8 @@ fn launch_app(dir: String) -> Result<(), String> {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    // 静默安装（自动更新器）：--silent [--dir <path>]
+    // 静默安装（自动更新器）：--silent [--dir <path>] [--relaunch]
+    // --relaunch：安装完成后直接启动主程序，用于应用内更新免走向导。
     if args.iter().any(|a| a == "--silent") {
         let dir = args
             .iter()
@@ -526,8 +527,17 @@ fn main() {
             .and_then(|i| args.get(i + 1))
             .map(PathBuf::from)
             .unwrap_or_else(default_install_dir);
+        let relaunch = args.iter().any(|a| a == "--relaunch");
         match install_impl(&dir, ShortcutOptions::none(), |_, _, _| {}) {
-            Ok(_) => std::process::exit(0),
+            Ok(_) => {
+                if relaunch {
+                    let exe = dir.join(EXE_NAME);
+                    if exe.exists() {
+                        let _ = std::process::Command::new(&exe).spawn();
+                    }
+                }
+                std::process::exit(0);
+            }
             Err(_) => std::process::exit(1),
         }
     }

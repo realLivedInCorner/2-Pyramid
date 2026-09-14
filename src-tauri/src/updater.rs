@@ -522,18 +522,15 @@ fn launch_installer(path: &str) -> Result<(), String> {
             .args(["/i", path])
             .spawn()
             .map_err(|e| format!("Failed to launch MSI installer: {}", e))?;
-    } else {
-        // 自制释放式安装器（2pyr-installer）：以图形向导方式拉起，
-        // 用户能看到并确认安装流程。
-        //
-        // 注意：不要用 --silent 静默安装 —— 更新场景下旧程序刚退出、
-        // 安装目录里的 exe 可能仍被锁着，静默解压会无声失败；
-        // 图形向导等用户点「安装」时旧进程早已退出，不存在锁竞争，
-        // 用户也能看到进度反馈。
-        Command::new(path)
-            .spawn()
-            .map_err(|e| format!("Failed to launch installer: {}", e))?;
+        return Ok(());
     }
+
+    // 自制安装器：更新时打开图形向导，由用户确认安装路径与进度。
+    // 不要用 --silent：更新场景需要可见反馈，且旧 exe 退出时机由向导控制，
+    // 避免静默解压撞上文件锁。
+    Command::new(path)
+        .spawn()
+        .map_err(|e| format!("Failed to launch installer: {}", e))?;
 
     Ok(())
 }
