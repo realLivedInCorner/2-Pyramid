@@ -2127,13 +2127,7 @@ const resetThemeColor = async () => {
   display: flex;
   gap: 8px;
 }
-  padding: 10px 18px 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #86868b;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
+
 .authors-list {
   display: flex;
   flex-direction: column;
