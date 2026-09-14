@@ -88,8 +88,8 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
   background-size: 200% 200%;
   animation: bg-breathe 14s ease-in-out infinite;
   position: relative;
-  /* 兜底：aurora ::before / 光斑动画不越界 */
-  contain: paint;
+  /* 不要用 contain: paint —— 会把 ::before / .vortex-background 的
+     position:fixed 关进本盒子，页面切换缩放时边缘露白。 */
 }
 
 .home-header {
