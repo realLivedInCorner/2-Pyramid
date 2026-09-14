@@ -508,135 +508,17 @@
       </section>
     </main>
 
-    <!-- 版本信息弹窗 (新增) -->
-    <transition name="dialog-pop-quick">
-      <div v-if="showVersionInfo" class="dialog-overlay" @click="showVersionInfo = false">
-        <div class="dialog-content version-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.versionInfo.dialogTitle') }}</h3>
-            <button class="dialog-close" @click="showVersionInfo = false">×</button>
-          </div>
-          <div class="dialog-body">
-            <div class="version-hero">
-              <img src="/favicon-192.png" class="version-logo" alt="2-Pyramid logo" />
-              <div class="version-title-row">
-                <button class="version-tag version-tap-target" @click="onVersionTap">2-Pyramid v{{ currentVersion }}</button>
-                <span v-if="appIsBeta" class="version-build-mode beta">Beta 版本 · 测试渠道</span>
-              </div>
-              <div v-if="devHint" class="dev-hint">{{ devHint }}</div>
-            </div>
-            <div class="version-facts">
-              <div class="fact-row">
-                <span class="fact-label">{{ t('settings.versionInfo.mainVersion') }}</span>
-                <span class="fact-value">{{ currentVersion }}</span>
-              </div>
-              <div class="fact-row">
-                <span class="fact-label">{{ t('settings.versionInfo.buildNumber') }}</span>
-                <span class="fact-value">{{ appBuildNumber }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- 作者与贡献弹窗 -->
-    <transition name="dialog-pop-quick">
-      <div v-if="showAuthors" class="dialog-overlay" @click="showAuthors = false">
-        <div class="dialog-content authors-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.versionInfo.authors') }}</h3>
-            <button class="dialog-close" @click="showAuthors = false">×</button>
-          </div>
-          <div class="dialog-body">
-            <div class="authors-block">
-              <div class="authors-list">
-                <div v-for="a in authors" :key="a.id" class="author-row">
-                  <span class="author-id">#{{ a.id }}</span>
-                  <span class="author-name">{{ t(a.nameKey) }}</span>
-                  <span class="author-note">{{ t(a.noteKey) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text" @click="showAuthors = false">{{ t('common.close') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- 法律文件侧栏：结构与转换页版本选择器对齐 -->
-    <transition name="sidebar-overlay-fade">
-      <div
-        v-if="showLegalSidebar"
-        class="sidebar-overlay"
-        @click="showLegalSidebar = false"
-      ></div>
-    </transition>
-
-    <transition
-      :css="false"
-      @before-enter="onLegalBeforeEnter"
-      @enter="onLegalEnter"
-      @after-enter="onLegalAfterEnter"
-      @before-leave="onLegalBeforeLeave"
-      @leave="onLegalLeave"
-      @after-leave="onLegalAfterLeave"
-    >
-      <aside
-        v-if="showLegalSidebar"
-        class="sidebar-content legal-sidebar"
-        @click.stop
-        tabindex="-1"
-      >
-      <div class="legal-sidebar-header">
-        <div class="legal-sidebar-header-text">
-          <h3>{{ t('settings.legal.title') }}</h3>
-          <p>{{ t('settings.legal.hint') }}</p>
-        </div>
-        <div class="legal-sidebar-header-actions">
-          <button class="btn-text" @click="openLegalFolder" :title="t('settings.legal.openFolder')">
-            <i class="ri-folder-open-line"></i>
-          </button>
-        </div>
-      </div>
-      <div class="legal-sidebar-body">
-        <ul class="legal-file-list">
-          <li
-            v-for="f in legalFiles"
-            :key="f.file"
-            :class="{ active: selectedLegalFile === f.file }"
-            @click="loadLegalFile(f.file)"
-          >
-            <i class="ri-file-text-line"></i>
-            <span>{{ f.label }}</span>
-          </li>
-        </ul>
-        <div class="legal-file-view">
-          <div v-if="legalLoading" class="legal-loading">
-            <i class="ri-loader-4-line spin"></i>
-          </div>
-          <div
-            v-else-if="legalContent"
-            class="legal-md"
-            v-html="legalContent"
-            @click="onLegalMdClick"
-          ></div>
-          <div v-else class="legal-empty">{{ legalError || t('settings.legal.pickFile') }}</div>
-        </div>
-      </div>
-      <div class="legal-sidebar-footer">
-        <button class="legal-back-btn" @click="showLegalSidebar = false">
-          <i class="ri-arrow-go-back-line"></i>
-          <span>{{ t('common.back') }}</span>
-        </button>
-      </div>
-    </aside>
-    </transition>
+    <!-- 版本信息 / 作者 / 法律：独立组件 -->
+    <VersionInfoDialog
+      v-model="showVersionInfo"
+      :version="currentVersion"
+      :build="appBuildNumber"
+      :is-beta="appIsBeta"
+      :dev-hint="devHint"
+      @tap-version="onVersionTap"
+    />
+    <AuthorsDialog v-model="showAuthors" />
+    <LegalSidebar v-model="showLegalSidebar" />
 
     <transition name="dialog-pop">
       <div v-if="showDevUnlockDialog" class="dialog-overlay" @click="cancelDevUnlock">
@@ -1027,7 +909,6 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { resolveImageUrl } from '../utils/assetUrl';
@@ -1035,8 +916,10 @@ import { useUpdater } from '../composables/useUpdater';
 import { useNotification, type NotificationMode } from '../composables/useNotification';
 import { useLanguage } from '../composables/useLanguage';
 import { useAppInfo } from '../composables/useAppInfo';
-import { renderMarkdown } from '../utils/markdown';
 import HsvColorPicker from './HsvColorPicker.vue';
+import AuthorsDialog from './AuthorsDialog.vue';
+import LegalSidebar from './LegalSidebar.vue';
+import VersionInfoDialog from './VersionInfoDialog.vue';
 const { t } = useI18n()
 const { locale, setLanguage } = useLanguage()
 
@@ -1063,13 +946,6 @@ const emit = defineEmits([
 
 const { notify, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
 const { build: appBuildNumber, isBeta: appIsBeta } = useAppInfo();
-
-const authors = [
-  { id: 0, nameKey: 'settings.versionInfo.author0Name', noteKey: 'settings.versionInfo.author0Note' },
-  { id: 1, nameKey: 'settings.versionInfo.author1Name', noteKey: 'settings.versionInfo.author1Note' },
-  { id: 2, nameKey: 'settings.versionInfo.author2Name', noteKey: 'settings.versionInfo.author2Note' },
-  { id: 3, nameKey: 'settings.versionInfo.author3Name', noteKey: 'settings.versionInfo.author3Note' },
-];
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
@@ -1356,141 +1232,12 @@ const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
 const showVersionInfo = ref(false);
 const showAuthors = ref(false);
-
 const showLegalSidebar = ref(false);
-const selectedLegalFile = ref("");
-const legalContent = ref("");
-const legalError = ref("");
-const legalLoading = ref(false);
-const legalFiles = [
-  { file: "EULA.md", label: "EULA" },
-  { file: "PRIVACY.md", label: "Privacy" },
-  { file: "DISCLAIMER.md", label: "Disclaimer" },
-  { file: "THIRD-PARTY-NOTICES.md", label: "Third-Party" },
-  { file: "SECURITY.md", label: "Security" },
-  { file: "CONTRIBUTING.md", label: "Contributing" },
-];
-
-function legalReducedMotion() {
-  return document.body.classList.contains("motion-reduced");
-}
-
-function onLegalBeforeEnter(el: Element) {
-  const h = el as HTMLElement;
-  h.style.transition = "none";
-  h.style.transform = "translateX(100%)";
-  h.style.boxShadow = "none";
-  h.style.opacity = "1";
-}
-
-function onLegalEnter(el: Element, done: () => void) {
-  const h = el as HTMLElement;
-  if (legalReducedMotion()) {
-    h.style.transition = "";
-    h.style.transform = "translateX(0)";
-    h.style.boxShadow = "-12px 0 36px rgba(0, 0, 0, 0.12)";
-    h.style.opacity = "1";
-    done();
-    return;
-  }
-  h.offsetHeight;
-  requestAnimationFrame(() => {
-    h.style.transition =
-      "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1)";
-    h.style.transform = "translateX(0)";
-    h.style.boxShadow = "-12px 0 36px rgba(0, 0, 0, 0.12)";
-    setTimeout(done, 330);
-  });
-}
-
-function onLegalAfterEnter(el: Element) {
-  const h = el as HTMLElement;
-  h.style.transition = "";
-  h.style.transform = "translateX(0)";
-  h.style.boxShadow = "-12px 0 36px rgba(0, 0, 0, 0.12)";
-  h.style.opacity = "1";
-}
-
-function onLegalBeforeLeave(el: Element) {
-  const h = el as HTMLElement;
-  if (legalReducedMotion()) {
-    h.style.transition = "";
-    h.style.transform = "translateX(100%)";
-    h.style.boxShadow = "none";
-    return;
-  }
-  h.style.transition =
-    "transform 240ms cubic-bezier(0.4, 0, 1, 1), box-shadow 240ms cubic-bezier(0.4, 0, 1, 1)";
-  h.style.transform = "translateX(100%)";
-  h.style.boxShadow = "none";
-}
-
-function onLegalLeave(_el: Element, done: () => void) {
-  setTimeout(done, legalReducedMotion() ? 0 : 250);
-}
-
-function onLegalAfterLeave(el: Element) {
-  const h = el as HTMLElement;
-  h.style.transition = "";
-  h.style.transform = "";
-  h.style.boxShadow = "";
-  h.style.opacity = "";
-}
 
 function openLegalSidebar() {
   showLegalSidebar.value = true;
-  if (!selectedLegalFile.value) {
-    void loadLegalFile("EULA.md");
-  }
 }
 
-async function loadLegalFile(name: string) {
-  selectedLegalFile.value = name;
-  legalLoading.value = true;
-  legalError.value = "";
-  legalContent.value = "";
-  try {
-    const raw = await invoke<string>("read_legal_file", { filename: name });
-    legalContent.value = renderMarkdown(raw);
-  } catch (e) {
-    legalError.value = String(e);
-  } finally {
-    legalLoading.value = false;
-  }
-}
-
-function onLegalMdClick(ev: MouseEvent) {
-  const link = (ev.target as HTMLElement | null)?.closest?.("a[data-ext-link]") as HTMLAnchorElement | null;
-  if (!link) return;
-  ev.preventDefault();
-  const href = link.getAttribute("href");
-  if (href && /^https?:\/\//i.test(href)) {
-    void openUrl(href).catch(() => {});
-  }
-}
-
-async function openLegalFolder() {
-  try {
-    const exeDir = await invoke<string | null>("get_install_dir");
-    // 安装包释放 legal/ 到主程序旁；开发构建可能没有，回落仓库路径
-    const candidates = [
-      exeDir ? `${exeDir}\\legal` : "",
-      "legal",
-    ].filter(Boolean);
-    let lastErr: unknown = null;
-    for (const p of candidates) {
-      try {
-        await invoke("open_folder", { path: p });
-        return;
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-    console.error("open legal folder failed", lastErr);
-  } catch (e) {
-    console.error("open legal folder failed", e);
-  }
-}
 const devModeEnabled = ref(!!props.devMode);
 const versionTapCount = ref(0);
 const devHint = ref('');
@@ -2251,398 +1998,6 @@ const resetThemeColor = async () => {
 .settings-scroll-area::-webkit-scrollbar-thumb:hover {
   background: rgba(0,0,0,0.22);
 }
-.version-dialog {
-  max-width: 500px;
-}
-
-.authors-dialog {
-  max-width: min(520px, 92vw);
-}
-
-.version-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 24px 0;
-  border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 24px;
-}
-
-.version-logo {
-  width: 80px;
-  height: 80px;
-}
-
-.version-tag {
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
-  cursor: pointer;
-}
-
-.version-tap-target:hover {
-  color: var(--theme-color);
-}
-
-.version-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-/* 版本次要信息：主版本 / 构建号 两行 */
-.version-facts {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border: 1px solid #eef2f7;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.65);
-  overflow: hidden;
-}
-
-.fact-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 13px 18px;
-}
-
-.fact-row + .fact-row {
-  border-top: 1px solid #eef2f7;
-}
-
-.authors-block {
-  margin-top: 16px;
-  border: 1px solid #eef2f7;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.65);
-  overflow: hidden;
-}
-.authors-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 10px;
-}
-
-.legal-hint {
-  margin: 0 0 10px;
-  font-size: 12.5px;
-  color: #64748b;
-  line-height: 1.55;
-}
-
-.legal-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* 法律侧栏：复制转换页 .sidebar-content 关键定位（那边是 scoped，设置页拿不到） */
-.legal-sidebar.sidebar-content {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: min(560px, 94vw);
-  height: 100vh;
-  background: white;
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  outline: none;
-  z-index: 201;
-  transform: translateX(100%);
-  opacity: 1 !important;
-  will-change: transform, box-shadow;
-}
-
-.legal-sidebar-footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  background: #fff;
-}
-
-.legal-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
-  color: #64748b;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.legal-back-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1d1d1f;
-}
-
-.legal-sidebar-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 1.25rem 1.5rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  flex-shrink: 0;
-}
-
-.legal-sidebar-header-text {
-  min-width: 0;
-  flex: 1;
-}
-
-.legal-sidebar-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.legal-sidebar-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #1d1d1f;
-}
-
-.legal-sidebar-header p {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #86868b;
-  line-height: 1.5;
-  max-width: 42ch;
-}
-
-.legal-sidebar-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 0;
-}
-
-.legal-file-list {
-  list-style: none;
-  margin: 0;
-  padding: 10px;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.legal-file-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.legal-file-list li:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: #1d1d1f;
-}
-
-.legal-file-list li.active {
-  background: color-mix(in srgb, var(--theme-color, #007bff) 10%, #fff);
-  color: var(--theme-color, #007bff);
-}
-
-.legal-file-view {
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.legal-pre {
-  flex: 1;
-  min-height: 0;
-  margin: 0;
-  padding: 16px 18px;
-  overflow: auto;
-  font-size: 12.5px;
-  line-height: 1.65;
-  color: #334155;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Consolas, "PingFang SC", "Microsoft YaHei", monospace;
-}
-
-.legal-loading,
-.legal-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  font-size: 13px;
-}
-
-.legal-md {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 18px 20px;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #334155;
-}
-
-.legal-md :deep(h1),
-.legal-md :deep(h2),
-.legal-md :deep(h3),
-.legal-md :deep(h4) {
-  margin: 1.1em 0 0.5em;
-  color: #1d1d1f;
-  font-weight: 700;
-  line-height: 1.3;
-}
-.legal-md :deep(h1) { font-size: 18px; }
-.legal-md :deep(h2) { font-size: 16px; }
-.legal-md :deep(h3) { font-size: 14px; }
-.legal-md :deep(h4) { font-size: 13px; }
-
-.legal-md :deep(p) { margin: 0 0 0.75em; }
-
-.legal-md :deep(ul),
-.legal-md :deep(ol) {
-  margin: 0 0 0.75em;
-  padding-left: 1.4em;
-}
-.legal-md :deep(li) { margin: 0.25em 0; }
-
-.legal-md :deep(blockquote) {
-  margin: 0 0 0.75em;
-  padding: 8px 12px;
-  border-left: 3px solid color-mix(in srgb, var(--theme-color, #007bff) 40%, transparent);
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 0 8px 8px 0;
-  color: #475569;
-}
-
-.legal-md :deep(code) {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.legal-md :deep(pre) {
-  margin: 0 0 0.75em;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #0f172a;
-  color: #e2e8f0;
-  overflow-x: auto;
-}
-.legal-md :deep(pre code) {
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font-size: 12px;
-}
-
-.legal-md :deep(hr) {
-  border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  margin: 1em 0;
-}
-
-.legal-md :deep(a) {
-  color: var(--theme-color, #007bff);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.authors-list {
-  display: flex;
-  flex-direction: column;
-}
-.author-row {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 120px) 1fr;
-  gap: 10px;
-  align-items: baseline;
-  padding: 8px 18px 12px;
-  font-size: 13px;
-}
-.author-row + .author-row {
-  border-top: 1px solid #eef2f7;
-  padding-top: 10px;
-}
-.author-id {
-  font-weight: 700;
-  color: color-mix(in srgb, var(--theme-color) 75%, #000);
-  font-variant-numeric: tabular-nums;
-}
-.author-name {
-  font-weight: 600;
-  color: #1d1d1f;
-}
-.author-note {
-  color: #6b7280;
-  font-size: 12px;
-}
-
-.fact-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.fact-value {
-  font-size: 13px;
-  font-weight: 800;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #0f172a;
-  letter-spacing: 0.3px;
-}
-
-.version-build-mode {
-  margin-top: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: #f59e0b;
-}
-
-.version-build-mode.beta {
-  display: inline-block;
-  text-transform: none;
-  letter-spacing: 0.4px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  color: #ea580c;
-  background: rgba(249, 115, 22, 0.12);
-}
 
 .dev-hint {
   font-size: 12px;
@@ -2765,19 +2120,10 @@ const resetThemeColor = async () => {
   border-radius: 8px; font-size: 13px; outline: none;
 }
 
-.segmented {
-  display: inline-flex; background: rgba(0,0,0,0.05); padding: 4px; border-radius: 999px; gap: 4px;
-}
-.seg-btn {
-  border: none; background: transparent; padding: 6px 12px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; color: #6b7280; cursor: pointer; transition: 0.2s;
-}
-.seg-btn.active { background: #fff; color: #1d1d1f; box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
-
+/* 设置页局部覆盖：主题色文字按钮（比全局 shared 的灰字更醒目） */
 .btn-text {
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent); color: var(--theme-color);
-  border: none; padding: 6px 14px; border-radius: 10px;
-  font-size: 13px; font-weight: 600; cursor: pointer;
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  color: var(--theme-color);
 }
 .btn-text.secondary { background: rgba(0,0,0,0.06); color: #334155; }
 .btn-text:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -3036,7 +2382,7 @@ const resetThemeColor = async () => {
 }
 .dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .dialog-header h3 { font-size: 16px; margin: 0; }
-.dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #64748b; }
+/* .dialog-close 使用全局 shared.css */
 .dialog-body { display: flex; flex-direction: column; gap: 8px; }
 
 /* Inline checkbox row inside a dialog (e.g. the factory-reset “deep
