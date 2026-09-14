@@ -6,9 +6,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-// 流程步骤：0 介绍 / 1 安装位置 / 2 安装中 / 3 完成
+// 流程步骤：0 介绍 / 1 协议 / 2 安装位置 / 3 安装中 / 4 完成
 const step = ref(0);
-const totalSteps = 4;
+const totalSteps = 5;
 
 const uninstallMode = ref(false);
 const dir = ref("");
@@ -19,6 +19,11 @@ const busy = ref(false);
 const failed = ref(false);
 const resultMessage = ref("");
 const installed = ref(false);
+
+// EULA
+const eulaTitle = ref("最终用户协议");
+const eulaBody = ref("");
+const eulaAgreed = ref(false);
 
 // 快捷方式选项：桌面 / 开始菜单
 const shortcutDesktop = ref(true);
@@ -41,6 +46,13 @@ onMounted(async () => {
     channel.value = await invoke<string>("get_channel");
     githubUrl.value = await invoke<string>("get_github_url");
     installed.value = await invoke<boolean>("is_installed");
+    try {
+      const eula = await invoke<{ title: string; body: string }>("get_eula");
+      eulaTitle.value = eula.title;
+      eulaBody.value = eula.body;
+    } catch {
+      eulaBody.value = "请阅读仓库 legal/EULA.md 与 legal/DISCLAIMER.md。";
+    }
   } catch (e) {
     console.error("[installer] init failed:", e);
   }
@@ -82,6 +94,8 @@ const openGithub = async () => {
 };
 
 const next = () => {
+  // EULA 步骤必须勾选同意
+  if (step.value === 1 && !eulaAgreed.value) return;
   if (step.value < totalSteps - 1) step.value++;
 };
 
@@ -97,7 +111,7 @@ const doInstall = async () => {
   progressTotal.value = 0;
   progressName.value = "";
   progressPercent.value = 0;
-  step.value = 2;
+  step.value = 3;
   try {
     resultMessage.value = await invoke<string>("install", {
       dir: dir.value.trim(),
@@ -123,7 +137,7 @@ const doUninstall = async () => {
   try {
     resultMessage.value = await invoke<string>("uninstall", { dir: dir.value.trim() });
     installed.value = false;
-    step.value = 3;
+    step.value = 4;
     // 完成动画播完后自动关窗：窗口关闭 → 进程退出 → 后台清理进程
     // （WaitForExit 等待本进程）删除卸载器自身与安装目录。
     window.setTimeout(() => { void closeWindow(); }, 3500);
@@ -223,8 +237,18 @@ const closeWindow = async () => {
         </div>
       </div>
 
-      <!-- 安装模式：步骤 1 安装位置 -->
+      <!-- 步骤 1 用户协议 -->
       <div v-else-if="!uninstallMode && step === 1" class="panel">
+        <div class="panel-title">{{ eulaTitle }}</div>
+        <div class="eula-box">{{ eulaBody }}</div>
+        <label class="check-row eula-agree">
+          <input type="checkbox" v-model="eulaAgreed" />
+          <span>我已阅读并同意上述协议与免责声明</span>
+        </label>
+      </div>
+
+      <!-- 安装模式：步骤 2 安装位置 -->
+      <div v-else-if="!uninstallMode && step === 2" class="panel">
         <div class="panel-title">选择安装位置</div>
         <p class="panel-desc">默认安装到当前用户目录，无需管理员权限。</p>
         <label class="field-label">安装目录</label>
@@ -256,8 +280,8 @@ const closeWindow = async () => {
         </p>
       </div>
 
-      <!-- 安装模式：步骤 2 安装中 -->
-      <div v-else-if="!uninstallMode && step === 2" class="panel">
+      <!-- 安装模式：步骤 3 安装中 -->
+      <div v-else-if="!uninstallMode && step === 3" class="panel">
         <div class="panel-title">正在安装</div>
         <div class="progress-wrap">
           <div class="progress-track">
@@ -275,7 +299,7 @@ const closeWindow = async () => {
       </div>
 
       <!-- 完成（安装/卸载共用） -->
-      <div v-else-if="step === 3" class="panel">
+      <div v-else-if="step === 4" class="panel">
         <div class="panel-title">{{ failed ? '出错了' : (uninstallMode ? '卸载完成' : '安装完成') }}</div>
         <div :class="failed ? 'status err' : 'status ok'">
           <i :class="failed ? 'ri-error-warning-line' : 'ri-checkbox-circle-line'" aria-hidden="true"></i>
@@ -321,7 +345,7 @@ const closeWindow = async () => {
     <footer class="foot">
       <div class="nav-pill">
         <button
-          v-if="!uninstallMode && step > 0 && step < 3"
+          v-if="!uninstallMode && step > 0 && step < 4"
           class="pill-btn ghost"
           :disabled="busy"
           @click="prev"
@@ -336,18 +360,25 @@ const closeWindow = async () => {
         <button
           v-else-if="!uninstallMode && step === 1"
           class="pill-btn primary"
+          :disabled="!eulaAgreed"
+          @click="next"
+        >下一步 <i class="ri-arrow-right-s-line"></i></button>
+
+        <button
+          v-else-if="!uninstallMode && step === 2"
+          class="pill-btn primary"
           :disabled="busy || !dir.trim()"
           @click="doInstall"
         ><i class="ri-install-line"></i> 安装</button>
 
         <button
-          v-else-if="!uninstallMode && step === 2"
+          v-else-if="!uninstallMode && step === 3"
           class="pill-btn primary"
           disabled
         ><i class="ri-loader-4-line ri-spin"></i> 安装中…</button>
 
         <button
-          v-else-if="uninstallMode && step !== 3"
+          v-else-if="uninstallMode && step !== 4"
           class="pill-btn danger"
           :disabled="busy || !installed"
           @click="doUninstall"
@@ -576,6 +607,29 @@ html, body, #app {
 .dir-input:focus { border-color: #007bff; }
 
 .hint { width: 100%; text-align: left; font-size: 12.5px; color: #94a3b8; line-height: 1.6; }
+
+.eula-box {
+  width: 100%;
+  flex: 1;
+  min-height: 180px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #374151;
+  white-space: pre-wrap;
+  text-align: left;
+}
+.eula-agree {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
 
 /* 进度 */
 .progress-wrap { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }

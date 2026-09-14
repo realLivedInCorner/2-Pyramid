@@ -412,6 +412,14 @@ pub fn get_log_path() -> Option<String> {
     GLOBAL_LOGGER.log_file_path_str()
 }
 
+/// 主程序所在目录（安装后为安装目录；开发时为 target/debug 等）。
+#[tauri::command]
+pub fn get_install_dir() -> Option<String> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_string_lossy().to_string()))
+}
+
 #[tauri::command]
 pub fn open_folder(path: String) -> Result<(), String> {
     let path = std::path::Path::new(&path);

@@ -98,6 +98,15 @@ def collect_staging() -> None:
         if src_dir.is_dir():
             shutil.copytree(src_dir, STAGING / asset)
 
+    # 法律文件：随安装包释放到 <install>/legal/，应用内设置可再查看
+    legal_src = ROOT / "legal"
+    if legal_src.is_dir():
+        shutil.copytree(legal_src, STAGING / "legal")
+        print(f"    legal/ -> {STAGING / 'legal'}")
+    license_src = ROOT / "LICENSE"
+    if license_src.exists():
+        shutil.copy2(license_src, STAGING / "legal" / "LICENSE")
+
 
 def make_payload_zip() -> Path:
     """把 staging 打成 payload.zip，放入安装器项目（内嵌发布）。"""

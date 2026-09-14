@@ -337,6 +337,11 @@
       "mainVersion": "主版本",
       "buildNumber": "构建号",
       "authors": "作者与贡献",
+      "legal": {
+        "title": "法律信息",
+        "hint": "EULA、免责声明、隐私说明与第三方声明随程序安装在 legal/ 文件夹；也可在仓库 legal/ 查看。",
+        "openFolder": "打开 legal 文件夹"
+      },
       "author0Name": "LivedInCorner",
       "author0Note": "当前开发者",
       "author1Name": "五香蛋e",

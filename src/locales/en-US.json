@@ -337,6 +337,11 @@
       "mainVersion": "Main Version",
       "buildNumber": "Build Number",
       "authors": "Authors & Credits",
+      "legal": {
+        "title": "Legal Notices",
+        "hint": "EULA, disclaimer, privacy and third-party notices are installed under legal/ and also live in the repo legal/ folder.",
+        "openFolder": "Open legal folder"
+      },
       "author0Name": "LivedInCorner",
       "author0Note": "Current developer",
       "author1Name": "五香蛋e",
