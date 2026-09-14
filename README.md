@@ -293,15 +293,31 @@ The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The ve
 
 ### 🤝 Contributing
 
-PRs welcome. Before pushing, please run:
+PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Before pushing, please run:
 
 ```bash
-cargo test --offline --manifest-path src-tauri/Cargo.toml   # Rust unit tests
+npm test                                                    # Rust unit tests
 npm run build                                               # frontend build
 ```
+
+### ⚖️ Legal
+
+| File | Purpose |
+|------|---------|
+| [LICENSE](./LICENSE) | MIT — source code |
+| [EULA.md](./EULA.md) | End-user agreement for binary releases |
+| [DISCLAIMER.md](./DISCLAIMER.md) | Warranty disclaimer; unofficial Mojang/Microsoft tool |
+| [PRIVACY.md](./PRIVACY.md) | Local-first privacy; no telemetry |
+| [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) | Open-source dependency notices |
+| [SECURITY.md](./SECURITY.md) | Vulnerability reporting |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Contribution guide |
+
+**Credits:** 2-Pyramid is an independent project. Early prototypes and community tools in the Minecraft pack-conversion space informed parts of the design; we thank those authors for their work. Such references do not imply joint copyright, employment, or endorsement. In-app credits live in **Settings → Version Info**.
 
 ---
 
 ## License / 许可
 
 [MIT](./LICENSE) © 2025–2026 2-Pyramid Studio
+
+使用可执行程序时另见 [EULA](./EULA.md) 与 [DISCLAIMER](./DISCLAIMER.md)。请同时遵守 Minecraft EULA 与资源包原作者授权。
