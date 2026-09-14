@@ -88,6 +88,8 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
   background-size: 200% 200%;
   animation: bg-breathe 14s ease-in-out infinite;
   position: relative;
+  /* 兜底：aurora ::before / 光斑动画不越界 */
+  contain: paint;
 }
 
 .home-header {
@@ -177,12 +179,15 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
 /* `position: fixed` instead of `absolute` so the vortex layer is
    anchored to the viewport rather than the (sometimes collapsing)
    flex parent. This guarantees the background always fills the
-   visible area even when .fanhua-home is mid-layout. */
+   visible area even when .fanhua-home is mid-layout.
+   不用 100vw/100vh：滚动条会把宽度算多，边缘露白。 */
 .vortex-background {
-  position: fixed; inset: 0;
-  width: 100vw; height: 100vh;
-  z-index: 1; overflow: hidden;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
   pointer-events: none;
+  contain: strict;
 }
 
 .blob {
@@ -193,16 +198,17 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
   animation: blob-float 24s ease-in-out infinite;
   will-change: transform;
 }
-.b1 { top: 10%; left: 10%; width: 280px; height: 280px; animation-delay: 0s; }
-.b2 { top: 20%; right: 10%; width: 360px; height: 360px; animation-delay: 3s; }
-.b3 { top: 55%; left: 8%; width: 300px; height: 300px; animation-delay: 6s; }
-.b4 { top: 60%; right: 18%; width: 220px; height: 220px; animation-delay: 9s; }
+/* 位置往里收一点，位移幅度也收小，避免 scale + translate 顶到裁切边 */
+.b1 { top: 12%; left: 12%; width: 280px; height: 280px; animation-delay: 0s; }
+.b2 { top: 22%; right: 12%; width: 360px; height: 360px; animation-delay: 3s; }
+.b3 { top: 55%; left: 10%; width: 300px; height: 300px; animation-delay: 6s; }
+.b4 { top: 60%; right: 20%; width: 220px; height: 220px; animation-delay: 9s; }
 
 @keyframes blob-float {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  25% { transform: translate3d(30px, -20px, 0) scale(1.05); }
-  50% { transform: translate3d(-20px, 25px, 0) scale(0.97); }
-  75% { transform: translate3d(20px, 30px, 0) scale(1.03); }
+  25% { transform: translate3d(18px, -12px, 0) scale(1.03); }
+  50% { transform: translate3d(-12px, 16px, 0) scale(0.98); }
+  75% { transform: translate3d(14px, 18px, 0) scale(1.02); }
 }
 
 @keyframes bg-breathe {
@@ -213,7 +219,7 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
 
 @keyframes aurora-drift {
   0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.75; }
-  50% { transform: translate3d(40px, -20px, 0); opacity: 0.9; }
+  50% { transform: translate3d(16px, -8px, 0); opacity: 0.9; }
 }
 
 .home-main {
