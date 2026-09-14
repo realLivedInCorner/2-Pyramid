@@ -724,11 +724,13 @@ onMounted(async () => {
  
  html, body { 
    height: 100%; 
+   min-height: 100%;
    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
-   /* 与主页底色一致：页面切换缩放时不会露出刺眼白边 */
+   /* 与主页底色一致；不要 background-attachment:fixed，部分 WebView 左缘会露缝 */
    background-color: var(--bg-color);
    background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
-   background-attachment: fixed;
+   background-repeat: no-repeat;
+   background-size: 100% 100%;
    color: var(--text-color); 
    line-height: 1.6; 
    transition: background-color 0.3s, color 0.3s; 
@@ -736,6 +738,11 @@ onMounted(async () => {
  
  #app { 
    height: 100%; 
+   min-height: 100%;
+   background-color: var(--bg-color);
+   background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+   background-repeat: no-repeat;
+   background-size: 100% 100%;
  } 
  
  :root { 

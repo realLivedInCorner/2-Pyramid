@@ -164,7 +164,8 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
 .fanhua-home::before {
   content: "";
   position: fixed;
-  inset: 0;
+  /* 超出一点，避免亚像素窗口边缘露白 */
+  inset: -2px;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--theme-color) 5%, transparent) 0%, color-mix(in srgb, var(--theme-color) 1%, transparent) 50%, transparent 100%),
     radial-gradient(60vw 55vh at 20% 20%, color-mix(in srgb, var(--theme-color) 24%, transparent), transparent 60%),
@@ -183,11 +184,10 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
    不用 100vw/100vh：滚动条会把宽度算多，边缘露白。 */
 .vortex-background {
   position: fixed;
-  inset: 0;
+  inset: -2px;
   z-index: 1;
   overflow: hidden;
   pointer-events: none;
-  contain: strict;
 }
 
 .blob {
