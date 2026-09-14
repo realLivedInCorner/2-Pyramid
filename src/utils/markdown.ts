@@ -35,7 +35,12 @@ function inline(text: string): string {
 }
 
 export function renderMarkdown(src: string): string {
-  const lines = (src || "").replace(/\r\n/g, "\n").split("\n");
+  // 入口统一 HTML 转义：先转义再做 Markdown，原始 HTML 只会显示为文本。
+  // Markdown 语法字符（` * [ ] ( ) # > -）不受影响。
+  const lines = (src || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map(escapeHtml);
   const html: string[] = [];
   let para: string[] = [];
   let listType: "ul" | "ol" | null = null;
@@ -68,7 +73,8 @@ export function renderMarkdown(src: string): string {
         i++;
       }
       i++; // 跳过结束围栏
-      html.push(`<pre><code>${escapeHtml(buf.join("\n"))}</code></pre>`);
+      // 源行已在入口转义过，这里只补一层，避免双重转义显示 &amp;
+      html.push(`<pre><code>${buf.join("\n")}</code></pre>`);
       continue;
     }
     // 空行

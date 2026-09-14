@@ -620,7 +620,12 @@
           <div v-if="legalLoading" class="legal-loading">
             <i class="ri-loader-4-line spin"></i>
           </div>
-          <pre v-else-if="legalContent" class="legal-pre">{{ legalContent }}</pre>
+          <div
+            v-else-if="legalContent"
+            class="legal-md"
+            v-html="legalContent"
+            @click="onLegalMdClick"
+          ></div>
           <div v-else class="legal-empty">{{ legalError || t('settings.legal.pickFile') }}</div>
         </div>
       </div>
@@ -1022,6 +1027,7 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
 import { open, save } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { resolveImageUrl } from '../utils/assetUrl';
@@ -1029,6 +1035,7 @@ import { useUpdater } from '../composables/useUpdater';
 import { useNotification, type NotificationMode } from '../composables/useNotification';
 import { useLanguage } from '../composables/useLanguage';
 import { useAppInfo } from '../composables/useAppInfo';
+import { renderMarkdown } from '../utils/markdown';
 import HsvColorPicker from './HsvColorPicker.vue';
 const { t } = useI18n()
 const { locale, setLanguage } = useLanguage()
@@ -1443,11 +1450,22 @@ async function loadLegalFile(name: string) {
   legalError.value = "";
   legalContent.value = "";
   try {
-    legalContent.value = await invoke<string>("read_legal_file", { filename: name });
+    const raw = await invoke<string>("read_legal_file", { filename: name });
+    legalContent.value = renderMarkdown(raw);
   } catch (e) {
     legalError.value = String(e);
   } finally {
     legalLoading.value = false;
+  }
+}
+
+function onLegalMdClick(ev: MouseEvent) {
+  const link = (ev.target as HTMLElement | null)?.closest?.("a[data-ext-link]") as HTMLAnchorElement | null;
+  if (!link) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href");
+  if (href && /^https?:\/\//i.test(href)) {
+    void openUrl(href).catch(() => {});
   }
 }
 
@@ -2484,6 +2502,83 @@ const resetThemeColor = async () => {
   justify-content: center;
   color: #94a3b8;
   font-size: 13px;
+}
+
+.legal-md {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px 20px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #334155;
+}
+
+.legal-md :deep(h1),
+.legal-md :deep(h2),
+.legal-md :deep(h3),
+.legal-md :deep(h4) {
+  margin: 1.1em 0 0.5em;
+  color: #1d1d1f;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.legal-md :deep(h1) { font-size: 18px; }
+.legal-md :deep(h2) { font-size: 16px; }
+.legal-md :deep(h3) { font-size: 14px; }
+.legal-md :deep(h4) { font-size: 13px; }
+
+.legal-md :deep(p) { margin: 0 0 0.75em; }
+
+.legal-md :deep(ul),
+.legal-md :deep(ol) {
+  margin: 0 0 0.75em;
+  padding-left: 1.4em;
+}
+.legal-md :deep(li) { margin: 0.25em 0; }
+
+.legal-md :deep(blockquote) {
+  margin: 0 0 0.75em;
+  padding: 8px 12px;
+  border-left: 3px solid color-mix(in srgb, var(--theme-color, #007bff) 40%, transparent);
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 0 8px 8px 0;
+  color: #475569;
+}
+
+.legal-md :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.legal-md :deep(pre) {
+  margin: 0 0 0.75em;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+}
+.legal-md :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+
+.legal-md :deep(hr) {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin: 1em 0;
+}
+
+.legal-md :deep(a) {
+  color: var(--theme-color, #007bff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .authors-list {
