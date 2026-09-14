@@ -52,6 +52,22 @@
           </label>
         </label>
         <p class="card-hint">{{ t('conversion.fixAlphaHint') }}</p>
+        <label class="switch-line">
+          <span class="switch-title">
+            {{ t('conversion.adaptShadersLabel') }}
+            <span
+              class="help-icon"
+              :title="t('conversion.adaptShadersHelp')"
+              :aria-label="t('conversion.adaptShadersLabel')"
+            >?</span>
+            <span class="exp-tag">{{ t('common.experimental') }}</span>
+          </span>
+          <label class="switch">
+            <input type="checkbox" v-model="adaptShaders" />
+            <span class="slider"></span>
+          </label>
+        </label>
+        <p class="card-hint">{{ t('conversion.adaptShadersHint') }}</p>
       </div>
 
       <div class="card card-progress">
@@ -379,6 +395,8 @@ const manyFilesWarning = ref(false);
 // 更新后旧标签可能失效）。
 const selectedVersion = ref(localStorage.getItem('conversion.lastVersion') ?? '1.21-1.21.1');
 const fixAlphaLayers = ref(localStorage.getItem('conversion.fixAlphaLayers') === 'true');
+// 实验：着色器适配默认开；关闭则原样保留 shaders（可能在新版本失效）
+const adaptShaders = ref(localStorage.getItem('conversion.adaptShaders') !== 'false');
 const selectedItems = ref<any[]>([]);
 const showResultModal = ref(false);
 const conversionResults = ref<any[]>([]);
@@ -514,6 +532,9 @@ onMounted(async () => {
   });
   watch(fixAlphaLayers, (v) => {
     localStorage.setItem('conversion.fixAlphaLayers', String(v));
+  });
+  watch(adaptShaders, (v) => {
+    localStorage.setItem('conversion.adaptShaders', String(v));
   });
 
   // Register the toast-action handler for “Open output folder”. The
@@ -769,6 +790,7 @@ const startConversion = async () => {
       targetFormat,
       outputDirs,
       fixAlphaLayers: fixAlphaLayers.value,
+      adaptShaders: adaptShaders.value,
     });
 
     for (let i = 0; i < selectedItems.value.length; i++) {
@@ -1050,6 +1072,17 @@ const exportLogsToFile = async () => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+.exp-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
 }
 .help-icon {
   width: 18px;

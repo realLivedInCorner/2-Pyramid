@@ -1,4 +1,4 @@
-﻿use std::path::Path;
+use std::path::Path;
 
 use image::Rgba;
 
@@ -157,5 +157,54 @@ mod tests {
         let context = HurrayContext::new(&resource_pack_path);
         let result = fix_ui_creative(&context);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn fix_ui_creative_missing_file_is_ok() {
+        let dir = tempdir().unwrap();
+        let ctx = HurrayContext::new(&dir.path().to_string_lossy());
+        assert!(fix_ui_creative(&ctx).is_ok());
+    }
+
+    /// 对齐 pack.py：源 (6,0)-(84,53) 复制到 (51,0)；左区 (6,0)-(53,53)
+    /// 用 (164,27) 颜色填充；18x18 从 (53,5) 贴到 (34,19)。
+    #[test]
+    fn fix_ui_creative_applies_pack_py_regions() {
+        let dir = tempdir().unwrap();
+        let path = dir
+            .path()
+            .join("assets/minecraft/textures/gui/container/creative_inventory/tab_inventory.png");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        let mut img = image::RgbaImage::new(256, 256);
+        // 源区 (6,0)-(84,53) 填红
+        for y in 0..53u32 {
+            for x in 6..84u32 {
+                img.put_pixel(x, y, Rgba([200, 0, 0, 255]));
+            }
+        }
+        // (164,27) 填青，作 fill 色
+        img.put_pixel(164, 27, Rgba([0, 200, 200, 255]));
+        // 18x18 源 (53,5)-(71,23) 填黄（覆盖部分红区）
+        for y in 5..23u32 {
+            for x in 53..71u32 {
+                img.put_pixel(x, y, Rgba([220, 220, 0, 255]));
+            }
+        }
+        img.save(&path).unwrap();
+
+        let ctx = HurrayContext::new(&dir.path().to_string_lossy());
+        fix_ui_creative(&ctx).unwrap();
+
+        let out = image::open(&path).unwrap().to_rgba8();
+        // 步骤1把 (6,0) 拷到 (51,0)；步骤2 fill 覆盖 (6,0)-(52,52)，故 (52,0)=fill，
+        // (53,0) 仍是拷贝残留（原 (8,0) 的红）。
+        assert_eq!(out.get_pixel(53, 0).0[0], 200, "copied body at 53,0 stays red");
+        // (7,1) 应被 fill 成青
+        let f = out.get_pixel(7, 1);
+        assert_eq!(f.0[1], 200);
+        assert_eq!(f.0[2], 200, "left region should be filled with (164,27) cyan");
+        // 步骤3从 (53,5) 取 18x18 —— 该处已被步骤1的拷贝覆盖成原 (8,5) 的红
+        assert_eq!(out.get_pixel(34, 19).0[0], 200, "18x18 comes from post-copy (53,5)");
     }
 }

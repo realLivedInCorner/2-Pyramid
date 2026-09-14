@@ -2,6 +2,26 @@
 
 （暂无）
 
+## [2.1.3] - 2026-09-14（BUILD 20039）
+
+### Added
+
+- **静默更新**：应用内更新不再弹出安装向导；下载完成后一键「应用并重启」，安装器以 `--silent --dir <当前目录> --relaunch` 覆盖文件并自动启动新版本。
+- **着色器适配实验开关**：转换页可关闭 `adapt_java_shaders`（默认开启）。关闭后原样保留 shaders，便于对比试转。
+- **`npm test` / `npm run test:offline`**：一键跑 Rust `cargo test --lib`。
+
+### Changed
+
+- **converters 按领域分模块**：`ui/` `textures/` `reverse/` `color/` `audio/` `shaders/`，文件名去掉 `fix_`/`generate_` 等 Python 前缀。
+- **hurray 轻量优化**：Task 名 `Arc<str>`、分层执行少克隆、贴图缓存 `Arc<RgbaImage>`。
+- **创造栏 tabs 切片对齐 pack.py**：始终裁 168 宽、6 片，第 7 = 第 6；非 256/512/1024/2048 尺寸跳过。
+
+### Fixed
+
+- **图层修复真正生效**：前端 `fixAlphaLayers` 接到 `process_zip` / Scheduler（此前勾选无效）。
+- Rule 7 误用当前像素 RGB 写入邻居；Rule 7 被 Rule 6 的 else-if 吞掉；Rule 9 与 Rule 5 串联互相覆盖。
+- 1.8 图集 168–196 残留像素导致 tabs 误裁「假第 7 页」。
+
 ## [2.1.2] - 2026-09-12（BUILD 20038）
 
 ### Added

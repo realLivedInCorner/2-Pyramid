@@ -208,7 +208,7 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <!-- Ready -->
+      <!-- Ready：打开安装向导 -->
       <template v-else-if="state === 'ready'">
         <div class="ud-state ready">
           <div class="ud-icon-box success">
@@ -224,7 +224,7 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <!-- Installing -->
+      <!-- Installing：启动安装向导 -->
       <template v-else-if="state === 'installing'">
         <div class="ud-state installing">
           <div class="ud-spinner"></div>
@@ -392,6 +392,8 @@ onUnmounted(() => {
 .ud-warn {
   font-size: 12px; color: #f59e0b; font-weight: 600;
 }
+
+/* Actions */
 
 /* Actions */
 .ud-actions {

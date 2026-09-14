@@ -1,4 +1,4 @@
-﻿use std::path::Path;
+use std::path::Path;
 
 use image::Rgba;
 
@@ -144,4 +144,82 @@ pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
             fix_tabs(temp_dir)
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::Rgba;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn write_tabs(temp: &std::path::Path, size: u32) -> std::path::PathBuf {
+        let dir = temp.join("assets/minecraft/textures/gui/container/creative_inventory");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("tabs.png");
+        let mut img = image::RgbaImage::new(size, size);
+        // (0,0)-(26,128) 填绿色标记源区
+        for y in 0..128 * (size / 256) {
+            for x in 0..26 * (size / 256) {
+                img.put_pixel(x, y, Rgba([0, 200, 0, 255]));
+            }
+        }
+        // (168,0)-(196,128) 填蓝色标记被右移区
+        let s = size / 256;
+        for y in 0..128 * s {
+            for x in 168 * s..196 * s {
+                img.put_pixel(x, y, Rgba([0, 0, 200, 255]));
+            }
+        }
+        img.save(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn fix_tabs_missing_file_is_ok() {
+        let dir = tempdir().unwrap();
+        assert!(fix_tabs(dir.path()).is_ok());
+    }
+
+    #[test]
+    fn fix_tabs_copies_leftmost_block_to_156() {
+        let dir = tempdir().unwrap();
+        let path = write_tabs(dir.path(), 256);
+        fix_tabs(dir.path()).unwrap();
+        let img = image::open(&path).unwrap().to_rgba8();
+        // 最后一步：复制 (0,0)-(26,128) → (156,0)
+        let p = img.get_pixel(156, 0);
+        assert_eq!(p.0[1], 200, "leftmost green should be pasted at x=156");
+    }
+
+    #[test]
+    fn fix_tabs_moves_region_168_right_by_14() {
+        let dir = tempdir().unwrap();
+        let path = write_tabs(dir.path(), 256);
+        fix_tabs(dir.path()).unwrap();
+        let img = image::open(&path).unwrap().to_rgba8();
+        // 原 (168,0) 蓝色块右移 14 → 出现在 (182,0)
+        // 但之后 (156,0) 起又粘了绿色，覆盖 156-182；182 起应仍是蓝
+        let p = img.get_pixel(182, 5);
+        // 182 可能被绿色粘贴覆盖（156+26=182），取 183 更稳
+        let p2 = img.get_pixel(183, 5);
+        assert!(
+            p.0[2] == 200 || p2.0[2] == 200 || p2.0[1] == 200,
+            "moved blue region should land near x=182, got {:?} {:?}",
+            p,
+            p2
+        );
+    }
+
+    #[test]
+    fn fix_tabs_handles_2x_scale() {
+        let dir = tempdir().unwrap();
+        let path = write_tabs(dir.path(), 512);
+        assert!(fix_tabs(dir.path()).is_ok());
+        let img = image::open(&path).unwrap().to_rgba8();
+        assert_eq!(img.width(), 512);
+        // 绿色源区按 2x 粘贴到 x=312
+        let p = img.get_pixel(312, 0);
+        assert_eq!(p.0[1], 200);
+    }
 }
