@@ -469,6 +469,16 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
+          <div class="setting-item clickable" @click="openLegalSidebar" v-if="shouldShowItem('legal')">
+            <div class="item-icon">
+              <i class="ri-book-open-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.legal.label') }}</div>
+              <div class="desc">{{ t('settings.legal.desc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
           <div class="setting-item clickable" @click="checkUpdate" v-if="shouldShowItem('update')">
             <div class="item-icon">
               <i v-if="updateChecking" class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
@@ -525,18 +535,6 @@
                 </div>
               </div>
             </div>
-            <div class="authors-block">
-              <div class="authors-title">{{ t('settings.legal.title') }}</div>
-              <p class="legal-hint">{{ t('settings.legal.hint') }}</p>
-              <div class="legal-actions">
-                <button class="btn-text" @click="openLegalSidebar">
-                  <i class="ri-book-open-line"></i> {{ t('settings.legal.browse') }}
-                </button>
-                <button class="btn-text" @click="openLegalFolder">
-                  <i class="ri-folder-open-line"></i> {{ t('settings.legal.openFolder') }}
-                </button>
-              </div>
-            </div>
           </div>
           <div class="dialog-footer">
             <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
@@ -549,11 +547,16 @@
     <div v-if="showLegalSidebar" class="legal-sidebar-overlay" @click="showLegalSidebar = false"></div>
     <aside v-if="showLegalSidebar" class="legal-sidebar" @click.stop>
       <div class="legal-sidebar-header">
-        <div>
+        <div class="legal-sidebar-header-text">
           <h3>{{ t('settings.legal.title') }}</h3>
           <p>{{ t('settings.legal.hint') }}</p>
         </div>
-        <button class="dialog-close" @click="showLegalSidebar = false" :aria-label="t('common.close')">×</button>
+        <div class="legal-sidebar-header-actions">
+          <button class="btn-text" @click="openLegalFolder" :title="t('settings.legal.openFolder')">
+            <i class="ri-folder-open-line"></i>
+          </button>
+          <button class="dialog-close" @click="showLegalSidebar = false" :aria-label="t('common.close')">×</button>
+        </div>
       </div>
       <div class="legal-sidebar-body">
         <ul class="legal-file-list">
@@ -1462,6 +1465,7 @@ const settingItems = [
   { id: 'animationEnabled', group: 'animationSpeed', label: t('settings.animationEnabled.label'), desc: t('settings.animationEnabled.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
+  { id: 'legal', group: 'version', label: t('settings.legal.label'), desc: t('settings.legal.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
   { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
   { id: 'devExportAmr', group: 'dev', label: t('settings.devMode.exportActions'), desc: t('settings.devMode.exportActionsDesc') },
@@ -2109,17 +2113,7 @@ const resetThemeColor = async () => {
   background: rgba(0,0,0,0.22);
 }
 .version-dialog {
-  max-width: min(520px, 92vw);
-  max-height: min(86vh, 760px);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.version-dialog .dialog-body {
-  overflow-y: auto;
-  min-height: 0;
-  padding-bottom: 8px;
+  max-width: 500px;
 }
 
 .version-hero {
@@ -2243,6 +2237,18 @@ const resetThemeColor = async () => {
   gap: 12px;
   padding: 1.25rem 1.5rem 1rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.legal-sidebar-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.legal-sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
 

@@ -213,6 +213,8 @@
       "fixed": "Fixed"
     },
     "legal": {
+      "label": "Legal Notices",
+      "desc": "Browse EULA, privacy, disclaimer and third-party notices",
       "title": "Legal Notices",
       "hint": "EULA, disclaimer, privacy and third-party notices are installed under legal/ and also live in the repo legal/ folder.",
       "openFolder": "Open legal folder",

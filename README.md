@@ -313,7 +313,7 @@ npm run build                                               # frontend build
 | [legal/SECURITY.md](./legal/SECURITY.md) | Vulnerability reporting |
 | [legal/CONTRIBUTING.md](./legal/CONTRIBUTING.md) | Contribution guide |
 
-**Credits:** 2-Pyramid is an independent project. Early prototypes and community tools in the Minecraft pack-conversion space informed parts of the design; we thank those authors for their work. Such references do not imply joint copyright, employment, or endorsement. In-app credits live in **Settings → Version Info**.
+**Credits:** 2-Pyramid is an independent project. Early prototypes and community tools in the Minecraft pack-conversion space informed parts of the design; we thank those authors for their work. Such references do not imply joint copyright, employment, or endorsement. In-app credits live in **Settings → Version Info**. Legal texts are bundled under `legal/` and readable in **Settings → Legal Notices**.
 
 ---
 

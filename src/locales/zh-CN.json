@@ -213,6 +213,8 @@
       "fixed": "固定"
     },
     "legal": {
+      "label": "法律信息",
+      "desc": "查看 EULA、隐私说明、免责声明与第三方声明",
       "title": "法律信息",
       "hint": "EULA、免责声明、隐私说明与第三方声明随程序安装在 legal/ 文件夹；也可在仓库 legal/ 查看。",
       "openFolder": "打开 legal 文件夹",
