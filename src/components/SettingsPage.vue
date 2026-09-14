@@ -576,7 +576,6 @@
           <button class="btn-text" @click="openLegalFolder" :title="t('settings.legal.openFolder')">
             <i class="ri-folder-open-line"></i>
           </button>
-          <button class="dialog-close" @click="showLegalSidebar = false" :aria-label="t('common.close')">×</button>
         </div>
       </div>
       <div class="legal-sidebar-body">
@@ -598,6 +597,12 @@
           <pre v-else-if="legalContent" class="legal-pre">{{ legalContent }}</pre>
           <div v-else class="legal-empty">{{ legalError || t('settings.legal.pickFile') }}</div>
         </div>
+      </div>
+      <div class="legal-sidebar-footer">
+        <button class="legal-back-btn" @click="showLegalSidebar = false">
+          <i class="ri-arrow-go-back-line"></i>
+          <span>{{ t('common.back') }}</span>
+        </button>
       </div>
     </aside>
     </transition>
@@ -2307,6 +2312,36 @@ const resetThemeColor = async () => {
   transform: translateX(100%);
   opacity: 1 !important;
   will-change: transform, box-shadow;
+}
+
+.legal-sidebar-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+}
+
+.legal-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #64748b;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.legal-back-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1d1d1f;
 }
 
 .legal-sidebar-header {
