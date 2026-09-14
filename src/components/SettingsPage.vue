@@ -469,6 +469,16 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
+          <div class="setting-item clickable" @click="showAuthors = true" v-if="shouldShowItem('authors')">
+            <div class="item-icon">
+              <i class="ri-team-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.versionInfo.authorsLabel') }}</div>
+              <div class="desc">{{ t('settings.versionInfo.authorsDesc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
           <div class="setting-item clickable" @click="openLegalSidebar" v-if="shouldShowItem('legal')">
             <div class="item-icon">
               <i class="ri-book-open-line" aria-hidden="true"></i>
@@ -525,8 +535,24 @@
                 <span class="fact-value">{{ appBuildNumber }}</span>
               </div>
             </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 作者与贡献弹窗 -->
+    <transition name="dialog-pop-quick">
+      <div v-if="showAuthors" class="dialog-overlay" @click="showAuthors = false">
+        <div class="dialog-content authors-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ t('settings.versionInfo.authors') }}</h3>
+            <button class="dialog-close" @click="showAuthors = false">×</button>
+          </div>
+          <div class="dialog-body">
             <div class="authors-block">
-              <div class="authors-title">{{ t('settings.versionInfo.authors') }}</div>
               <div class="authors-list">
                 <div v-for="a in authors" :key="a.id" class="author-row">
                   <span class="author-id">#{{ a.id }}</span>
@@ -537,7 +563,7 @@
             </div>
           </div>
           <div class="dialog-footer">
-            <button class="btn-text" @click="showVersionInfo = false">{{ t('common.close') }}</button>
+            <button class="btn-text" @click="showAuthors = false">{{ t('common.close') }}</button>
           </div>
         </div>
       </div>
@@ -1322,6 +1348,7 @@ const tempThemeRgba = computed({
 const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
 const showVersionInfo = ref(false);
+const showAuthors = ref(false);
 
 const showLegalSidebar = ref(false);
 const selectedLegalFile = ref("");
@@ -1558,6 +1585,7 @@ const settingItems = [
   { id: 'animationEnabled', group: 'animationSpeed', label: t('settings.animationEnabled.label'), desc: t('settings.animationEnabled.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
+  { id: 'authors', group: 'version', label: t('settings.versionInfo.authorsLabel'), desc: t('settings.versionInfo.authorsDesc') },
   { id: 'legal', group: 'version', label: t('settings.legal.label'), desc: t('settings.legal.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
   { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
@@ -2207,6 +2235,10 @@ const resetThemeColor = async () => {
 }
 .version-dialog {
   max-width: 500px;
+}
+
+.authors-dialog {
+  max-width: min(520px, 92vw);
 }
 
 .version-hero {
