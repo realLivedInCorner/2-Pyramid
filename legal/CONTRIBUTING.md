@@ -60,7 +60,7 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 
 ## 5. 贡献内容的许可
 
-除非另有书面约定，你提交的代码默认按与本仓库相同的 **MIT 许可证** 授权给 2-Pyramid Studio 及后续分发。提交即表示你有权做此授权（例如不违反雇佣协议或第三方版权）。
+除非另有书面约定，你提交的代码默认按 **MIT 许可证** 向公众授权，允许 2-Pyramid Studio **及所有后续接收者**使用、修改与再分发。提交即表示你有权做此授权（例如不违反雇佣协议或第三方版权）。
 
 **请勿提交：**
 
@@ -85,4 +85,4 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 
 ---
 
-**English summary:** Discuss large changes in an issue first. Put converters under the domain modules, keep zh/en locales in sync, run `npm test`, and use clear commit messages. Contributions are MIT-licensed; do not commit unauthorized Minecraft assets or personal data.
+**English summary:** Discuss large changes in an issue first. Put converters under the domain modules, keep zh/en locales in sync, run `npm test`, and use clear commit messages. Contributions are MIT-licensed to the public (the Studio is only the maintainer); do not commit unauthorized Minecraft assets or personal data.

@@ -2,6 +2,7 @@
   "name": "2pyr-installer-app",
   "private": true,
   "version": "2.1.4",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --port 1422",

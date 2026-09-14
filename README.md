@@ -288,12 +288,13 @@ The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The ve
 ├── tools/                     Release pipeline / build number / logo generation
 ├── BUILD                      Build number (auto-incremented on release builds)
 ├── CHANGELOG.md               Changelog
+├── legal/                     EULA / Privacy / Disclaimer / Notices / Security / Contributing
 └── release/                   Build artifacts (gitignored)
 ```
 
 ### 🤝 Contributing
 
-PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Before pushing, please run:
+PRs welcome — see [legal/CONTRIBUTING.md](./legal/CONTRIBUTING.md). Before pushing, please run:
 
 ```bash
 npm test                                                    # Rust unit tests
@@ -305,12 +306,12 @@ npm run build                                               # frontend build
 | File | Purpose |
 |------|---------|
 | [LICENSE](./LICENSE) | MIT — source code |
-| [EULA.md](./EULA.md) | End-user notice; does **not** restrict MIT rights |
-| [DISCLAIMER.md](./DISCLAIMER.md) | Warranty disclaimer; unofficial Mojang/Microsoft tool |
-| [PRIVACY.md](./PRIVACY.md) | Local-first privacy; no telemetry |
-| [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) | Open-source dependency notices |
-| [SECURITY.md](./SECURITY.md) | Vulnerability reporting |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Contribution guide |
+| [legal/EULA.md](./legal/EULA.md) | End-user notice; does **not** restrict MIT rights |
+| [legal/DISCLAIMER.md](./legal/DISCLAIMER.md) | Warranty disclaimer; unofficial Mojang/Microsoft tool |
+| [legal/PRIVACY.md](./legal/PRIVACY.md) | Local-first privacy; no telemetry |
+| [legal/THIRD-PARTY-NOTICES.md](./legal/THIRD-PARTY-NOTICES.md) | Open-source dependency notices |
+| [legal/SECURITY.md](./legal/SECURITY.md) | Vulnerability reporting |
+| [legal/CONTRIBUTING.md](./legal/CONTRIBUTING.md) | Contribution guide |
 
 **Credits:** 2-Pyramid is an independent project. Early prototypes and community tools in the Minecraft pack-conversion space informed parts of the design; we thank those authors for their work. Such references do not imply joint copyright, employment, or endorsement. In-app credits live in **Settings → Version Info**.
 
@@ -320,4 +321,4 @@ npm run build                                               # frontend build
 
 [MIT](./LICENSE) © 2025–2026 2-Pyramid Studio
 
-使用可执行程序时另见 [EULA](./EULA.md) 与 [DISCLAIMER](./DISCLAIMER.md)。请同时遵守 Minecraft EULA 与资源包原作者授权。
+使用可执行程序时另见 [EULA](./legal/EULA.md) 与 [DISCLAIMER](./legal/DISCLAIMER.md)。请同时遵守 Minecraft EULA 与资源包原作者授权。

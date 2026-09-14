@@ -20,8 +20,13 @@ Python_Script/
 set_version.py
 2pyr-logo.svg
 overlay_projects.json
+src-tauri/overlay_projects.json
 test*
 thumb*
+
+# Tauri generated schemas (regenerated on build)
+src-tauri/gen/
+installer-app/src-tauri/gen/
 
 # compose-next / agent working docs
 docs/compose/
@@ -29,15 +34,13 @@ docs/compose/
 # Temp
 temp_overlay/
 .BUILD_LAST_USED
+payload.zip
 
 # Release artifacts (build pipeline output)
 release/
 
 # Claude
 .claude/
-
-# Compose / agent working docs
-docs/compose/
 
 # Editor directories and files
 .vscode/*
