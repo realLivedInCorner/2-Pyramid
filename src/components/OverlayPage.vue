@@ -3,7 +3,11 @@
     <!-- 头部区域 -->
     <div class="header">
       <div class="header-section">
-        <button class="back-btn" @click="goBack" :aria-label="t('common.backToHome')">
+        <button
+          class="back-btn"
+          @click="goBack"
+          :aria-label="viewMode === 'editor' ? t('overlay.backToList') : t('common.backToHome')"
+        >
           <i class="ri-arrow-left-line back-icon" aria-hidden="true"></i>
           <span>{{ t('common.back') }}</span>
         </button>
@@ -138,30 +142,14 @@
       </Transition>
     </div>
 
-    <!-- 新建项目对话框 -->
-    <transition name="dialog-pop-quick">
-      <div v-if="showCreateDialog" class="dialog-overlay" @click.self="showCreateDialog = false">
-        <div class="simple-dialog dialog-content">
-          <h3>{{ t('overlay.createTitle') }}</h3>
-          <input
-            v-model="newProjectName"
-            :placeholder="t('overlay.createPlaceholder')"
-            class="project-input"
-            @keyup.enter="handleCreateProject"
-          />
-          <div class="dialog-footer">
-            <button class="ghost-btn" @click="showCreateDialog = false">{{ t('common.cancel') }}</button>
-            <button
-              class="primary-btn"
-              :disabled="!newProjectName"
-              @click="handleCreateProject"
-            >
-              {{ t('common.create') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <CreateProjectDialog v-model="showCreateDialog" @create="handleCreateProject" />
+    <ImportShareDialog v-model="showImportDialog" @import="handleImportShareCode" />
+    <ExportShareDialog v-model="showExportDialog" :code="exportedShareCode" @copy="copyShareCode" />
+    <DeleteProjectDialog
+      v-model="showDeleteDialog"
+      :name="pendingDelete?.name ?? ''"
+      @confirm="confirmDeleteOverlay"
+    />
 
     <!-- 自定义内容：右侧侧栏（自带滑入，Transition 提供滑出） -->
     <Transition name="sidebar-out">
@@ -187,64 +175,6 @@
         @close="showVisualDialog = false"
       />
     </Transition>
-
-    <!-- 导入分享码对话框 -->
-    <transition name="dialog-pop-quick">
-      <div v-if="showImportDialog" class="dialog-overlay" @click.self="showImportDialog = false">
-        <div class="simple-dialog dialog-content">
-          <h3>{{ t('overlay.importTitle') }}</h3>
-          <p class="dialog-desc">{{ t('overlay.importDesc') }}</p>
-          <textarea
-            v-model="shareCodeToImport"
-            :placeholder="t('overlay.importPlaceholder')"
-            class="project-input share-textarea"
-          ></textarea>
-          <div class="dialog-footer">
-            <button class="ghost-btn" @click="showImportDialog = false">{{ t('common.cancel') }}</button>
-            <button
-              class="primary-btn"
-              :disabled="!shareCodeToImport.startsWith('2PYR-') && !shareCodeToImport.startsWith('HRCN-')"
-              @click="handleImportShareCode"
-            >
-              {{ t('common.import') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- 导出分享码对话框 -->
-    <transition name="dialog-pop">
-      <div v-if="showExportDialog" class="dialog-overlay" @click.self="showExportDialog = false">
-        <div class="simple-dialog dialog-content">
-          <h3>{{ t('overlay.exportTitle') }}</h3>
-          <p class="dialog-desc">{{ t('overlay.exportDesc') }}</p>
-          <div class="share-code-box">
-            <code>{{ exportedShareCode }}</code>
-          </div>
-          <div class="dialog-footer">
-            <button class="ghost-btn" @click="showExportDialog = false">{{ t('common.close') }}</button>
-            <button class="primary-btn" @click="copyShareCode">{{ t('overlay.copyCode') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- 删除覆盖包确认对话框（自绘，不使用系统原生弹窗） -->
-    <transition name="dialog-pop-quick">
-      <div v-if="showDeleteDialog" class="dialog-overlay" @click.self="showDeleteDialog = false">
-        <div class="simple-dialog dialog-content">
-          <h3>{{ t('overlay.deleteTitle') }}</h3>
-          <p class="dialog-desc">{{ t('overlay.deleteConfirm', { name: pendingDelete?.name ?? '' }) }}</p>
-          <div class="dialog-footer">
-            <button class="ghost-btn" @click="showDeleteDialog = false">{{ t('common.cancel') }}</button>
-            <button class="danger-btn" @click="confirmDeleteOverlay">
-              {{ t('overlay.deleteConfirmBtn') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
   </div>
 </template>
 
@@ -256,6 +186,10 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import ItemNameDialog from './ItemNameDialog.vue';
 import ItemSizeDialog from './ItemSizeDialog.vue';
 import VisualDialog from './VisualDialog.vue';
+import CreateProjectDialog from './overlay/CreateProjectDialog.vue';
+import ImportShareDialog from './overlay/ImportShareDialog.vue';
+import ExportShareDialog from './overlay/ExportShareDialog.vue';
+import DeleteProjectDialog from './overlay/DeleteProjectDialog.vue';
 const { t } = useI18n()
 
 interface OverlayProject {
@@ -286,9 +220,7 @@ const showImportDialog = ref(false);
 const showExportDialog = ref(false);
 const showDeleteDialog = ref(false);
 const pendingDelete = ref<OverlayProject | null>(null);
-const shareCodeToImport = ref('');
 const exportedShareCode = ref('');
-const newProjectName = ref('');
 
 const options = [
   {
@@ -314,7 +246,14 @@ const options = [
   }
 ];
 
-const goBack = () => emit('switch-page', 'home');
+/** 分层返回：编辑器 → 项目列表 → 首页 */
+const goBack = () => {
+  if (viewMode.value === 'editor') {
+    viewMode.value = 'list';
+    return;
+  }
+  emit('switch-page', 'home');
+};
 
 const formatDate = (timestamp: number) => {
   return new Date(timestamp).toLocaleString('zh-CN', {
@@ -341,19 +280,17 @@ const loadProjects = async () => {
   }
 };
 
-const handleCreateProject = async () => {
-  if (!newProjectName.value) return;
+const handleCreateProject = async (name: string) => {
+  if (!name) return;
   statusMsg.value = null;
   try {
     const newProject = await invoke<OverlayProject>('overlay_init', {
       request: {
-        name: newProjectName.value,
+        name,
         parentPackPath: ''
       }
     });
     overlayHistory.value.unshift(newProject);
-    showCreateDialog.value = false;
-    newProjectName.value = '';
     statusMsg.value = { text: t('overlay.createSuccess', { name: newProject.name }), type: 'success' };
     setTimeout(() => statusMsg.value = null, 3000);
     loadOverlay(newProject);
@@ -374,10 +311,10 @@ const exportShareCode = async (item: OverlayProject) => {
   }
 };
 
-const handleImportShareCode = async () => {
-  if (!shareCodeToImport.value) return;
+const handleImportShareCode = async (shareCode: string) => {
+  if (!shareCode) return;
   try {
-    const newProject = await invoke<any>('import_overlay_share_code', { shareCode: shareCodeToImport.value });
+    const newProject = await invoke<any>('import_overlay_share_code', { shareCode });
     const processedProject = {
       id: newProject.id,
       name: newProject.name,
@@ -385,8 +322,6 @@ const handleImportShareCode = async () => {
       updatedAt: newProject.updatedAt || Date.now()
     };
     overlayHistory.value.unshift(processedProject);
-    showImportDialog.value = false;
-    shareCodeToImport.value = '';
     statusMsg.value = { text: t('overlay.importSuccess', { name: processedProject.name }), type: 'success' };
     setTimeout(() => statusMsg.value = null, 3000);
   } catch (e) {

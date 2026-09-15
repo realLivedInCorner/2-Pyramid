@@ -28,17 +28,17 @@ pub fn get_dev_mode() -> bool {
     GLOBAL_LOGGER.is_dev_mode()
 }
 
-// ── Action monitor（开发者诊断）───────────────────────────────────
+// ── Action monitor（开发者诊断 / Action Mon3tr）─────────────────
 //
-// 启用后，前端在捕获阶段记录每一次点击（元素描述 + 坐标）并通过
-// `log_action` 写入日志，用于排查「按钮点了没反应」之类的问题。
+// 启用后，前端在捕获阶段记录交互事件并写入内存环形缓冲：
+//   * click / input / keydown / change / page
 // 两种启用方式：
-//   1. 启动参数 `--action-monitor`
+//   1. 启动参数 `--action-monitor` 或环境变量 `2PYR_ACTION_MONITOR=1`
 //   2. 设置页开发者选项里的「动作监视」开关
+//   3. 实时流协议 `MON ON`（供 Mon3tr 远程打开）
 //
-// 除日志外，动作还进入内存环形缓冲，可导出为 .2amr 文件
-// （Action Mon3tr 可解析回放）。debug 构建下另提供
-// 127.0.0.1:24159 的本地 TCP 实时流，供 Mon3tr 接管实时动作。
+// 导出 .2amr 供 Mon3tr 逐帧回放；debug 构建提供 127.0.0.1:24159
+// 实时流，协议见 `ensure_action_live_server`。
 pub static ACTION_MONITOR: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
@@ -55,11 +55,15 @@ pub struct ActionRecord {
     /// 点击发生时所在的 Vue 页面（home / conversion / settings / overlay …），
     /// 供 Mon3tr 复现点击逻辑时的上下文（截图不入 2amr，实时按需抓取）。
     pub page: String,
+    /// 可选补充说明：输入内容摘要、按键名、切换开关值等。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 const ACTION_MAX_RECORDS: usize = 20_000;
 const ACTION_ELEMENT_MAX: usize = 500;
 const ACTION_PAGE_MAX: usize = 100;
+const ACTION_DETAIL_MAX: usize = 200;
 const ACTION_LIVE_PORT: u16 = 24159;
 
 static ACTION_RECORDS: Mutex<Option<VecDeque<ActionRecord>>> = Mutex::new(None);
@@ -82,7 +86,13 @@ fn sanitize_page(s: &str) -> String {
     out
 }
 
-fn push_action_record(kind: &str, x: f64, y: f64, element: &str, page: &str) {
+fn sanitize_detail(s: &str) -> String {
+    let mut out: String = s.chars().filter(|c| !c.is_control()).take(ACTION_DETAIL_MAX).collect();
+    out.truncate(ACTION_DETAIL_MAX);
+    out
+}
+
+fn push_action_record(kind: &str, x: f64, y: f64, element: &str, page: &str, detail: Option<&str>) {
     let mut recs = ACTION_RECORDS.lock().unwrap();
     let buffer = recs.get_or_insert_with(|| VecDeque::with_capacity(ACTION_MAX_RECORDS));
     let mut start = ACTION_START.lock().unwrap();
@@ -98,6 +108,7 @@ fn push_action_record(kind: &str, x: f64, y: f64, element: &str, page: &str) {
         y,
         element: sanitize_element(element),
         page: sanitize_page(page),
+        detail: detail.map(sanitize_detail).filter(|s| !s.is_empty()),
     };
     buffer.push_back(record.clone());
     while buffer.len() > ACTION_MAX_RECORDS {
@@ -171,7 +182,7 @@ pub fn ensure_action_live_server(app: tauri::AppHandle) {
             }
             let _ = s.flush();
 
-            // 读取线程：处理 SHOT 请求（对同一 TCP 连接全双工收发）
+            // 读取线程：处理 Mon3tr 控制指令（对同一 TCP 连接全双工收发）
             let reader = match s.try_clone() {
                 Ok(r) => r,
                 Err(_) => {
@@ -190,17 +201,50 @@ pub fn ensure_action_live_server(app: tauri::AppHandle) {
                         Ok(0) | Err(_) => break,
                         Ok(_) => {}
                     }
-                    let req = line.trim();
-                    if req.eq_ignore_ascii_case("SHOT") {
-                        let resp = match capture_window_shot(&shot_app) {
+                    let raw = line.trim();
+                    if raw.is_empty() {
+                        continue;
+                    }
+                    let upper = raw.to_ascii_uppercase();
+                    let resp: String = if upper == "SHOT" {
+                        match capture_window_shot(&shot_app) {
                             Ok(b64) => format!("SHOT:{}\n", b64),
-                            Err(_) => "SHOT:ERR\n".to_string(),
-                        };
-                        if reader.get_mut().write_all(resp.as_bytes()).is_err()
-                            || reader.get_mut().flush().is_err()
-                        {
-                            break;
+                            Err(e) => format!("SHOT:ERR {}\n", e),
                         }
+                    } else if upper == "STATUS" {
+                        format!("STATUS monitor={} frames={}\n",
+                            if ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed) { "on" } else { "off" },
+                            action_frame_count(),
+                        )
+                    } else if upper == "CLEAR" {
+                        clear_action_records_inner();
+                        "CLEAR:OK\n".to_string()
+                    } else if upper == "MON ON" {
+                        ACTION_MONITOR.store(true, std::sync::atomic::Ordering::Relaxed);
+                        "MON:ON\n".to_string()
+                    } else if upper == "MON OFF" {
+                        ACTION_MONITOR.store(false, std::sync::atomic::Ordering::Relaxed);
+                        "MON:OFF\n".to_string()
+                    } else if let Some(rest) = upper.strip_prefix("CLICK ") {
+                        // 回放驱动：在主窗口客户区坐标合成一次点击，让真实 UI 跟着变
+                        let mut parts = rest.split_whitespace();
+                        let x: f64 = parts.next().and_then(|v| v.parse().ok()).unwrap_or(f64::NAN);
+                        let y: f64 = parts.next().and_then(|v| v.parse().ok()).unwrap_or(f64::NAN);
+                        if !x.is_finite() || !y.is_finite() {
+                            "CLICK:ERR bad-coords\n".to_string()
+                        } else {
+                            match inject_client_click(&shot_app, x, y) {
+                                Ok(()) => "CLICK:OK\n".to_string(),
+                                Err(e) => format!("CLICK:ERR {}\n", e),
+                            }
+                        }
+                    } else {
+                        format!("ERR unknown {}\n", raw)
+                    };
+                    if reader.get_mut().write_all(resp.as_bytes()).is_err()
+                        || reader.get_mut().flush().is_err()
+                    {
+                        break;
                     }
                 }
             });
@@ -214,7 +258,7 @@ pub fn ensure_action_live_server(app: tauri::AppHandle) {
 /// 仅供 Mon3tr 实时查看使用：不写文件、不存入 2amr。
 ///
 /// 实现：GDI PrintWindow(PW_RENDERFULLCONTENT) 抓取自身窗口（含
-/// WebView2 GPU 合成内容），全黑时回退 BitBlt 屏幕拷贝。
+/// WebView2 GPU 合成内容）；失败或明显异常时回退 BitBlt 屏幕拷贝。
 #[cfg(debug_assertions)]
 fn capture_window_shot(app: &tauri::AppHandle) -> Result<String, String> {
     use base64::Engine;
@@ -228,13 +272,71 @@ fn capture_window_shot(app: &tauri::AppHandle) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(&png))
 }
 
+/// 在主窗口客户区坐标 (x, y) 合成一次左键点击。
+/// Mon3tr 回放 2amr 时调用，让真实 2-Pyramid UI 跟着切换。
+#[cfg(debug_assertions)]
+fn inject_client_click(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), String> {
+    use tauri::Manager;
+    use windows_sys::Win32::Foundation::POINT;
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        ClientToScreen, SetCursorPos, SetForegroundWindow,
+    };
+
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let hwnd = window.hwnd().map_err(|e| format!("hwnd failed: {}", e))?;
+    // 尽量前置，保证点击落在目标窗口
+    let _ = window.set_focus();
+    unsafe {
+        SetForegroundWindow(hwnd.0);
+        let mut pt = POINT {
+            x: x.round() as i32,
+            y: y.round() as i32,
+        };
+        if ClientToScreen(hwnd.0, &mut pt) == 0 {
+            return Err("ClientToScreen failed".into());
+        }
+        let _ = SetCursorPos(pt.x, pt.y);
+        // 短暂等待焦点/光标稳定
+        std::thread::sleep(std::time::Duration::from_millis(30));
+
+        let mk_input = |flags: u32| INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 {
+                mi: MOUSEINPUT {
+                    dx: 0,
+                    dy: 0,
+                    mouseData: 0,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        };
+        let mut inputs = [mk_input(MOUSEEVENTF_LEFTDOWN), mk_input(MOUSEEVENTF_LEFTUP)];
+        let sent = SendInput(
+            inputs.len() as u32,
+            inputs.as_mut_ptr(),
+            std::mem::size_of::<INPUT>() as i32,
+        );
+        if sent != inputs.len() as u32 {
+            return Err("SendInput failed".into());
+        }
+    }
+    Ok(())
+}
+
 #[cfg(debug_assertions)]
 fn capture_hwnd_png(hwnd_raw: *mut core::ffi::c_void) -> Result<Vec<u8>, String> {
     use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
     use windows_sys::Win32::Graphics::Gdi::{
         BitBlt, ClientToScreen, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC,
-        DeleteObject, GetDC, GetDIBits, GetPixel, ReleaseDC, SelectObject, BITMAPINFO,
-        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, RGBQUAD, SRCCOPY,
+        DeleteObject, GetDC, GetDIBits, ReleaseDC, SelectObject, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
     };
     use windows_sys::Win32::Storage::Xps::PrintWindow;
     use windows_sys::Win32::UI::WindowsAndMessaging::GetClientRect;
@@ -269,11 +371,11 @@ fn capture_hwnd_png(hwnd_raw: *mut core::ffi::c_void) -> Result<Vec<u8>, String>
         }
         let old = SelectObject(mem_dc, bmp);
 
-        // 首选 PrintWindow(PW_RENDERFULLCONTENT=2)：可拿到 GPU 合成内容
+        // PrintWindow(PW_RENDERFULLCONTENT=2)：优先拿 GPU 合成内容
         let printed = PrintWindow(hwnd, mem_dc, 2) != 0;
-        let center = if printed { GetPixel(mem_dc, w / 2, h / 2) } else { 0 };
-        if !printed || center == 0 {
-            // 回退：BitBlt 屏幕拷贝（窗口需可见，帧为无边框窗口即完整内容）
+        // 不再用「中心像素 == 0」判断失败（深色 UI 也会是 0）。
+        // PrintWindow 成功就采用；失败再 BitBlt 屏幕拷贝。
+        if !printed {
             let mut pt = POINT { x: rect.left, y: rect.top };
             ClientToScreen(hwnd, &mut pt);
             let _ = BitBlt(mem_dc, 0, 0, w, h, screen_dc, pt.x, pt.y, SRCCOPY);
@@ -321,8 +423,8 @@ fn capture_hwnd_png(hwnd_raw: *mut core::ffi::c_void) -> Result<Vec<u8>, String>
         let img = image::RgbaImage::from_raw(w as u32, h as u32, rgba)
             .ok_or_else(|| "invalid bitmap buffer".to_string())?;
 
-        // 缩放到宽 800（只在更大时缩放），控制单帧体积与传输延迟
-        let target_w = 800u32.min(w as u32);
+        // 缩放到宽 720（只在更大时缩放），控制单帧体积与传输延迟
+        let target_w = 720u32.min(w as u32);
         let resized = if (w as u32) > target_w {
             let nh = ((h as u32) * target_w / (w as u32)).max(1);
             image::imageops::resize(&img, target_w, nh, image::imageops::FilterType::Triangle)
@@ -355,10 +457,69 @@ pub fn is_action_monitor() -> bool {
     ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+fn action_frame_count() -> usize {
+    ACTION_RECORDS
+        .lock()
+        .map(|r| r.as_ref().map(|b| b.len()).unwrap_or(0))
+        .unwrap_or(0)
+}
+
+fn clear_action_records_inner() {
+    let mut recs = ACTION_RECORDS.lock().unwrap();
+    if let Some(buffer) = recs.as_mut() {
+        buffer.clear();
+    }
+    // 重置时间轴，导出回放时 t 从 0 重新计
+    *ACTION_START.lock().unwrap() = None;
+}
+
+/// 清空内存中的动作记录（Mon3tr / 设置页共用）。
 #[tauri::command]
-pub fn log_action(element: String, x: f64, y: f64, page: String) {
-    crate::log_info!("[ACTION] ({:.0}, {:.0}) [{}] {}", x, y, page, element);
-    push_action_record("click", x, y, &element, &page);
+pub fn clear_action_records() -> u32 {
+    let before = action_frame_count();
+    clear_action_records_inner();
+    crate::log_info!("OKAY clear_action_records [dropped={}]", before);
+    before as u32
+}
+
+/// 当前监视状态与帧数（设置页 / Mon3tr STATUS）。
+#[tauri::command]
+pub fn action_monitor_status() -> serde_json::Value {
+    serde_json::json!({
+        "enabled": ACTION_MONITOR.load(std::sync::atomic::Ordering::Relaxed),
+        "frames": action_frame_count(),
+        "maxFrames": ACTION_MAX_RECORDS,
+        "livePort": ACTION_LIVE_PORT,
+    })
+}
+
+/// 记录一次交互。`kind`：click / input / keydown / change / page。
+#[tauri::command]
+pub fn log_action(
+    element: String,
+    x: f64,
+    y: f64,
+    page: String,
+    kind: Option<String>,
+    detail: Option<String>,
+) {
+    let k = kind.as_deref().unwrap_or("click");
+    let detail_ref = detail.as_deref();
+    let detail_log = detail_ref.unwrap_or("");
+    crate::log_info!(
+        "[ACTION] {} ({:.0}, {:.0}) [{}] {}{}",
+        k,
+        x,
+        y,
+        page,
+        element,
+        if detail_log.is_empty() {
+            String::new()
+        } else {
+            format!(" | {}", detail_log)
+        }
+    );
+    push_action_record(k, x, y, &element, &page, detail_ref);
 }
 
 /// 导出内存中的动作记录为 .2amr 文件（Action Mon3tr 回放格式）。
@@ -372,6 +533,12 @@ pub fn export_action_records(dest: String) -> Result<u32, String> {
     if buffer.is_empty() {
         return Err("动作监视未开启，没有可导出的动作记录".to_string());
     }
+
+    // 尽量写入真实视口尺寸，便于 Mon3tr 按比例回放坐标
+    let window = try_main_window_size()
+        .map(|(w, h)| serde_json::json!({ "width": w, "height": h }))
+        .unwrap_or_else(|| serde_json::json!({ "width": 1200, "height": 750 }));
+
     let header = serde_json::json!({
         "format": "2amr",
         "version": 1,
@@ -382,7 +549,7 @@ pub fn export_action_records(dest: String) -> Result<u32, String> {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0),
-        "window": { "width": 1200, "height": 750 },
+        "window": window,
         "frames": buffer.iter().collect::<Vec<_>>(),
     });
     let json = serde_json::to_string_pretty(&header)
@@ -391,6 +558,23 @@ pub fn export_action_records(dest: String) -> Result<u32, String> {
     let count = buffer.len() as u32;
     crate::log_info!("OKAY export_action_records [frames={} -> {}]", count, dest);
     Ok(count)
+}
+
+/// 前端上报的最近视口尺寸（window.innerWidth/Height），导出 2amr 时写入。
+static ACTION_VIEWPORT: Mutex<Option<(u32, u32)>> = Mutex::new(None);
+
+fn try_main_window_size() -> Option<(u32, u32)> {
+    *ACTION_VIEWPORT.lock().ok()?
+}
+
+/// 前端上报当前视口尺寸。
+#[tauri::command]
+pub fn set_action_viewport(width: f64, height: f64) {
+    let w = width.round().clamp(1.0, 20000.0) as u32;
+    let h = height.round().clamp(1.0, 20000.0) as u32;
+    if let Ok(mut vp) = ACTION_VIEWPORT.lock() {
+        *vp = Some((w, h));
+    }
 }
 
 #[tauri::command]

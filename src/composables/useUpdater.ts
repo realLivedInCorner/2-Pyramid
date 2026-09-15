@@ -13,9 +13,13 @@ export interface ReleaseInfo {
   isPrerelease: boolean;
 }
 
+export type VersionBumpKind = "none" | "patch" | "minor" | "major";
+
 export interface UpdateCheckResult {
   hasUpdate: boolean;
   currentVersion: string;
+  /** major.minor.patch 升高位：none | patch | minor | major */
+  bumpKind: VersionBumpKind;
   latest: ReleaseInfo | null;
 }
 
@@ -48,12 +52,14 @@ export function useUpdater() {
 
   async function checkStartupUpdate(): Promise<{
     hasUpdate: boolean;
-    priority: string;
+    /** "safe" = 强制（Safe-tag 或 major）；"optional" = 用户自愿 */
+    priority: "safe" | "optional";
     result: UpdateCheckResult | null;
   }> {
     try {
       const channel = await getChannel();
       const result = await checkForUpdate(channel);
+      // 后端已按 bump 覆盖 priority：Safe-tag / major → safe，其余 optional
       const priority = result.latest?.priority ?? "optional";
       return {
         hasUpdate: result.hasUpdate,

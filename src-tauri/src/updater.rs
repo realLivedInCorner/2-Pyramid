@@ -47,6 +47,8 @@ pub enum UpdatePriority {
 pub struct UpdateCheckResult {
     pub has_update: bool,
     pub current_version: String,
+    /// major / minor / patch / none —— 前端用来标注「值得更新」的程度
+    pub bump_kind: String,
     pub latest: Option<ReleaseInfo>,
 }
 
@@ -105,19 +107,103 @@ fn strip_v(s: &str) -> String {
     s.strip_prefix('v').unwrap_or(s).to_string()
 }
 
-// ── Version comparison ──────────────────────────────────────
+// ── Version comparison (major.minor.patch) ─────────────────
 
-fn version_greater(a: &str, b: &str) -> bool {
-    let pa: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
-    let pb: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
-    let len = pa.len().max(pb.len());
-    for i in 0..len {
-        let va = pa.get(i).copied().unwrap_or(0);
-        let vb = pb.get(i).copied().unwrap_or(0);
-        if va > vb { return true; }
-        if va < vb { return false; }
+/// 语义化版本核心三元组。预发布后缀（`-beta.1`）与构建元数据（`+meta`）
+/// 不参与比较主次序——渠道由 tag 前缀/ prerelease 标记决定。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct SemVer {
+    major: u32,
+    minor: u32,
+    patch: u32,
+}
+
+fn parse_semver(s: &str) -> Option<SemVer> {
+    let s = s.trim();
+    let s = s.strip_prefix('v').or_else(|| s.strip_prefix('V')).unwrap_or(s);
+    let core = s.split(['-', '+']).next().unwrap_or(s).trim();
+    if core.is_empty() {
+        return None;
     }
-    false
+    let mut parts = core.split('.');
+    let major: u32 = parts.next()?.parse().ok()?;
+    let minor: u32 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    let patch: u32 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    Some(SemVer { major, minor, patch })
+}
+
+/// 更新级别：按 major / minor / patch 首个升高位判定。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VersionBump {
+    None,
+    Patch,
+    Minor,
+    Major,
+}
+
+impl VersionBump {
+    fn as_str(self) -> &'static str {
+        match self {
+            VersionBump::None => "none",
+            VersionBump::Patch => "patch",
+            VersionBump::Minor => "minor",
+            VersionBump::Major => "major",
+        }
+    }
+}
+
+/// 比较 `a` 是否严格大于 `b`（按 major.minor.patch）。
+/// 解析失败时回退到宽松逐段数字比较，避免脏 tag 直接卡死更新。
+fn version_greater(a: &str, b: &str) -> bool {
+    match (parse_semver(a), parse_semver(b)) {
+        (Some(pa), Some(pb)) => pa > pb,
+        _ => {
+            let pa: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
+            let pb: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
+            let len = pa.len().max(pb.len());
+            for i in 0..len {
+                let va = pa.get(i).copied().unwrap_or(0);
+                let vb = pb.get(i).copied().unwrap_or(0);
+                if va > vb {
+                    return true;
+                }
+                if va < vb {
+                    return false;
+                }
+            }
+            false
+        }
+    }
+}
+
+/// 判断 `latest` 相对 `current` 的更新级别。
+/// 无法解析时：若 `latest > current` 则按 Minor 保守估计。
+fn version_bump(current: &str, latest: &str) -> VersionBump {
+    match (parse_semver(current), parse_semver(latest)) {
+        (Some(c), Some(l)) => {
+            if l.major > c.major {
+                VersionBump::Major
+            } else if l.major < c.major {
+                VersionBump::None
+            } else if l.minor > c.minor {
+                VersionBump::Minor
+            } else if l.minor < c.minor {
+                VersionBump::None
+            } else if l.patch > c.patch {
+                VersionBump::Patch
+            } else {
+                VersionBump::None
+            }
+        }
+        _ => {
+            if version_greater(latest, current) {
+                VersionBump::Minor
+            } else {
+                VersionBump::None
+            }
+        }
+    }
 }
 
 // ── GitHub API (async) ──────────────────────────────────────
@@ -166,6 +252,18 @@ async fn fetch_releases() -> Result<Vec<GitHubRelease>, String> {
         .map_err(|e| format!("Failed to parse GitHub response: {}", e))
 }
 
+/// 最终优先级：
+/// * `Safe-*` tag —— 强制更新（安全/紧急修复）
+/// * major 升位 —— 强制更新（大版本不兼容风险，默认要求升级）
+/// * minor / patch —— 可选更新，用户自愿
+fn effective_priority(tag_priority: UpdatePriority, bump: VersionBump) -> UpdatePriority {
+    match tag_priority {
+        UpdatePriority::Safe => UpdatePriority::Safe,
+        _ if bump == VersionBump::Major => UpdatePriority::Safe,
+        _ => UpdatePriority::Optional,
+    }
+}
+
 async fn check_github_releases(channel: &str, current_version: &str) -> Result<UpdateCheckResult, String> {
     let releases = fetch_releases().await?;
 
@@ -212,15 +310,23 @@ async fn check_github_releases(channel: &str, current_version: &str) -> Result<U
         }
     });
 
-    let latest = parsed.into_iter().next();
-    let has_update = latest
+    let mut latest = parsed.into_iter().next();
+    let bump = latest
         .as_ref()
-        .map(|r| version_greater(&r.version, current_version))
-        .unwrap_or(false);
+        .map(|r| version_bump(current_version, &r.version))
+        .unwrap_or(VersionBump::None);
+    // 仅 major.minor.patch 任一升高才视为有更新
+    let has_update = bump != VersionBump::None;
+
+    // 按 bump 覆盖 tag 优先级：Safe 永远强制；major 也强制；其余可选
+    if let Some(ref mut r) = latest {
+        r.priority = effective_priority(r.priority.clone(), bump);
+    }
 
     Ok(UpdateCheckResult {
         has_update,
         current_version: current_version.to_string(),
+        bump_kind: bump.as_str().to_string(),
         latest: if has_update { latest } else { None },
     })
 }
@@ -525,10 +631,12 @@ fn launch_installer(path: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    // 自制安装器：更新时打开图形向导，由用户确认安装路径与进度。
+    // 自制安装器：更新时打开图形向导（覆盖更新页），由用户确认后覆盖安装。
+    // 传 --from-app：检测到已安装时进入更新模式，而不是全新安装流程。
     // 不要用 --silent：更新场景需要可见反馈，且旧 exe 退出时机由向导控制，
     // 避免静默解压撞上文件锁。
     Command::new(path)
+        .arg("--from-app")
         .spawn()
         .map_err(|e| format!("Failed to launch installer: {}", e))?;
 
@@ -649,4 +757,79 @@ pub fn check_update_marker() -> Result<Option<String>, String> {
         .map_err(|e| format!("Failed to read update marker: {}", e))?;
     let _ = fs::remove_file(&path);
     Ok(Some(version.trim().to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_semver_core() {
+        assert_eq!(
+            parse_semver("2.2.0"),
+            Some(SemVer { major: 2, minor: 2, patch: 0 })
+        );
+        assert_eq!(
+            parse_semver("v2.1.5"),
+            Some(SemVer { major: 2, minor: 1, patch: 5 })
+        );
+        assert_eq!(
+            parse_semver("2.2.0-beta.1"),
+            Some(SemVer { major: 2, minor: 2, patch: 0 })
+        );
+        assert_eq!(
+            parse_semver("2.2.0+build.7"),
+            Some(SemVer { major: 2, minor: 2, patch: 0 })
+        );
+        assert_eq!(
+            parse_semver("2.2"),
+            Some(SemVer { major: 2, minor: 2, patch: 0 })
+        );
+        assert!(parse_semver("").is_none());
+        assert!(parse_semver("not-a-version").is_none());
+    }
+
+    #[test]
+    fn version_greater_semver() {
+        assert!(version_greater("2.2.0", "2.1.9"));
+        assert!(version_greater("3.0.0", "2.99.99"));
+        assert!(version_greater("2.1.1", "2.1.0"));
+        assert!(!version_greater("2.1.0", "2.1.0"));
+        assert!(!version_greater("2.0.9", "2.1.0"));
+        // 预发布与正式版同 core：视为相等，不提示更新
+        assert!(!version_greater("2.2.0-beta", "2.2.0"));
+    }
+
+    #[test]
+    fn version_bump_levels() {
+        assert_eq!(version_bump("2.1.5", "2.2.0"), VersionBump::Minor);
+        assert_eq!(version_bump("2.2.0", "3.0.0"), VersionBump::Major);
+        assert_eq!(version_bump("2.2.0", "2.2.1"), VersionBump::Patch);
+        assert_eq!(version_bump("2.2.0", "2.2.0"), VersionBump::None);
+        assert_eq!(version_bump("2.3.0", "2.2.0"), VersionBump::None);
+        assert_eq!(version_bump("3.0.0", "2.9.9"), VersionBump::None);
+    }
+
+    #[test]
+    fn effective_priority_rules() {
+        // Safe tag 强制，无论 bump
+        assert_eq!(
+            effective_priority(UpdatePriority::Safe, VersionBump::Patch),
+            UpdatePriority::Safe
+        );
+        // major 强制
+        assert_eq!(
+            effective_priority(UpdatePriority::Optional, VersionBump::Major),
+            UpdatePriority::Safe
+        );
+        // minor / patch 可选
+        assert_eq!(
+            effective_priority(UpdatePriority::Optional, VersionBump::Minor),
+            UpdatePriority::Optional
+        );
+        assert_eq!(
+            effective_priority(UpdatePriority::Optional, VersionBump::Patch),
+            UpdatePriority::Optional
+        );
+    }
 }

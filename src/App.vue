@@ -189,6 +189,7 @@ async function doStartupCheck() {
     const r = await checkStartupUpdate();
     if (!r.hasUpdate || !r.result) return;
     updateResult.value = r.result;
+    // Safe-tag / major：启动时直接弹强制更新；minor/patch 仅轻提示
     if (r.priority === "safe") {
       showUpdateDialog.value = true;
     } else {
@@ -247,9 +248,8 @@ async function doMarkerCheck() {
    lastError: '',
  };
 
- // ── Action monitor（开发者诊断）───────────────────────────────
- // 启用后（启动参数 --action-monitor 或设置页开关），捕获阶段监听
- // 每一次点击，把元素描述 + 坐标写入后端日志 [ACTION] 行。
+ // ── Action monitor（开发者诊断 / Action Mon3tr）───────────────
+ // 启用后捕获阶段监听交互事件，写入后端环形缓冲 + 日志。
  const actionMonitor = ref(false);
  let actionMonitorUnlisten: (() => void) | null = null;
 
@@ -259,23 +259,79 @@ async function doMarkerCheck() {
      ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}`
      : '';
    const text = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40);
-   return `${el.tagName.toLowerCase()}${id}${cls}${text ? ` "${text}"` : ''}`;
+   const aria = el.getAttribute?.('aria-label');
+   const ariaPart = aria ? `[aria=${aria.slice(0, 24)}]` : '';
+   const parent = el.parentElement;
+   const parentHint = parent
+     ? ` <${parent.tagName.toLowerCase()}${parent.className ? '.' + String(parent.className).trim().split(/\s+/)[0] : ''}>`
+     : '';
+   return `${el.tagName.toLowerCase()}${id}${cls}${ariaPart}${text ? ` "${text}"` : ''}${parentHint}`;
+ }
+
+ function reportViewport() {
+   invoke('set_action_viewport', {
+     width: window.innerWidth,
+     height: window.innerHeight,
+   }).catch(() => {});
+ }
+
+ function logAction(
+   kind: string,
+   el: HTMLElement | null,
+   x: number,
+   y: number,
+   detail?: string,
+ ) {
+   invoke('log_action', {
+     element: el ? describeClickTarget(el) : '(none)',
+     x,
+     y,
+     page: currentPage.value,
+     kind,
+     detail: detail ?? null,
+   }).catch(() => {});
  }
 
  function installActionMonitor() {
    if (actionMonitorUnlisten) return;
-   const handler = (e: MouseEvent) => {
-     const el = e.target as HTMLElement | null;
-     if (!el) return;
-     invoke('log_action', {
-       element: describeClickTarget(el),
-       x: e.clientX,
-       y: e.clientY,
-       page: currentPage.value,
-     }).catch(() => {});
+   reportViewport();
+
+   const onClick = (e: MouseEvent) => {
+     logAction('click', e.target as HTMLElement, e.clientX, e.clientY);
    };
-   document.addEventListener('click', handler, true);
-   actionMonitorUnlisten = () => document.removeEventListener('click', handler, true);
+   const onInput = (e: Event) => {
+     const el = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+     if (!el) return;
+     const value = (el.value ?? '').slice(0, 80);
+     logAction('input', el, 0, 0, `len=${(el.value ?? '').length} "${value}"`);
+   };
+   const onChange = (e: Event) => {
+     const el = e.target as HTMLInputElement | HTMLSelectElement | null;
+     if (!el) return;
+     const val = 'checked' in el && typeof el.checked === 'boolean'
+       ? String(el.checked)
+       : String((el as HTMLInputElement).value ?? '').slice(0, 40);
+     logAction('change', el, 0, 0, val);
+   };
+   const onKeyDown = (e: KeyboardEvent) => {
+     if (!['Enter', 'Escape', ' ', 'Tab', 'Backspace', 'Delete'].includes(e.key)) return;
+     logAction('keydown', e.target as HTMLElement, 0, 0, e.key);
+   };
+   const onResize = () => reportViewport();
+
+   document.addEventListener('click', onClick, true);
+   document.addEventListener('input', onInput, true);
+   document.addEventListener('change', onChange, true);
+   document.addEventListener('keydown', onKeyDown, true);
+   window.addEventListener('resize', onResize);
+
+   actionMonitorUnlisten = () => {
+     document.removeEventListener('click', onClick, true);
+     document.removeEventListener('input', onInput, true);
+     document.removeEventListener('change', onChange, true);
+     document.removeEventListener('keydown', onKeyDown, true);
+     window.removeEventListener('resize', onResize);
+   };
  }
 
  function uninstallActionMonitor() {

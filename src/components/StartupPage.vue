@@ -998,11 +998,11 @@ async function finish() {
   box-shadow:
     0 10px 34px rgba(15, 23, 42, 0.10),
     0 2px 8px rgba(15, 23, 42, 0.05);
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
 }
 
 .nav-pill:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   box-shadow:
     0 16px 40px rgba(15, 23, 42, 0.13),
     0 4px 12px rgba(15, 23, 42, 0.07);
@@ -1019,7 +1019,7 @@ async function finish() {
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 
 .startup-btn-primary {
@@ -1029,12 +1029,13 @@ async function finish() {
 }
 
 .startup-btn-primary:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--theme-color) 45%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 42%, transparent);
 }
 
 .startup-btn-primary:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: translateY(0);
+  opacity: 0.9;
 }
 
 .startup-btn-primary:disabled {
@@ -1050,11 +1051,12 @@ async function finish() {
 .startup-btn-ghost:hover {
   background: rgba(0, 0, 0, 0.08);
   color: #374151;
-  transform: scale(1.05);
+  transform: translateY(-1px);
 }
 
 .startup-btn-ghost:active {
-  transform: scale(0.96);
+  transform: translateY(0);
+  opacity: 0.9;
 }
 
 /* 退出按钮 —— 圆形图标，悬停变红 */

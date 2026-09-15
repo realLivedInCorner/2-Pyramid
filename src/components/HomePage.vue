@@ -278,24 +278,33 @@ const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
   pointer-events: auto;
   margin-bottom: 16px;
   display: flex; gap: 12px;
-  background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.78); backdrop-filter: blur(20px);
   padding: 10px 16px; border-radius: 30px; border: 1px solid rgba(0,0,0,0.04);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-  transform: translateY(6px) scale(0.97);
-  opacity: 0.55;
-  transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.1);
+  transform: translateY(8px);
+  opacity: 0.72;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.28s ease,
+    background 0.28s ease,
+    box-shadow 0.28s ease;
 }
 .dock-wrap:hover .action-dock {
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
   opacity: 1;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.12);
 }
 .dock-item {
   background: none; border: none; display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; cursor: pointer; transition: 0.3s;
+  padding: 10px 14px; cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
   color: #1d1d1f; font-weight: 600; border-radius: 999px;
 }
-.dock-item:hover { color: var(--theme-color); background: color-mix(in srgb, var(--theme-color) 10%, transparent); transform: translateY(-1px); }
+.dock-item:hover {
+  color: var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
+}
 .dock-icon { font-size: 18px; line-height: 1; }
 
 @media (max-width: 720px) {
