@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.2.0-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.3.1-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -42,7 +42,8 @@
 - **Overlay 母包叠加** — 在不修改原包的前提下，把自定义覆盖包叠加到任意母包上
 - **界面动画** — 页面切换交叉淡入淡出 + 模糊衔接；设置可选开启 / 跟随系统 / 关闭；速率三档作用于完整页切换
 - **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、中英双语
-- **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单快捷方式，重装时安装目录自动对齐现有位置；卸载器走完动画自动退出并自行清理
+- **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单快捷方式；应用内更新时进入覆盖更新流（锁定原目录、保留用户数据）；重装时安装目录自动对齐现有位置
+- **智能更新** — 按 major.minor.patch 判定：major 与 `Safe-*` 强制更新，minor / patch 可选
 - **Beta 双渠道** — 正式版与 Beta 版可并存安装（独立注册表、独立目录、Beta 标识），`betabuild` 一键构建
 
 ### 🚀 快速开始
@@ -201,7 +202,8 @@ npm run build                                               # 前端 build
 - **Overlay parent packs** — Layer custom content on top of any base pack without modifying it
 - **Interface motion** — Crossfade page swaps with soft blur; settings for on / follow system / off; speed tiers scale the full page transition
 - **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, zh / en
-- **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts, install dir auto-aligns to the existing location on reinstall; the uninstaller cleans up after itself on exit
+- **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts; in-app updates enter an overwrite-update flow (locks the original dir, keeps user data); install dir auto-aligns to the existing location on reinstall
+- **Smart updates** — Compared by major.minor.patch: major and `Safe-*` force the update; minor / patch are optional
 - **Beta channel** — Stable and Beta installs coexist (separate registry, directory and badges); built with `betabuild`
 
 ### 🚀 Quick Start

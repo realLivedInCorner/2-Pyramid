@@ -562,7 +562,9 @@ fn get_install_context() -> InstallContext {
     } else {
         None
     };
-    let update_mode = !uninstall_mode && is_from_app_launch() && installed;
+    // 已安装即进覆盖更新：应用内 --from-app 或用户双击新安装包都走 3 步更新流，
+    // 不再依赖“旧主程序还在跑、用旧 updater 拉起”的假设。
+    let update_mode = !uninstall_mode && installed;
     let dir = if uninstall_mode || update_mode || installed {
         registry_install_dir()
             .filter(|d| d.join(EXE_NAME).exists())
@@ -584,7 +586,7 @@ fn get_install_context() -> InstallContext {
 
 #[tauri::command]
 fn is_update_mode() -> bool {
-    is_from_app_launch() && is_installed()
+    !is_uninstall_mode() && is_installed()
 }
 
 #[tauri::command]

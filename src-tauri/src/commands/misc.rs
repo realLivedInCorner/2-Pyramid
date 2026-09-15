@@ -278,12 +278,11 @@ fn capture_window_shot(app: &tauri::AppHandle) -> Result<String, String> {
 fn inject_client_click(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), String> {
     use tauri::Manager;
     use windows_sys::Win32::Foundation::POINT;
+    use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
         SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT,
     };
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        ClientToScreen, SetCursorPos, SetForegroundWindow,
-    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{SetCursorPos, SetForegroundWindow};
 
     let window = app
         .get_webview_window("main")
@@ -336,7 +335,7 @@ fn capture_hwnd_png(hwnd_raw: *mut core::ffi::c_void) -> Result<Vec<u8>, String>
     use windows_sys::Win32::Graphics::Gdi::{
         BitBlt, ClientToScreen, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC,
         DeleteObject, GetDC, GetDIBits, ReleaseDC, SelectObject, BITMAPINFO,
-        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, RGBQUAD, SRCCOPY,
     };
     use windows_sys::Win32::Storage::Xps::PrintWindow;
     use windows_sys::Win32::UI::WindowsAndMessaging::GetClientRect;

@@ -1,17 +1,17 @@
 <template>
-  <div class="dialog-overlay">
-    <div class="dialog-container dialog-content">
-      <div class="dialog-header">
-        <h2 class="dialog-title">{{ t('dialog.itemSize.title') }}</h2>
+  <div class="size-overlay" @click.self="closeDialog">
+    <div class="size-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">{{ t('dialog.itemSize.title') }}</h2>
       </div>
 
-      <div class="dialog-content">
+      <div class="panel-body">
         <div class="search-bar-container">
           <div class="search-input-wrapper">
             <i class="ri-search-line search-icon"></i>
-            <input 
-              v-model="searchText" 
-              class="search-input" 
+            <input
+              v-model="searchText"
+              class="search-input"
               :placeholder="t('dialog.itemSize.searchPlaceholder')"
             />
           </div>
@@ -61,7 +61,7 @@
         </div>
       </div>
 
-      <div class="dialog-footer">
+      <div class="panel-footer">
         <div class="footer-btns">
           <button
             class="primary-btn"
@@ -217,8 +217,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 右侧侧栏：对齐转换页版本选择 */
-.dialog-overlay {
+/* 右侧侧栏：独立类名，避开全局 .dialog-* 皮肤 */
+.size-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
@@ -228,7 +228,7 @@ onMounted(() => {
   animation: overlay-fade 0.28s ease;
 }
 
-.dialog-container {
+.size-panel {
   width: min(520px, 94vw);
   height: 100vh;
   background: #ffffff;
@@ -246,7 +246,7 @@ onMounted(() => {
   to { transform: translateX(0); }
 }
 
-.dialog-header {
+.panel-header {
   padding: 1.25rem 1.5rem 1rem;
   background: #fff;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
@@ -256,20 +256,21 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.dialog-title {
+.panel-title {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.dialog-content {
+.panel-body {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-height: 0;
 }
 
 .search-bar-container {
@@ -383,7 +384,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.dialog-footer {
+.panel-footer {
   padding: 12px 1.5rem;
   background: #fff;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
