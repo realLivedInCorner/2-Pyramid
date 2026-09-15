@@ -2,6 +2,47 @@
 
 （暂无）
 
+## [2.3.1] - 2026-09-15（BUILD 20044）
+
+### Changed
+
+- **物品语言编辑改为宽面板双列平铺**：去掉与全局 `.dialog-*` 撞名的类，避免被居中弹窗皮肤挤成「大卡片 + 竖排一行一条」；条目改为紧凑双列卡片（短 key + 输入 + 预览）。
+
+### Fixed
+
+- **Overlay 三个编辑子页排版**：`ItemName` / `ItemSize` / `Visual` 改用独立类名（`name-panel` / `size-panel` / `visual-panel`），不再继承全局居中弹窗样式。
+- **Overlay 弹层退出黑幕残留**：leave 时遮罩先透明、再滑出面板，并关掉 `backdrop-filter` 与 enter 动画。
+- **法律信息侧栏点外关闭**：补齐 `.sidebar-overlay` 遮罩样式（此前无定位/背景，点空白无效）。
+- **安装器已安装即进覆盖更新**：不再强依赖 `--from-app`；双击新安装包时同样进入 3 步更新流，而不是完整全新安装向导。
+- **debug 编译**：`ClientToScreen` / `RGBQUAD` 的 windows-sys 路径修正（`cfg(debug_assertions)` 动作监视注入与截图，release 不编译，`cargo check` / dev 才暴露）。
+
+## [2.3.0] - 2026-09-15（BUILD 20043）
+
+### Added
+
+- **应用内覆盖更新向导**：主程序拉起安装器时带 `--from-app`；检测到已安装时进入 3 步更新流（确认 → 覆盖中 → 完成），锁定原安装目录，保留用户数据与快捷方式；主程序仍在运行时提示退出。
+- **按 major.minor.patch 判定更新级别**：`bumpKind` 区分 major / minor / patch；**major 与 `Safe-*` tag 强制更新**，minor / patch 为可选。
+- **更新弹窗级别徽章**：重大 / 功能 / 修复，并附简短说明。
+- **设置页版本与作者摘要**：列表右侧显示 `v{version}+{build}` 与主作者。
+
+### Changed
+
+- **前端模块化**：Settings / Conversion / Overlay 弹窗与版本侧栏拆到 `settings/`、`conversion/`、`overlay/`；Minecraft 版本目录独立为 `data/minecraftVersions.ts`。
+- **主页底部 Dock / OOBE 药丸**：保留上浮，曲线更稳，去掉缩放弹跳。
+- **覆盖包返回层级**：编辑器 → 项目列表 → 首页，不再从编辑器直接回主页。
+- **开发者选项 UI**：动作监视状态条（录制指示、帧数、实时流端口）。
+- **依赖安全**：`vue-i18n` 10.0.8（CVE-2025-53892）、`vite` 6.4.3（多条 dev-server 路径穿越）、`rustls` 0.23.45（RUSTSEC-2026-0285）。
+
+### Fixed
+
+- 移除 `vite.config.js`（`vue-tsc -b` 误产物，且 Vite 会优先加载它）。
+- Overlay 页误删的自定义内容侧栏恢复挂载。
+- 动作监视协议补全：`SHOT` / `CLICK` / `STATUS` / `CLEAR` / `MON ON|OFF`；导出 `.2amr` 写入真实视口尺寸与多事件类型（click/input/change/keydown）。
+
+### Removed
+
+- 未引用组件：`OtherOptionsDialog` / `BorderColorDialog` / `CustomNameDialog`。
+
 ## [2.2.0] - 2026-09-14（BUILD 20042）
 
 ### Added

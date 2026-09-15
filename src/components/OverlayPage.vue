@@ -1042,18 +1042,41 @@ onMounted(() => {
 .spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-/* 侧栏滑出：Transition 加在组件根上，要用 :deep 才能动到子组件里的 .dialog-container */
+/* 侧栏/宽面板退出：黑幕先透明，再让面板滑走，避免组件没了还留一层暗底 */
 .sidebar-out-leave-active {
-  transition: opacity 0.22s ease;
+  transition: opacity 0.18s ease-out;
+  pointer-events: none;
 }
-.sidebar-out-leave-active :deep(.dialog-container) {
+.sidebar-out-leave-active :deep(.name-overlay),
+.sidebar-out-leave-active :deep(.size-overlay),
+.sidebar-out-leave-active :deep(.visual-overlay) {
   animation: none !important;
-  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: opacity 0.15s ease-out, background-color 0.15s ease-out !important;
+}
+.sidebar-out-leave-active :deep(.name-panel),
+.sidebar-out-leave-active :deep(.size-panel),
+.sidebar-out-leave-active :deep(.visual-panel) {
+  animation: none !important;
+  opacity: 1 !important;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 1, 1), opacity 0.18s ease-out !important;
 }
 .sidebar-out-leave-to {
   opacity: 0;
 }
-.sidebar-out-leave-to :deep(.dialog-container) {
+.sidebar-out-leave-to :deep(.name-overlay),
+.sidebar-out-leave-to :deep(.size-overlay),
+.sidebar-out-leave-to :deep(.visual-overlay) {
+  opacity: 0 !important;
+  background-color: transparent !important;
+}
+.sidebar-out-leave-to :deep(.name-panel) {
+  opacity: 0 !important;
+  transform: translateY(10px) scale(0.98) !important;
+}
+.sidebar-out-leave-to :deep(.size-panel),
+.sidebar-out-leave-to :deep(.visual-panel) {
   transform: translateX(100%) !important;
 }
 </style>

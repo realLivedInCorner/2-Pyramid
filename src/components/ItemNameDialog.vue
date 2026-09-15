@@ -1,12 +1,12 @@
 <template>
-  <div class="dialog-overlay">
-    <div class="dialog-container dialog-content">
-      <div class="dialog-header">
-        <h2 class="dialog-title">{{ t('dialog.itemName.title') }}</h2>
+  <div class="name-overlay" @click.self="closeDialog">
+    <div class="name-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">{{ t('dialog.itemName.title') }}</h2>
         <div class="header-actions">
-          <button 
-            v-if="hasParentPack" 
-            class="ghost-btn import-btn" 
+          <button
+            v-if="hasParentPack"
+            class="ghost-btn import-btn"
             @click="importFromParent"
             :title="t('dialog.itemName.importHint')"
           >
@@ -20,13 +20,13 @@
         </div>
       </div>
 
-      <div class="dialog-content">
+      <div class="panel-body">
         <div class="search-bar-container">
           <div class="search-input-wrapper">
             <i class="ri-search-line search-icon"></i>
-            <input 
-              v-model="searchText" 
-              class="search-input" 
+            <input
+              v-model="searchText"
+              class="search-input"
               :placeholder="t('dialog.itemName.searchPlaceholder')"
             />
           </div>
@@ -45,38 +45,33 @@
             <span>{{ t('dialog.itemName.noMatch') }}</span>
           </div>
           <div v-else class="lang-grid">
-            <div 
-              v-for="entry in displayEntries" 
-              :key="entry.key" 
+            <div
+              v-for="entry in displayEntries"
+              :key="entry.key"
               class="lang-item"
               :class="{ 'is-modified': isModified(entry.key) }"
             >
-              <div class="item-info">
-                <code class="item-key">{{ entry.key.replace('item.minecraft.', '') }}</code>
-                <div class="preview-container" v-if="editedData[entry.key]">
-                  <span class="preview-label">{{ t('dialog.itemName.preview') }}</span>
-                  <span class="mc-preview" v-html="renderMinecraftText(editedData[entry.key])"></span>
-                </div>
+              <code class="item-key" :title="entry.key">{{ shortKey(entry.key) }}</code>
+              <div class="input-group">
+                <input
+                  v-model="editedData[entry.key]"
+                  class="edit-input"
+                  :placeholder="t('dialog.itemName.editPlaceholder')"
+                  @focus="activeKey = entry.key"
+                />
+                <button
+                  class="style-btn"
+                  @click.stop="toggleStylePanel($event, entry.key)"
+                  title=""
+                >
+                  <i class="ri-palette-line"></i>
+                </button>
+              </div>
+              <div class="item-meta">
+                <span class="mc-preview" v-if="editedData[entry.key]" v-html="renderMinecraftText(editedData[entry.key])"></span>
                 <span class="original-val" v-if="isModified(entry.key)">
                   {{ t('dialog.itemName.original', { value: langData[entry.key] }) }}
                 </span>
-              </div>
-              <div class="item-edit">
-                <div class="input-group">
-                  <input 
-                    v-model="editedData[entry.key]" 
-                    class="edit-input" 
-                    :placeholder="t('dialog.itemName.editPlaceholder')"
-                    @focus="activeKey = entry.key"
-                  />
-                  <button 
-                    class="style-btn" 
-                    @click.stop="toggleStylePanel($event, entry.key)"
-                    title=""
-                  >
-                    <i class="ri-palette-line"></i>
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -124,7 +119,7 @@
         </div>
       </Teleport>
 
-      <div class="dialog-footer">
+      <div class="panel-footer">
         <div class="modified-hint" v-if="modifiedKeys.length > 0">
           {{ t('dialog.itemName.modified', { count: modifiedKeys.length }) }}
         </div>
@@ -315,6 +310,18 @@ const modifiedKeys = computed(() => {
 
 const isModified = (key: string) => editedData.value[key] !== langData.value[key];
 
+function shortKey(key: string) {
+  return key
+    .replace(/^item\.minecraft\./, '')
+    .replace(/^block\.minecraft\./, '')
+    .replace(/^entity\.minecraft\./, '')
+    .replace(/^enchantment\.minecraft\./, '')
+    .replace(/^potion\.minecraft\./, '')
+    .replace(/^biome\.minecraft\./, '')
+    .replace(/^\.minecraft\./, '')
+    .replace(/^minecraft\./, '');
+}
+
 const toggleStylePanel = (event: MouseEvent, key: string) => {
   if (showStylePanel.value && currentEditingKey.value === key) {
     showStylePanel.value = false;
@@ -457,49 +464,49 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 右侧侧栏：对齐转换页版本选择 */
-.dialog-overlay {
+/* 宽面板 + 双列平铺（独立类名，避开全局 .dialog-* 居中弹窗皮肤） */
+.name-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(15, 23, 42, 0.32);
   display: flex;
-  justify-content: flex-end;
+  align-items: stretch;
+  justify-content: center;
   z-index: 1000;
-  animation: overlay-fade 0.28s ease;
+  animation: overlay-fade 0.22s ease;
+  backdrop-filter: blur(4px);
 }
 
-.dialog-container {
-  width: min(560px, 94vw);
+.name-panel {
+  width: min(980px, 96vw);
   height: 100vh;
-  background: #ffffff;
-  border-radius: 0;
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  background: #fff;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: none;
-  opacity: 1 !important;
-  animation: sidebar-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 0 48px rgba(0, 0, 0, 0.18);
+  animation: panel-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes sidebar-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.dialog-header {
+.panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem 1rem;
-  background: #fff;
+  gap: 16px;
+  padding: 18px 22px 14px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
+  background: #fff;
 }
 
-.dialog-title {
+.panel-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
@@ -508,7 +515,7 @@ onMounted(async () => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .lang-select {
@@ -516,49 +523,30 @@ onMounted(async () => {
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   background: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #475569;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  font-family: inherit;
 }
+.lang-select:hover { border-color: var(--theme-color); }
 
-.lang-select:hover {
-  border-color: var(--theme-color);
-  background: #f1f5f9;
-}
-
-.close-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #fee2e2;
-  color: #ef4444;
-}
-
-.dialog-content {
+.panel-body {
   flex: 1;
-  padding: 24px;
+  min-height: 0;
+  padding: 16px 22px 8px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   overflow: hidden;
 }
 
 .search-bar-container {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
+  flex-shrink: 0;
 }
 
 .search-input-wrapper {
@@ -572,28 +560,29 @@ onMounted(async () => {
   top: 50%;
   transform: translateY(-50%);
   color: #94a3b8;
-  font-size: 18px;
+  font-size: 17px;
+  pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 16px 12px 44px;
-  border-radius: 14px;
-  border: 2px solid #f1f5f9;
+  padding: 10px 14px 10px 40px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
   background: #f8fafc;
-  font-size: 15px;
-  transition: all 0.2s;
+  font-size: 14px;
+  font-family: inherit;
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
-
 .search-input:focus {
   border-color: var(--theme-color);
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(var(--theme-color-rgb), 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 16%, transparent);
 }
 
 .items-count {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #94a3b8;
   white-space: nowrap;
@@ -601,142 +590,95 @@ onMounted(async () => {
 
 .lang-list-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding-right: 8px;
+  padding: 2px 4px 16px 0;
 }
 
-/* 自定义滚动条 */
-.lang-list-container::-webkit-scrollbar {
-  width: 6px;
-}
-.lang-list-container::-webkit-scrollbar-track {
-  background: transparent;
-}
+.lang-list-container::-webkit-scrollbar { width: 8px; }
+.lang-list-container::-webkit-scrollbar-track { background: transparent; }
 .lang-list-container::-webkit-scrollbar-thumb {
   background: #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
 }
-.lang-list-container::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+.lang-list-container::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+/* 双列平铺 */
+.lang-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.lang-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+@media (max-width: 820px) {
+  .name-panel { width: 100vw; }
+  .lang-grid { grid-template-columns: 1fr; }
 }
 
 .lang-item {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 20px;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
   background: #f8fafc;
-  border-radius: 16px;
   border: 1px solid #f1f5f9;
-  transition: all 0.2s;
+  border-radius: 12px;
+  min-width: 0;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-
 .lang-item:hover {
   border-color: #e2e8f0;
   background: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
-
 .lang-item.is-modified {
-  border-color: rgba(var(--theme-color-rgb), 0.3);
-  background: rgba(var(--theme-color-rgb), 0.02);
-}
-
-.item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  justify-content: center;
+  border-color: color-mix(in srgb, var(--theme-color) 35%, transparent);
+  background: color-mix(in srgb, var(--theme-color) 4%, #fff);
 }
 
 .item-key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  color: #475569;
-  font-weight: 600;
-  background: #e2e8f0;
-  padding: 2px 8px;
-  border-radius: 6px;
-  width: fit-content;
-}
-
-.preview-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.preview-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-}
-
-.mc-preview {
-  font-family: 'Minecraft', sans-serif;
-  font-size: 14px;
-  background: #1e1e1e;
-  padding: 2px 8px;
-  border-radius: 4px;
-  color: #fff;
-  display: inline-block;
-  min-height: 24px;
-}
-
-.mc-obfuscated {
-  animation: mc-obf 0.1s steps(1) infinite;
-}
-
-@keyframes mc-obf {
-  0% { opacity: 0.8; }
-  50% { opacity: 1; }
-}
-
-.original-val {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.item-edit {
-  display: flex;
-  align-items: center;
+  font-weight: 600;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .input-group {
-  width: 100%;
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .edit-input {
   flex: 1;
-  padding: 10px 14px;
-  border-radius: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
   background: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
+  font-family: inherit;
   outline: none;
-  transition: all 0.2s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-
 .edit-input:focus {
   border-color: var(--theme-color);
-  box-shadow: 0 0 0 3px rgba(var(--theme-color-rgb), 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 14%, transparent);
 }
 
 .style-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
   background: #fff;
   color: #64748b;
@@ -744,39 +686,74 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.15s, color 0.15s;
 }
-
 .style-btn:hover {
   border-color: var(--theme-color);
   color: var(--theme-color);
-  background: #f8fafc;
 }
 
-/* 样式面板 */
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  flex-wrap: wrap;
+}
+
+.mc-preview {
+  font-family: 'Minecraft', monospace;
+  font-size: 12px;
+  background: #1e1e1e;
+  padding: 1px 7px;
+  border-radius: 4px;
+  color: #fff;
+  line-height: 1.4;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-obfuscated { animation: mc-obf 0.1s steps(1) infinite; }
+@keyframes mc-obf {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.original-val {
+  font-size: 11px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
+/* 样式悬浮面板 */
 .style-panel {
   position: fixed;
   width: 260px;
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  padding: 16px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+  padding: 14px;
   border: 1px solid #e2e8f0;
   z-index: 2000;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  animation: style-panel-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  gap: 14px;
+  animation: style-panel-pop 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 .style-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .section-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
@@ -786,7 +763,7 @@ onMounted(async () => {
 .color-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 6px;
+  gap: 5px;
 }
 
 .color-swatch {
@@ -796,53 +773,37 @@ onMounted(async () => {
   cursor: pointer;
   transition: transform 0.1s;
 }
-
-.color-swatch:hover {
-  transform: scale(1.2);
-  z-index: 1;
-}
+.color-swatch:hover { transform: scale(1.15); }
 
 .format-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .format-btn {
-  height: 32px;
-  min-width: 32px;
-  padding: 0 8px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 7px;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.1s;
+  font-family: inherit;
 }
+.format-btn:hover { background: #fff; border-color: #cbd5e1; }
+.format-btn.reset { color: #ef4444; }
+.format-btn.reset:hover { background: #fee2e2; border-color: #fecaca; }
 
-.format-btn:hover {
-  background: #fff;
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
-}
-
-.format-btn.reset {
-  color: #ef4444;
-}
-
-.format-btn.reset:hover {
-  background: #fee2e2;
-  border-color: #fecaca;
-}
-
-.dialog-footer {
-  padding: 12px 1.5rem;
-  background: #fff;
+.panel-footer {
+  padding: 12px 22px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -868,24 +829,11 @@ onMounted(async () => {
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
-  animation: panel-scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+.save-status.success { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.save-status.error { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 
-.save-status.success {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
-}
-
-.save-status.error {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.footer-btns {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+.footer-btns { display: flex; gap: 8px; align-items: center; }
 
 .primary-btn,
 .back-btn {
@@ -907,7 +855,6 @@ onMounted(async () => {
   background: var(--theme-color);
   color: #fff;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
-  transition: background 0.15s ease, opacity 0.15s ease;
 }
 .primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .primary-btn:hover:not(:disabled) {
@@ -917,12 +864,8 @@ onMounted(async () => {
 .back-btn {
   background: rgba(0, 0, 0, 0.04);
   color: #64748b;
-  transition: background 0.15s ease, color 0.15s ease;
 }
-.back-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1d1d1f;
-}
+.back-btn:hover { background: rgba(0, 0, 0, 0.08); color: #1d1d1f; }
 
 .loading-state, .empty-state {
   height: 200px;
@@ -933,32 +876,13 @@ onMounted(async () => {
   gap: 12px;
   color: #94a3b8;
 }
+.loading-state i, .empty-state i { font-size: 40px; }
 
-.loading-state i, .empty-state i {
-  font-size: 48px;
-}
-
-.spin {
-  animation: ri-spin 1s linear infinite;
-}
-
-@keyframes ri-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes overlay-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes panel-scale-up {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
+.spin { animation: ri-spin 1s linear infinite; }
+@keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes style-panel-pop {
-  from { opacity: 0; transform: scale(0.9) translateY(5px); }
+  from { opacity: 0; transform: scale(0.92) translateY(4px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 </style>

@@ -1,11 +1,11 @@
 <template>
-  <div class="dialog-overlay">
-    <div class="dialog-container dialog-content">
-      <div class="dialog-header">
-        <h2 class="dialog-title">{{ t('dialog.visual.title') }}</h2>
+  <div class="visual-overlay" @click.self="emit('close')">
+    <div class="visual-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">{{ t('dialog.visual.title') }}</h2>
       </div>
 
-      <div class="dialog-content">
+      <div class="panel-body">
         <!-- 背包无阴影 -->
         <div class="option-item">
           <div class="option-info">
@@ -108,7 +108,7 @@
         </div>
       </div>
 
-      <div class="dialog-footer">
+      <div class="panel-footer">
         <div class="save-status" v-if="saveStatus" :class="saveStatus.type">
           <i :class="saveStatus.type === 'success' ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'"></i>
           {{ saveStatus.text }}
@@ -287,8 +287,8 @@ onMounted(loadSettings);
 </script>
 
 <style scoped>
-/* 右侧侧栏：对齐转换页版本选择 */
-.dialog-overlay {
+/* 右侧侧栏：独立类名，避开全局 .dialog-* 皮肤 */
+.visual-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
@@ -298,7 +298,7 @@ onMounted(loadSettings);
   animation: overlay-fade 0.28s ease;
 }
 
-.dialog-container {
+.visual-panel {
   width: min(420px, 94vw);
   height: 100vh;
   background: #ffffff;
@@ -316,7 +316,7 @@ onMounted(loadSettings);
   to { transform: translateX(0); }
 }
 
-.dialog-header {
+.panel-header {
   padding: 1.25rem 1.5rem 1rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
@@ -325,9 +325,9 @@ onMounted(loadSettings);
   flex-shrink: 0;
 }
 
-.dialog-title { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+.panel-title { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
 
-.dialog-content {
+.panel-body {
   flex: 1;
   padding: 1.25rem 1.5rem;
   display: flex;
@@ -336,8 +336,8 @@ onMounted(loadSettings);
   overflow-y: auto;
   min-height: 0;
 }
-.dialog-content::-webkit-scrollbar { width: 6px; }
-.dialog-content::-webkit-scrollbar-thumb {
+.panel-body::-webkit-scrollbar { width: 6px; }
+.panel-body::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
@@ -452,7 +452,7 @@ onMounted(loadSettings);
 input:checked + .slider { background-color: var(--theme-color); }
 input:checked + .slider:before { transform: translateX(22px); }
 
-.dialog-footer {
+.panel-footer {
   padding: 12px 1.5rem;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: #fff;

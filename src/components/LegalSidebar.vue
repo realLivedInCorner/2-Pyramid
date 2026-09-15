@@ -148,6 +148,15 @@ watch(visible, (v) => {
 </template>
 
 <style scoped>
+/* 遮罩：点击空白关闭（此前无样式，点不到） */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+
 /* 定位与全局 .sidebar-content 一致（scoped 下需自带） */
 .legal-sidebar.sidebar-content {
   position: fixed;
