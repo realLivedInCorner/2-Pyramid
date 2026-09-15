@@ -87,7 +87,7 @@
               </div>
               <div class="swatch-block">
                 <div class="swatch-label">{{ t('common.default') }}</div>
-                <button class="color-swatch reset-swatch" @click.stop="showResetDialog = true" :style="{ background: defaultThemeColor }"></button>
+                <button class="color-swatch reset-swatch" @click.stop="openThemeReset" :style="{ background: defaultThemeColor }"></button>
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@
             </div>
           </div>
 
-          <div class="setting-item clickable" @click="openNamingDialog" v-if="shouldShowItem('outputNaming')">
+          <div class="setting-item clickable" @click="showNamingDialog = true" v-if="shouldShowItem('outputNaming')">
             <div class="item-icon">
               <i class="ri-file-text-line" aria-hidden="true"></i>
             </div>
@@ -223,13 +223,13 @@
       <section class="settings-group" v-if="shouldShowGroup('conversionHistory')">
         <h3 class="group-title">{{ t('settings.conversionHistory.groupTitle') }}</h3>
         <div class="group-card">
-          <div class="setting-item clickable" @click="openHistoryDialog" v-if="shouldShowItem('conversionHistory')">
+          <div class="setting-item clickable" @click="showHistoryDialog = true" v-if="shouldShowItem('conversionHistory')">
             <div class="item-icon">
               <i class="ri-history-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
               <div class="label">{{ t('settings.conversionHistory.label') }}</div>
-              <div class="desc">{{ t('settings.conversionHistory.desc') }}（{{ historyEntries.length }}）</div>
+              <div class="desc">{{ t('settings.conversionHistory.desc') }}</div>
             </div>
             <div class="item-arrow">→</div>
           </div>
@@ -467,6 +467,10 @@
               <div class="label">{{ t('settings.versionInfo.label') }}</div>
               <div class="desc">{{ t('settings.versionInfo.desc') }}</div>
             </div>
+            <div class="item-meta">
+              <span class="meta-value">v{{ displayVersion }}</span>
+              <span v-if="appBuildNumber && appBuildNumber !== '?'" class="meta-sub">+{{ appBuildNumber }}</span>
+            </div>
             <div class="item-arrow">→</div>
           </div>
           <div class="setting-item clickable" @click="showAuthors = true" v-if="shouldShowItem('authors')">
@@ -476,6 +480,10 @@
             <div class="item-info">
               <div class="label">{{ t('settings.versionInfo.authorsLabel') }}</div>
               <div class="desc">{{ t('settings.versionInfo.authorsDesc') }}</div>
+            </div>
+            <div class="item-meta">
+              <span class="meta-value">{{ t('settings.versionInfo.author0Name') }}</span>
+              <span class="meta-sub">{{ t('settings.versionInfo.authorsCount', { count: 4 }) }}</span>
             </div>
             <div class="item-arrow">→</div>
           </div>
@@ -499,7 +507,7 @@
               <div class="desc">
                 <template v-if="updateChecking">{{ t('settings.checkUpdate.checking') }}</template>
                 <template v-else-if="updateError">{{ updateError }}</template>
-                <template v-else>{{ t('settings.checkUpdate.desc', { version: currentVersion }) }}</template>
+                <template v-else>{{ t('settings.checkUpdate.desc', { version: displayVersion }) }}</template>
               </div>
             </div>
             <div class="item-arrow">→</div>
@@ -508,10 +516,10 @@
       </section>
     </main>
 
-    <!-- 版本信息 / 作者 / 法律：独立组件 -->
+    <!-- 版本信息 / 作者 / 法律 / 设置弹窗：独立组件 -->
     <VersionInfoDialog
       v-model="showVersionInfo"
-      :version="currentVersion"
+      :version="displayVersion"
       :build="appBuildNumber"
       :is-beta="appIsBeta"
       :dev-hint="devHint"
@@ -519,272 +527,67 @@
     />
     <AuthorsDialog v-model="showAuthors" />
     <LegalSidebar v-model="showLegalSidebar" />
-
-    <transition name="dialog-pop">
-      <div v-if="showDevUnlockDialog" class="dialog-overlay" @click="cancelDevUnlock">
-        <div class="dialog-content dev-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.devMode.title') }}</h3>
-            <button class="dialog-close" @click="cancelDevUnlock" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <div class="dialog-hint">{{ t('settings.devMode.hint') }}</div>
-            <div class="dev-code">DeveloperEnable</div>
-            <div class="dialog-input-row">
-              <input class="dialog-input" v-model="devUnlockInput" :placeholder="t('settings.devMode.placeholder')" />
-            </div>
-            <div v-if="devUnlockError" class="dev-error">{{ devUnlockError }}</div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="cancelDevUnlock">{{ t('common.cancel') }}</button>
-            <button class="btn-text" @click="confirmDevUnlock">{{ t('settings.devMode.enter') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showOutputDialog" class="dialog-overlay" @click="showOutputDialog = false">
-        <div class="dialog-content" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.outputPath.dialogTitle') }}</h3>
-            <button class="dialog-close" @click="showOutputDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <label class="dialog-label">{{ t('settings.outputPath.dialogLabel') }}</label>
-            <div class="dialog-input-row">
-              <input class="dialog-input" v-model="outputPath" :placeholder="t('settings.outputPath.dialogPlaceholder')" />
-              <button class="btn-text" @click="pickOutputFolder">{{ t('common.choose') }}</button>
-            </div>
-            <p class="dialog-hint">{{ t('settings.outputPath.dialogHint') }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="showOutputDialog = false">{{ t('common.cancel') }}</button>
-            <button class="btn-text" @click="saveOutputPath">{{ t('common.save') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showNamingDialog" class="dialog-overlay">
-        <div class="dialog-content naming-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.outputNaming.dialogTitle') }}</h3>
-            <button class="dialog-close" @click="showNamingDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <input
-              v-model="namingDraft"
-              class="naming-input"
-              :placeholder="t('settings.outputNaming.placeholder')"
-              spellcheck="false"
-              maxlength="200"
-              @keyup.enter="saveNamingDialog"
-            />
-            <div class="naming-row">
-              <span class="naming-hint-label">{{ t('settings.outputNaming.tags') }}</span>
-              <button
-                v-for="tag in namingTags"
-                :key="tag.token"
-                class="naming-tag-btn"
-                @click="insertNamingTag(tag.token)"
-              >
-                <span class="naming-tag-token">{{ tag.token }}</span>
-                <span class="naming-tag-desc">{{ tag.desc }}</span>
-              </button>
-            </div>
-            <div class="naming-preview">
-              {{ t('settings.outputNaming.preview') }}:
-              <b>{{ namingPreview }}</b>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="showNamingDialog = false">{{ t('common.cancel') }}</button>
-            <button class="btn-text" @click="saveNamingDialog">{{ t('common.save') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showHistoryDialog" class="dialog-overlay">
-        <div class="dialog-content history-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.conversionHistory.groupTitle') }}</h3>
-            <button class="dialog-close" @click="showHistoryDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <div class="history-list" v-if="historyEntries.length > 0">
-              <div class="history-item" v-for="(h, i) in historyEntries" :key="i">
-                <i class="history-status" :class="h.status === 'success' ? 'ok' : h.status === 'cancelled' ? 'cancelled' : 'fail'" aria-hidden="true"></i>
-                <div class="history-info">
-                  <div class="history-name">{{ historyFileName(h.input) }}</div>
-                  <div class="history-meta">{{ h.time }} · {{ h.duration_s.toFixed(1) }}s</div>
-                </div>
-                <button
-                  v-if="h.status === 'success' && h.output"
-                  class="btn-text"
-                  @click="openHistoryOutput(h.output)"
-                >{{ t('settings.conversionHistory.openOutput') }}</button>
-              </div>
-            </div>
-            <div class="history-empty" v-else>{{ t('settings.conversionHistory.empty') }}</div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="clearConversionHistory" :disabled="historyEntries.length === 0">
-              {{ t('settings.conversionHistory.clear') }}
-            </button>
-            <button class="btn-text" @click="showHistoryDialog = false">{{ t('common.close') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- 更换背景对话框 -->
-    <transition name="dialog-pop">
-      <div v-if="showBackgroundDialog" class="dialog-overlay">
-        <div class="dialog-content background-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.background.dialogTitle') }}</h3>
-            <button class="dialog-close" @click="closeBackgroundDialog" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <!-- 预览区 -->
-            <div class="bg-preview" :style="bgPreviewStyle">
-              <div v-if="!bgDraftPreview" class="bg-preview-empty">
-                <i class="ri-image-add-line" aria-hidden="true"></i>
-                <span>{{ t('settings.background.noImage') }}</span>
-              </div>
-            </div>
-            <div class="dialog-input-row">
-              <button class="btn-text" @click="pickBackgroundImage" :disabled="bgSyncing">
-                {{ t('settings.background.choose') }}
-              </button>
-              <button
-                v-if="currentBackgroundPath"
-                class="btn-text danger"
-                @click="removeBackground"
-                :disabled="bgSyncing"
-              >
-                {{ t('settings.background.remove') }}
-              </button>
-            </div>
-
-            <!-- 展示方式 -->
-            <div class="bg-row">
-              <span class="bg-row-label">{{ t('settings.background.fit') }}</span>
-              <div class="segmented">
-                <button class="seg-btn" :class="{ active: bgDraftFit === 'cover' }" @click="bgDraftFit = 'cover'">{{ t('settings.background.fitCover') }}</button>
-                <button class="seg-btn" :class="{ active: bgDraftFit === 'contain' }" @click="bgDraftFit = 'contain'">{{ t('settings.background.fitContain') }}</button>
-                <button class="seg-btn" :class="{ active: bgDraftFit === 'stretch' }" @click="bgDraftFit = 'stretch'">{{ t('settings.background.fitStretch') }}</button>
-                <button class="seg-btn" :class="{ active: bgDraftFit === 'tile' }" @click="bgDraftFit = 'tile'">{{ t('settings.background.fitTile') }}</button>
-              </div>
-            </div>
-
-            <!-- 透色强度 -->
-            <div class="bg-row">
-              <span class="bg-row-label">{{ t('settings.background.opacity') }}</span>
-              <input
-                type="range"
-                min="20"
-                max="100"
-                step="5"
-                v-model.number="bgDraftOpacity"
-                class="bg-range"
-              />
-              <span class="bg-opacity-val">{{ bgDraftOpacity }}%</span>
-            </div>
-
-            <!-- 自取色 -->
-            <div class="bg-row">
-              <span class="bg-row-label">{{ t('settings.background.extractColor') }}</span>
-              <label class="switch">
-                <input type="checkbox" v-model="bgExtractColor" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <p class="dialog-hint">{{ t('settings.background.extractColorDesc') }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="closeBackgroundDialog" :disabled="bgSyncing">
-              {{ t('common.cancel') }}
-            </button>
-            <button
-              class="btn-text"
-              @click="submitBackground"
-              :disabled="bgSyncing || (!bgDraftFile && !currentBackgroundPath)"
-            >
-              {{ t('settings.background.apply') }}
-            </button>
-          </div>
-
-          <!-- Syncing 遮罩：提交处理中，中央旋转圆圈 -->
-          <div v-if="bgSyncing" class="bg-syncing">
-            <i class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
-            <span>Syncing...</span>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showThemeDialog" class="dialog-overlay" @click="showThemeDialog = false">
-        <div class="dialog-content theme-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.theme.dialogTitle') }}</h3>
-            <button class="dialog-close" @click="showThemeDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <label class="dialog-label">{{ t('settings.theme.currentColor') }}</label>
-            <div class="theme-preview">
-              <div class="preview-chip" :style="{ background: tempThemeColor }"></div>
-              <div class="preview-text">
-                <div class="preview-title">2-Pyramid Theme</div>
-                <div class="preview-sub">{{ t('settings.theme.previewSubtitle') }}</div>
-              </div>
-            </div>
-            <div class="picker-area">
-              <HsvColorPicker v-model="tempThemeRgba" />
-            </div>
-            <p class="dialog-hint">{{ t('settings.theme.applyHint') }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="showThemeDialog = false">{{ t('common.back') }}</button>
-            <button class="btn-text" @click="confirmThemeColor">{{ t('common.confirm') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showResetDialog" class="dialog-overlay" @click="showResetDialog = false">
-        <div class="dialog-content" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.theme.resetTitle') }}</h3>
-            <button class="dialog-close" @click="showResetDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <p class="dialog-hint">{{ t('settings.theme.resetBody') }}</p>
-            <div class="theme-preview">
-              <div class="preview-chip" :style="{ background: defaultThemeColor }"></div>
-              <div class="preview-text">
-                <div class="preview-title">{{ t('settings.theme.resetPreview') }}</div>
-                <div class="preview-sub">{{ defaultThemeColor }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="showResetDialog = false">{{ t('common.back') }}</button>
-            <button class="btn-text" @click="resetThemeColor">{{ t('common.confirm') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
+    <DevUnlockDialog v-model="showDevUnlockDialog" @unlocked="onDevUnlocked" />
+    <OutputPathDialog
+      v-model="showOutputDialog"
+      :path="outputPath"
+      :mode="outputMode"
+      @save="onSaveOutputPath"
+    />
+    <NamingDialog v-model="showNamingDialog" :template="namingTemplate" @save="onSaveNaming" />
+    <HistoryDialog v-model="showHistoryDialog" />
+    <BackgroundDialog
+      v-model="showBackgroundDialog"
+      :path="currentBackgroundPath"
+      :fit="currentBackgroundFit"
+      :opacity="currentBackgroundOpacity"
+      @applied="onBackgroundApplied"
+      @removed="onBackgroundRemoved"
+    />
+    <ThemeDialog
+      v-model="showThemeDialog"
+      :color="themeColor"
+      :default-color="defaultThemeColor"
+      show-reset
+      :start-reset="themeStartReset"
+      @confirm="onThemeConfirm"
+      @reset="onThemeReset"
+    />
     <transition name="dev-group">
-      <section class="settings-group" v-if="devModeEnabled && shouldShowGroup('dev')">
-        <h3 class="group-title">{{ t('settings.groups.dev') }}</h3>
+      <section class="settings-group dev-group" v-if="devModeEnabled && shouldShowGroup('dev')">
+        <div class="dev-group-head">
+          <h3 class="group-title dev-title">
+            <i class="ri-code-box-line" aria-hidden="true"></i>
+            {{ t('settings.groups.dev') }}
+          </h3>
+          <span class="dev-badge">DEV</span>
+        </div>
+        <p class="dev-sub">{{ t('settings.devMode.groupDesc') }}</p>
+
+        <div class="dev-live-strip" v-if="shouldShowItem('devActionMonitor')">
+          <div class="live-left">
+            <span class="live-dot" :class="{ on: actionMonitorEnabled }" aria-hidden="true"></span>
+            <div class="live-text">
+              <b>{{ t('settings.devMode.actionMonitor') }}</b>
+              <span>{{ actionMonitorEnabled ? t('settings.devMode.monitorOn') : t('settings.devMode.monitorOff') }}</span>
+            </div>
+          </div>
+          <div class="live-stats">
+            <span class="stat">
+              <i class="ri-stack-line" aria-hidden="true"></i>
+              {{ actionFrameCount }}
+            </span>
+            <span class="stat port" :title="t('settings.devMode.livePortHint')">
+              <i class="ri-wifi-line" aria-hidden="true"></i>
+              :{{ actionLivePort }}
+            </span>
+            <label class="switch">
+              <input type="checkbox" v-model="actionMonitorEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
         <div class="group-card">
           <div class="setting-item clickable" v-if="shouldShowItem('devLog')" @click="showLogWindow = true">
             <div class="item-icon">
@@ -793,6 +596,29 @@
             <div class="item-info">
               <div class="label">{{ t('settings.devMode.logWindowTitle') }}</div>
               <div class="desc">{{ t('settings.devMode.viewLog') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
+          <div class="setting-item clickable" v-if="shouldShowItem('devExportAmr')" @click="exportActionRecords">
+            <div class="item-icon">
+              <i class="ri-download-2-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.exportActions') }}</div>
+              <div class="desc">{{ t('settings.devMode.exportActionsDesc') }}</div>
+            </div>
+            <div class="item-meta">
+              <span v-if="actionFrameCount > 0" class="meta-value">{{ actionFrameCount }}</span>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
+          <div class="setting-item clickable" v-if="shouldShowItem('devClearActions')" @click="clearActionRecords" :class="{ 'is-disabled': actionFrameCount === 0 }">
+            <div class="item-icon">
+              <i class="ri-eraser-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.clearActions') }}</div>
+              <div class="desc">{{ t('settings.devMode.clearActionsDesc') }}</div>
             </div>
             <div class="item-arrow">→</div>
           </div>
@@ -806,120 +632,38 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
-          <div class="setting-item clickable" v-if="shouldShowItem('devExportAmr')" @click="exportActionRecords">
-            <div class="item-icon">
-              <i class="ri-download-2-line" aria-hidden="true"></i>
-            </div>
-            <div class="item-info">
-              <div class="label">{{ t('settings.devMode.exportActions') }}</div>
-              <div class="desc">{{ t('settings.devMode.exportActionsDesc') }}</div>
-            </div>
-            <div class="item-arrow">→</div>
-          </div>
-          <div class="setting-item" v-if="shouldShowItem('devActionMonitor')">
-            <div class="item-icon">
-              <i class="ri-radar-line" aria-hidden="true"></i>
-            </div>
-            <div class="item-info">
-              <div class="label">{{ t('settings.devMode.actionMonitor') }}</div>
-              <div class="desc">{{ t('settings.devMode.actionMonitorDesc') }}</div>
-            </div>
-            <div class="item-action">
-              <label class="switch">
-                <input type="checkbox" v-model="actionMonitorEnabled" />
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
         </div>
       </section>
     </transition>
 
-    <transition name="dialog-pop">
-      <div v-if="showClearConfigDialog" class="dialog-overlay" @click="showClearConfigDialog = false">
-        <div class="dialog-content confirm-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.devMode.clearConfigConfirmTitle') }}</h3>
-            <button class="dialog-close" @click="showClearConfigDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <p>{{ t('settings.devMode.clearConfigConfirmBody') }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="showClearConfigDialog = false">
-              {{ t('settings.devMode.clearConfigConfirmCancel') }}
-            </button>
-            <button class="btn-text danger" @click="confirmClearConfig">
-              {{ t('settings.devMode.clearConfigConfirmOk') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- Factory reset (delete user profile → next launch goes through OOBE) -->
-    <transition name="dialog-pop-quick">
-      <div v-if="showFactoryResetDialog" class="dialog-overlay" @click.self="showFactoryResetDialog = false">
-        <div class="dialog-content confirm-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.factoryReset.confirmTitle') }}</h3>
-            <button class="dialog-close" @click="showFactoryResetDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <p>{{ t('settings.factoryReset.confirmBody') }}</p>
-            <label class="dialog-checkbox-row" @click.stop>
-              <input type="checkbox" v-model="factoryResetDeep" />
-              <span class="dialog-checkbox-text">{{ t('settings.factoryReset.deepLabel') }}</span>
-              <span class="dialog-checkbox-hint">{{ t('settings.factoryReset.deepHint') }}</span>
-            </label>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-text secondary" @click="showFactoryResetDialog = false">
-              {{ t('settings.factoryReset.cancelBtn') }}
-            </button>
-            <button class="btn-text danger" @click="confirmFactoryReset" :disabled="factoryResetBusy">
-              {{ factoryResetBusy ? t('common.loading') : t('settings.factoryReset.confirmBtn') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showLogWindow" class="dialog-overlay" @click="closeLogWindow">
-        <div class="dialog-content log-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.devMode.logWindowTitle') }}</h3>
-            <button class="dialog-close" @click="closeLogWindow" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <div class="log-toolbar">
-              <button class="btn-text secondary" @click="refreshLogs">{{ t('common.refresh') }}</button>
-              <button class="btn-text" @click="exportLog">{{ t('settings.devMode.exportLog') }}</button>
-            </div>
-            <pre class="log-output">{{ logsText || t('common.noLogs') }}</pre>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <ClearConfigDialog v-model="showClearConfigDialog" />
+    <FactoryResetDialog v-model="showFactoryResetDialog" @reset="emit('reset-to-oobe')" />
+    <LogWindowDialog v-model="showLogWindow" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { resolveImageUrl } from '../utils/assetUrl';
 import { useUpdater } from '../composables/useUpdater';
 import { useNotification, type NotificationMode } from '../composables/useNotification';
 import { useLanguage } from '../composables/useLanguage';
 import { useAppInfo } from '../composables/useAppInfo';
-import HsvColorPicker from './HsvColorPicker.vue';
 import AuthorsDialog from './AuthorsDialog.vue';
 import LegalSidebar from './LegalSidebar.vue';
 import VersionInfoDialog from './VersionInfoDialog.vue';
+import NamingDialog from './settings/NamingDialog.vue';
+import HistoryDialog from './settings/HistoryDialog.vue';
+import ThemeDialog from './settings/ThemeDialog.vue';
+import BackgroundDialog from './settings/BackgroundDialog.vue';
+import LogWindowDialog from './settings/LogWindowDialog.vue';
+import FactoryResetDialog from './settings/FactoryResetDialog.vue';
+import ClearConfigDialog from './settings/ClearConfigDialog.vue';
+import OutputPathDialog from './settings/OutputPathDialog.vue';
+import DevUnlockDialog from './settings/DevUnlockDialog.vue';
 const { t } = useI18n()
 const { locale, setLanguage } = useLanguage()
 
@@ -945,11 +689,21 @@ const emit = defineEmits([
 ]);
 
 const { notify, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
-const { build: appBuildNumber, isBeta: appIsBeta } = useAppInfo();
+const { version: appInfoVersion, build: appBuildNumber, isBeta: appIsBeta } = useAppInfo();
 
 const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('C:/Users/Admin/Documents/2-Pyramid/Output');
 const showOutputDialog = ref(false);
+const onSaveOutputPath = async (path: string) => {
+  outputPath.value = path;
+  try {
+    await invoke('update_config', {
+      patch: { outputMode: outputMode.value, outputPath: path },
+    });
+  } catch (e) {
+    console.error('update_config failed', e);
+  }
+};
 const notificationEnabled = ref(true);
 const notificationMode = ref<NotificationMode>('both');
 type AnimationSpeed = 'slow' | 'normal' | 'fast';
@@ -968,265 +722,87 @@ const animationEnabledOptions: { value: AnimationEnabled; labelKey: string }[] =
 ];
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>(props.sourceHandling ?? 'ask');
 const openOutputAfterConvert = ref<boolean>(props.openOutputAfterConvert ?? true);
-// Toast 通知自定义：显示时长（秒）与屏幕角落位置
 const toastDuration = ref(8000);
 const toastDurationOptions = [4000, 6000, 8000, 10000, 12000];
 const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('top-right');
-// 批量转换并行资源包数
 const conversionThreads = ref(2);
 const conversionThreadsOptions = [1, 2, 4];
-// 输出文件命名模板（占位符：[Name] [Ver] [Time]）
-const namingWelcome = t('settings.outputNaming.defaultName');
 const namingTemplate = ref('[Ver][Name]');
 const showNamingDialog = ref(false);
-const namingDraft = ref('[Ver][Name]');
-const namingTags = [
-  { token: '[Name]', label: 'Name', desc: t('settings.outputNaming.nameDesc') },
-  { token: '[Ver]', label: 'Version', desc: t('settings.outputNaming.verDesc') },
-  { token: '[Time]', label: 'Time', desc: t('settings.outputNaming.timeDesc') },
-];
-const namingPreview = computed(() => {
-  const render = (tpl: string) => tpl
-    // [Name] 是原材质包名；预览里用欢迎文案演示
-    .replace(/\[Name\]/g, namingWelcome)
-    .replace(/\[Ver\]/g, '[Java 1.20-1.20.1]')
-    .replace(/\[Time\]/g, '20260816-101234');
-  const rendered = render(namingDraft.value).trim();
-  return (rendered || namingWelcome) + '.zip';
-});
-const openNamingDialog = () => {
-  namingDraft.value = namingTemplate.value;
-  showNamingDialog.value = true;
+const onSaveNaming = (value: string) => {
+  namingTemplate.value = value;
 };
-const saveNamingDialog = () => {
-  namingTemplate.value = namingDraft.value;
-  showNamingDialog.value = false;
-};
-const insertNamingTag = (token: string) => {
-  const current = namingDraft.value.trimEnd();
-  namingDraft.value = current ? `${current} ${token}` : token;
-};
-// 转换历史
-interface HistoryEntry {
-  input: string;
-  output: string | null;
-  status: string;
-  error: string | null;
-  time: string;
-  duration_s: number;
-}
-const historyEntries = ref<HistoryEntry[]>([]);
 const showHistoryDialog = ref(false);
+const showThemeDialog = ref(false);
+const themeStartReset = ref(false);
+const showClearConfigDialog = ref(false);
+const showFactoryResetDialog = ref(false);
+const actionMonitorEnabled = ref(false);
+const actionFrameCount = ref(0);
+const actionLivePort = ref(24159);
+let actionStatusTimer: ReturnType<typeof setInterval> | null = null;
 
-const openHistoryDialog = () => {
-  showHistoryDialog.value = true;
-  loadConversionHistory();
-};
-
-const loadConversionHistory = () => {
-  invoke<HistoryEntry[]>('get_conversion_history')
-    .then((entries) => { historyEntries.value = entries ?? []; })
-    .catch(() => {});
-};
-
-const clearConversionHistory = async () => {
+async function refreshActionStatus() {
   try {
-    await invoke('clear_conversion_history');
-    historyEntries.value = [];
-    notify({
-      title: t('settings.conversionHistory.groupTitle'),
-      body: t('settings.conversionHistory.cleared'),
+    const st = await invoke<{ enabled: boolean; frames: number; livePort?: number }>('action_monitor_status');
+    actionFrameCount.value = st.frames ?? 0;
+    if (typeof st.livePort === 'number') actionLivePort.value = st.livePort;
+    if (typeof st.enabled === 'boolean' && st.enabled !== actionMonitorEnabled.value) {
+      actionMonitorEnabled.value = st.enabled;
+    }
+  } catch { /* ignore */ }
+}
+
+const clearActionRecords = async () => {
+  try {
+    const dropped = await invoke<number>('clear_action_records');
+    actionFrameCount.value = 0;
+    await notify({
+      title: t('settings.devMode.clearActions'),
+      body: t('settings.devMode.clearActionsDone', { count: dropped }),
       type: 'success',
       source: 'system',
     });
   } catch { /* ignore */ }
 };
 
-const openHistoryOutput = (path: string) => {
-  invoke('open_folder', { path }).catch(() => {});
-};
-
-const historyFileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
-const showThemeDialog = ref(false);
-const showResetDialog = ref(false);
-const showClearConfigDialog = ref(false);
-const showFactoryResetDialog = ref(false);
-// 动作监视（开发者诊断）：记录前端所有点击行为到日志
-const actionMonitorEnabled = ref(false);
-
-// ── 自定义背景 ────────────────────────────────────────────────
 const showBackgroundDialog = ref(false);
-const bgDraftFile = ref<string | null>(null);
-const bgDraftPreview = ref('');
-const bgDraftFit = ref<'cover' | 'contain' | 'stretch' | 'tile'>('cover');
-const bgDraftOpacity = ref(80); // 百分比 20–100
-const bgExtractColor = ref(true);
-const bgSyncing = ref(false);
 const currentBackgroundPath = ref<string | null>(null);
 const currentBackgroundFit = ref<'cover' | 'contain' | 'stretch' | 'tile'>('cover');
 const currentBackgroundOpacity = ref(1);
-// 控件表面样式：玻璃 / 磨砂
 const uiStyle = ref<'glass' | 'frosted'>('glass');
 
-const bgPreviewStyle = computed(() => {
-  if (!bgDraftPreview.value) return {};
-  return {
-    backgroundImage: `url(${bgDraftPreview.value})`,
-    backgroundSize: bgDraftFit.value === 'stretch' ? '100% 100%' : bgDraftFit.value,
-    backgroundRepeat: bgDraftFit.value === 'tile' ? 'repeat' : 'no-repeat',
-    backgroundPosition: 'center',
-    opacity: bgDraftOpacity.value / 100,
-  };
-});
-
 const openBackgroundDialog = () => {
-  bgDraftFile.value = null;
-  bgDraftPreview.value = '';
-  bgDraftFit.value = currentBackgroundFit.value;
-  bgDraftOpacity.value = Math.round(currentBackgroundOpacity.value * 100);
-  bgExtractColor.value = true;
-  bgSyncing.value = false;
   showBackgroundDialog.value = true;
-  // 已有背景时直接加载预览，便于只调透色/展示方式
-  if (currentBackgroundPath.value) {
-    resolveImageUrl(currentBackgroundPath.value)
-      .then((url) => { bgDraftPreview.value = url; })
-      .catch(() => {});
-  }
 };
 
-const closeBackgroundDialog = () => {
-  if (bgSyncing.value) return;
-  showBackgroundDialog.value = false;
+const onBackgroundApplied = (payload: {
+  path: string | null;
+  fit: 'cover' | 'contain' | 'stretch' | 'tile';
+  opacity: number;
+  themeColor: string | null;
+}) => {
+  currentBackgroundPath.value = payload.path;
+  currentBackgroundFit.value = payload.fit;
+  currentBackgroundOpacity.value = payload.opacity;
+  if (payload.themeColor) {
+    themeColor.value = payload.themeColor;
+  }
+  emit('update:background', {
+    path: payload.path,
+    fit: payload.fit,
+    opacity: payload.opacity,
+    themeColor: payload.themeColor,
+  });
 };
 
-const pickBackgroundImage = async () => {
-  try {
-    const selected = await open({
-      multiple: false,
-      filters: [{
-        name: t('settings.background.filter'),
-        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'],
-      }],
-    });
-    if (selected && typeof selected === 'string') {
-      bgDraftFile.value = selected;
-      bgDraftPreview.value = await resolveImageUrl(selected);
-    }
-  } catch (e) {
-    console.error('[background] pick failed:', e);
-  }
+const onBackgroundRemoved = () => {
+  currentBackgroundPath.value = null;
+  emit('update:background', { path: null, fit: 'cover', opacity: 1, themeColor: null });
 };
 
-const submitBackground = async () => {
-  // 既没有新图片、也没有已设置的背景 → 无操作
-  if (bgSyncing.value || (!bgDraftFile.value && !currentBackgroundPath.value)) return;
-  bgSyncing.value = true;
-  try {
-    if (bgDraftFile.value) {
-      const result = await invoke<{ background_path: string | null; theme_color: string | null }>(
-        'set_background',
-        {
-          filePath: bgDraftFile.value,
-          fit: bgDraftFit.value,
-          opacity: bgDraftOpacity.value / 100,
-          extractColor: bgExtractColor.value,
-        },
-      );
-      currentBackgroundPath.value = result.background_path;
-      currentBackgroundFit.value = bgDraftFit.value;
-      currentBackgroundOpacity.value = bgDraftOpacity.value / 100;
-      if (result.theme_color) {
-        themeColor.value = result.theme_color;
-        tempThemeColor.value = result.theme_color;
-      }
-      emit('update:background', {
-        path: result.background_path,
-        fit: bgDraftFit.value,
-        opacity: bgDraftOpacity.value / 100,
-        themeColor: result.theme_color,
-      });
-    } else {
-      // 仅调整透色强度 / 展示方式，无需重选图片
-      await invoke('update_background_settings', {
-        fit: bgDraftFit.value,
-        opacity: bgDraftOpacity.value / 100,
-      });
-      currentBackgroundFit.value = bgDraftFit.value;
-      currentBackgroundOpacity.value = bgDraftOpacity.value / 100;
-      emit('update:background', {
-        path: currentBackgroundPath.value,
-        fit: bgDraftFit.value,
-        opacity: bgDraftOpacity.value / 100,
-        themeColor: null,
-      });
-    }
-    showBackgroundDialog.value = false;
-    notify({
-      title: t('settings.background.dialogTitle'),
-      body: t('settings.background.success'),
-      type: 'success',
-      source: 'system',
-    });
-  } catch (e) {
-    notify({
-      title: t('settings.background.dialogTitle'),
-      body: t('settings.background.failed', { error: String(e) }),
-      type: 'error',
-      source: 'system',
-    });
-  } finally {
-    bgSyncing.value = false;
-  }
-};
-
-const removeBackground = async () => {
-  if (bgSyncing.value) return;
-  bgSyncing.value = true;
-  try {
-    await invoke('clear_background');
-    currentBackgroundPath.value = null;
-    bgDraftFile.value = null;
-    bgDraftPreview.value = '';
-    emit('update:background', { path: null, fit: 'cover', opacity: 1, themeColor: null });
-    notify({
-      title: t('settings.background.dialogTitle'),
-      body: t('settings.background.removed'),
-      type: 'success',
-      source: 'system',
-    });
-  } catch (e) {
-    notify({
-      title: t('settings.background.dialogTitle'),
-      body: t('settings.background.failed', { error: String(e) }),
-      type: 'error',
-      source: 'system',
-    });
-  } finally {
-    bgSyncing.value = false;
-  }
-};
-const factoryResetDeep = ref(false);
-const factoryResetBusy = ref(false);
 const defaultThemeColor = '#007bff';
 const themeColor = ref('#007bff');
-const tempThemeColor = ref('#007bff');
-/** HSV 取色器双向桥：hex ↔ rgba */
-const tempThemeRgba = computed({
-  get: () => {
-    const n = tempThemeColor.value.replace('#', '');
-    return {
-      r: parseInt(n.slice(0, 2), 16) / 255,
-      g: parseInt(n.slice(2, 4), 16) / 255,
-      b: parseInt(n.slice(4, 6), 16) / 255,
-      a: 1
-    };
-  },
-  set: (c: { r: number; g: number; b: number }) => {
-    const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0');
-    tempThemeColor.value = `#${to(c.r)}${to(c.g)}${to(c.b)}`;
-  }
-});
 
 const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
@@ -1242,11 +818,12 @@ const devModeEnabled = ref(!!props.devMode);
 const versionTapCount = ref(0);
 const devHint = ref('');
 const showDevUnlockDialog = ref(false);
-const devUnlockInput = ref('');
-const devUnlockError = ref('');
 const showLogWindow = ref(false);
-const logsText = ref('');
-let logTimer: ReturnType<typeof setInterval> | null = null;
+
+const onDevUnlocked = () => {
+  devModeEnabled.value = true;
+  emit('update:dev-mode', true);
+};
 
 // ── Updater ──────────────────────────────────────
 const { checkForUpdate, getChannel } = useUpdater();
@@ -1255,8 +832,13 @@ const updateSource = ref('mirror');
 const updateChecking = ref(false);
 const updateError = ref('');
 const currentVersion = ref('');
+const displayVersion = computed(() => {
+  const v = appInfoVersion.value && appInfoVersion.value !== '0.0.0'
+    ? appInfoVersion.value
+    : currentVersion.value;
+  return v || '—';
+});
 
-// 更新源测速
 interface SourceSpeedResult {
   source: string;
   reachable: boolean;
@@ -1267,7 +849,6 @@ interface SourceSpeedResult {
 const speedResults = ref<SourceSpeedResult[] | null>(null);
 const sourceMeasuring = ref(false);
 
-/// 两个源都可达时的最快源（按速率，取不到则按延迟）
 const fastestSource = computed(() => {
   const list = speedResults.value;
   if (!list) return null;
@@ -1355,15 +936,16 @@ const settingItems = [
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
   { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
   { id: 'devExportAmr', group: 'dev', label: t('settings.devMode.exportActions'), desc: t('settings.devMode.exportActionsDesc') },
+  { id: 'devClearActions', group: 'dev', label: t('settings.devMode.clearActions'), desc: t('settings.devMode.clearActionsDesc') },
   { id: 'devClearConfig', group: 'dev', label: t('settings.devMode.clearConfig'), desc: t('settings.devMode.clearConfigDesc') },
   { id: 'devActionMonitor', group: 'dev', label: t('settings.devMode.actionMonitor'), desc: t('settings.devMode.actionMonitorDesc') }
 ];
 
 const shouldShowGroup = (groupId: string) => {
   if (!searchQuery.value) return true;
-  return settingItems.some(item => 
-    item.group === groupId && 
-    (item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+  return settingItems.some(item =>
+    item.group === groupId &&
+    (item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
      item.desc.toLowerCase().includes(searchQuery.value.toLowerCase()))
   );
 };
@@ -1372,7 +954,7 @@ const shouldShowItem = (itemId: string) => {
   if (!searchQuery.value) return true;
   const item = settingItems.find(i => i.id === itemId);
   if (!item) return false;
-  return item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+  return item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
          item.desc.toLowerCase().includes(searchQuery.value.toLowerCase());
 };
 
@@ -1402,7 +984,6 @@ const testNotification = async () => {
     body: t('settings.testNotification.testBody'),
     type: 'info',
     source: 'system',
-    // 测试按钮用于预览效果：即使通知总开关关闭也必须能看到结果
     ignoreDisabled: true,
   });
 };
@@ -1419,64 +1000,6 @@ const onVersionTap = async () => {
   devHint.value = t('settings.devMode.hintBefore', { count: 7 - versionTapCount.value });
 };
 
-const cancelDevUnlock = () => {
-  showDevUnlockDialog.value = false;
-  devUnlockInput.value = '';
-  devUnlockError.value = '';
-};
-
-const confirmDevUnlock = async () => {
-  devUnlockError.value = '';
-  if (devUnlockInput.value.trim() !== 'DeveloperEnable') {
-    devUnlockError.value = t('settings.devMode.error');
-    return;
-  }
-  devModeEnabled.value = true;
-  showDevUnlockDialog.value = false;
-  devUnlockInput.value = '';
-  emit('update:dev-mode', true);
-  try {
-    await invoke('set_dev_mode', { enabled: true });
-  } catch {
-    // ignore
-  }
-};
-
-const refreshLogs = async () => {
-  try {
-    logsText.value = await invoke<string>('get_logs');
-  } catch (e) {
-    logsText.value = t('settings.devMode.logError', { error: e });
-  }
-};
-
-const exportLog = async () => {
-  try {
-    const defaultPath = await invoke<string | null>('get_log_path');
-    const dest = await save({
-      defaultPath: defaultPath || undefined,
-      filters: [{ name: 'Log', extensions: ['log', 'txt'] }],
-    });
-    if (dest) {
-      const result = await invoke<string>('export_logs', { dest });
-      await notify({
-        title: t('common.success'),
-        body: t('settings.devMode.exportSuccess', { path: result }),
-        type: 'success',
-        source: 'system',
-      });
-    }
-  } catch (e) {
-    await notify({
-      title: t('common.error'),
-      body: t('settings.devMode.exportFailed', { error: String(e) }),
-      type: 'error',
-      source: 'system',
-    });
-  }
-};
-
-/// 导出动作监视记录为 .2amr 文件（Action Mon3tr 回放格式）
 const exportActionRecords = async () => {
   try {
     const stamp = new Date()
@@ -1505,139 +1028,6 @@ const exportActionRecords = async () => {
   }
 };
 
-/**
- * Dev-only: wipe the on-disk settings.json and every localStorage key
- * the app has written, then reload the page. Intended for QA regression
- * loops where the user wants to start from a clean slate.
- */
-const confirmClearConfig = async () => {
-  showClearConfigDialog.value = false;
-  try {
-    // 1. Delete the Tauri-side settings.json
-    await invoke<string>('clear_config');
-    // 2. Wipe localStorage (this is origin-scoped to the Tauri webview, so
-    //    it only removes app keys, not other browser data)
-    localStorage.clear();
-    // 3. Notify the user before we reload so the message is visible
-    await notify({
-      title: t('settings.devMode.clearConfigDoneTitle'),
-      body: t('settings.devMode.clearConfigDoneBody'),
-      type: 'success',
-      source: 'system',
-    });
-  } catch (e) {
-    await notify({
-      title: t('settings.devMode.clearConfigErrorTitle'),
-      body: t('settings.devMode.clearConfigErrorBody', { error: String(e) }),
-      type: 'error',
-      source: 'system',
-    });
-    return;
-  }
-  // Small delay so the toast is visible before the page tears down
-  setTimeout(() => {
-    window.location.reload();
-  }, 600);
-};
-
-/**
- * User-facing factory reset. Unlike `confirmClearConfig` (dev-only,
- * gated) this is the production entry point exposed in Settings →
- * Advanced. It deletes the on-disk settings.json so the next launch
- * falls back to defaults, then reloads the page so the freshly-empty
- * state takes effect and OOBE fires on the next launch (or now, if
- * the user reopens before that).
- */
-const confirmFactoryReset = async () => {
-  factoryResetBusy.value = true;
-  const deep = factoryResetDeep.value;
-  factoryResetDeep.value = false; // reset for next open
-  console.log('[factory_reset] starting, deep=', deep);
-
-  try {
-    if (deep) {
-      const report = await invoke<{ config_path: string; logs_deleted: number; overlay_history_cleared: boolean }>(
-        'factory_reset_deep',
-      );
-      console.log('[factory_reset] deep result:', report);
-    } else {
-      const path = await invoke<string>('factory_reset');
-      console.log('[factory_reset] config deleted:', path);
-    }
-    // Also wipe localStorage keys we set ourselves so the next launch
-    // starts truly fresh. We don't clear everything (that would also
-    // nuke unrelated keys if the user has any), only the 2pyr-owned
-    // ones.
-    localStorage.removeItem('sourceHandling');
-    localStorage.removeItem('openOutputAfterConvert');
-    localStorage.removeItem('animationSpeed');
-    localStorage.removeItem('animationEnabled');
-    localStorage.removeItem('themeColor');
-    localStorage.removeItem('language');
-    showFactoryResetDialog.value = false;
-    factoryResetBusy.value = false;
-
-    // Tell App.vue to show the OOBE immediately. We do NOT try to
-    // exit or reload the app — in the destroy/recreate-window
-    // architecture the exit path is fragile (ExitRequested
-    // interception) and reload doesn't reset in-memory state. Showing
-    // OOBE right here is instant, reliable, and the user sees the
-    // effect immediately.
-    emit('reset-to-oobe');
-  } catch (e) {
-    console.error('[factory_reset] failed:', e);
-    await notify({
-      title: t('settings.factoryReset.failedTitle'),
-      body: String(e),
-      type: 'error',
-      source: 'system',
-    });
-    // Keep the dialog open so the user can retry without losing the
-    // “deep” checkbox state.
-    factoryResetBusy.value = false;
-  }
-};
-
-const closeLogWindow = () => {
-  showLogWindow.value = false;
-  if (logTimer) {
-    clearInterval(logTimer);
-    logTimer = null;
-  }
-};
-
-const pickOutputFolder = async () => {
-  try {
-    const dir = await open({ directory: true, multiple: false });
-    if (dir && typeof dir === 'string') {
-      outputPath.value = dir;
-    }
-  } catch (e) {
-    console.error('pickOutputFolder failed', e);
-  }
-};
-
-const saveOutputPath = async () => {
-  if (outputMode.value === 'fixed' && outputPath.value.trim().length > 0) {
-    try {
-      await invoke('create_dir', { path: outputPath.value });
-    } catch (e) {
-      console.error('create_dir failed', e);
-    }
-  }
-  try {
-    await invoke('update_config', {
-      patch: {
-        outputMode: outputMode.value,
-        outputPath: outputPath.value,
-      }
-    });
-  } catch (e) {
-    console.error('update_config failed', e);
-  }
-  showOutputDialog.value = false;
-};
-
 onMounted(() => {
   const savedMode = localStorage.getItem('outputMode');
   const savedPath = localStorage.getItem('outputPath');
@@ -1650,7 +1040,6 @@ onMounted(() => {
   const savedThemeColor = localStorage.getItem('themeColor');
   if (savedThemeColor) {
     themeColor.value = savedThemeColor;
-    tempThemeColor.value = savedThemeColor;
   }
 
   const savedNotificationEnabled = localStorage.getItem('notificationEnabled');
@@ -1685,7 +1074,6 @@ onMounted(() => {
       }
       if (cfg?.palette?.theme_color) {
         themeColor.value = cfg.palette.theme_color;
-        tempThemeColor.value = cfg.palette.theme_color;
       }
       if (typeof cfg?.notification_enabled === 'boolean') {
         notificationEnabled.value = cfg.notification_enabled;
@@ -1693,8 +1081,6 @@ onMounted(() => {
       if (cfg?.notification_mode === 'system' || cfg?.notification_mode === 'app' || cfg?.notification_mode === 'both') {
         notificationMode.value = cfg.notification_mode;
       }
-      // 配置加载后显式同步 composable 单例（localStorage 与 config 未变化时
-      // watch 不会触发，避免测试通知被陈旧的开关状态拦截）
       setNotificationEnabled(notificationEnabled.value);
       setNotificationMode(notificationMode.value);
       if (typeof cfg?.toast_duration_ms === 'number' && cfg.toast_duration_ms >= 4000 && cfg.toast_duration_ms <= 15000) {
@@ -1720,7 +1106,6 @@ onMounted(() => {
         conversionThreads.value = cfg.conversion_threads;
       }
       if (typeof cfg?.output_naming === 'string' && cfg.output_naming.length > 0) {
-        // 迁移旧值（default/timestamp/overwrite）到模板语义
         const legacy: Record<string, string> = {
           default: '[Ver][Name]',
           timestamp: '[Ver][Time]',
@@ -1742,9 +1127,7 @@ onMounted(() => {
 
   currentVersionFromConfig();
   loadUpdateChannel();
-  loadConversionHistory();
 
-  // Load version from Tauri app metadata (matches Python script's version bump)
   getVersion().then(v => { currentVersion.value = v; }).catch(() => {});
   invoke<boolean>('get_dev_mode')
     .then((enabled) => {
@@ -1761,28 +1144,31 @@ onMounted(() => {
 watch(actionMonitorEnabled, (val) => {
   invoke('set_action_monitor', { enabled: val }).catch(() => {});
   emit('update:action-monitor', val);
+  if (actionStatusTimer) {
+    clearInterval(actionStatusTimer);
+    actionStatusTimer = null;
+  }
+  if (val) {
+    void refreshActionStatus();
+    actionStatusTimer = setInterval(() => { void refreshActionStatus(); }, 1500);
+  }
 });
 
 watch(showVersionInfo, (open) => {
   if (open) return;
   versionTapCount.value = 0;
   devHint.value = '';
-  cancelDevUnlock();
 });
 
-watch(showLogWindow, async (open) => {
-  if (!open) return;
-  await refreshLogs();
-  if (logTimer) clearInterval(logTimer);
-  logTimer = setInterval(refreshLogs, 1200);
+onUnmounted(() => {
+  if (actionStatusTimer) {
+    clearInterval(actionStatusTimer);
+    actionStatusTimer = null;
+  }
 });
 
 watch(() => props.devMode, (v) => {
   if (typeof v === 'boolean') devModeEnabled.value = v;
-});
-
-onUnmounted(() => {
-  if (logTimer) clearInterval(logTimer);
 });
 
 watch(outputMode, (val) => {
@@ -1861,37 +1247,35 @@ watch(localUserName, (val) => {
 });
 
 const openThemeDialog = () => {
-  tempThemeColor.value = themeColor.value;
+  themeStartReset.value = false;
   showThemeDialog.value = true;
 };
 
-const confirmThemeColor = async () => {
-  themeColor.value = tempThemeColor.value;
-  document.documentElement.style.setProperty('--theme-color', themeColor.value);
-  localStorage.setItem('themeColor', themeColor.value);
-  try {
-    await invoke('update_config', {
-      patch: { palette: { theme_color: themeColor.value } }
-    });
-  } catch (e) {
-    console.error('update_config failed', e);
-  }
-  showThemeDialog.value = false;
+const openThemeReset = () => {
+  themeStartReset.value = true;
+  showThemeDialog.value = true;
 };
 
-const resetThemeColor = async () => {
-  themeColor.value = defaultThemeColor;
-  tempThemeColor.value = defaultThemeColor;
-  document.documentElement.style.setProperty('--theme-color', themeColor.value);
-  localStorage.setItem('themeColor', themeColor.value);
+const onThemeConfirm = async (color: string) => {
+  themeColor.value = color;
+  document.documentElement.style.setProperty('--theme-color', color);
+  localStorage.setItem('themeColor', color);
   try {
-    await invoke('update_config', {
-      patch: { palette: { theme_color: themeColor.value } }
-    });
+    await invoke('update_config', { patch: { palette: { theme_color: color } } });
   } catch (e) {
     console.error('update_config failed', e);
   }
-  showResetDialog.value = false;
+};
+
+const onThemeReset = async () => {
+  themeColor.value = defaultThemeColor;
+  document.documentElement.style.setProperty('--theme-color', themeColor.value);
+  localStorage.setItem('themeColor', themeColor.value);
+  try {
+    await invoke('update_config', { patch: { palette: { theme_color: themeColor.value } } });
+  } catch (e) {
+    console.error('update_config failed', e);
+  }
 };
 </script>
 
@@ -2077,6 +1461,153 @@ const resetThemeColor = async () => {
   opacity: 0;
 }
 
+/* 开发者区块：深色玻璃 + 绿点缀，与主 UI 区分 */
+.dev-group {
+  position: relative;
+}
+
+.dev-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 15px;
+  margin-bottom: 4px;
+}
+
+.dev-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #0f172a;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+}
+
+.dev-title i {
+  font-size: 18px;
+  color: #059669;
+}
+
+.dev-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+  border: 1px solid rgba(5, 150, 105, 0.22);
+}
+
+.dev-sub {
+  margin: 0 0 12px 15px;
+  font-size: 12px;
+  color: #86868b;
+  line-height: 1.5;
+}
+
+.dev-live-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.08), rgba(5, 150, 105, 0.06));
+  border: 1px solid rgba(5, 150, 105, 0.14);
+  box-shadow: 0 2px 12px rgba(6, 78, 59, 0.04);
+}
+
+.live-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
+}
+
+.live-dot.on {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18), 0 0 10px rgba(16, 185, 129, 0.45);
+  animation: dev-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dev-live-pulse {
+  50% { opacity: 0.55; }
+}
+
+.live-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.live-text b {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.live-text span {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.live-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.live-stats .stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-stats .stat i {
+  font-size: 13px;
+  color: #059669;
+}
+
+.live-stats .stat.port {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #047857;
+}
+
+/* 开发者卡片：略深、边缘绿描边 */
+.dev-group .group-card {
+  border-color: rgba(5, 150, 105, 0.12);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.dev-group .setting-item.clickable.danger:hover {
+  background: rgba(239, 68, 68, 0.05);
+}
+
 .group-card {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(20px);
@@ -2102,6 +1633,27 @@ const resetThemeColor = async () => {
 .item-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .item-info .label { font-size: 15px; font-weight: 600; color: #1d1d1f; }
 .item-info .desc { font-size: 12px; color: #86868b; }
+
+.item-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+.meta-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d1d1f;
+  font-variant-numeric: tabular-nums;
+}
+.meta-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
 
 .item-arrow { color: #c6c6c8; font-weight: 800; }
 
@@ -2352,19 +1904,7 @@ const resetThemeColor = async () => {
 .status-unregistered { background: #fef3c7; color: #b45309; }
 .status-partial      { background: #fee2e2; color: #b91c1c; }
 
-.dialog-overlay {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.3);
-  display: flex; align-items: center; justify-content: center; z-index: 200;
-  backdrop-filter: blur(6px);
-}
-.dialog-content {
-  width: 420px; max-width: 90vw;
-  background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.06);
-  border-radius: 20px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-}
-.log-dialog {
-  width: min(900px, 90vw);
-}
+/* 弹窗骨架（overlay/content/header/body/footer）走全局 shared.css */
 .log-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -2380,10 +1920,6 @@ const resetThemeColor = async () => {
   font-size: 12px;
   line-height: 1.45;
 }
-.dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.dialog-header h3 { font-size: 16px; margin: 0; }
-/* .dialog-close 使用全局 shared.css */
-.dialog-body { display: flex; flex-direction: column; gap: 8px; }
 
 /* Inline checkbox row inside a dialog (e.g. the factory-reset “deep
    clean” toggle). The whole row is the hit target so the user can

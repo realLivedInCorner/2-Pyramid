@@ -170,191 +170,30 @@
       </div>
     </div>
 
-    <!-- Bedrock 转换未完成警示 -->
-    <transition name="dialog-pop">
-      <div v-if="showBedrockWarn" class="dialog-overlay" @click.self="showBedrockWarn = false">
-        <div class="dialog-content" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('conversion.bedrockWarn.title') }}</h3>
-            <button class="close-btn" @click="showBedrockWarn = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="dialog-body">
-            <p class="bedrock-warn-text">{{ t('conversion.bedrockWarn.body') }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="dialog-button secondary" @click="showBedrockWarn = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-button danger" @click="confirmBedrockPick">{{ t('conversion.bedrockWarn.confirm') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <BedrockWarnDialog v-model="showBedrockWarn" @confirm="confirmBedrockPick" />
 
-    <transition name="dialog-pop">
-    <div class="dialog-overlay" v-if="showResultModal" @click="showResultModal = false">
-      <div class="dialog-content" @click.stop>
-        <div class="dialog-header">
-          <h3>{{ conversionResults && conversionResults.length > 0 ? t('conversion.resultSuccess') : t('conversion.resultFailed') }}</h3>
-          <button class="close-btn" @click="showResultModal = false">×</button>
-        </div>
-        <div class="dialog-body">
-          <div v-if="conversionResults && conversionResults.length > 0">
-            <div class="result-summary">
-              <div class="result-item">
-                <span class="result-label">{{ t('conversion.totalLabel') }}</span>
-                <span class="result-value">{{ conversionResults.length }} 个</span>
-              </div>
-              <div class="result-item">
-                <span class="result-label">{{ t('conversion.successLabel') }}</span>
-                <span class="result-value success">{{ conversionResults.filter(r => r.status === 'success').length }} 个</span>
-              </div>
-              <div class="result-item">
-                <span class="result-label">{{ t('conversion.failLabel') }}</span>
-                <span class="result-value error">{{ conversionResults.filter(r => r.status !== 'success').length }} 个</span>
-              </div>
-            </div>
-            <div v-if="conversionResults.filter(r => r.status !== 'success').length > 0" class="error-details">
-              <h4>{{ t('conversion.errorDetails') }}</h4>
-              <ul class="error-list">
-                <li v-for="(result, index) in conversionResults.filter(r => r.status !== 'success')" :key="index">
-                  {{ result.fileName || selectedItems[index]?.name || t('conversion.errorFile') }}: {{ result.error || t('common.unknownError') }}
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div v-else>
-            <p>{{ t('conversion.severeError') }}</p>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button class="dialog-button" @click="openOutputFolder" :disabled="!conversionResults || conversionResults.filter(r => r.status === 'success').length === 0">
-            {{ t('conversion.openOutputDir') }}
-          </button>
-          <button class="dialog-button secondary" @click="exportLogsToFile" :disabled="logMessages.length === 0">
-            {{ t('conversion.exportLog') }}
-          </button>
-          <button class="dialog-button secondary" @click="showResultModal = false">{{ t('common.close') }}</button>
-        </div>
-      </div>
-    </div>
-    </transition>
+    <ConversionResultDialog
+      v-model="showResultModal"
+      :results="conversionResults"
+      :file-names="selectedItems.map((i) => i.name)"
+      :log-count="logMessages.length"
+      @open-output="openOutputFolder"
+      @export-logs="exportLogsToFile"
+    />
 
-    <!-- 删除源资源包确认对话框（自绘，替代原生 ask 弹窗） -->
-    <transition name="dialog-pop">
-      <div class="dialog-overlay" v-if="showDeleteSourceDialog" @click="showDeleteSourceDialog = false">
-        <div class="dialog-content" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('settings.sourceHandling.deleteTitle') }}</h3>
-            <button class="close-btn" @click="showDeleteSourceDialog = false">×</button>
-          </div>
-          <div class="dialog-body">
-            <p>{{ t('settings.sourceHandling.deleteBody') }}</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="dialog-button secondary" @click="showDeleteSourceDialog = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-button danger" @click="confirmDeleteSource">{{ t('settings.sourceHandling.delete') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <DeleteSourceDialog v-model="showDeleteSourceDialog" @confirm="confirmDeleteSource" />
 
-    <transition name="sidebar-overlay-fade">
-      <div
-        v-if="showVersionPicker"
-        class="sidebar-overlay"
-        @click="showVersionPicker = false"
-        @keydown.esc="showVersionPicker = false"
-      ></div>
-    </transition>
+    <VersionSidebar
+      v-model="showVersionPicker"
+      :selected="selectedVersion"
+      @pick="onVersionPick"
+    />
 
-    <transition
-      :css="false"
-      @before-enter="onSidebarBeforeEnter"
-      @enter="onSidebarEnter"
-      @after-enter="onSidebarAfterEnter"
-      @before-leave="onSidebarBeforeLeave"
-      @leave="onSidebarLeave"
-      @after-leave="onSidebarAfterLeave"
-    >
-      <aside
-        v-if="showVersionPicker"
-        class="sidebar-content version-sidebar"
-        ref="versionSidebar"
-        @click.stop
-        tabindex="-1"
-      >
-        <div class="sidebar-header">
-          <div class="sidebar-header-text">
-            <h3>{{ t('conversion.selectVersion') }}</h3>
-            <p class="sidebar-hint">{{ selectedVersionEntry.label }} · {{ t('conversion.packFormat', { n: selectedVersionEntry.packFormat }) }}</p>
-          </div>
-          <button class="sidebar-close" @click="showVersionPicker = false" :aria-label="t('common.close')">
-            <i class="ri-close-line" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="sidebar-body">
-          <div
-            v-for="(group, gi) in versionsByEra"
-            :key="group.era"
-            class="version-era"
-          >
-            <div class="version-era-header">
-              <span class="version-era-name">{{ t(`conversion.versionEras.${group.era}`) }}</span>
-              <span class="version-era-count">{{ group.items.length }}</span>
-            </div>
-            <div class="version-list">
-              <button
-                v-for="(v, i) in group.items"
-                :key="v.label"
-                class="version-row"
-                :class="{
-                  active: v.label === selectedVersion,
-                  'has-status': v.status,
-                }"
-                :style="{ '--card-delay': `${(gi * 40) + (i * 16)}ms` }"
-                @click="onVersionPick(v)"
-              >
-                <div class="version-row-main">
-                  <span class="version-row-label">{{ v.label }}</span>
-                  <span class="version-row-meta">{{ t('conversion.packFormat', { n: v.packFormat }) }}</span>
-                </div>
-                <div class="version-row-tail">
-                  <span v-if="v.status" class="version-status" :class="`status-${v.status}`">
-                    {{ t(`conversion.versionStatus.${v.status}`) }}
-                  </span>
-                  <i v-if="v.label === selectedVersion" class="ri-check-line version-row-check" aria-hidden="true"></i>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </transition>
-
-    <transition name="dialog-pop">
-      <div v-if="showItemsDialog" class="dialog-overlay" @click="showItemsDialog = false">
-        <div class="dialog-content items-dialog" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ t('conversion.fullImportList', { count: selectedItems.length }) }}</h3>
-            <button class="dialog-close" @click="showItemsDialog = false" :aria-label="t('common.close')">×</button>
-          </div>
-          <div class="items-dialog-list">
-            <div v-for="(item, idx) in selectedItems" :key="`${item.path}-${idx}`" class="item-row">
-              <div class="item-info">
-                <span class="item-icon"><i class="ri-file-3-line" aria-hidden="true"></i></span>
-                <span class="item-name">{{ item.name }}</span>
-              </div>
-              <div class="item-actions">
-                <span class="item-size">{{ item.size }}</span>
-                <button class="remove-item-btn" @click.stop="removeItem(idx)">×</button>
-              </div>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="dialog-button secondary" @click="showItemsDialog = false">{{ t('common.close') }}</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <ItemsListDialog
+      v-model="showItemsDialog"
+      :items="selectedItems"
+      @remove="removeItem"
+    />
   </div>
 </template>
 
@@ -365,12 +204,16 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useNotification } from '../composables/useNotification';
-// dialog enter/leave 走全局 CSS class 模式(`<transition name="dialog-pop">` +
-// `name="dialog-pop-fast">`,见 App.vue 全局 .dialog-pop-* / .dialog-pop-fast-*
-// 规则)。Vue 3 在 element insert 时直接加 enter-from class,跟 element 同一个
-// commit,第一帧 paint 一定看到 from 状态 → 杜绝「打开瞬间闪一下」。
-// version picker leave 700ms 走 .dialog-pop-fast-leave-active class 内部
-// 700ms transition-duration 规则(配合内部 .version-card spring leave)。
+import BedrockWarnDialog from './conversion/BedrockWarnDialog.vue';
+import ConversionResultDialog from './conversion/ConversionResultDialog.vue';
+import DeleteSourceDialog from './conversion/DeleteSourceDialog.vue';
+import ItemsListDialog from './conversion/ItemsListDialog.vue';
+import VersionSidebar from './conversion/VersionSidebar.vue';
+import {
+  MINECRAFT_VERSIONS,
+  DEFAULT_VERSION_LABEL,
+  type VersionEntry,
+} from '../data/minecraftVersions';
 
 const emit = defineEmits(['switch-page']);
 const props = defineProps<{
@@ -393,7 +236,7 @@ const manyFilesWarning = ref(false);
 // 记住上次的转换设置：目标版本与 Alpha 修复开关持久化到
 // localStorage，重启后恢复。标签合法性在 onMounted 校验（版本列表
 // 更新后旧标签可能失效）。
-const selectedVersion = ref(localStorage.getItem('conversion.lastVersion') ?? '1.21-1.21.1');
+const selectedVersion = ref(localStorage.getItem('conversion.lastVersion') ?? DEFAULT_VERSION_LABEL);
 const fixAlphaLayers = ref(localStorage.getItem('conversion.fixAlphaLayers') === 'true');
 // 实验：着色器适配默认开；关闭则原样保留 shaders（可能在新版本失效）
 const adaptShaders = ref(localStorage.getItem('conversion.adaptShaders') !== 'false');
@@ -405,64 +248,13 @@ const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('');
 const showVersionPicker = ref(false);
 const showBedrockWarn = ref(false);
-const versionSidebar = ref<HTMLElement | null>(null);
 const showItemsDialog = ref(false);
 const previewLimit = 3;
 // 拖入不支持的扩展名时的提示（当前 zip/mcpack 均接受）
 const dropHint = ref('');
 let dropHintTimer: ReturnType<typeof setTimeout> | null = null;
 
-type VersionStatus = 'latest' | 'stable' | 'beta';
-type VersionEra =
-  | 'classic'      // 1.6 – 1.12
-  | 'modern'       // 1.13 – 1.16  (Update Aquatic, Village & Pillage, Nether)
-  | 'cavesCliffs'  // 1.17 – 1.19  (Caves & Cliffs I/II, Wild)
-  | 'trailsTales'  // 1.20
-  | 'trickyTrials' // 1.21
-  | 'bravery'      // 26.1+ (Bundles of Bravery)
-  | 'bedrock';     // Bedrock Latest（基岩版，特殊目标：先转 1.21.11 再重组）
-
-interface VersionEntry {
-  label: string;        // 唯一 key,跟 versionMap 对齐
-  range: string;        // 显示的版本区间,如 "1.6 → 1.8"
-  packFormat: number;   // pack_format 数值
-  era: VersionEra;
-  status?: VersionStatus;
-}
-
-const versions: VersionEntry[] = [
-  { label: '1.6-1.8',         range: '1.6 → 1.8',         packFormat: 1,  era: 'classic' },
-  { label: '1.9-1.10',        range: '1.9 → 1.10',        packFormat: 2,  era: 'classic' },
-  { label: '1.11-1.12',       range: '1.11 → 1.12',       packFormat: 3,  era: 'classic' },
-  { label: '1.13-1.14',       range: '1.13 → 1.14',       packFormat: 4,  era: 'modern' },
-  { label: '1.15-1.16.1',     range: '1.15 → 1.16.1',     packFormat: 5,  era: 'modern' },
-  { label: '1.16.2-1.16.5',   range: '1.16.2 → 1.16.5',   packFormat: 6,  era: 'modern' },
-  { label: '1.17',            range: '1.17',              packFormat: 7,  era: 'cavesCliffs' },
-  { label: '1.18',            range: '1.18',              packFormat: 8,  era: 'cavesCliffs' },
-  { label: '1.19-1.19.2',     range: '1.19 → 1.19.2',     packFormat: 9,  era: 'cavesCliffs' },
-  { label: '1.19.3',          range: '1.19.3',            packFormat: 12, era: 'cavesCliffs' },
-  { label: '1.19.4',          range: '1.19.4',            packFormat: 13, era: 'cavesCliffs' },
-  { label: '1.20-1.20.1',     range: '1.20 → 1.20.1',     packFormat: 15, era: 'trailsTales' },
-  { label: '1.20.2',          range: '1.20.2',            packFormat: 18, era: 'trailsTales' },
-  { label: '1.20.3-1.20.4',   range: '1.20.3 → 1.20.4',   packFormat: 22, era: 'trailsTales' },
-  { label: '1.20.5-1.20.6',   range: '1.20.5 → 1.20.6',   packFormat: 32, era: 'trailsTales' },
-  { label: '1.21-1.21.1',     range: '1.21 → 1.21.1',     packFormat: 34, era: 'trickyTrials' },
-  { label: '1.21.2-1.21.3',   range: '1.21.2 → 1.21.3',   packFormat: 42, era: 'trickyTrials' },
-  { label: '1.21.4',          range: '1.21.4',            packFormat: 46, era: 'trickyTrials' },
-  { label: '1.21.5',          range: '1.21.5',            packFormat: 55, era: 'trickyTrials' },
-  { label: '1.21.6',          range: '1.21.6',            packFormat: 63, era: 'trickyTrials' },
-  { label: '1.21.7-1.21.8',   range: '1.21.7 → 1.21.8',   packFormat: 64, era: 'trickyTrials' },
-  { label: '1.21.9-1.21.10',  range: '1.21.9 → 1.21.10',  packFormat: 69, era: 'trickyTrials' },
-  { label: '1.21.11',         range: '1.21.11',           packFormat: 75, era: 'trickyTrials', status: 'stable' },
-  { label: '26.1-26.1.2',     range: '26.1 → 26.1.2',     packFormat: 84, era: 'bravery',    status: 'latest' },
-  { label: '26.2',            range: '26.2',              packFormat: 88, era: 'bravery',    status: 'latest' },
-  { label: 'Bedrock Latest',  range: 'Bedrock',           packFormat: 1000, era: 'bedrock',  status: 'beta' },
-];
-
-// Era order for the picker dialog (chronological, oldest first).
-const eraOrder: VersionEra[] = [
-  'classic', 'modern', 'cavesCliffs', 'trailsTales', 'trickyTrials', 'bravery', 'bedrock',
-];
+const versions = MINECRAFT_VERSIONS;
 
 const selectedVersionEntry = computed(
   () => versions.find(v => v.label === selectedVersion.value) ?? versions[versions.length - 1]
@@ -483,16 +275,6 @@ const confirmBedrockPick = () => {
   showBedrockWarn.value = false;
   selectedVersion.value = 'Bedrock Latest';
 };
-
-const versionsByEra = computed(() => {
-  const groups: Record<VersionEra, VersionEntry[]> = {
-    classic: [], modern: [], cavesCliffs: [], trailsTales: [], trickyTrials: [], bravery: [], bedrock: [],
-  };
-  for (const v of versions) groups[v.era].push(v);
-  return eraOrder
-    .filter(era => groups[era].length > 0)
-    .map(era => ({ era, items: groups[era] }));
-});
 
 const hasItems = computed(() => selectedItems.value.length > 0);
 const previewItems = computed(() => selectedItems.value.slice(0, previewLimit));
@@ -523,7 +305,7 @@ onMounted(async () => {
   // 校验持久化的版本标签仍存在（版本列表更新后旧标签可能失效），
   // 失效则回退到默认目标版本。
   if (!versions.some(v => v.label === selectedVersion.value)) {
-    selectedVersion.value = '1.21-1.21.1';
+    selectedVersion.value = DEFAULT_VERSION_LABEL;
   }
 
   // 记住上次的转换设置（目标版本 / Alpha 修复开关）
@@ -585,92 +367,6 @@ onUnmounted(() => {
   unregisterToastAction('conv:open-output');
 });
 
-/* === Sidebar enter/leave 钩子 =================================
-   完全弃用 @keyframes 动画。改用 inline style + CSS transition 手动驱动:
-   - onSidebarBeforeEnter: 锁初始 transform 100%,box-shadow none
-   - onSidebarEnter:        raf 后设 transition + 终值(0 + 0.08),触发 CSS transition
-   - onSidebarAfterEnter:   锁终态(0 + 0.08),防止 stylesheet 默认 transform 重新生效
-   - onSidebarBeforeLeave:  直接设 transition + 终值 transform 100% + box-shadow none
-                            (不依赖 raf,inline style 改动是同步的,浏览器自动触发 transition)
-   - onSidebarLeave:        啥都不做,Vue 等 done() 调
-   - onSidebarAfterLeave:   清空 inline style,v-if 移除元素
-
-   enter/leave 都靠 inline style 触发 CSS transition 渐变 — 所有 transform /
-   box-shadow / opacity 状态都在 inline style 里,不被 App.vue 全局 .page-shell
-   > * > * 的 page-entry stagger 干扰。
-
-   box-shadow 数值(距离/blur/opacity)跟 .sidebar-content 默认 CSS 保持一致。 */
-function onSidebarBeforeEnter(el: Element) {
-  const h = el as HTMLElement;
-  h.style.transition = 'none';
-  h.style.transform = 'translateX(100%)';
-  h.style.boxShadow = 'none';
-  h.style.opacity = '1';
-}
-
-function prefersReducedMotion() {
-  return document.body.classList.contains('motion-reduced');
-}
-
-function onSidebarEnter(el: Element, done: () => void) {
-  const h = el as HTMLElement;
-  if (prefersReducedMotion()) {
-    h.style.transition = '';
-    h.style.transform = 'translateX(0)';
-    h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
-    h.style.opacity = '1';
-    done();
-    return;
-  }
-  // 强制 reflow 让 transition: none 先 commit
-  h.offsetHeight;
-  // raf 后设 transition + 终值,触发 CSS transition 渐变
-  requestAnimationFrame(() => {
-    h.style.transition = 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1)';
-    h.style.transform = 'translateX(0)';
-    h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
-    setTimeout(done, 330);
-  });
-}
-
-function onSidebarAfterEnter(el: Element) {
-  const h = el as HTMLElement;
-  // 锁终态:清掉 transition 防止后续状态变化被 transition 拦截
-  h.style.transition = '';
-  h.style.transform = 'translateX(0)';
-  h.style.boxShadow = '-12px 0 36px rgba(0, 0, 0, 0.08)';
-  h.style.opacity = '1';
-}
-
-function onSidebarBeforeLeave(el: Element) {
-  const h = el as HTMLElement;
-  if (prefersReducedMotion()) {
-    h.style.transition = '';
-    h.style.transform = 'translateX(100%)';
-    h.style.boxShadow = 'none';
-    return;
-  }
-  // 当前 transform = 0(afterEnter 锁),box-shadow = 0.08
-  // 直接设 transition + 终值(transform 100% + box-shadow none)
-  // 浏览器看到 inline style 改动从 0 跳到 100%,自动触发 CSS transition 渐变
-  h.style.transition = 'transform 240ms cubic-bezier(0.4, 0, 1, 1), box-shadow 240ms cubic-bezier(0.4, 0, 1, 1)';
-  h.style.transform = 'translateX(100%)';
-  h.style.boxShadow = 'none';
-}
-
-function onSidebarLeave(_el: Element, done: () => void) {
-  // Vue 等 done() 调才 unmount; reduced 下立刻结束
-  setTimeout(done, prefersReducedMotion() ? 0 : 250);
-}
-
-function onSidebarAfterLeave(el: Element) {
-  const h = el as HTMLElement;
-  h.style.transition = '';
-  h.style.transform = '';
-  h.style.boxShadow = '';
-  h.style.opacity = '';
-}
-
 const handleVersionPickerKey = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && showVersionPicker.value) {
     showVersionPicker.value = false;
@@ -683,7 +379,7 @@ watch(showVersionPicker, (open) => {
     window.addEventListener('keydown', handleVersionPickerKey);
     // 自动 focus sidebar 容器(让内部 button 也能接收键盘事件)
     setTimeout(() => {
-      versionSidebar.value?.focus?.();
+      (document.querySelector('.version-sidebar') as HTMLElement | null)?.focus?.();
     }, 50);
   } else {
     window.removeEventListener('keydown', handleVersionPickerKey);

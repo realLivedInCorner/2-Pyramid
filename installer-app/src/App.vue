@@ -1,16 +1,33 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-// 流程步骤：0 介绍 / 1 协议 / 2 安装位置 / 3 安装中 / 4 完成
+interface InstallContext {
+  updateMode: boolean;
+  uninstallMode: boolean;
+  installed: boolean;
+  installedVersion: string | null;
+  newVersion: string;
+  channel: string;
+  dir: string;
+  appRunning: boolean;
+}
+
+// 安装：0 介绍 / 1 协议 / 2 路径 / 3 安装中 / 4 完成
+// 更新：0 覆盖更新确认 / 1 更新中 / 2 完成
+// 卸载：0 确认 / 4 完成
 const step = ref(0);
-const totalSteps = 5;
+const installTotalSteps = 5;
+const updateTotalSteps = 3;
 
 const uninstallMode = ref(false);
+const updateMode = ref(false);
+const installed = ref(false);
+const installedVersion = ref<string | null>(null);
 const dir = ref("");
 const version = ref("2.0.0");
 const channel = ref("stable");
@@ -18,14 +35,15 @@ const githubUrl = ref("");
 const busy = ref(false);
 const failed = ref(false);
 const resultMessage = ref("");
-const installed = ref(false);
+const appRunning = ref(false);
+const closingApp = ref(false);
 
 // 阅读确认（非「同意许可」——本项目 MIT，不额外限制用户权利）
 const eulaTitle = ref("使用须知与免责声明");
 const eulaBody = ref("");
 const eulaAgreed = ref(false);
 
-// 快捷方式选项：桌面 / 开始菜单
+// 快捷方式选项：桌面 / 开始菜单（更新模式不使用）
 const shortcutDesktop = ref(true);
 const shortcutStartMenu = ref(true);
 
@@ -35,27 +53,66 @@ const progressTotal = ref(0);
 const progressName = ref("");
 const progressPercent = ref(0);
 let unlistenProgress: UnlistenFn | null = null;
+let runningPoll: number | null = null;
+
+const totalSteps = computed(() => (updateMode.value ? updateTotalSteps : installTotalSteps));
+const brandTag = computed(() => {
+  if (uninstallMode.value) return `卸载程序 · v${version.value}`;
+  if (updateMode.value) return `更新程序 · v${version.value}`;
+  return `安装程序 · v${version.value}`;
+});
+const versionArrowLabel = computed(() => {
+  const from = installedVersion.value || "旧版";
+  return `${from}  →  ${version.value}`;
+});
+const canStartUpdate = computed(() => !busy.value && !!dir.value.trim() && !appRunning.value);
+
+async function refreshAppRunning() {
+  try {
+    appRunning.value = await invoke<boolean>("is_app_running_cmd");
+  } catch {
+    appRunning.value = false;
+  }
+}
 
 onMounted(async () => {
   try {
-    uninstallMode.value = await invoke<boolean>("is_uninstall_mode");
-    dir.value = uninstallMode.value
-      ? ((await invoke<string | null>("get_installed_dir")) ?? await invoke<string>("get_default_dir"))
-      : await invoke<string>("get_default_dir");
-    version.value = await invoke<string>("get_version");
-    channel.value = await invoke<string>("get_channel");
-    githubUrl.value = await invoke<string>("get_github_url");
-    installed.value = await invoke<boolean>("is_installed");
+    const ctx = await invoke<InstallContext>("get_install_context");
+    uninstallMode.value = ctx.uninstallMode;
+    updateMode.value = ctx.updateMode;
+    installed.value = ctx.installed;
+    installedVersion.value = ctx.installedVersion;
+    dir.value = ctx.dir;
+    version.value = ctx.newVersion;
+    channel.value = ctx.channel;
+    appRunning.value = ctx.appRunning;
     try {
-      const eula = await invoke<{ title: string; body: string }>("get_eula");
-      eulaTitle.value = eula.title;
-      eulaBody.value = eula.body;
-    } catch {
-      eulaBody.value = "请阅读仓库 legal/EULA.md 与 legal/DISCLAIMER.md。";
+      githubUrl.value = await invoke<string>("get_github_url");
+    } catch { /* optional */ }
+    if (!uninstallMode.value && !updateMode.value) {
+      try {
+        const eula = await invoke<{ title: string; body: string }>("get_eula");
+        eulaTitle.value = eula.title;
+        eulaBody.value = eula.body;
+      } catch {
+        eulaBody.value = "请阅读仓库 legal/EULA.md 与 legal/DISCLAIMER.md。";
+      }
     }
   } catch (e) {
     console.error("[installer] init failed:", e);
+    // 回退：尽量用旧命令拼出上下文
+    try {
+      uninstallMode.value = await invoke<boolean>("is_uninstall_mode");
+      installed.value = await invoke<boolean>("is_installed");
+      updateMode.value = !uninstallMode.value && installed.value;
+      dir.value = uninstallMode.value
+        ? ((await invoke<string | null>("get_installed_dir")) ?? await invoke<string>("get_default_dir"))
+        : await invoke<string>("get_default_dir");
+      version.value = await invoke<string>("get_version");
+      channel.value = await invoke<string>("get_channel");
+    } catch { /* ignore */ }
   }
+
   if (!uninstallMode.value) {
     unlistenProgress = await listen<{ current: number; total: number; name: string }>(
       "install-progress",
@@ -69,12 +126,22 @@ onMounted(async () => {
       },
     );
   }
+
+  if (updateMode.value) {
+    runningPoll = window.setInterval(() => {
+      if (!busy.value) void refreshAppRunning();
+    }, 1500);
+  }
 });
 
 onUnmounted(() => {
   if (unlistenProgress) {
     unlistenProgress();
     unlistenProgress = null;
+  }
+  if (runningPoll !== null) {
+    window.clearInterval(runningPoll);
+    runningPoll = null;
   }
 });
 
@@ -94,24 +161,43 @@ const openGithub = async () => {
 };
 
 const next = () => {
-  // EULA 步骤必须勾选同意
   if (step.value === 1 && !eulaAgreed.value) return;
-  if (step.value < totalSteps - 1) step.value++;
+  if (step.value < totalSteps.value - 1) step.value++;
 };
 
 const prev = () => {
   if (step.value > 0) step.value--;
 };
 
+const closeRunningApp = async () => {
+  if (closingApp.value) return;
+  closingApp.value = true;
+  try {
+    await invoke("close_running_app");
+    await refreshAppRunning();
+  } catch (e) {
+    failed.value = true;
+    resultMessage.value = String(e);
+  } finally {
+    closingApp.value = false;
+  }
+};
+
 const doInstall = async () => {
   if (!dir.value.trim() || busy.value) return;
+  if (updateMode.value && appRunning.value) {
+    failed.value = true;
+    resultMessage.value = "2-Pyramid 仍在运行，请先退出再更新。";
+    return;
+  }
   busy.value = true;
   failed.value = false;
   progressCurrent.value = 0;
   progressTotal.value = 0;
   progressName.value = "";
   progressPercent.value = 0;
-  step.value = 3;
+  // 更新模式：step 1 = 更新中；安装模式：step 3 = 安装中
+  step.value = updateMode.value ? 1 : 3;
   try {
     resultMessage.value = await invoke<string>("install", {
       dir: dir.value.trim(),
@@ -122,12 +208,13 @@ const doInstall = async () => {
     });
     installed.value = true;
     progressPercent.value = 100;
-    step.value = 4;
+    step.value = updateMode.value ? 2 : 4;
   } catch (e) {
     failed.value = true;
     resultMessage.value = String(e);
   } finally {
     busy.value = false;
+    if (updateMode.value) void refreshAppRunning();
   }
 };
 
@@ -139,8 +226,6 @@ const doUninstall = async () => {
     resultMessage.value = await invoke<string>("uninstall", { dir: dir.value.trim() });
     installed.value = false;
     step.value = 4;
-    // 完成动画播完后自动关窗：窗口关闭 → 进程退出 → 后台清理进程
-    // （WaitForExit 等待本进程）删除卸载器自身与安装目录。
     window.setTimeout(() => { void closeWindow(); }, 3500);
   } catch (e) {
     failed.value = true;
@@ -165,6 +250,13 @@ const closeWindow = async () => {
     await getCurrentWindow().close();
   } catch { /* ignore */ }
 };
+
+const retryFromUpdateOverview = () => {
+  failed.value = false;
+  resultMessage.value = "";
+  step.value = 0;
+  void refreshAppRunning();
+};
 </script>
 
 <template>
@@ -185,7 +277,7 @@ const closeWindow = async () => {
       <div class="top-brand-text">
         <span class="top-brand-name">2-Pyramid</span>
         <span class="top-brand-tag">
-          {{ uninstallMode ? '卸载程序' : '安装程序' }} · v{{ version }}
+          {{ brandTag }}
           <em v-if="channel === 'beta'" class="beta-badge">Beta</em>
         </span>
       </div>
@@ -204,8 +296,106 @@ const closeWindow = async () => {
 
     <!-- 内容区 -->
     <main class="content">
+      <!-- ── 更新模式：步骤 0 覆盖更新确认 ── -->
+      <div v-if="updateMode && step === 0" class="panel">
+        <div class="panel-title">覆盖更新</div>
+        <p class="panel-desc">
+          检测到本机已安装 2-Pyramid。将覆盖程序文件完成更新，
+          设置、转换记录等用户数据会保留。
+        </p>
+
+        <div class="update-version-card">
+          <div class="uv-block">
+            <span class="uv-label">当前版本</span>
+            <span class="uv-value old">{{ installedVersion || "未知" }}</span>
+          </div>
+          <i class="ri-arrow-right-line uv-arrow" aria-hidden="true"></i>
+          <div class="uv-block">
+            <span class="uv-label">更新到</span>
+            <span class="uv-value new">{{ version }}</span>
+          </div>
+        </div>
+
+        <div class="update-facts">
+          <div class="fact">
+            <i class="ri-folder-line" aria-hidden="true"></i>
+            <div>
+              <b>安装位置</b>
+              <span class="fact-mono">{{ dir }}</span>
+            </div>
+          </div>
+          <div class="fact">
+            <i class="ri-database-2-line" aria-hidden="true"></i>
+            <div>
+              <b>保留用户数据</b>
+              <span>设置、转换历史、自定义背景（~/.2pyr）不会被删除</span>
+            </div>
+          </div>
+          <div class="fact">
+            <i class="ri-links-line" aria-hidden="true"></i>
+            <div>
+              <b>快捷方式</b>
+              <span>沿用现有入口，不会自动重建</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="appRunning" class="status warn">
+          <i class="ri-alert-line" aria-hidden="true"></i>
+          <div class="warn-text">
+            <b>2-Pyramid 仍在运行</b>
+            <span>文件被占用会导致更新失败，请先退出应用。</span>
+          </div>
+          <button class="btn ghost sm" :disabled="closingApp" @click="closeRunningApp">
+            <i :class="closingApp ? 'ri-loader-4-line ri-spin' : 'ri-shut-down-line'"></i>
+            {{ closingApp ? '正在退出…' : '退出应用' }}
+          </button>
+        </div>
+        <div v-else-if="failed" class="status err">
+          <i class="ri-error-warning-line" aria-hidden="true"></i>
+          <span>{{ resultMessage }}</span>
+        </div>
+      </div>
+
+      <!-- ── 更新模式：步骤 1 更新中 ── -->
+      <div v-else-if="updateMode && step === 1" class="panel">
+        <div class="panel-title">正在更新</div>
+        <p class="panel-desc">正在覆盖写入程序文件，请稍候…</p>
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+          </div>
+          <div class="progress-meta">
+            <span>{{ progressPercent }}%</span>
+            <span class="progress-file">{{ progressName }}</span>
+          </div>
+        </div>
+        <div v-if="failed" class="status err">
+          <i class="ri-error-warning-line" aria-hidden="true"></i>
+          <span>{{ resultMessage }}</span>
+          <button class="btn ghost sm" @click="retryFromUpdateOverview">返回</button>
+        </div>
+      </div>
+
+      <!-- ── 更新模式：步骤 2 完成 ── -->
+      <div v-else-if="updateMode && step === 2" class="panel">
+        <div class="panel-title">{{ failed ? '更新失败' : '更新完成' }}</div>
+        <div :class="failed ? 'status err' : 'status ok'">
+          <i :class="failed ? 'ri-error-warning-line' : 'ri-checkbox-circle-line'" aria-hidden="true"></i>
+          <span>{{ resultMessage }}</span>
+        </div>
+        <div v-if="!failed" class="status-actions">
+          <button class="btn primary" @click="doLaunch"><i class="ri-rocket-2-line"></i> 启动 2-Pyramid</button>
+          <button class="btn ghost" @click="closeWindow">关闭</button>
+        </div>
+        <div v-else class="status-actions">
+          <button class="btn ghost" @click="retryFromUpdateOverview">返回</button>
+          <button class="btn ghost" @click="closeWindow">关闭</button>
+        </div>
+      </div>
+
       <!-- 安装模式：步骤 0 介绍 -->
-      <div v-if="!uninstallMode && step === 0" class="panel">
+      <div v-else-if="!uninstallMode && step === 0" class="panel">
         <div class="panel-title">欢迎使用 2-Pyramid</div>
         <p class="panel-desc">
           2-Pyramid 是一款多版本 Minecraft 资源包转换工具，
@@ -345,35 +535,53 @@ const closeWindow = async () => {
     <!-- 底部药丸导航 -->
     <footer class="foot">
       <div class="nav-pill">
+        <!-- 更新模式 -->
         <button
-          v-if="!uninstallMode && step > 0 && step < 4"
+          v-if="updateMode && step === 0"
+          class="pill-btn primary"
+          :disabled="!canStartUpdate"
+          @click="doInstall"
+        >
+          <i v-if="appRunning" class="ri-lock-line"></i>
+          <i v-else class="ri-refresh-line"></i>
+          {{ appRunning ? '请先退出应用' : '立即更新' }}
+        </button>
+        <button
+          v-else-if="updateMode && step === 1"
+          class="pill-btn primary"
+          disabled
+        ><i class="ri-loader-4-line ri-spin"></i> 更新中…</button>
+
+        <!-- 安装模式 -->
+        <button
+          v-else-if="!uninstallMode && step > 0 && step < 4"
           class="pill-btn ghost"
           :disabled="busy"
           @click="prev"
         ><i class="ri-arrow-left-s-line"></i> 上一步</button>
 
         <button
-          v-if="!uninstallMode && step === 0"
+          v-if="!updateMode && !uninstallMode && step === 0"
           class="pill-btn primary"
           @click="next"
         >下一步 <i class="ri-arrow-right-s-line"></i></button>
 
         <button
-          v-else-if="!uninstallMode && step === 1"
+          v-else-if="!updateMode && !uninstallMode && step === 1"
           class="pill-btn primary"
           :disabled="!eulaAgreed"
           @click="next"
         >下一步 <i class="ri-arrow-right-s-line"></i></button>
 
         <button
-          v-else-if="!uninstallMode && step === 2"
+          v-else-if="!updateMode && !uninstallMode && step === 2"
           class="pill-btn primary"
           :disabled="busy || !dir.trim()"
           @click="doInstall"
         ><i class="ri-install-line"></i> 安装</button>
 
         <button
-          v-else-if="!uninstallMode && step === 3"
+          v-else-if="!updateMode && !uninstallMode && step === 3"
           class="pill-btn primary"
           disabled
         ><i class="ri-loader-4-line ri-spin"></i> 安装中…</button>
@@ -553,6 +761,101 @@ html, body, #app {
 .github-text b { font-size: 14px; }
 .github-text span { font-size: 12.5px; color: #94a3b8; }
 
+/* ── 覆盖更新页 ── */
+.update-version-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.uv-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uv-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.uv-value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.uv-value.old { color: #64748b; }
+.uv-value.new { color: #007bff; }
+
+.uv-arrow {
+  font-size: 22px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.update-facts {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.update-facts .fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 14px;
+}
+
+.update-facts .fact > i {
+  font-size: 18px;
+  color: #007bff;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.update-facts .fact > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.update-facts .fact b {
+  font-size: 13.5px;
+  color: #111827;
+}
+
+.update-facts .fact span {
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.fact-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px !important;
+  word-break: break-all;
+}
+
 .field-label { width: 100%; text-align: left; font-size: 13px; font-weight: 700; }
 
 .field-row { display: flex; gap: 10px; width: 100%; }
@@ -688,6 +991,24 @@ html, body, #app {
 .status.err i { font-size: 30px; }
 .status.working { background: #eff6ff; color: #2563eb; }
 .status.working i { font-size: 30px; }
+.status.warn {
+  flex-direction: row;
+  align-items: center;
+  background: #fffbeb;
+  color: #b45309;
+  text-align: left;
+  gap: 12px;
+}
+.status.warn > i { font-size: 24px; flex-shrink: 0; }
+.warn-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.warn-text b { font-size: 13.5px; }
+.warn-text span { font-size: 12.5px; opacity: 0.9; white-space: normal; }
 .status span { white-space: pre-line; line-height: 1.6; }
 
 @keyframes status-pop {
@@ -717,6 +1038,13 @@ html, body, #app {
 .btn.primary:hover:not(:disabled) { transform: scale(1.04); }
 .btn.ghost { background: rgba(0, 0, 0, 0.05); color: #475569; }
 .btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.09); }
+.btn.sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
 
 /* 底部药丸 */
 .foot {

@@ -12,9 +12,12 @@
 //!     卸载器自身在安装目录内时派出独立清理进程，于退出后删除自身
 //!   * launch_app / get_default_dir / get_version / get_channel / is_installed
 //!   * is_uninstall_mode —— 以 --uninstall 启动时前端展示卸载流程
+//!   * get_install_context / is_update_mode —— 应用内更新（--from-app + 已安装）
+//!     时前端进入覆盖更新页，而不是全新安装向导
 //!
 //! 静默模式：`installer.exe --silent [--dir <path>]` 直接安装后退出
 //! （自动更新器使用），不启动图形界面。
+//! 应用内更新：`installer.exe --from-app` 打开覆盖更新向导。
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -214,6 +217,54 @@ fn registry_install_dir() -> Option<PathBuf> {
     let key = hkcu.open_subkey(app_reg_path()).ok()?;
     let dir: String = key.get_value("InstallDir").ok()?;
     Some(PathBuf::from(dir))
+}
+
+/// 注册表里记录的已安装版本号。
+fn registry_installed_version() -> Option<String> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let key = hkcu.open_subkey(app_reg_path()).ok()?;
+    key.get_value::<String, _>("Version").ok()
+}
+
+/// 由 2-Pyramid 应用内更新流程拉起（`--from-app`）。
+fn is_from_app_launch() -> bool {
+    std::env::args().any(|a| a == "--from-app" || a == "--update")
+}
+
+/// 检测主程序 `2-pyramid.exe` 是否仍在运行（文件锁会阻止覆盖更新）。
+fn is_app_running() -> bool {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = std::process::Command::new("tasklist")
+        .args([
+            "/FI",
+            &format!("IMAGENAME eq {}", EXE_NAME),
+            "/NH",
+            "/FO",
+            "CSV",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    let Ok(out) = output else { return false };
+    let text = String::from_utf8_lossy(&out.stdout);
+    text.to_ascii_lowercase()
+        .contains(&EXE_NAME.to_ascii_lowercase())
+}
+
+/// 尝试结束正在运行的主程序（更新前用户确认后调用）。
+fn kill_app() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let _ = std::process::Command::new("taskkill")
+        .args(["/IM", EXE_NAME, "/F"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    // 给系统一点时间释放文件句柄
+    std::thread::sleep(std::time::Duration::from_millis(600));
+    Ok(())
 }
 
 // ── 快捷方式创建（PowerShell WScript.Shell / Shell.Application） ─
@@ -483,6 +534,69 @@ fn is_uninstall_mode() -> bool {
     std::env::args().any(|a| a == "--uninstall") || is_uninstaller_binary()
 }
 
+/// 前端初始化用的安装上下文：是否进入更新模式、已装版本、路径等。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallContext {
+    /// true = 覆盖更新向导（应用内拉起 + 已存在旧版）
+    update_mode: bool,
+    uninstall_mode: bool,
+    installed: bool,
+    /// 注册表中的已安装版本；未安装时为 None
+    installed_version: Option<String>,
+    /// 本安装包版本
+    new_version: String,
+    channel: String,
+    /// 目标安装目录（更新模式锁定为已装路径）
+    dir: String,
+    /// 主程序是否仍在运行
+    app_running: bool,
+}
+
+#[tauri::command]
+fn get_install_context() -> InstallContext {
+    let uninstall_mode = is_uninstall_mode();
+    let installed = is_installed();
+    let installed_version = if installed {
+        registry_installed_version()
+    } else {
+        None
+    };
+    let update_mode = !uninstall_mode && is_from_app_launch() && installed;
+    let dir = if uninstall_mode || update_mode || installed {
+        registry_install_dir()
+            .filter(|d| d.join(EXE_NAME).exists())
+            .unwrap_or_else(default_install_dir)
+    } else {
+        default_install_dir()
+    };
+    InstallContext {
+        update_mode,
+        uninstall_mode,
+        installed,
+        installed_version,
+        new_version: env!("CARGO_PKG_VERSION").to_string(),
+        channel: CHANNEL.to_string(),
+        dir: dir.to_string_lossy().to_string(),
+        app_running: is_app_running(),
+    }
+}
+
+#[tauri::command]
+fn is_update_mode() -> bool {
+    is_from_app_launch() && is_installed()
+}
+
+#[tauri::command]
+fn is_app_running_cmd() -> bool {
+    is_app_running()
+}
+
+#[tauri::command]
+fn close_running_app() -> Result<(), String> {
+    kill_app()
+}
+
 #[tauri::command]
 fn get_eula() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({
@@ -494,7 +608,15 @@ fn get_eula() -> Result<serde_json::Value, String> {
 #[tauri::command]
 fn install(app: AppHandle, dir: String, shortcuts: ShortcutOptions) -> Result<String, String> {
     let path = PathBuf::from(dir);
-    install_impl(&path, shortcuts, |current, total, name| {
+    let updating = is_from_app_launch() && path.join(EXE_NAME).exists();
+    if updating {
+        if is_app_running() {
+            return Err("2-Pyramid 仍在运行，请先退出再更新（文件被占用无法覆盖）".into());
+        }
+    }
+    // 应用内覆盖更新：不重建快捷方式，避免覆盖用户已删除/自定义的入口
+    let opts = if updating { ShortcutOptions::none() } else { shortcuts };
+    install_impl(&path, opts, |current, total, name| {
         let _ = app.emit(
             "install-progress",
             InstallProgress {
@@ -503,6 +625,16 @@ fn install(app: AppHandle, dir: String, shortcuts: ShortcutOptions) -> Result<St
                 name: name.to_string(),
             },
         );
+    })
+    .map(|msg| {
+        if updating {
+            format!(
+                "更新完成，已覆盖程序文件（用户数据已保留）\n目标目录：{}",
+                path.display()
+            )
+        } else {
+            msg
+        }
     })
 }
 
@@ -563,6 +695,10 @@ fn main() {
             get_eula,
             is_installed,
             is_uninstall_mode,
+            is_update_mode,
+            get_install_context,
+            is_app_running_cmd,
+            close_running_app,
             get_installed_dir,
             install,
             uninstall,

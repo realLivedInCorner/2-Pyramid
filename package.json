@@ -31,7 +31,7 @@
     "@tauri-apps/plugin-opener": "2.5.4",
     "remixicon": "^4.6.0",
     "vue": "^3.5.13",
-    "vue-i18n": "^10.0.7"
+    "vue-i18n": "^10.0.8"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
@@ -39,7 +39,7 @@
     "@vitejs/plugin-vue": "^5.2.1",
     "sharp": "^0.35.1",
     "typescript": "~5.6.2",
-    "vite": "^6.0.3",
+    "vite": "^6.4.3",
     "vue-tsc": "^2.1.10"
   },
   "description": "Modern universal multi-version Minecraft resource pack converter for Windows.",

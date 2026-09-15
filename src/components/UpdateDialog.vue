@@ -57,16 +57,46 @@ const isBetaRelease = computed(() => {
 
 const priorityLabel = computed(() => {
   if (!latest.value) return "";
-  return latest.value.priority === "safe" ? t('update.prioritySafe') : t('update.priorityOptional');
+  // Safe 标签优先；其次按 major.minor.patch 升高位标注更新程度
+  if (latest.value.priority === "safe") return t('update.prioritySafe');
+  const bump = props.updateResult?.bumpKind;
+  if (bump === "major") return t('update.bumpMajor');
+  if (bump === "minor") return t('update.bumpMinor');
+  if (bump === "patch") return t('update.bumpPatch');
+  return t('update.priorityOptional');
 });
 
 const priorityClass = computed(() => {
   if (!latest.value) return "";
+  const bump = props.updateResult?.bumpKind;
+  if (latest.value.priority === "safe") return "priority-safe";
+  if (bump === "major") return "priority-major";
+  if (bump === "minor") return "priority-minor";
+  if (bump === "patch") return "priority-patch";
   return `priority-${latest.value.priority}`;
 });
 
-const isDismissable = computed(() => latest.value?.priority !== "safe");
-const isSkippable = computed(() => latest.value?.priority === "optional");
+const bumpKindLabel = computed(() => {
+  const bump = props.updateResult?.bumpKind;
+  if (bump === "major") return t('update.bumpMajor');
+  if (bump === "minor") return t('update.bumpMinor');
+  if (bump === "patch") return t('update.bumpPatch');
+  return "";
+});
+
+const bumpHint = computed(() => {
+  const bump = props.updateResult?.bumpKind;
+  if (bump === "major") return t('update.bumpMajorHint');
+  if (bump === "minor") return t('update.bumpMinorHint');
+  if (bump === "patch") return t('update.bumpPatchHint');
+  return "";
+});
+
+/// 强制更新：Safe-tag 或 major 升位（后端已把 major 的 priority 提升为 safe）
+const isRequired = computed(() => latest.value?.priority === "safe");
+
+const isDismissable = computed(() => !isRequired.value);
+const isSkippable = computed(() => latest.value?.priority === "optional" && !isRequired.value);
 
 const assetSize = computed(() => {
   if (!latest.value) return t('update.unknown');
@@ -176,6 +206,10 @@ onUnmounted(() => {
             <span class="v-old">{{ updateResult?.currentVersion }}</span>
             <i class="ri-arrow-right-line v-arrow"></i>
             <span class="v-new">{{ latest?.version }}<em v-if="isBetaRelease" class="ud-beta-tag">{{ t('update.betaTag') }}</em></span>
+          </div>
+          <div v-if="bumpKindLabel" class="ud-bump-line">
+            <span class="ud-bump-kind" :class="priorityClass">{{ bumpKindLabel }}</span>
+            <span v-if="bumpHint" class="ud-bump-hint">{{ bumpHint }}</span>
           </div>
           <div class="ud-meta">
             <span class="ud-size"><i class="ri-download-line"></i> {{ assetSize }}</span>
@@ -305,6 +339,32 @@ onUnmounted(() => {
 }
 .priority-safe { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .priority-optional { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); border: 1px solid color-mix(in srgb, var(--theme-color) 20%, transparent); }
+.priority-major { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.priority-minor { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); border: 1px solid color-mix(in srgb, var(--theme-color) 20%, transparent); }
+.priority-patch { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+
+.ud-bump-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: -4px;
+}
+
+.ud-bump-kind {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.ud-bump-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
 
 /* Version compare */
 .ud-version-compare {

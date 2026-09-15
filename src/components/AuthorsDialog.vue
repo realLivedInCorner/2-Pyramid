@@ -45,24 +45,30 @@ const authors = [
 .authors-list {
   display: flex;
   flex-direction: column;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
 }
 
 .author-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 120px) 1fr;
-  gap: 10px;
+  grid-template-columns: 40px 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 12px 16px;
   align-items: baseline;
-  padding: 10px 4px;
 }
 
 .author-row + .author-row {
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: 1px solid #eef2f7;
 }
 
 .author-id {
+  grid-row: 1 / span 2;
   font-size: 12px;
   font-weight: 700;
-  color: #94a3b8;
+  color: color-mix(in srgb, var(--theme-color, #64748b) 75%, #000);
   font-variant-numeric: tabular-nums;
 }
 
@@ -70,11 +76,12 @@ const authors = [
   font-size: 14px;
   font-weight: 700;
   color: #1d1d1f;
+  word-break: break-word;
 }
 
 .author-note {
-  font-size: 12.5px;
-  color: #64748b;
+  font-size: 12px;
+  color: #6b7280;
   line-height: 1.45;
 }
 </style>

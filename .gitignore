@@ -15,6 +15,9 @@ dist-ssr
 *.rs.bk
 .env*
 
+# tsc project-ref 误产物（配置以 vite.config.ts 为准）
+vite.config.js
+
 # Project-specific
 Python_Script/
 set_version.py
