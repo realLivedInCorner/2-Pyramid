@@ -186,6 +186,11 @@ function onSettingsCheckUpdate(result: UpdateCheckResult) {
 async function doStartupCheck() {
   if (!tauriIsAvailable()) return;
   try {
+    const cfg = await invoke<{ auto_check_update?: boolean }>("get_config");
+    // 未显式关闭时默认开启自动检查
+    if (cfg && cfg.auto_check_update === false) return;
+  } catch { /* config 读失败则继续检查 */ }
+  try {
     const r = await checkStartupUpdate();
     if (!r.hasUpdate || !r.result) return;
     updateResult.value = r.result;

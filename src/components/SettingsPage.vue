@@ -418,6 +418,21 @@
               </div>
             </div>
           </div>
+          <div class="setting-item" v-if="shouldShowItem('autoCheckUpdate')">
+            <div class="item-icon">
+              <i class="ri-refresh-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.autoCheckUpdate.label') }}</div>
+              <div class="desc">{{ t('settings.autoCheckUpdate.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <label class="switch">
+                <input type="checkbox" v-model="autoCheckUpdate" @change="saveAutoCheckUpdate" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
           <div class="setting-item" v-if="shouldShowItem('updateSource')">
             <div class="item-icon">
               <i class="ri-server-line" aria-hidden="true"></i>
@@ -828,6 +843,7 @@ const onDevUnlocked = () => {
 // ── Updater ──────────────────────────────────────
 const { checkForUpdate, getChannel } = useUpdater();
 const updateChannel = ref('master');
+const autoCheckUpdate = ref(true);
 const updateSource = ref('mirror');
 const updateChecking = ref(false);
 const updateError = ref('');
@@ -884,6 +900,18 @@ async function loadUpdateChannel() {
   try {
     updateSource.value = await invoke<string>('get_update_source');
   } catch { /* use default */ }
+  try {
+    const cfg = await invoke<any>('get_config');
+    if (typeof cfg?.auto_check_update === 'boolean') autoCheckUpdate.value = cfg.auto_check_update;
+  } catch { /* default true */ }
+}
+
+async function saveAutoCheckUpdate() {
+  try {
+    await invoke('update_config', { patch: { autoCheckUpdate: autoCheckUpdate.value } });
+  } catch (e) {
+    console.error('save auto_check_update failed', e);
+  }
 }
 
 async function currentVersionFromConfig() {
@@ -927,6 +955,7 @@ const settingItems = [
   { id: 'outputNaming', group: 'convert', label: t('settings.outputNaming.label'), desc: t('settings.outputNaming.desc') },
   { id: 'conversionHistory', group: 'conversionHistory', label: t('settings.conversionHistory.label'), desc: t('settings.conversionHistory.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
+  { id: 'autoCheckUpdate', group: 'version', label: t('settings.autoCheckUpdate.label'), desc: t('settings.autoCheckUpdate.desc') },
   { id: 'updateSource', group: 'version', label: t('settings.updateSource.label'), desc: t('settings.updateSource.desc') },
   { id: 'animationEnabled', group: 'animationSpeed', label: t('settings.animationEnabled.label'), desc: t('settings.animationEnabled.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },

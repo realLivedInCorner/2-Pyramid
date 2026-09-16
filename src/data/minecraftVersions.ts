@@ -43,8 +43,9 @@ export const MINECRAFT_VERSIONS: VersionEntry[] = [
   { label: "1.21.7-1.21.8",   range: "1.21.7 → 1.21.8",   packFormat: 64, era: "trickyTrials" },
   { label: "1.21.9-1.21.10",  range: "1.21.9 → 1.21.10",  packFormat: 69, era: "trickyTrials" },
   { label: "1.21.11",         range: "1.21.11",           packFormat: 75, era: "trickyTrials", status: "stable" },
-  { label: "26.1-26.1.2",     range: "26.1 → 26.1.2",     packFormat: 84, era: "bravery",    status: "latest" },
-  { label: "26.2",            range: "26.2",              packFormat: 88, era: "bravery",    status: "latest" },
+  { label: "26.1-26.1.2",     range: "26.1 → 26.1.2",     packFormat: 84, era: "bravery" },
+  { label: "26.2",            range: "26.2",              packFormat: 88, era: "bravery",    status: "stable" },
+  { label: "26.3",            range: "26.3",              packFormat: 97, era: "bravery",    status: "latest" },
   { label: "Bedrock Latest",  range: "Bedrock",           packFormat: 1000, era: "bedrock",  status: "beta" },
 ];
 

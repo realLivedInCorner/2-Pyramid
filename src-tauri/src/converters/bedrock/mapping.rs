@@ -83,13 +83,14 @@ pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
         "jungle_leaves" => return Some("leaves_jungle".into()),
         "acacia_leaves" => return Some("leaves_acacia".into()),
         "dark_oak_leaves" => return Some("leaves_big_oak".into()),
-        // ── 1.16+ 新木种（至 1.21.4 pale_oak；26.3 未发布不加入）──
+        // ── 1.16+ 新木种（含 26.3 poplar）──
         "crimson_planks" => return Some("planks_crimson".into()),
         "warped_planks" => return Some("planks_warped".into()),
         "mangrove_planks" => return Some("planks_mangrove".into()),
         "cherry_planks" => return Some("planks_cherry".into()),
         "bamboo_planks" => return Some("planks_bamboo".into()),
         "pale_oak_planks" => return Some("planks_pale_oak".into()),
+        "poplar_planks" => return Some("planks_poplar".into()),
         // 下界菌柄 / 新原木
         "crimson_stem" => return Some("crimson_stem".into()),
         "warped_stem" => return Some("warped_stem".into()),
@@ -101,6 +102,10 @@ pub fn java_to_bedrock_stem(stem: &str) -> Option<String> {
         "cherry_log_top" => return Some("cherry_log_top".into()),
         "pale_oak_log" => return Some("pale_oak_log".into()),
         "pale_oak_log_top" => return Some("pale_oak_log_top".into()),
+        "poplar_log" => return Some("poplar_log".into()),
+        "poplar_log_top" => return Some("poplar_log_top".into()),
+        "stripped_poplar_log" => return Some("stripped_poplar_log".into()),
+        "stripped_poplar_log_top" => return Some("stripped_poplar_log_top".into()),
         "bamboo_block" => return Some("bamboo_block".into()),
         "bamboo_block_top" => return Some("bamboo_block_top".into()),
         "bamboo_mosaic" => return Some("bamboo_mosaic".into()),
@@ -223,6 +228,11 @@ pub fn bedrock_to_java_stem(stem: &str) -> Option<String> {
         "planks_cherry" => return Some("cherry_planks".into()),
         "planks_bamboo" => return Some("bamboo_planks".into()),
         "planks_pale_oak" => return Some("pale_oak_planks".into()),
+        "planks_poplar" => return Some("poplar_planks".into()),
+        "poplar_log" => return Some("poplar_log".into()),
+        "poplar_log_top" => return Some("poplar_log_top".into()),
+        "stripped_poplar_log" => return Some("stripped_poplar_log".into()),
+        "stripped_poplar_log_top" => return Some("stripped_poplar_log_top".into()),
         _ => {}
     }
 

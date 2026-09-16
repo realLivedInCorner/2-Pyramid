@@ -23,14 +23,14 @@
 
 ## 中文
 
-**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.2 的 Java 目标版本区间，支持任意两个版本之间的相互转换，并支持 **Java ↔ Bedrock（基岩）** 结构互转（实验性）。
+**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.3 的 Java 目标版本区间，支持任意两个版本之间的相互转换，并支持 **Java ↔ Bedrock（基岩）** 结构互转（实验性）。
 
 ### ✨ 特性
 
 - **广覆盖** — 26 个 Java 目标版本区间，六个时代（Classic / Modern / Caves & Cliffs / Trails & Tales / Tricky Trials / Bundles of Bravery）
 - **Java ↔ Bedrock（实验性）**
-  - **j2b**：任意 Java 包 → 先转到最新 **Java 26.2（pack_format 88）** → 结构重组 → `.mcpack`
-  - **b2j**：检测 `.mcpack` / 基岩 zip → 先落到 Java 26.2 树 → 再转到所选 Java 目标 → `.zip`
+  - **j2b**：任意 Java 包 → 先转到最新 **Java 26.3（pack_format 97）** → 结构重组 → `.mcpack`
+  - **b2j**：检测 `.mcpack` / 基岩 zip → 先落到 Java 26.3 树 → 再转到所选 Java 目标 → `.zip`
   - 贴图别名对齐 vanilla Bedrock（药水瓶、床、桶、木板/原木、盔甲层等）
   - 生成 `gui/icons.png` HUD 图集、`textures_list.json`、容器界面扁平化与 POT 适配
   - 平台独有内容按方向剥离（不互转 Java model ↔ Bedrock geometry）
@@ -132,7 +132,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 - `converters/bedrock/` 模块：`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`
 - 任务 `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java`（`Exclusive` + `Surgeon`）
-- 边：`(88, 1000)` j2b、`(1000, 88)` b2j；Java 中间态统一 **format 88（26.2）**
+- 边：`(97, 1000)` j2b、`(1000, 97)` b2j；Java 中间态统一 **format 97（26.3）**
 
 ### 🧰 技术栈
 
@@ -183,14 +183,14 @@ npm run build                                               # 前端 build
 
 ## English
 
-**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.2, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
+**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 27 Java target version ranges from 1.6 to the latest 26.3, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
 
 ### ✨ Features
 
 - **Wide coverage** — 26 Java target ranges across six eras
 - **Java ↔ Bedrock (experimental)**
-  - **j2b**: any Java pack → latest **Java 26.2 (pack_format 88)** → restructure → `.mcpack`
-  - **b2j**: detects `.mcpack` / Bedrock zip → Java 26.2 tree → chosen Java target → `.zip`
+  - **j2b**: any Java pack → latest **Java 26.3 (pack_format 97)** → restructure → `.mcpack`
+  - **b2j**: detects `.mcpack` / Bedrock zip → Java 26.3 tree → chosen Java target → `.zip`
   - Vanilla-aligned texture aliases (potions, beds, buckets, planks/logs, armor layers)
   - Builds `gui/icons.png` HUD atlas, `textures_list.json`; flattens container UI and pads to power-of-two
   - Platform-exclusive assets are dropped per direction (no Java model ↔ Bedrock geometry conversion)
@@ -255,7 +255,7 @@ Attach the `.exe` installer to each release (updates launch the GUI installer wi
 
 The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The very first step is **directory normalization** (locate & promote `pack.mcmeta` to the zip root, with `pack.mcmeta.txt` foolproofing), followed by Eraser → Architect → Surgeon converter tiers.
 
-**Bedrock path (experimental)** mounts on the same scheduler as version edges: modular `converters/bedrock/` (`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`), tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`), edges `(88, 1000)` / `(1000, 88)`. The Java intermediate is always **format 88 (26.2)**.
+**Bedrock path (experimental)** mounts on the same scheduler as version edges: modular `converters/bedrock/` (`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`), tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`), edges `(97, 1000)` / `(1000, 97)`. The Java intermediate is always **format 97 (26.3)**.
 
 ### 🧰 Tech Stack
 

@@ -1,6 +1,17 @@
 ## [Unreleased]
 
-（暂无）
+### Added
+
+- **Java 26.3（Wilderness Bound，pack_format 97）**：版本选择器新增目标；与 26.2 之间走 `adapt_java_shaders` 边。Bedrock 中间态同步升到 26.3。
+- **选择 26.3 时弹出已知问题确认**：材质包目录按钮无响应 / 未响应（MC-311807），需确认才继续。
+- **自动检查更新开关**：设置 → 版本；关闭后启动不再自动查更新。OOBE 第 4 步可一并配置更新通道与该开关。
+- **Poplar 木种生成（26.3）**：从橡木/丛林木生成全套——原木/木板/去皮、门/活板门/告示牌/悬挂告示牌/船/shelf/树苗，以及三色树叶近似。挂 `(88→97)`；reverse 降版时删除。基岩别名 `planks_poplar` 等已映射。垫子/层架蘑菇/红灌木不自动生成。
+
+### Fixed
+
+- **26.3 pack.mcmeta 兼容**：目标 ≥69 时只写 `min_format`/`max_format`（26.3 为 `[97,0]`–`[97,1]`），去掉 `pack_format:34` + 跨大版本 `supported_formats`（会导致游戏判不兼容）。
+- **Poplar 树叶色相**：不再相对 shift（橡木叶近灰会漂成蓝紫），改为钉在红 8° / 橙 28° / 黄 45° 并强制饱和。
+- **debug 编译**：`ClientToScreen` / `RGBQUAD` 的 windows-sys 路径修正（`cfg(debug_assertions)` 动作监视注入与截图）。
 
 ## [2.3.1] - 2026-09-15（BUILD 20044）
 

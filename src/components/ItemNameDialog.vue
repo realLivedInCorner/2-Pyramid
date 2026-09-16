@@ -1,6 +1,18 @@
 <template>
-  <div class="name-overlay" @click.self="closeDialog">
-    <div class="name-panel">
+  <transition name="sidebar-overlay-fade">
+    <div v-if="visible" class="sidebar-overlay" @click="visible = false"></div>
+  </transition>
+
+  <transition
+    :css="false"
+    @before-enter="onBeforeEnter"
+    @enter="onEnter"
+    @after-enter="onAfterEnter"
+    @before-leave="onBeforeLeave"
+    @leave="onLeave"
+    @after-leave="onAfterLeave"
+  >
+    <aside v-if="visible" class="sidebar-content name-panel" @click.stop tabindex="-1">
       <div class="panel-header">
         <h2 class="panel-title">{{ t('dialog.itemName.title') }}</h2>
         <div class="header-actions">
@@ -80,18 +92,18 @@
 
       <!-- 样式悬浮面板 -->
       <Teleport to="body">
-        <div 
-          v-if="showStylePanel" 
-          class="style-panel" 
+        <div
+          v-if="showStylePanel"
+          class="style-panel"
           :style="stylePanelPos"
           @mousedown.stop
         >
           <div class="style-section">
             <span class="section-label">{{ t('dialog.itemName.colors') }}</span>
             <div class="color-grid">
-              <button 
-                v-for="c in minecraftColors" 
-                :key="c.code" 
+              <button
+                v-for="c in minecraftColors"
+                :key="c.code"
                 class="color-swatch"
                 :style="{ background: c.hex }"
                 :title="c.name"
@@ -102,9 +114,9 @@
           <div class="style-section">
             <span class="section-label">{{ t('dialog.itemName.formatting') }}</span>
             <div class="format-grid">
-              <button 
-                v-for="f in minecraftFormats" 
-                :key="f.code" 
+              <button
+                v-for="f in minecraftFormats"
+                :key="f.code"
                 class="format-btn"
                 @click="insertFormat(f.code)"
                 :title="f.name"
@@ -133,14 +145,14 @@
             <i class="ri-loader-4-line spin" v-else></i>
             {{ isSaving ? t('dialog.itemName.saving') : t('dialog.itemName.saveChanges') }}
           </button>
-          <button class="ghost-btn back-btn" @click="closeDialog">
+          <button class="ghost-btn back-btn" @click="visible = false">
             <i class="ri-arrow-go-back-line"></i>
             <span>{{ t('common.back') }}</span>
           </button>
         </div>
       </div>
-    </div>
-  </div>
+    </aside>
+  </transition>
 </template>
 
 <script setup lang="ts">
@@ -148,14 +160,24 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { message } from '@tauri-apps/plugin-dialog';
+import { useSidebarSlide } from '../composables/useSidebarSlide';
 
 const { t } = useI18n();
+
+const visible = defineModel<boolean>({ required: true });
 
 const props = defineProps<{
   projectName: string
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const {
+  onBeforeEnter,
+  onEnter,
+  onAfterEnter,
+  onBeforeLeave,
+  onLeave,
+  onAfterLeave,
+} = useSidebarSlide({ shadow: '0 12px 48px rgba(0, 0, 0, 0.18)' });
 
 const selectedLang = ref('zh_cn');
 const searchText = ref('');
@@ -427,10 +449,10 @@ const saveAndClose = async () => {
     });
     
     saveStatus.value = { text: t('dialog.itemName.allSaved'), type: 'success' };
-    
+
     // 延迟 1.5 秒后关闭，让用户看到成功状态
     setTimeout(() => {
-      emit('close');
+      visible.value = false;
     }, 1500);
   } catch (error) {
     console.error('保存失败:', error);
@@ -438,10 +460,6 @@ const saveAndClose = async () => {
   } finally {
     isSaving.value = false;
   }
-};
-
-const closeDialog = () => {
-  emit('close');
 };
 
 const handleGlobalClick = () => {
@@ -464,33 +482,30 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 宽面板 + 双列平铺（独立类名，避开全局 .dialog-* 居中弹窗皮肤） */
-.name-overlay {
+/* 对齐转换页版本选择器：遮罩无 blur，面板用 sidebar-content + useSidebarSlide */
+.sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.32);
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  z-index: 1000;
-  animation: overlay-fade 0.22s ease;
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.28);
+  z-index: 200;
 }
 
-.name-panel {
+.name-panel.sidebar-content {
+  position: fixed;
+  top: 0;
+  right: 0;
   width: min(980px, 96vw);
   height: 100vh;
+  z-index: 201;
   background: #fff;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 0 48px rgba(0, 0, 0, 0.18);
-  animation: panel-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes panel-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  outline: none;
+  opacity: 1 !important;
+  transform: translateX(100%);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+  will-change: transform, box-shadow;
 }
 
 .panel-header {
@@ -498,7 +513,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 22px 14px;
+  /* 顶部避开浮动窗口控制按钮（top:10 + ~44px 高） */
+  padding: 56px 22px 14px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
   background: #fff;

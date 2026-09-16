@@ -74,12 +74,16 @@ impl ConversionMaps {
         forward.insert((69, 75), vec!["adapt_java_shaders".to_string()]);
         forward.insert((75, 84), vec!["adapt_java_shaders".to_string()]);
         forward.insert((84, 88), vec!["adapt_java_shaders".to_string()]);
-        // Bedrock：最新 Java 26.2（88）↔ 1000
+        forward.insert((88, 97), vec!["generate_poplar_planks".to_string(), "adapt_java_shaders".to_string()]);
+        // Bedrock：最新 Java 26.3（97）↔ 1000
         forward.insert((84, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
         forward.insert((88, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
+        forward.insert((97, 1000), vec!["bedrock_java_to_bedrock".to_string()]);
+        reverse.insert((1000, 97), vec!["bedrock_bedrock_to_java".to_string()]);
         reverse.insert((1000, 88), vec!["bedrock_bedrock_to_java".to_string()]);
         reverse.insert((1000, 84), vec!["bedrock_bedrock_to_java".to_string()]);
 
+        reverse.insert((97, 88), vec!["reverse_generate_poplar_planks".to_string(), "adapt_java_shaders".to_string()]);
         reverse.insert((88, 84), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((84, 75), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((75, 69), vec!["adapt_java_shaders".to_string()]);
