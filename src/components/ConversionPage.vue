@@ -171,6 +171,7 @@
     </div>
 
     <BedrockWarnDialog v-model="showBedrockWarn" @confirm="confirmBedrockPick" />
+    <Java263WarnDialog v-model="show263Warn" @confirm="confirm263Pick" />
 
     <ConversionResultDialog
       v-model="showResultModal"
@@ -205,6 +206,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useNotification } from '../composables/useNotification';
 import BedrockWarnDialog from './conversion/BedrockWarnDialog.vue';
+import Java263WarnDialog from './conversion/Java263WarnDialog.vue';
 import ConversionResultDialog from './conversion/ConversionResultDialog.vue';
 import DeleteSourceDialog from './conversion/DeleteSourceDialog.vue';
 import ItemsListDialog from './conversion/ItemsListDialog.vue';
@@ -248,6 +250,7 @@ const outputMode = ref<'follow' | 'fixed'>('follow');
 const outputPath = ref('');
 const showVersionPicker = ref(false);
 const showBedrockWarn = ref(false);
+const show263Warn = ref(false);
 const showItemsDialog = ref(false);
 const previewLimit = 3;
 // 拖入不支持的扩展名时的提示（当前 zip/mcpack 均接受）
@@ -260,11 +263,16 @@ const selectedVersionEntry = computed(
   () => versions.find(v => v.label === selectedVersion.value) ?? versions[versions.length - 1]
 );
 
-/// 版本选择：Bedrock 目标功能未完成，选中时先弹警示确认
+/// 版本选择：Bedrock 未完成 / 26.3 有官方材质包目录 bug，选中时先弹警示确认
 const onVersionPick = (v: VersionEntry) => {
   if (v.packFormat === 1000) {
     showVersionPicker.value = false;
     showBedrockWarn.value = true;
+    return;
+  }
+  if (v.packFormat === 97) {
+    showVersionPicker.value = false;
+    show263Warn.value = true;
     return;
   }
   selectedVersion.value = v.label;
@@ -274,6 +282,11 @@ const onVersionPick = (v: VersionEntry) => {
 const confirmBedrockPick = () => {
   showBedrockWarn.value = false;
   selectedVersion.value = 'Bedrock Latest';
+};
+
+const confirm263Pick = () => {
+  show263Warn.value = false;
+  selectedVersion.value = '26.3';
 };
 
 const hasItems = computed(() => selectedItems.value.length > 0);

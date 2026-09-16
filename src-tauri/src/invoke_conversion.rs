@@ -303,6 +303,10 @@ pub fn invoke_conversion_ex(
         planks::generate_pale_planks(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
+    scheduler.register_task("generate_poplar_planks", TaskType::Parallel, TaskTier::Architect, |ctx| {
+        planks::generate_poplar_planks(ctx.temp_dir())
+            .map_err(|e| e.to_string())
+    });
 
     // ── Surgeon 层：修改已有资源，Hybrid（并行内部安全操作 + 串行独占操作） ──
     if fix_alpha_layers {
@@ -516,6 +520,10 @@ pub fn invoke_conversion_ex(
     });
     scheduler.register_task("reverse_generate_pale_planks", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         rev_planks::reverse_generate_pale_planks(ctx)
+            .map_err(|e| e.to_string())
+    });
+    scheduler.register_task("reverse_generate_poplar_planks", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
+        rev_planks::reverse_generate_poplar_planks(ctx)
             .map_err(|e| e.to_string())
     });
 

@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 use crate::converters::zip::{extract_resource_pack, repack_resource_pack};
 use crate::{log_info, log_warn};
 
-const PACK_FORMAT_LABELS: [&str; 26] = [
+const PACK_FORMAT_LABELS: [&str; 27] = [
     "Java 1.6-1.8",
     "Java 1.9-1.10",
     "Java 1.11-1.12",
@@ -36,6 +36,7 @@ const PACK_FORMAT_LABELS: [&str; 26] = [
     "Java 1.21.11",
     "Java 26.1-26.1.2",
     "Java 26.2",
+    "Java 26.3",
     "Bedrock Latest",
 ];
 
@@ -66,6 +67,7 @@ fn pack_format_label(pack_format: u32) -> &'static str {
         75 => "Java 1.21.11",
         84 => "Java 26.1-26.1.2",
         88 => "Java 26.2",
+        97 => "Java 26.3",
         1000 => "Bedrock Latest",
         _ => "Unknown",
     }
@@ -260,6 +262,15 @@ fn normalize_description(value: &Value) -> String {
     raw.replace('\n', " ").replace('\r', " ")
 }
 
+/// 游戏识别用的资源包版本 major.minor。
+/// 26.3 官方 Resource Pack 为 **97.1**（只写 97 / [97,0] 会显示不兼容）。
+fn pack_format_major_minor(target: u32) -> (u32, u32) {
+    match target {
+        97 => (97, 1), // Java 26.3 Wilderness Bound
+        _ => (target, 0),
+    }
+}
+
 fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), String> {
     let content = if pack_meta_path.exists() {
         read_text_with_fallback(pack_meta_path)?
@@ -281,13 +292,14 @@ fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), S
         .map(normalize_description)
         .unwrap_or_else(|| "Converted by 2-Pyramid".to_string());
 
+    let (maj, min) = pack_format_major_minor(target_version);
     if target_version >= 69 {
+        // 26.x 用 min/max_format；不要塞 pack_format:34 + 跨大版本 supported_formats
+        // （26.3 上会显示不兼容）。min 与 max 落在同一 major，minor 覆盖 0..=目标。
         data = json!({
             "pack": {
-                "pack_format": 34,
-                "supported_formats": [34, target_version],
-                "min_format": [34, 0],
-                "max_format": [target_version, 0],
+                "min_format": [maj, 0],
+                "max_format": [maj, min],
                 "description": description
             }
         });
@@ -496,8 +508,8 @@ pub fn process_zip(
     // 目标为 Bedrock（1000）或输入为 Bedrock 包时的编排。
     // 结构转换逻辑在 converters/bedrock/*；此处只调度 Scheduler 边任务。
     let is_bedrock_target = pack_format2 == 1000;
-    // Bedrock 中间态统一到最新 Java 26.2（pack_format 88），再经边 (88→1000) 重组
-    let java_target = if is_bedrock_target { 88 } else { pack_format2 };
+    // Bedrock 中间态统一到最新 Java 26.3（pack_format 97），再经边 (97→1000) 重组
+    let java_target = if is_bedrock_target { 97 } else { pack_format2 };
 
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
@@ -507,9 +519,9 @@ pub fn process_zip(
     let mut source_version: u32;
     if crate::converters::bedrock::is_bedrock_resource_pack(temp_dir.path()) {
         log_info!("detected Bedrock resource pack source; running b2j first");
-        // b2j 产出 Java 26.2（88）树
-        run_bedrock_edge_task(temp_dir.path(), 1000, 88, "Converted Pack")?;
-        source_version = 88;
+        // b2j 产出 Java 26.3（97）树
+        run_bedrock_edge_task(temp_dir.path(), 1000, 97, "Converted Pack")?;
+        source_version = 97;
         let pack_meta_path = temp_dir.path().join("pack.mcmeta");
         if pack_meta_path.exists() {
             if let Ok(v) = read_pack_format(&pack_meta_path) {
@@ -527,7 +539,7 @@ pub fn process_zip(
     }
     log_info!("detected pack_format: {}", source_version);
     if is_bedrock_target {
-        log_info!("bedrock target: convert to Java 26.2 (format 88) first, then j2b");
+        log_info!("bedrock target: convert to Java 26.3 (format 97) first, then j2b");
     }
 
     // Bedrock 目标时 Java 中间态跳过 GuiSurgeon，避免 sprite 手术干扰 j2b
@@ -553,8 +565,8 @@ pub fn process_zip(
             .and_then(|s| s.to_str())
             .unwrap_or("resource_pack");
         let pack_name = strip_version_prefix(base_name);
-        // 26.2 → Bedrock
-        run_bedrock_edge_task(temp_dir.path(), 88, 1000, &pack_name)?;
+        // 26.3 → Bedrock
+        run_bedrock_edge_task(temp_dir.path(), 97, 1000, &pack_name)?;
     }
 
     let output_path = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;

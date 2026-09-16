@@ -39,6 +39,8 @@ pub struct AppConfig {
     /// UI surface style: "glass" (translucent + blur) or "frosted"
     /// (opaque matte).
     pub ui_style: Option<String>,
+    /// 启动时自动检查更新（默认 true）。
+    pub auto_check_update: Option<bool>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -73,6 +75,8 @@ pub struct ConfigPatch {
     pub output_naming: Option<String>,
     #[serde(alias = "uiStyle")]
     pub ui_style: Option<String>,
+    #[serde(alias = "autoCheckUpdate")]
+    pub auto_check_update: Option<bool>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -478,6 +482,9 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
             _ => "glass".to_string(),
         };
         cfg.ui_style = Some(normalized);
+    }
+    if let Some(v) = patch.auto_check_update {
+        cfg.auto_check_update = Some(v);
     }
     write_config_file(&cfg)?;
     crate::log_info!("OKAY update_config [{}]", changed.join(", "));

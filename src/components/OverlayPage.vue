@@ -1,5 +1,7 @@
 <template>
-  <div class="overlay-container page-transition">
+  <!-- 不加 page-transition：与 Conversion 一致，入场交给 App 全局 stagger，
+       避免 slide-up transform 和 fade-scale blur 叠在同一层导致卡死 -->
+  <div class="overlay-container">
     <!-- 头部区域 -->
     <div class="header">
       <div class="header-section">
@@ -151,30 +153,10 @@
       @confirm="confirmDeleteOverlay"
     />
 
-    <!-- 自定义内容：右侧侧栏（自带滑入，Transition 提供滑出） -->
-    <Transition name="sidebar-out">
-      <ItemNameDialog
-        v-if="showCustomNameDialog"
-        :projectName="currentOverlay.name"
-        @close="showCustomNameDialog = false"
-      />
-    </Transition>
-
-    <Transition name="sidebar-out">
-      <ItemSizeDialog
-        v-if="showItemSizeDialog"
-        :projectName="currentOverlay.name"
-        @close="showItemSizeDialog = false"
-      />
-    </Transition>
-
-    <Transition name="sidebar-out">
-      <VisualDialog
-        v-if="showVisualDialog"
-        :projectName="currentOverlay.name"
-        @close="showVisualDialog = false"
-      />
-    </Transition>
+    <!-- 自定义内容：遮罩/面板各自 Transition（对齐转换页版本选择器） -->
+    <ItemNameDialog v-model="showCustomNameDialog" :projectName="currentOverlay.name" />
+    <ItemSizeDialog v-model="showItemSizeDialog" :projectName="currentOverlay.name" />
+    <VisualDialog v-model="showVisualDialog" :projectName="currentOverlay.name" />
   </div>
 </template>
 
@@ -464,7 +446,6 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   flex: none;
-  will-change: transform;
 }
 
 /* 与 ConversionPage .panel-grid 同构：双栏卡片网格铺满视口 */
@@ -1014,10 +995,6 @@ onMounted(() => {
 }
 .danger-btn:hover { background: #dc2626; }
 
-/* 动画相关 */
-.page-transition { animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
 /* 列表 ↔ 编辑：淡入淡出 + 轻微缩放（out-in，干净不叠影） */
 .view-fade-enter-active {
   transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1041,42 +1018,4 @@ onMounted(() => {
 
 .spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-/* 侧栏/宽面板退出：黑幕先透明，再让面板滑走，避免组件没了还留一层暗底 */
-.sidebar-out-leave-active {
-  transition: opacity 0.18s ease-out;
-  pointer-events: none;
-}
-.sidebar-out-leave-active :deep(.name-overlay),
-.sidebar-out-leave-active :deep(.size-overlay),
-.sidebar-out-leave-active :deep(.visual-overlay) {
-  animation: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  transition: opacity 0.15s ease-out, background-color 0.15s ease-out !important;
-}
-.sidebar-out-leave-active :deep(.name-panel),
-.sidebar-out-leave-active :deep(.size-panel),
-.sidebar-out-leave-active :deep(.visual-panel) {
-  animation: none !important;
-  opacity: 1 !important;
-  transition: transform 0.18s cubic-bezier(0.4, 0, 1, 1), opacity 0.18s ease-out !important;
-}
-.sidebar-out-leave-to {
-  opacity: 0;
-}
-.sidebar-out-leave-to :deep(.name-overlay),
-.sidebar-out-leave-to :deep(.size-overlay),
-.sidebar-out-leave-to :deep(.visual-overlay) {
-  opacity: 0 !important;
-  background-color: transparent !important;
-}
-.sidebar-out-leave-to :deep(.name-panel) {
-  opacity: 0 !important;
-  transform: translateY(10px) scale(0.98) !important;
-}
-.sidebar-out-leave-to :deep(.size-panel),
-.sidebar-out-leave-to :deep(.visual-panel) {
-  transform: translateX(100%) !important;
-}
 </style>

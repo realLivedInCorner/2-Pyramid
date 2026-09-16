@@ -23,6 +23,8 @@ const notificationMode = ref<'system' | 'app' | 'both'>('both')
 // will prompt before deleting any of their packs.
 const sourceHandling = ref<'ask' | 'delete' | 'keep'>('ask')
 const openOutputAfterConvert = ref<boolean>(true)
+const updateChannel = ref<'master' | 'unstable' | 'both'>('master')
+const autoCheckUpdate = ref(true)
 // 新增重要选项：批量转换并发数与输出命名模板
 const conversionThreads = ref(2)
 const namingTemplate = ref('[Ver][Name]')
@@ -139,6 +141,8 @@ async function finish() {
         openOutputAfterConvert: openOutputAfterConvert.value,
         conversionThreads: conversionThreads.value,
         outputNaming: namingTemplate.value,
+        updateChannel: updateChannel.value,
+        autoCheckUpdate: autoCheckUpdate.value,
       }
     })
     console.log('[StartupPage] update_config result:', result)
@@ -345,6 +349,37 @@ async function finish() {
                 </div>
                 <label class="switch">
                   <input type="checkbox" v-model="openOutputAfterConvert" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <!-- Update Channel -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-git-branch-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('settings.updateChannel.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('settings.updateChannel.desc') }}</span>
+                </div>
+                <div class="segmented">
+                  <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="updateChannel = 'master'">{{ t('settings.updateChannel.stable') }}</button>
+                  <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="updateChannel = 'unstable'">{{ t('settings.updateChannel.unstable') }}</button>
+                  <button class="seg-btn" :class="{ active: updateChannel === 'both' }" @click="updateChannel = 'both'">{{ t('settings.updateChannel.both') }}</button>
+                </div>
+              </div>
+
+              <!-- Auto check update -->
+              <div class="startup-setting-row">
+                <div class="item-icon">
+                  <i class="ri-refresh-line" aria-hidden="true"></i>
+                </div>
+                <div class="startup-setting-info">
+                  <span class="startup-setting-label">{{ t('settings.autoCheckUpdate.label') }}</span>
+                  <span class="startup-setting-desc">{{ t('settings.autoCheckUpdate.desc') }}</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="autoCheckUpdate" />
                   <span class="slider"></span>
                 </label>
               </div>

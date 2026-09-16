@@ -1,6 +1,18 @@
 <template>
-  <div class="size-overlay" @click.self="closeDialog">
-    <div class="size-panel">
+  <transition name="sidebar-overlay-fade">
+    <div v-if="visible" class="sidebar-overlay" @click="visible = false"></div>
+  </transition>
+
+  <transition
+    :css="false"
+    @before-enter="onBeforeEnter"
+    @enter="onEnter"
+    @after-enter="onAfterEnter"
+    @before-leave="onBeforeLeave"
+    @leave="onLeave"
+    @after-leave="onAfterLeave"
+  >
+    <aside v-if="visible" class="sidebar-content size-panel" @click.stop tabindex="-1">
       <div class="panel-header">
         <h2 class="panel-title">{{ t('dialog.itemSize.title') }}</h2>
       </div>
@@ -72,14 +84,14 @@
             <i class="ri-loader-4-line spin" v-else></i>
             {{ isSaving ? t('common.saving') : t('common.save') }}
           </button>
-          <button class="ghost-btn back-btn" @click="closeDialog">
+          <button class="ghost-btn back-btn" @click="visible = false">
             <i class="ri-arrow-go-back-line"></i>
             <span>{{ t('common.back') }}</span>
           </button>
         </div>
       </div>
-    </div>
-  </div>
+    </aside>
+  </transition>
 </template>
 
 <script setup lang="ts">
@@ -87,14 +99,24 @@ import { ref, onMounted, computed, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { message } from '@tauri-apps/plugin-dialog';
+import { useSidebarSlide } from '../composables/useSidebarSlide';
 
 const { t } = useI18n();
+
+const visible = defineModel<boolean>({ required: true });
 
 const props = defineProps<{
   projectName: string
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const {
+  onBeforeEnter,
+  onEnter,
+  onAfterEnter,
+  onBeforeLeave,
+  onLeave,
+  onAfterLeave,
+} = useSidebarSlide({ shadow: '-12px 0 36px rgba(0, 0, 0, 0.08)' });
 
 const searchText = ref('');
 const isSaving = ref(false);
@@ -198,7 +220,7 @@ const saveAndClose = async () => {
     });
     
     await message(t('dialog.itemSize.saved'), { title: t('dialog.itemSize.success'), kind: 'info' });
-    emit('close');
+    visible.value = false;
   } catch (error) {
     console.error('保存失败:', error);
     await message(t('dialog.itemSize.saveFailed', { error }), { title: t('dialog.itemSize.error'), kind: 'error' });
@@ -207,47 +229,41 @@ const saveAndClose = async () => {
   }
 };
 
-const closeDialog = () => {
-  emit('close');
-};
-
 onMounted(() => {
   loadSettings();
 });
 </script>
 
 <style scoped>
-/* 右侧侧栏：独立类名，避开全局 .dialog-* 皮肤 */
-.size-overlay {
+/* 对齐转换页版本选择器 */
+.sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
-  display: flex;
-  justify-content: flex-end;
-  z-index: 1000;
-  animation: overlay-fade 0.28s ease;
+  background: rgba(15, 23, 42, 0.28);
+  z-index: 200;
 }
 
-.size-panel {
+.size-panel.sidebar-content {
+  position: fixed;
+  top: 0;
+  right: 0;
   width: min(520px, 94vw);
   height: 100vh;
+  z-index: 201;
   background: #ffffff;
-  border-radius: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  outline: none;
   opacity: 1 !important;
-  animation: sidebar-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes sidebar-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  transform: translateX(100%);
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  will-change: transform, box-shadow;
 }
 
 .panel-header {
-  padding: 1.25rem 1.5rem 1rem;
+  /* 顶部避开浮动窗口控制按钮 */
+  padding: 56px 1.5rem 1rem;
   background: #fff;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;

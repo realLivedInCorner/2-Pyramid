@@ -103,6 +103,11 @@
       "body": "基岩版转换尚未完善，可能存在显示或兼容问题，建议先用测试包验证。是否继续？",
       "confirm": "继续测试"
     },
+    "java263Warn": {
+      "title": "Minecraft 26.3 已知问题",
+      "body": "经测试，Java 版 26.3 在材质包选择页点击「打开材质包目录」无反应，后续可能出现未响应。官方缺陷号 MC-311807。仍要选择 26.3 作为目标吗？",
+      "confirm": "仍要使用 26.3"
+    },
     "fileSelectErrorTitle": "错误",
     "fileSelectErrorBody": "文件选择失败，请重试",
     "outputNotSetTitle": "输出目录未设置",
@@ -324,6 +329,12 @@
       "stable": "稳定版",
       "unstable": "测试版",
       "both": "全部"
+    },
+    "autoCheckUpdate": {
+      "label": "自动检查更新",
+      "desc": "启动时自动检查 GitHub Releases；关闭后仅可在设置里手动检查",
+      "searchLabel": "自动检查更新",
+      "searchDesc": "启动时自动检查更新"
     },
     "updateSource": {
       "label": "更新源",

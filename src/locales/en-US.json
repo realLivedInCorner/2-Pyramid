@@ -103,6 +103,11 @@
       "body": "Bedrock conversion is still experimental and may have visual or compatibility issues. Prefer a test pack first. Continue?",
       "confirm": "Continue Testing"
     },
+    "java263Warn": {
+      "title": "Known issue in Minecraft 26.3",
+      "body": "In Java 26.3, “Open Pack Folder” on the resource pack screen does nothing and the game may later become unresponsive (MC-311807). Use 26.3 as the target anyway?",
+      "confirm": "Use 26.3 anyway"
+    },
     "fileSelectErrorTitle": "Error",
     "fileSelectErrorBody": "File selection failed, please try again",
     "outputNotSetTitle": "Output Directory Not Set",
@@ -324,6 +329,12 @@
       "stable": "Stable",
       "unstable": "Pre-Release",
       "both": "Both"
+    },
+    "autoCheckUpdate": {
+      "label": "Check for updates on launch",
+      "desc": "Automatically check GitHub Releases at startup; turn off to only check manually in Settings",
+      "searchLabel": "Auto update check",
+      "searchDesc": "Check for updates on launch"
     },
     "updateSource": {
       "label": "Update Source",

@@ -103,9 +103,25 @@ pub fn read_manifest_info(temp_dir: &Path) -> (String, String) {
 }
 
 pub fn write_pack_mcmeta(temp_dir: &Path, pack_format: u32, description: &str) -> Result<(), String> {
-    let mcmeta = serde_json::json!({
-        "pack": { "pack_format": pack_format, "description": description }
-    });
+    // 26.x：只写 min/max_format，不要 pack_format:34（26.3 会判不兼容）
+    let mcmeta = if pack_format >= 69 {
+        let (maj, min) = if pack_format == 97 {
+            (97u32, 1u32)
+        } else {
+            (pack_format, 0u32)
+        };
+        serde_json::json!({
+            "pack": {
+                "min_format": [maj, 0],
+                "max_format": [maj, min],
+                "description": description
+            }
+        })
+    } else {
+        serde_json::json!({
+            "pack": { "pack_format": pack_format, "description": description }
+        })
+    };
     let pretty = serde_json::to_string_pretty(&mcmeta)
         .map_err(|e| format!("serialize mcmeta failed: {}", e))?;
     fs::write(temp_dir.join("pack.mcmeta"), pretty)

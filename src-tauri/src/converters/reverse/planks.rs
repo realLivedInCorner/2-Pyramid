@@ -34,3 +34,40 @@ pub fn reverse_generate_pale_planks(ctx: &HurrayContext) -> Result<(), String> {
     }
     Ok(())
 }
+
+pub fn reverse_generate_poplar_planks(ctx: &HurrayContext) -> Result<(), String> {
+    let root = ctx.temp_dir();
+    let names = [
+        // 原木 / 木板
+        "assets/minecraft/textures/block/poplar_planks.png",
+        "assets/minecraft/textures/block/poplar_log.png",
+        "assets/minecraft/textures/block/poplar_log_top.png",
+        "assets/minecraft/textures/block/stripped_poplar_log.png",
+        "assets/minecraft/textures/block/stripped_poplar_log_top.png",
+        // 家具 / 树叶
+        "assets/minecraft/textures/block/poplar_door_top.png",
+        "assets/minecraft/textures/block/poplar_door_bottom.png",
+        "assets/minecraft/textures/block/poplar_trapdoor.png",
+        "assets/minecraft/textures/block/poplar_shelf.png",
+        "assets/minecraft/textures/block/poplar_sapling.png",
+        "assets/minecraft/textures/block/poplar_sign.png",
+        "assets/minecraft/textures/block/poplar_hanging_sign.png",
+        "assets/minecraft/textures/block/red_poplar_leaves.png",
+        "assets/minecraft/textures/block/orange_poplar_leaves.png",
+        "assets/minecraft/textures/block/yellow_poplar_leaves.png",
+        "assets/minecraft/textures/item/poplar_sign.png",
+        "assets/minecraft/textures/item/poplar_hanging_sign.png",
+        "assets/minecraft/textures/item/poplar_door.png",
+        "assets/minecraft/textures/item/poplar_boat.png",
+        "assets/minecraft/textures/item/poplar_chest_boat.png",
+        "assets/minecraft/textures/entity/boat/poplar.png",
+        "assets/minecraft/textures/entity/chest_boat/poplar.png",
+    ];
+    for name in names {
+        let p = root.join(name);
+        if p.exists() { ctx.defer_remove_file(&p); }
+        let m = p.with_extension("png.mcmeta");
+        if m.exists() { ctx.defer_remove_file(&m); }
+    }
+    Ok(())
+}
