@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+（暂无）
+
+## [2.4.0] - 2026-09-16（BUILD 20045）
+
 ### Added
 
 - **Java 26.3（Wilderness Bound，pack_format 97）**：版本选择器新增目标；与 26.2 之间走 `adapt_java_shaders` 边。Bedrock 中间态同步升到 26.3。
