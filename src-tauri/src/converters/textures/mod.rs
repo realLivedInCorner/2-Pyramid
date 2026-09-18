@@ -3,6 +3,7 @@ pub mod animated;
 pub mod anims_folder;
 pub mod armor;
 pub mod boat;
+pub mod breeze;
 pub mod copper;
 pub mod crossbow;
 pub mod drop_blockstates_models;

@@ -61,7 +61,7 @@ impl ConversionMaps {
         forward.insert((15, 18), vec!["cut_gui".to_string()]);
         forward.insert((18, 22), vec![]);
         forward.insert((22, 32), vec!["adapt_java_shaders".to_string()]);
-        forward.insert((32, 34), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((32, 34), vec!["generate_tricky_trials_breeze".to_string(), "adapt_java_shaders".to_string()]);
         forward.insert((34, 42), vec!["adapt_java_shaders".to_string()]);
         // 1.17 着色器体系边界（format 7）
         forward.insert((6, 7), vec!["adapt_java_shaders".to_string()]);
@@ -93,7 +93,7 @@ impl ConversionMaps {
         reverse.insert((55, 46), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((46, 42), vec!["reverse_fix_armor_models".to_string(), "reverse_fix2_horse_ui".to_string(), "reverse_generate_pale_planks".to_string(), "adapt_java_shaders".to_string()]);
         reverse.insert((42, 34), vec!["reverse_fix2_horse_ui".to_string(), "adapt_java_shaders".to_string()]);
-        reverse.insert((34, 32), vec!["adapt_java_shaders".to_string()]);
+        reverse.insert((34, 32), vec!["reverse_generate_tricky_trials_breeze".to_string(), "adapt_java_shaders".to_string()]);
         reverse.insert((32, 22), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((22, 18), vec![]);
         reverse.insert((18, 15), vec!["reverse_cut_gui".to_string()]);

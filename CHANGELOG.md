@@ -2,12 +2,25 @@
 
 （暂无）
 
+## [2.4.1] - 2026-09-18（BUILD 20046）
+
+### Added
+
+- **1.21 旋风系贴图生成（Tricky Trials）**：升版至 format 34+（1.21）时从包内已有材质近似生成——`breeze_rod`（←烈焰棒）、`wind_charge`/投掷物（←雪球）、`trial_key`/`ominous_trial_key`、`breeze_spawn_egg`、`wind_charged` 效果图标、`copper_bulb` 族（←红石灯/铜块，含氧化与蜡变体）；中等项：`heavy_core`（←铁块/深板岩）、`breeze` 实体（←烈焰人）、`flow` 纹饰模板、`ominous_bottle`。目标已存在则不覆盖；reverse(34→32) 删除。**不做** mace / trial_spawner / vault / crafter / 粒子（轮廓独特）。依据 1.21.11 原版资源均色与 Wiki。
+- **2.4.0 发版说明补录 FolderOpenPatch**：见 `docs/compose/releases/2.4.0.md`（Fabric 补丁 mod，修 MC-311807）。
+
+### Fixed
+
+- **着色器适配：按 Minecraft Wiki 清理已移除的核心程序**：转换后资源包/材质重载失败的主因之一——目标版本已删除的 `shaders/core` 程序仍被打进包里。`adapt_java_shaders` 现按 Wiki 白名单处理：≥63（1.21.6）把 `rendertype_solid/cutout/…` → `terrain`、`rendertype_entity_*` → `entity`、glint 族 → `glint` 等；≥84（26.1）`rendertype_translucent_moving_block` → `block`、删除 `entity_alpha/decal`；≥97（26.3）`rendertype_clouds` → `clouds`、`rendertype_world_border` → `world_border`、删除 `text_background*`，并把 `#moj_import` 转为 `#include`（路径按 Wiki include 解析校正）。白名单外核心文件删除；旧 `shaders/post` 与现代 `assets/*/post_effect` 按目标只保留一侧；1.21.6+ 去掉 core JSON 中过期的 `uniforms`；include 文件补末尾空行（Wiki：否则着色器不加载）。
+
+
 ## [2.4.0] - 2026-09-16（BUILD 20045）
 
 ### Added
 
 - **Java 26.3（Wilderness Bound，pack_format 97）**：版本选择器新增目标；与 26.2 之间走 `adapt_java_shaders` 边。Bedrock 中间态同步升到 26.3。
 - **选择 26.3 时弹出已知问题确认**：材质包目录按钮无响应 / 未响应（MC-311807），需确认才继续。
+- **FolderOpenPatch（Fabric 补丁 mod）**：配套修复上述 MC-311807——Mixin 拦截 `Blaze3D.openPath` 与 `PackSelectionScreen` 按钮回调，独立 daemon 线程在 Windows 走 `explorer.exe` 异步打开（macOS/Linux 分别 `open` / `xdg-open`），绕开 `SDL_OpenURL` / ShellExecute 阻塞点。依赖 Fabric Loader ≥0.19.5 + Fabric API `0.160.5+26.3`（Minecraft ~26.3 / Java ≥25）；产物 `folder-open-patch-1.0.0.jar`，见独立仓库 FolderOpenPatch。
 - **自动检查更新开关**：设置 → 版本；关闭后启动不再自动查更新。OOBE 第 4 步可一并配置更新通道与该开关。
 - **Poplar 木种生成（26.3）**：从橡木/丛林木生成全套——原木/木板/去皮、门/活板门/告示牌/悬挂告示牌/船/shelf/树苗，以及三色树叶近似。挂 `(88→97)`；reverse 降版时删除。基岩别名 `planks_poplar` 等已映射。垫子/层架蘑菇/红灌木不自动生成。
 
