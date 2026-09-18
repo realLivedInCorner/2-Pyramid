@@ -130,7 +130,6 @@ mod tests {
         );
         assert!(tab_top.exists(), "sprites/container/creative_inventory/tab_top_selected_1.png should be produced");
 
-        // Hold the tempdir so it doesn't get dropped/cleaned (drops Rust output!)
-        std::mem::forget(temp);
+        // tempdir 自动清理（Drop）；不要 mem::forget，会占满 %TEMP%
     }
 }

@@ -1,5 +1,6 @@
 pub mod armor;
 pub mod boat;
+pub mod breeze;
 pub mod brewing_stand;
 pub mod chest_folder;
 pub mod clock_compass;

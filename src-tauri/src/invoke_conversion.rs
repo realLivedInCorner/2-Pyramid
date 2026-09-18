@@ -20,6 +20,7 @@ use crate::converters::ui::process_chest_folder;
 
 // Architect 层 —— generate_*
 use crate::converters::textures::boat;
+use crate::converters::textures::breeze;
 use crate::converters::textures::copper;
 use crate::converters::textures::crossbow;
 use crate::converters::textures::fish_bucket;
@@ -71,6 +72,7 @@ use crate::converters::reverse::smithing_villager as rev_smithing_villager;
 use crate::converters::reverse::tabs as rev_tabs;
 use crate::converters::reverse::sub_hand as rev_sub_hand;
 use crate::converters::reverse::boat as rev_boat;
+use crate::converters::reverse::breeze as rev_breeze;
 use crate::converters::reverse::copper as rev_copper;
 use crate::converters::reverse::crossbow as rev_crossbow;
 use crate::converters::reverse::fish_bucket as rev_fish_bucket;
@@ -307,6 +309,10 @@ pub fn invoke_conversion_ex(
         planks::generate_poplar_planks(ctx.temp_dir())
             .map_err(|e| e.to_string())
     });
+    scheduler.register_task("generate_tricky_trials_breeze", TaskType::Parallel, TaskTier::Architect, |ctx| {
+        breeze::generate_tricky_trials_breeze(ctx.temp_dir())
+            .map_err(|e| e.to_string())
+    });
 
     // ── Surgeon 层：修改已有资源，Hybrid（并行内部安全操作 + 串行独占操作） ──
     if fix_alpha_layers {
@@ -524,6 +530,10 @@ pub fn invoke_conversion_ex(
     });
     scheduler.register_task("reverse_generate_poplar_planks", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
         rev_planks::reverse_generate_poplar_planks(ctx)
+            .map_err(|e| e.to_string())
+    });
+    scheduler.register_task("reverse_generate_tricky_trials_breeze", TaskType::Exclusive, TaskTier::Eraser, |ctx| {
+        rev_breeze::reverse_generate_tricky_trials_breeze(ctx)
             .map_err(|e| e.to_string())
     });
 
