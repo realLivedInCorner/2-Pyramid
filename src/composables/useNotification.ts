@@ -1,5 +1,4 @@
 import { ref, readonly } from 'vue';
-import { sendNotification } from '@tauri-apps/plugin-notification';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -134,6 +133,96 @@ async function logNotification(type: string, title: string, body: string) {
   }
 }
 
+/**
+ * Desktop always-on-top toast window (primary in-app channel).
+ * Returns false when the Rust command failed so callers can fall back
+ * to the legacy in-app overlay queue.
+ */
+async function fireDesktopToast(opts: {
+  title: string;
+  body: string;
+  type: NotificationType;
+  actions: ToastAction[];
+  durationMs: number;
+}): Promise<boolean> {
+  if (opts.actions.length > 0) {
+    await Promise.race([
+      ensureToastActionListener(),
+      new Promise((resolve) => setTimeout(resolve, 500)),
+    ]);
+  }
+  try {
+    await invoke('show_toast', {
+      payload: {
+        title: opts.title,
+        body: opts.body,
+        kind: opts.type,
+        // Both spellings — Rust accepts `duration_ms` / `durationMs`.
+        duration_ms: opts.durationMs,
+        durationMs: opts.durationMs,
+        actions: opts.actions,
+      },
+    });
+    return true;
+  } catch (e) {
+    console.warn('Top-level toast failed:', e);
+    return false;
+  }
+}
+
+function queueInAppFallback(opts: {
+  title: string;
+  body: string;
+  type: NotificationType;
+  source: NotificationSource;
+}) {
+  const item: NotificationItem = {
+    id: nextId++,
+    title: opts.title,
+    body: opts.body,
+    type: opts.type,
+    source: opts.source,
+    timestamp: Date.now(),
+  };
+  notifications.value.push(item);
+  queue.push(item);
+  if (!isVisible.value) {
+    processQueue();
+  }
+}
+
+/**
+ * OS notification via the Rust notification plugin.
+ *
+ * IMPORTANT: do NOT use `@tauri-apps/plugin-notification`'s
+ * `sendNotification` / `requestPermission` on this project — that JS
+ * API currently shells out to `window.Notification` inside WebView2,
+ * which on Windows often silently does nothing. `show_system_notification`
+ * goes through notify-rust / winrt instead.
+ */
+async function fireSystemNotification(title: string, body: string): Promise<boolean> {
+  try {
+    await invoke('show_system_notification', {
+      title: `2-Pyramid - ${title}`,
+      body,
+    });
+    return true;
+  } catch (e) {
+    console.warn('System notification failed (Rust plugin path):', e);
+    // Last-ditch: plugin JS path (may still work if WebView Notification
+    // permission is granted on some environments).
+    try {
+      await invoke('plugin:notification|notify', {
+        options: { title: `2-Pyramid - ${title}`, body },
+      });
+      return true;
+    } catch (e2) {
+      console.warn('System notification failed (plugin:notify):', e2);
+      return false;
+    }
+  }
+}
+
 export function useNotification() {
   const notify = async (options: NotificationOptions) => {
     const {
@@ -151,84 +240,35 @@ export function useNotification() {
 
     await logNotification(type, title, body);
 
-    const showSystem = notificationMode.value === 'system' || notificationMode.value === 'both';
-    const showApp = notificationMode.value === 'app' || notificationMode.value === 'both';
+    const mode = notificationMode.value;
+    const wantSystem = mode === 'system' || mode === 'both';
+    const wantApp = mode === 'app' || mode === 'both';
+    const durationMs =
+      actions.length > 0 ? Math.max(toastDuration.value, 10000) : toastDuration.value;
 
-    // Desktop top-level toast (independent always-on-top window,
-    // upper-right of primary monitor, stacks downward). This is the
-    // primary path — preferred over the OS notification center because
-    // (a) it carries our branding / iconography, (b) it stays on
-    // screen long enough to be read and supports click-to-dismiss, and
-    // (c) Win 11 folds Action Center toasts into a tray menu the user
-    // has to actively open.
-    if (showApp && !silent) {
-      // Wire up the toast-action listener before firing any toast
-      // that carries actions, but NEVER let a hung listener block the
-      // notify — otherwise the success toast would never appear
-      // (observed: conversion-complete feedback silently missing).
-      if (actions.length > 0) {
-        await Promise.race([
-          ensureToastActionListener(),
-          new Promise((resolve) => setTimeout(resolve, 500)),
-        ]);
-      }
-      try {
-        await invoke('show_toast', {
-          payload: {
-            title,
-            body,
-            kind: type,
-            // User-configured duration. Toasts carrying action buttons
-            // stay at least 10s so the user has time to notice and
-            // click them.
-            durationMs: actions.length > 0 ? Math.max(toastDuration.value, 10000) : toastDuration.value,
-            actions,
-          },
-        });
-      } catch (e) {
-        console.warn('Top-level toast failed, falling back to in-app:', e);
-        // Fallback: queue the in-app toast so the user still gets
-        // visual feedback even if the desktop-level window failed.
-        const item: NotificationItem = {
-          id: nextId++,
-          title,
-          body,
-          type,
-          source,
-          timestamp: Date.now(),
-        };
-        notifications.value.push(item);
-        queue.push(item);
-        if (!isVisible.value) {
-          processQueue();
-        }
+    let desktopOk = false;
+    let systemOk = false;
+
+    // Desktop top-level toast (independent always-on-top window).
+    if (wantApp && !silent) {
+      desktopOk = await fireDesktopToast({ title, body, type, actions, durationMs });
+      if (!desktopOk) {
+        console.warn('Top-level toast failed, falling back to in-app queue');
+        queueInAppFallback({ title, body, type, source });
       }
     }
 
     // OS notification center (Windows Action Center / macOS banner).
-    // Only used when the user picked `system` or `both` mode and the
-    // toast isn't explicitly silenced.
-    if (showSystem && !silent) {
-      try {
-        await sendNotification({
-          title: `2-Pyramid - ${title}`,
-          body
-        });
-      } catch (e) {
-        console.warn('Windows notification failed:', e);
+    if (wantSystem && !silent) {
+      systemOk = await fireSystemNotification(title, body);
+      // system-only mode: if OS toast failed, still give the user a
+      // visible desktop toast so the feedback is never silent.
+      if (!systemOk && !wantApp && !silent) {
+        desktopOk = await fireDesktopToast({ title, body, type, actions, durationMs });
+        if (!desktopOk) {
+          queueInAppFallback({ title, body, type, source });
+        }
       }
-    }
-
-    // In-app toast (the legacy queue). Kept as an additional channel
-    // when the user explicitly opts in to `app` mode via the legacy
-    // SettingsPage option. The desktop toast above already covers the
-    // most common case, so this only fires when the legacy
-    // notification mode says `app` *and* the desktop toast is somehow
-    // unavailable (e.g. unsupported platform).
-    if (showApp && silent === false) {
-      // (The desktop-toast path above already covers the common case;
-      //  this branch intentionally stays empty so we don't double-fire
-      //  in-app toasts on every notify() call.)
     }
   };
 

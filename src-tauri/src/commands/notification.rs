@@ -69,6 +69,9 @@ pub struct ToastActionPayload {
 /// Payload accepted from the frontend. Mirrors
 /// `src/composables/useNotification.ts::NotificationOptions` minus the
 /// Tauri-only bits (`silent`, internal `id`).
+///
+/// Frontend invoke uses camelCase (`durationMs`); serde aliases keep
+/// both spellings working so `show_toast` never fails to deserialize.
 #[derive(serde::Deserialize)]
 pub struct ToastPayload {
     pub title: String,
@@ -80,14 +83,38 @@ pub struct ToastPayload {
     #[serde(default)]
     pub kind: String,
     /// How long the toast stays on screen, in milliseconds. 0 = use
-    /// default (4500 ms).
-    #[serde(default)]
+    /// default (from config, else 8000 ms).
+    #[serde(default, alias = "durationMs")]
     pub duration_ms: u64,
     /// Optional action buttons. When non-empty, the toast page renders
     /// them as small buttons. Clicking one closes the toast and fires
     /// the `run_toast_action` invoke so the main app can react.
     #[serde(default)]
     pub actions: Vec<ToastActionPayload>,
+}
+
+/// OS / Action Center notification via the Tauri notification plugin
+/// (Rust path). The JS `@tauri-apps/plugin-notification` `sendNotification`
+/// currently constructs `window.Notification` in WebView2, which on
+/// Windows often silently does nothing — especially for unpackaged /
+/// portable builds without a Start-menu AUMID shortcut. Going through
+/// `NotificationExt` uses notify-rust / winrt under the hood instead.
+#[tauri::command]
+pub async fn show_system_notification(
+    app: AppHandle,
+    title: String,
+    body: String,
+) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| {
+            crate::log_warn!("system notification failed: {}", e);
+            e.to_string()
+        })
 }
 
 /// Frontend entry point. Build a new top-level toast window, position
@@ -158,6 +185,11 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
         .skip_taskbar(true)
         .always_on_top(true)
         .decorations(false)
+        // Transparent so only the rounded card is visible; without this
+        // Windows paints an opaque sheet and the white toast can vanish
+        // into a white/desktop background.
+        .transparent(true)
+        .shadow(false)
         .focused(false)
         .visible(false)
         // The toast window is never focused, so WebView2 treats it as a
