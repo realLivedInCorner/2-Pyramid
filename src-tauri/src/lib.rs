@@ -62,6 +62,7 @@ use self::commands::{
     dismiss_all_toasts,
     focus_main_window,
     run_toast_action,
+    show_system_notification,
 };
 
 mod commands;
@@ -276,6 +277,7 @@ pub fn run() {
             dismiss_all_toasts,
             focus_main_window,
             run_toast_action,
+            show_system_notification,
             updater::check_for_update,
             updater::download_update,
             updater::install_update,

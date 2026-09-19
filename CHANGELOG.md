@@ -1,6 +1,13 @@
 ## [Unreleased]
 
-（暂无）
+### Fixed
+
+- **通知（桌面 Toast / 系统通知）弹不出**：
+  1. Win 系统通知原先走 `@tauri-apps/plugin-notification` 的 JS API，其 `sendNotification` 在 WebView2 里实际构造 `window.Notification`，Windows 上经常静默失败。改为 invoke 新命令 `show_system_notification`，经 `NotificationExt` / notify-rust 发送；失败再试 `plugin:notification|notify`。
+  2. 桌面 Toast：capability 原先只授权 `main` 窗口，`toast-*` 无法关窗/回传动作；现已纳入 `toast-*` 并补窗口权限。`ToastPayload` 增加 `durationMs` 别名，避免前端 camelCase 反序列化失败。
+  3. Toast 窗口启用 `transparent`，避免白卡片糊在不透明白底上；`system` 模式系统通知失败时自动回退桌面 Toast，避免完全无反馈。
+  4. 「测试通知」在通知总开关关闭时仍可用（`ignoreDisabled`）。
+
 
 ## [2.4.1] - 2026-09-18（BUILD 20046）
 
