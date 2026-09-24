@@ -1,267 +1,117 @@
-<!-- AI生成 -->
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="alternate icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Foray 技术设计 · 2.5.0</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>2-Pyramid%VITE_BETA_MARK%</title>
   </head>
+
   <body>
-<p data-aigc-mark="1" style="margin:0 0 8px;font-size:10px;line-height:1.3;color:#6b6560;font-weight:400;">AI生成</p>
-
-    <div class="wrap">
-      <header class="hero">
-        <div class="tag">Design Spec · 2.5.0</div>
-        <h1>Foray — 资源包结构分析与轻量编辑工作台</h1>
-        <p>
-          面向材质包制作者的分析 / 风险探查 / 轻量像素编辑 / 可选 AI 审查工作台。
-          平行于 Hurray 转换引擎，默认关闭；开启 Editor Mode 后由主页拖入 zip 进入。
-          本页为 <strong>设计稿预览</strong>，正式规格见
-          <code>docs/compose/spec/foray.md</code>。当前状态：<strong>待审批 · 不改业务代码</strong>。
-        </p>
-        <div class="meta">
-          <span class="chip">代号 Foray</span>
-          <span class="chip">负责人 LivedInCorner</span>
-          <span class="chip">预计 ~5000 行</span>
-          <span class="chip ok">全量：分析 + 编辑 + AI</span>
-          <span class="chip ok">Foray 侧独立 ROM</span>
-          <span class="chip">OpenAI 兼容 API</span>
-          <span class="chip warn">默认另存 · 可选原地</span>
+    <div class="splash" id="splash-screen">
+      <div class="splash-aurora"></div>
+      <div class="splash-content">
+        <div class="splash-icon">
+          <svg viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="#000" stroke-linecap="round">
+              <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
+              <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
+              <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
+              <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
+            </g>
+          </svg>
         </div>
-      </header>
-
-      <nav class="toc" aria-label="目录">
-        <ol>
-          <li><a href="#s1">问题</a></li>
-          <li><a href="#s2">架构</a></li>
-          <li><a href="#flow">工作流</a></li>
-          <li><a href="#rom">ROM</a></li>
-          <li><a href="#probe">探针</a></li>
-          <li><a href="#edit">轻量编辑</a></li>
-          <li><a href="#ai">AI 档位</a></li>
-          <li><a href="#sec">安全</a></li>
-          <li><a href="#ui">UI 草图</a></li>
-          <li><a href="#bound">边界</a></li>
-          <li><a href="#tasks">任务</a></li>
-        </ol>
-      </nav>
-
-      <section class="card" id="s1">
-        <h2>[S1] 问题与定位</h2>
-        <p class="lead">做包 / 改包 / 审包缺少一体化工作台；风险后知后觉；改像素成本高；AI 黑盒不可控。</p>
-        <table>
-          <thead><tr><th>痛点</th><th>Foray 对策</th></tr></thead>
-          <tbody>
-            <tr><td>结构看不清，需外部解包</td><td>ROM 对象树 + 类型统计大视图</td></tr>
-            <tr><td>加密 / 脚本 / 恶意 zip 难发现</td><td>五探针 + 恶意启发式 + 安全预检门禁</td></tr>
-            <tr><td>只为改几像素也要开 PS</td><td>涂抹 / 吸管 / HSV，明确不做图层滤镜</td></tr>
-            <tr><td>AI 外传与黑盒提示词</td><td>档位可控、贴图只发概括、提示词 JSON 白盒、免责清晰</td></tr>
-          </tbody>
-        </table>
-        <div class="callout">
-          <strong>触发条件：</strong>设置开启 <code>Editor Mode</code> → 主页拖入 zip 进入 Foray；
-          EM 关闭时仍走 Hurray 普通转换。普通转换永远不会被 Foray 劫持。
+        <h1 class="splash-title">2-Pyramid<span class="splash-beta">%VITE_BETA_MARK%</span></h1>
+        <p class="splash-sub" id="splash-sub">现代化通用多版本资源包转换器</p>
+        <div class="splash-spinner">
+          <svg viewBox="0 0 50 50">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="#e9ecef" stroke-width="3"/>
+            <circle cx="25" cy="25" r="20" fill="none" stroke="var(--theme-color)" stroke-width="3" stroke-dasharray="30, 150" stroke-linecap="round"/>
+          </svg>
         </div>
-      </section>
-
-      <section class="card" id="s2">
-        <h2>[S2] 架构位置</h2>
-        <pre><code>2-Pyramid
-├── Hurray Engine（转换核心，Rust）           — 不改写 104 转换器
-├── Foray（分析工作台，独立模块）             — 本次
-│   ├── ROM · Probe · 风险分析 · Paint · AI
-├── Desktop UI（Tauri + Vue）                 — 新路由 / 面板
-├── Android / TUI / Enzyme                    — 2.5.0 不接
-└── Ifaso（外部）                             — 仅互链占位</code></pre>
-        <div class="grid-2">
-          <div class="callout">
-            <strong>与 Hurray 关系：</strong>平行、不依赖。Foray 结果可「发送到转换」，
-            转换流程仍走文件流。禁止在本特性把转换器改成对象操作。
-          </div>
-          <div class="callout warn">
-            <strong>ROM 范围：</strong>仅 Foray 内存树。Master Enzyme 实时编辑的全量 ROM 迁移
-            列为 Out of Scope，另开特性。
-          </div>
-        </div>
-      </section>
-
-      <section class="card" id="flow">
-        <h2>工作流</h2>
-        <div class="flow">
-          <span class="step">EM=on · 拖 zip</span><span class="arr">→</span>
-          <span class="step">安全预检</span><span class="arr">→</span>
-          <span class="step">mcmeta / pack.png</span><span class="arr">→</span>
-          <span class="step">目录树 → ROM</span><span class="arr">→</span>
-          <span class="step">五探针并行</span><span class="arr">→</span>
-          <span class="step">大视图</span><span class="arr">→</span>
-          <span class="step">AI / 编辑（可选）</span><span class="arr">→</span>
-          <span class="step">导出 / 发转换</span>
-        </div>
-        <p class="lead" style="margin-top:12px">预检失败拒绝进树；单探针失败不阻断树，标「探针错误」。</p>
-      </section>
-
-      <section class="card" id="rom">
-        <h2>ROM（Resource-pack Object Model）</h2>
-        <p class="lead">从 DOM 类比：HTML→节点树；材质包→对象树。转换逻辑未来可对象化，但 2.5.0 只在 Foray 落地。</p>
-        <pre><code>Rom {
-  meta: PackMeta            // pack.mcmeta
-  icon: ImageRef | null     // pack.png
-  root: RomDir
-  stats: { files, bytes, byKind }
-  issues: RomIssue[]        // 结构 / 探针标注
-}
-RomFile { path, kind, size, sha256, parse, paintable }</code></pre>
-        <ul class="tight">
-          <li>编辑在 ROM 标 <code>dirty</code>，导出时写回；未编辑文件字节级保留。</li>
-          <li>AI 只收档位摘要，不自动上传 zip 或像素。</li>
-        </ul>
-      </section>
-
-      <section class="card" id="probe">
-        <h2>探针系统</h2>
-        <table>
-          <thead><tr><th>探针</th><th>内容</th><th>典型 issue</th></tr></thead>
-          <tbody>
-            <tr><td>文件探针</td><td>数量 / 体积 / 类型分布</td><td>stats</td></tr>
-            <tr><td>权限探针</td><td>只读、权限异常</td><td>warn</td></tr>
-            <tr><td>加密探针</td><td>疑似加密 / 高熵块</td><td>danger</td></tr>
-            <tr><td>解析探针</td><td>损坏 JSON / PNG / 空文件</td><td>warn / error</td></tr>
-            <tr><td>恶意探针</td><td>.exe/.bat/.vbs、双扩展、Zip Slip 等</td><td>danger</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="card" id="edit">
-        <h2>轻量编辑</h2>
-        <ul class="tight">
-          <li><strong>工具：</strong>涂抹（笔刷/不透明度）、吸管、HSV、撤销 ≤50 步。</li>
-          <li><strong>不做：</strong>图层、蒙版、滤镜、3D（交给 Photoshop / Blockbench）。</li>
-          <li><strong>保存：</strong>默认另存 <code>*_foray_*.zip</code>；可选原地覆盖（二次确认 + <code>.bak</code>）。</li>
-        </ul>
-      </section>
-
-      <section class="card" id="ai">
-        <h2>AI 分析 · 数据档位（OpenAI 兼容）</h2>
-        <p class="lead">自备 <code>baseURL</code> + API Key + 模型名。提示词 JSON 白盒可改。默认档位 1。</p>
-        <div class="grid-2">
-          <div>
-            <table>
-              <thead><tr><th>档</th><th>发送</th><th>风险</th></tr></thead>
-              <tbody>
-                <tr><td>0</td><td>无</td><td>无</td></tr>
-                <tr><td>1</td><td>目录树 + 类型</td><td>极低</td></tr>
-                <tr><td>2</td><td>+ pack.mcmeta</td><td>低</td></tr>
-                <tr><td>3</td><td>+ 勾选 JSON 副本</td><td>中</td></tr>
-                <tr><td>4</td><td>+ 勾选着色器源码</td><td>中高</td></tr>
-                <tr><td>5</td><td>+ 贴图概括（非像素）</td><td>中</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <label for="tier-demo" class="mono">演示：选择档位 →「将发送」预览</label>
-            <select id="tier-demo" class="mono" style="width:100%;margin:8px 0;padding:8px;background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px">
-              <option value="0">0 — 无</option>
-              <option value="1" selected>1 — 目录树</option>
-              <option value="2">2 — +mcmeta</option>
-              <option value="3">3 — +JSON</option>
-              <option value="4">4 — +着色器</option>
-              <option value="5">5 — +贴图概括</option>
-            </select>
-            <ul id="tier-preview" class="tight mono"></ul>
-          </div>
-        </div>
-        <div class="callout warn">≥3 必须显式勾选文件；确认前始终显示「将发送」列表与免责声明（外部 API 与作者无关）。</div>
-      </section>
-
-      <section class="card" id="sec">
-        <h2>安全边界（必须满足）</h2>
-        <ul class="tight">
-          <li>Zip：拒绝 <code>..</code> / 绝对路径 / symlink；单文件 64MiB、总计 1GiB、条目 5 万、深度 32。</li>
-          <li>JSON 嵌套 ≤64、单文件 ≤8MiB；PNG 边长 ≤8192。</li>
-          <li>AI Key 仅本地配置；日志禁止打印；请求只发用户 <code>baseURL</code>。</li>
-          <li>提示词默认 JSON，可覆盖、可还原。</li>
-        </ul>
-        <div class="callout danger">Foray 扩大攻击面（解析器 / ROM / 探针被绕过 / AI 注入）。2.5.0 安全审查覆盖 Foray。</div>
-      </section>
-
-      <section class="card" id="ui">
-        <h2>UI 草图（Foray 工作台）</h2>
-        <div class="mock" aria-hidden="true">
-          <div class="col">
-            <h4>ROM 树</h4>
-            <ul class="tree">
-              <li class="folder">assets/minecraft</li>
-              <li>… /textures/block<span class="badge">png×128</span></li>
-              <li>… /shaders/core<span class="badge warn">glsl×6</span></li>
-              <li class="bad">… /malware.exe<span class="badge danger">恶意</span></li>
-              <li>… /models/item<span class="badge">json×40</span></li>
-            </ul>
-          </div>
-          <div class="col">
-            <h4>概览 + 探针</h4>
-            <p>pack_format 34 · 203 files · 4.2 MB</p>
-            <p>类型：png 72% · json 18% · glsl 6% · other 4%</p>
-            <p style="color:var(--danger)">恶意探针 1 · 加密 0 · 解析 2</p>
-            <p style="color:var(--muted)">选中文件：预览 / HSV / 涂抹</p>
-          </div>
-          <div class="col">
-            <h4>上下文</h4>
-            <p>导出：另存副本 / 原地覆盖</p>
-            <p>AI 档位 · 连接测试</p>
-            <p>发送到转换（Hurray）</p>
-            <p style="color:var(--muted)">Ifaso 入口占位</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="card" id="bound">
-        <h2>边界与版本计划</h2>
-        <div class="grid-2">
-          <div>
-            <h3>不做</h3>
-            <ul class="tight">
-              <li>改写 Hurray 104 转换器 / 全量测试重写</li>
-              <li>图层滤镜、3D、AI 生图、账号云、插件市场</li>
-              <li>Android / TUI / Enzyme Foray</li>
-              <li>Ifaso 协议互通、CVE 在线库 UI</li>
-            </ul>
-          </div>
-          <div>
-            <h3>计划</h3>
-            <ul class="tight">
-              <li><strong>2.5.0</strong> Foray 全量核心 + Hurray 安全审查 + CVE + Updater + Installer + Noti</li>
-              <li><strong>2.6.0+</strong> 可能插件系统</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="card" id="tasks">
-        <h2>任务分解（验收可观察）</h2>
-        <ul class="tasklist">
-          <li><span class="id">T1</span><span>zip_safe 门禁 — 逃逸/bomb/symlink 夹具全拒</span></li>
-          <li><span class="id">T2</span><span>mcmeta + ROM 构建 — 最小 fixture 建树</span></li>
-          <li><span class="id">T3</span><span>五探针 + 恶意/加密 — issue 不阻断树</span></li>
-          <li><span class="id">T4</span><span>EM 开关 + 主页分流 + Foray 路由</span></li>
-          <li><span class="id">T5</span><span>ROM 大视图 + 异常高亮</span></li>
-          <li><span class="id">T6</span><span>PaintSession 涂抹/吸管/HSV/撤销</span></li>
-          <li><span class="id">T7</span><span>导出：另存 / 原地+bak，未改字节保留</span></li>
-          <li><span class="id">T8</span><span>AI 档位打包 + 提示词 JSON</span></li>
-          <li><span class="id">T9</span><span>OpenAI 兼容客户端 + 连接测试</span></li>
-          <li><span class="id">T10</span><span>隐私 UI：将发送预览 + 免责</span></li>
-          <li><span class="id">T11</span><span>Ifaso 入口占位</span></li>
-          <li><span class="id">T12</span><span>安全/回归测试收口</span></li>
-        </ul>
-      </section>
-
-      <footer class="note">
-        Compose 规格：<code>docs/compose/spec/foray.md</code> ·
-        分支 <code>feat/foray</code> ·
-        状态 <code>designed</code> ·
-        本页仅为设计预览，<strong>尚未改动业务代码</strong> · 等待审批
-      </footer>
+      </div>
     </div>
-    <script src="app.js"></script>
+    <script>
+      (function() {
+        var lang = localStorage.getItem('language') || 'zh-CN';
+        document.documentElement.lang = lang;
+        var sub = document.getElementById('splash-sub');
+        if (sub) {
+          sub.textContent = lang === 'en-US' ? 'Universal Multi-Version Resource Pack Converter' : '多版本通用材质包转换器';
+        }
+        document.getElementById('splash-screen').dataset.start = Date.now();
+      })();
+    </script>
+    <div id="app"></div>
+    <style>
+      :root { --theme-color: #007bff; }
+      html, body {
+        overflow: hidden;
+        background-color: #ffffff;
+        background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+        background-size: 200% 200%;
+        animation: splash-bg 14s ease-in-out infinite;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+        transition: opacity 0.45s ease;
+      }
+      .splash-out { opacity: 0; pointer-events: none; }
+      .splash-aurora {
+        position: absolute; inset: -10%;
+        background: radial-gradient(900px 500px at 30% 30%, color-mix(in srgb, var(--theme-color) 22%, transparent), transparent 60%),
+                    radial-gradient(800px 400px at 70% 70%, color-mix(in srgb, var(--theme-color) 16%, transparent), transparent 60%);
+        opacity: 0.7; filter: blur(8px);
+        animation: splash-aurora 20s ease-in-out infinite;
+        pointer-events: none;
+      }
+      .splash-content {
+        position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px;
+      }
+        .splash-icon {
+          width: 104px; height: 104px; color: var(--theme-color);
+          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.08));
+        }
+      .splash-title {
+        font-size: 40px; font-weight: 900; letter-spacing: -1.5px; color: #212529; margin: 0;
+      }
+      .splash-beta {
+        font-size: 20px;
+        font-weight: 800;
+        color: #ea580c;
+        margin-left: 10px;
+        vertical-align: 6px;
+      }
+      .splash-sub {
+        font-size: 13px; color: #6b7280; font-weight: 600; margin: 4px 0 14px;
+      }
+      .splash-spinner {
+        width: 40px; height: 40px; color: var(--theme-color);
+      }
+      .splash-spinner svg { width: 100%; height: 100%; }
+      .splash-spinner circle:last-child {
+        animation: splash-ring 1.2s linear infinite;
+        transform-origin: center;
+      }
+      @keyframes splash-ring {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes splash-bg {
+        0% { background-position: 0% 0%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 100%; }
+      }
+      @keyframes splash-aurora {
+        0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.65; }
+        50% { transform: translate3d(30px, -15px, 0); opacity: 0.85; }
+      }
+    </style>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

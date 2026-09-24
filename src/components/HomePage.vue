@@ -64,10 +64,9 @@ import appIcon from '../assets/app-icon.png';
 import { useAppInfo } from '../composables/useAppInfo';
 
 const { t } = useI18n();
-defineProps<{ userName?: string }>();
+const props = defineProps<{ userName?: string; editorMode?: boolean }>();
 const emit = defineEmits(['switch-page']);
 
-const props = defineProps<{ userName?: string; editorMode?: boolean }>();
 const switchToConversion = () => emit('switch-page', 'conversion');
 const switchToOverlay = () => emit('switch-page', 'overlay');
 const switchToSettings = () => emit('switch-page', 'settings');
