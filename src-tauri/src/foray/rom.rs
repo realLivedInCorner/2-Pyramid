@@ -194,6 +194,44 @@ fn check_png_dims(data: &[u8]) -> Result<(u32, u32), String> {
     Ok((w, h))
 }
 
+/// 扫描 PNG 辅助块：超大 / 可疑 iCCP、tEXt、zTXt 给出告警（规格 S2.3）。
+pub fn scan_png_aux_chunks(data: &[u8]) -> Vec<String> {
+    let mut warns = Vec::new();
+    if data.len() < 8 || !data.starts_with(&[0x89, b'P', b'N', b'G']) {
+        return warns;
+    }
+    let mut i = 8usize;
+    while i + 8 <= data.len() {
+        let len = u32::from_be_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]) as usize;
+        let typ = &data[i + 4..i + 8];
+        let typ_s = String::from_utf8_lossy(typ).to_string();
+        let data_start = i + 8;
+        let data_end = data_start.saturating_add(len);
+        if data_end + 4 > data.len() {
+            warns.push(format!("png chunk {typ_s} truncated"));
+            break;
+        }
+        if matches!(typ_s.as_str(), "iCCP" | "zTXt" | "tEXt" | "iTXt") && len > 64 * 1024 {
+            warns.push(format!("png chunk {typ_s} unusually large ({len} bytes)"));
+        }
+        if typ_s == "iCCP" && len > 0 {
+            // 压缩 ICC 配置过大也告警
+            if len > 256 * 1024 {
+                warns.push("iCCP profile very large".to_string());
+            }
+        }
+        // IEND
+        if typ_s == "IEND" {
+            break;
+        }
+        i = data_end + 4;
+        if warns.len() >= 8 {
+            break;
+        }
+    }
+    warns
+}
+
 fn insert_file(dir: &mut RomDir, file: RomFile) {
     let path = file.path.clone();
     let parts: Vec<&str> = path.split('/').collect();
@@ -282,6 +320,14 @@ pub fn build(archive: &SafeArchive, source_path: &str) -> Rom {
                     source: "parse".into(),
                     path: e.path.clone(),
                     message: msg,
+                });
+            }
+            for w in scan_png_aux_chunks(&e.data) {
+                issues.push(RomIssue {
+                    level: IssueLevel::Warn,
+                    source: "parse".into(),
+                    path: e.path.clone(),
+                    message: w,
                 });
             }
         } else if e.path.to_ascii_lowercase().ends_with(".json") {
