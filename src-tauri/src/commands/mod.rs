@@ -1,6 +1,7 @@
 mod background;
 mod config;
 mod conversion;
+pub mod foray;
 mod history;
 pub mod misc;
 pub mod notification;
@@ -25,4 +26,11 @@ pub use conversion::{test_command, convert_zip, convert_resource_pack, convert_r
 pub use history::{get_conversion_history, clear_conversion_history, HistoryEntry};
 pub use misc::{get_logs, set_dev_mode, get_dev_mode, log_notification, export_logs, get_log_path, open_folder, get_install_dir, read_legal_file, write_file, create_dir, delete_paths, DeleteResult, get_app_info, AppInfo, force_quit, ping, set_action_monitor, is_action_monitor, log_action, export_action_records, clear_action_records, action_monitor_status, set_action_viewport, ActionRecord, ACTION_MONITOR};
 pub use notification::{show_toast, dismiss_toast, dismiss_all_toasts, focus_main_window, run_toast_action, show_system_notification};
+pub use foray::{
+    foray_open_pack, foray_get_rom, foray_run_probes, foray_read_file,
+    foray_paint_open, foray_paint_brush, foray_paint_hsv, foray_paint_undo,
+    foray_paint_preview, foray_paint_commit, foray_export,
+    foray_ai_config_get, foray_ai_config_set, foray_ai_prepare, foray_ai_analyze, foray_ai_test,
+    ForayState,
+};
 pub use overlay::{get_overlay_projects, delete_overlay_project, overlay_init, import_lang_from_parent, get_overlay_lang, save_overlay_lang, read_lang_file, get_overlay_json, save_overlay_json, export_overlay_share_code, import_overlay_share_code, overlay_package, get_overlay_settings, save_overlay_settings, overlay_set_parent_pack};

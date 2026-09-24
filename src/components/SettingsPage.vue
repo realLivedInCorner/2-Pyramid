@@ -122,6 +122,45 @@
       <!-- 转换设置 -->
       <section class="settings-group" v-if="shouldShowGroup('convert')">
         <h3 class="group-title">{{ t('settings.groups.convert') }}</h3>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <i class="ri-code-box-line" aria-hidden="true"></i>
+              <div class="label">Editor Mode / Foray</div>
+              <div class="desc">开启后主页拖入 zip 进入 Foray；关闭为普通转换。</div>
+              <input type="checkbox" :checked="editorMode" @change="onEditorModeChange" />
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="editorMode">
+            <div class="setting-label-row">
+              <i class="ri-brain-line" aria-hidden="true"></i>
+              <div class="label">Foray AI（OpenAI 兼容）</div>
+              <div class="desc">Key 仅存本机 ~/.2pyr/foray-ai.json；外部 API 与作者无关。提示词可改可还原。</div>
+            </div>
+            <div class="foray-ai-form">
+              <label>Base URL <input v-model="aiBaseUrl" type="text" placeholder="https://api.openai.com/v1" /></label>
+              <label>API Key <input v-model="aiApiKey" type="password" autocomplete="off" /></label>
+              <label>Model <input v-model="aiModel" type="text" placeholder="gpt-4o-mini" /></label>
+              <label>默认档位
+                <select v-model.number="aiTier">
+                  <option :value="1">1 目录树</option>
+                  <option :value="2">2 +mcmeta</option>
+                  <option :value="3">3 +JSON</option>
+                  <option :value="4">4 +着色器</option>
+                  <option :value="5">5 +贴图概括</option>
+                </select>
+              </label>
+              <label>系统提示词
+                <textarea v-model="aiPrompt" rows="3" style="width:100%"></textarea>
+              </label>
+              <div class="row" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn" type="button" @click="saveAiToBackend">保存 AI 配置</button>
+                <button class="btn" type="button" @click="restoreAiPrompt">还原默认提示词</button>
+                <button class="btn" type="button" @click="testAiConnection">测试连接</button>
+              </div>
+              <p v-if="aiMsg" class="foray-ai-msg">{{ aiMsg }}</p>
+            </div>
+          </div>
         <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('outputMode')">
             <div class="item-icon">
@@ -689,6 +728,7 @@ const props = defineProps<{
   openOutputAfterConvert?: boolean;
 }>();
 const emit = defineEmits([
+    'update:editorMode',
   'switch-page',
   'update:dev-mode',
   'update:user-name',
@@ -830,6 +870,64 @@ function openLegalSidebar() {
 }
 
 const devModeEnabled = ref(!!props.devMode);
+const editorMode = ref(localStorage.getItem('editorMode') === 'true');
+const aiBaseUrl = ref('https://api.openai.com/v1');
+const aiApiKey = ref('');
+const aiModel = ref('gpt-4o-mini');
+const aiTier = ref(1);
+const aiPrompt = ref('');
+const aiMsg = ref('');
+
+async function loadAiFromBackend() {
+  try {
+    const c = await invoke<any>('foray_ai_config_get');
+    if (c?.base_url) aiBaseUrl.value = c.base_url;
+    if (c?.api_key) aiApiKey.value = c.api_key;
+    if (c?.model) aiModel.value = c.model;
+    if (typeof c?.default_tier === 'number') aiTier.value = c.default_tier;
+    if (typeof c?.system_prompt === 'string') aiPrompt.value = c.system_prompt;
+  } catch { /* ignore */ }
+}
+
+async function saveAiToBackend() {
+  try {
+    await invoke('foray_ai_config_set', {
+      config: {
+        base_url: aiBaseUrl.value,
+        api_key: aiApiKey.value,
+        model: aiModel.value,
+        default_tier: aiTier.value,
+        system_prompt: aiPrompt.value,
+      },
+    });
+    aiMsg.value = '已保存到本机配置';
+  } catch (e: any) {
+    aiMsg.value = String(e);
+  }
+}
+
+function restoreAiPrompt() {
+  aiPrompt.value = '';
+  aiMsg.value = '已还原内置默认提示词（保存后生效）';
+}
+
+async function testAiConnection() {
+  await saveAiToBackend();
+  try {
+    const r = await invoke<string>('foray_ai_test');
+    aiMsg.value = '连接 OK：' + String(r).slice(0, 80);
+  } catch (e: any) {
+    aiMsg.value = '连接失败：' + String(e).slice(0, 160);
+  }
+}
+
+function onEditorModeChange(e: Event) {
+  const on = (e.target as HTMLInputElement).checked;
+  editorMode.value = on;
+  localStorage.setItem('editorMode', String(on));
+  emit('update:editorMode', on);
+  if (on) void loadAiFromBackend();
+}
 const versionTapCount = ref(0);
 const devHint = ref('');
 const showDevUnlockDialog = ref(false);
@@ -1058,6 +1156,7 @@ const exportActionRecords = async () => {
 };
 
 onMounted(() => {
+  if (editorMode.value) void loadAiFromBackend();
   const savedMode = localStorage.getItem('outputMode');
   const savedPath = localStorage.getItem('outputPath');
   if (savedMode === 'follow' || savedMode === 'fixed') {
