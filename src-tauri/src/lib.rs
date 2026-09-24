@@ -63,10 +63,28 @@ use self::commands::{
     focus_main_window,
     run_toast_action,
     show_system_notification,
+    foray_open_pack,
+    foray_get_rom,
+    foray_run_probes,
+    foray_read_file,
+    foray_paint_open,
+    foray_paint_brush,
+    foray_paint_hsv,
+    foray_paint_undo,
+    foray_paint_preview,
+    foray_paint_commit,
+    foray_export,
+    foray_ai_config_get,
+    foray_ai_config_set,
+    foray_ai_prepare,
+    foray_ai_analyze,
+    foray_ai_test,
+    ForayState,
 };
 
 mod commands;
 mod converters;
+mod foray;
 mod image_utils;
 mod color_utils;
 mod invoke_conversion;
@@ -130,6 +148,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .manage(ForayState::default())
         .setup(|app| {
             // debug 构建（tauri dev）始终启动本地动作流端口 127.0.0.1:24159：
             // Action Mon3tr 用它检测「tauri dev 下的 2-Pyramid」，并按需抓取
@@ -278,6 +297,22 @@ pub fn run() {
             focus_main_window,
             run_toast_action,
             show_system_notification,
+            foray_open_pack,
+            foray_get_rom,
+            foray_run_probes,
+            foray_read_file,
+            foray_paint_open,
+            foray_paint_brush,
+            foray_paint_hsv,
+            foray_paint_undo,
+            foray_paint_preview,
+            foray_paint_commit,
+            foray_export,
+            foray_ai_config_get,
+            foray_ai_config_set,
+            foray_ai_prepare,
+            foray_ai_analyze,
+            foray_ai_test,
             updater::check_for_update,
             updater::download_update,
             updater::install_update,

@@ -351,6 +351,11 @@ onMounted(async () => {
         isDragging.value = false;
         const paths = event.payload.paths || [];
         if (paths.length === 0) return;
+        if (localStorage.getItem('editorMode') === 'true') {
+          localStorage.setItem('foray.pendingPath', paths[0]);
+          emit('switch-page', 'foray');
+          return;
+        }
         for (const p of paths) {
           const fileName = p.split('/').pop() || p.split('\\').pop() || p;
           const ext = fileName.toLowerCase().split('.').pop() || '';
