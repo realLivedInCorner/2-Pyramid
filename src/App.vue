@@ -11,6 +11,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
  import ConversionPage from "./components/ConversionPage.vue";
  import OverlayPage from "./components/OverlayPage.vue";
  import SettingsPage from "./components/SettingsPage.vue";
+ import ForayPage from "./components/ForayPage.vue";
  import StartupPage from "./components/StartupPage.vue";
  import UpdateDialog from "./components/UpdateDialog.vue";
  import NotificationToast from "./components/NotificationToast.vue";
@@ -19,6 +20,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
 
  const { t } = useI18n();
  const currentPage = ref<string>("home");
+ const editorMode = ref(localStorage.getItem("editorMode") === "true");
  const { setCurrentPage, setNotificationEnabled, setNotificationMode, setToastDuration } = useNotification();
 
  const showConversionGuard = ref(false);
@@ -62,22 +64,31 @@ import { resolveImageUrl } from "./utils/assetUrl";
    document.body.classList.toggle('ui-frosted', s === 'frosted');
  }
   
- const pageComponent = computed(() => { 
-   if (currentPage.value === "conversion") return ConversionPage; 
-   if (currentPage.value === "settings") return SettingsPage; 
-   if (currentPage.value === "overlay") return OverlayPage; 
-   return HomePage; 
- }); 
-  
+ const pageComponent = computed(() => {
+   if (currentPage.value === "conversion") return ConversionPage;
+   if (currentPage.value === "settings") return SettingsPage;
+   if (currentPage.value === "overlay") return OverlayPage;
+   if (currentPage.value === "foray") return ForayPage;
+   return HomePage;
+ });
+
+ const forayPendingPath = ref("");
+ function enterForay(path?: string) {
+   forayPendingPath.value = path ?? "";
+   currentPage.value = "foray";
+   setCurrentPage("foray");
+ }
+
  const pageProps = computed(() => {
    if (currentPage.value === "conversion") {
      return {
        sourceHandling: sourceHandling.value,
        openOutputAfterConvert: openOutputAfterConvert.value,
+       editorMode: editorMode.value,
      };
    }
    if (currentPage.value === "settings") {
-    return { animationStyle: animationStyle.value, devMode: devMode.value, userName: userName.value };
+    return { animationStyle: animationStyle.value, devMode: devMode.value, userName: userName.value, editorMode: editorMode.value };
    }
    if (currentPage.value === "home") {
     return { userName: userName.value };
@@ -133,7 +144,11 @@ const userName = ref<string>("");
    localStorage.setItem("themeColor", value); 
  }; 
   
- const switchPage = (page: string) => { 
+ const switchPage = (page: string) => {
+   if (page === "foray") {
+     enterForay();
+     return;
+   }
    currentPage.value = page;
    setCurrentPage(page);
  }; 
