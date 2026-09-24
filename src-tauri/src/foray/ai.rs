@@ -508,10 +508,93 @@ mod tests {
         let mut cfg = AiConfig::default();
         cfg.model = "test-model".into();
         cfg.api_key = "sk-test".into();
-        // save uses USERPROFILE; just ensure it does not panic
         let _ = save_ai_config(&cfg);
         let loaded = load_ai_config();
-        // may be shared machine state; at least type works
         assert!(!loaded.model.is_empty() || loaded.model.is_empty());
+    }
+
+    /// 本地 TcpListener 做 HTTP mock（不引第三方 mock crate）。
+    #[test]
+    fn chat_completion_http_mock() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            sock.set_read_timeout(Some(std::time::Duration::from_secs(3)))
+                .ok();
+            let mut buf = Vec::new();
+            let mut tmp = [0u8; 1024];
+            // 读到至少包含 header+body 结束，或读满一帧
+            loop {
+                match sock.read(&mut tmp) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        buf.extend_from_slice(&tmp[..n]);
+                        if buf.windows(4).any(|w| w == b"}\r\n}" || w == b"}}")
+                            && buf.windows(5).any(|w| w == b"model")
+                        {
+                            break;
+                        }
+                        if buf.len() > 8192 {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            let req = String::from_utf8_lossy(&buf).to_string();
+            let body = r#"{"choices":[{"message":{"content":"ok-report"}}]}"#;
+            let mut resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n", body.len());
+            resp.push_str(body);
+            let _ = sock.write_all(resp.as_bytes());
+            let _ = sock.flush();
+            // 返回请求给断言用
+            req
+        });
+
+        let cfg = AiConfig {
+            base_url: format!("http://{addr}"),
+            api_key: "sk-mock-key-1234".into(),
+            model: "mock".into(),
+            default_tier: 1,
+            system_prompt: default_system_prompt(),
+        };
+        let out = match chat_completion_blocking(&cfg, "hello", 5) {
+            Ok(s) => s,
+            Err(e) => {
+                let req = handle.join().unwrap_or_default();
+                panic!("chat failed: {e}\nreq=\n{req}");
+            }
+        };
+        assert_eq!(out, "ok-report");
+        let req = handle.join().unwrap_or_default();
+        assert!(req.contains("/chat/completions"), "req={req}");
+        assert!(req.contains("Bearer"), "req={req}");
+    }
+
+    #[test]
+    fn chat_rejects_empty_key() {
+        let cfg = AiConfig {
+            api_key: "  ".into(),
+            ..Default::default()
+        };
+        assert!(chat_completion_blocking(&cfg, "x", 2).is_err());
+    }
+
+    #[test]
+    fn png_aux_chunk_warns_on_big_text() {
+        use crate::foray::rom::scan_png_aux_chunks;
+        // 签名 + 大 tEXt
+        let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        let payload = vec![b'A'; 70_000];
+        png.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        png.extend_from_slice(b"tEXt");
+        png.extend_from_slice(&payload);
+        png.extend_from_slice(&[0, 0, 0, 0]); // fake crc
+        let w = scan_png_aux_chunks(&png);
+        assert!(w.iter().any(|x| x.contains("tEXt")));
     }
 }
