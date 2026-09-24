@@ -267,8 +267,16 @@ pub async fn foray_export(
 
 #[tauri::command]
 pub async fn foray_ai_config_get(state: State<'_, ForayState>) -> Result<AiConfig, String> {
-    let g = state.ai.lock().unwrap();
-    Ok(g.cfg.clone())
+    {
+        let g = state.ai.lock().unwrap();
+        if !g.cfg.api_key.is_empty() || !g.cfg.model.is_empty() && g.cfg.model != "gpt-4o-mini" {
+            return Ok(g.cfg.clone());
+        }
+    }
+    // 首次：从磁盘加载（0600）
+    let loaded = ai::load_ai_config();
+    state.ai.lock().unwrap().cfg = loaded.clone();
+    Ok(loaded)
 }
 
 #[tauri::command]
@@ -277,8 +285,11 @@ pub async fn foray_ai_config_set(
     config: AiConfig,
 ) -> Result<(), String> {
     let mut g = state.ai.lock().unwrap();
-    // 拒绝打印 / 回传以外的副作用；仅内存保存（可选落盘由设置页负责）
     g.cfg = config;
+    // 落盘（POSIX 0600）；失败不阻断内存生效
+    if let Err(e) = ai::save_ai_config(&g.cfg) {
+        crate::log_warn!("foray ai config save failed: {}", e);
+    }
     Ok(())
 }
 

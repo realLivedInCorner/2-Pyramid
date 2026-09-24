@@ -21,6 +21,7 @@ const paintPng = ref("");
 const brushR = ref(2);
 const brushOpacity = ref(0.8);
 const brushColor = ref("#ff0000");
+const eyedropper = ref(false);
 const hsv = ref({ dh: 0, ds: 0, dv: 0 });
 
 // export
@@ -105,6 +106,22 @@ async function refreshPaint() {
   }
 }
 
+async function eyedropAt(x: number, y: number) {
+  // 从预览 canvas 取色（合成 1px）
+  const img = document.querySelector(".paint-img") as HTMLImageElement | null;
+  if (!img) return;
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const ctx = c.getContext("2d");
+  if (!ctx) return;
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(x, y, 1, 1).data;
+  brushColor.value =
+    "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("");
+  eyedropper.value = false;
+}
+
 function colorToRgba(hex: string): [number, number, number, number] {
   const h = hex.replace("#", "");
   const r = parseInt(h.slice(0, 2), 16);
@@ -120,6 +137,11 @@ async function onPaintClick(ev: MouseEvent) {
   const scaleY = img.naturalHeight / rect.height;
   const x = Math.floor((ev.clientX - rect.left) * scaleX);
   const y = Math.floor((ev.clientY - rect.top) * scaleY);
+  // Shift+点击 或 吸管模式：取色
+  if (eyedropper.value || ev.shiftKey) {
+    await eyedropAt(x, y);
+    return;
+  }
   await invoke("foray_paint_brush", {
     stamp: {
       x,
@@ -171,6 +193,20 @@ async function refreshAi() {
     aiConfig.value = await invoke("foray_ai_config_get");
   } catch {
     /* ignore */
+  }
+}
+
+function restoreDefaultPrompt() {
+  aiConfig.value.system_prompt = "";
+  // 后端在空字符串时使用内置默认；这里再拉一次连接配置即可
+}
+
+async function copyReport() {
+  try {
+    await navigator.clipboard.writeText(aiReport.value);
+    alert("报告已复制");
+  } catch (e) {
+    console.warn(e);
   }
 }
 
@@ -278,6 +314,7 @@ onMounted(() => {
             <label>笔刷 <input v-model.number="brushR" type="number" min="1" max="32" /></label>
             <label>透明 <input v-model.number="brushOpacity" type="number" min="0" max="1" step="0.05" /></label>
             <label>颜色 <input v-model="brushColor" type="color" /></label>
+            <label><input v-model="eyedropper" type="checkbox" /> 吸管（或 Shift+点击）</label>
             <button class="btn" @click="undoPaint">撤销</button>
             <button class="btn primary" @click="commitPaint">应用到 ROM</button>
           </div>
@@ -305,6 +342,11 @@ onMounted(() => {
         <label>baseURL <input v-model="aiConfig.base_url" /></label>
         <label>API Key <input v-model="aiConfig.api_key" type="password" /></label>
         <label>模型 <input v-model="aiConfig.model" /></label>
+        <div class="row">
+          <button class="btn" @click="restoreDefaultPrompt">还原默认提示词</button>
+          <button class="btn" :disabled="!aiReport" @click="copyReport">复制报告</button>
+        </div>
+        <label>提示词 <textarea v-model="aiConfig.system_prompt" rows="4" style="width:100%"></textarea></label>
         <label>档位
           <select v-model.number="tier">
             <option :value="0">0 无</option>

@@ -317,6 +317,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_zip_bomb_ratio() {
+        // 大量可压缩数据，声明 size 远大于 compressed
+        let mut big = vec![0u8; 200_000];
+        for (i, b) in big.iter_mut().enumerate() {
+            *b = (i % 7) as u8; // 高度可压缩
+        }
+        let bytes = make_zip(&[("assets/zeros.bin", &big)]);
+        let mut limits = SafeLimits::default();
+        limits.max_compression_ratio = 20.0;
+        limits.max_file_bytes = 8 * 1024 * 1024;
+        let err = open_pack_bytes(&bytes, &limits).unwrap_err();
+        assert!(err.contains("bomb") || err.contains("too"), "{err}");
+    }
+
+    #[test]
     fn normalize_rejects_dotdot() {
         assert!(normalize_zip_path("a/../b", 32).is_err());
         assert_eq!(normalize_zip_path("a/b/c.png", 32).unwrap(), "a/b/c.png");
