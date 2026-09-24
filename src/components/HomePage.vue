@@ -67,9 +67,34 @@ const { t } = useI18n();
 defineProps<{ userName?: string }>();
 const emit = defineEmits(['switch-page']);
 
+const props = defineProps<{ userName?: string; editorMode?: boolean }>();
 const switchToConversion = () => emit('switch-page', 'conversion');
 const switchToOverlay = () => emit('switch-page', 'overlay');
 const switchToSettings = () => emit('switch-page', 'settings');
+const switchToForay = () => emit('switch-page', 'foray');
+void switchToForay;
+
+import { onMounted } from 'vue';
+onMounted(async () => {
+  // 始终挂监听；触发时再读 localStorage.editorMode（支持开关后拖入）
+  try {
+    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+    getCurrentWebviewWindow().onDragDropEvent((event) => {
+      if (event.payload.type !== 'drop') return;
+      const em = localStorage.getItem('editorMode') === 'true' || props.editorMode === true;
+      const p = (event.payload.paths || [])[0];
+      if (!p) return;
+      if (em) {
+        localStorage.setItem('foray.pendingPath', p);
+        emit('switch-page', 'foray');
+      } else {
+        emit('switch-page', 'conversion');
+      }
+    });
+  } catch (e) {
+    console.warn('foray drop', e);
+  }
+});
 
 // Show the plain semver (e.g. "2.0.0") in the top-left corner. The
 // build number lives in Settings → Version Info so this badge stays

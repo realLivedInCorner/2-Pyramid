@@ -122,6 +122,14 @@
       <!-- 转换设置 -->
       <section class="settings-group" v-if="shouldShowGroup('convert')">
         <h3 class="group-title">{{ t('settings.groups.convert') }}</h3>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <i class="ri-code-box-line" aria-hidden="true"></i>
+              <div class="label">Editor Mode / Foray</div>
+              <div class="desc">开启后主页拖入 zip 进入 Foray；关闭为普通转换。</div>
+              <input type="checkbox" :checked="editorMode" @change="onEditorModeChange" />
+            </div>
+          </div>
         <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('outputMode')">
             <div class="item-icon">
@@ -689,6 +697,7 @@ const props = defineProps<{
   openOutputAfterConvert?: boolean;
 }>();
 const emit = defineEmits([
+    'update:editorMode',
   'switch-page',
   'update:dev-mode',
   'update:user-name',
@@ -830,6 +839,13 @@ function openLegalSidebar() {
 }
 
 const devModeEnabled = ref(!!props.devMode);
+const editorMode = ref(localStorage.getItem('editorMode') === 'true');
+function onEditorModeChange(e: Event) {
+  const on = (e.target as HTMLInputElement).checked;
+  editorMode.value = on;
+  localStorage.setItem('editorMode', String(on));
+  emit('update:editorMode', on);
+}
 const versionTapCount = ref(0);
 const devHint = ref('');
 const showDevUnlockDialog = ref(false);
