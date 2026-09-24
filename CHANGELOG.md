@@ -1,13 +1,24 @@
 ## [Unreleased]
 
+（暂无）
+
+## [Beta-2.4.2] - 2026-09-24（BUILD 20047）
+
+### Added
+
+- **Foray（Editor Mode）分析工作台**：设置中开启 EM 后，主页拖入 zip 进入 Foray，而不是普通转换。含 ROM 对象树、五探针（文件/权限/加密/解析/恶意）、轻量像素编辑（涂抹/吸管/HSV）、导出（默认另存；原地覆盖写 .bak 并原子替换）、OpenAI 兼容 AI（档位 0–5，贴图只发概括与直方图）。**默认关闭**；平行于 Hurray。详见 docs/compose/spec/foray.md。
+- **系统通知 Rust 路径**：show_system_notification（notify-rust / winrt）。
+
 ### Fixed
 
-- **通知（桌面 Toast / 系统通知）弹不出**：
-  1. Win 系统通知原先走 `@tauri-apps/plugin-notification` 的 JS API，其 `sendNotification` 在 WebView2 里实际构造 `window.Notification`，Windows 上经常静默失败。改为 invoke 新命令 `show_system_notification`，经 `NotificationExt` / notify-rust 发送；失败再试 `plugin:notification|notify`。
-  2. 桌面 Toast：capability 原先只授权 `main` 窗口，`toast-*` 无法关窗/回传动作；现已纳入 `toast-*` 并补窗口权限。`ToastPayload` 增加 `durationMs` 别名，避免前端 camelCase 反序列化失败。
-  3. Toast 窗口启用 `transparent`，避免白卡片糊在不透明白底上；`system` 模式系统通知失败时自动回退桌面 Toast，避免完全无反馈。
-  4. 「测试通知」在通知总开关关闭时仍可用（`ignoreDisabled`）。
+- **通知弹不出**：toast 窗口 capability（toast-*）、透明窗口、durationMs 兼容；system 失败回退桌面 Toast。
+- **Foray 导出**：未改条目 raw_copy 字节保留；原地覆盖失败从 .bak 回滚。
+- **EM 拖放分流**：事件时读开关，不再误入普通转换。
 
+### Security
+
+- **legal/**：Foray AI 外部 API 免责与隐私（Key 仅本机；只发用户 baseURL；外部服务与作者无关）。
+- zip 门禁：Zip Slip / 上限 / bomb 比率；PNG 超大 iCCP/tEXt 告警。
 
 ## [2.4.1] - 2026-09-18（BUILD 20046）
 

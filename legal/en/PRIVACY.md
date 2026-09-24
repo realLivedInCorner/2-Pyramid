@@ -47,6 +47,8 @@ If you turn off update checks or never press update buttons, the app **does not*
 
 Update checks/downloads talk to GitHub (and an optional mirror), under their own privacy policies. Otherwise the software does not send data to third parties.
 
+**Exception (only if you enable Foray AI analysis and configure a service):** requests go to **your** OpenAI-compatible `baseURL`. Depending on the data tier you pick, this may include: directory tree and extension stats, `pack.mcmeta`, copies of JSON / shaders **you select**, and texture **summaries** (size / mean color / histograms — **not pixels**). The API key is stored only on your machine to authenticate to that service. That service’s privacy policy is set by the provider and is not the responsibility of 2-Pyramid authors.
+
 ## 5. Share codes
 
 Overlay share codes (`2PYR-…`) are exported on your machine and transferred by you. The app **does not host or relay** them. If you share via a third-party platform, read that platform’s terms and privacy notice too.
