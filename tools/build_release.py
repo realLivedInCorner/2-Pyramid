@@ -159,6 +159,94 @@ def build_installer(version: str, beta: bool) -> None:
     print(f"   固定名（Store）: {alias}")
 
 
+WIX_BIN = Path(r"C:\Program Files (x86)\WiX Toolset v3.14\bin")
+
+def build_msi(version: str, staging: Path, out_name: str):
+    """用 WiX 3 把 staging 便携目录打成 MSI（enterprise / winget / 静默部署）。
+
+    产物：release/2-Pyramid-{version}.msi
+    静默安装示例：
+      msiexec /i 2-Pyramid-{version}.msi /qn /l*v msi.log
+    """
+    if not (WIX_BIN / "candle.exe").exists():
+        print("[WARN] WiX v3 未找到，跳过 MSI 生成", file=sys.stderr)
+        return None
+    wix_src = ROOT / "tools" / "msi"
+    build_dir = ROOT / "release" / "msi-build"
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1) heat 收集 staging → 组件组
+    harvest = build_dir / "payload.wxs"
+    run(
+        [
+            str(WIX_BIN / "heat.exe"),
+            "dir",
+            str(staging),
+            "-cg",
+            "ProductComponents",
+            "-dr",
+            "PayloadFolder",
+            "-gg",
+            "-scom",
+            "-sfrag",
+            "-srd",
+            "-arch",
+            "x64",
+            "-var",
+            "var.StagingDir",
+            "-out",
+            str(harvest),
+        ],
+        ROOT,
+        "WiX heat staging",
+        env={"WIX": str(WIX_BIN)},
+    )
+
+    # 2) candle
+    obj = build_dir / "2pyramid.wixobj"
+    run(
+        [
+            str(WIX_BIN / "candle.exe"),
+            f"-dProductVersion={version}",
+            f"-dStagingDir={staging}",
+            "-arch",
+            "x64",
+            "-ext",
+            "WixUtilExtension",
+            "-out",
+            str(build_dir) + "\\",
+            str(wix_src / "2pyramid.wxs"),
+            str(harvest),
+        ],
+        ROOT,
+        "WiX candle",
+    )
+
+    # 3) light
+    msi = OUTPUT / out_name
+    run(
+        [
+            str(WIX_BIN / "light.exe"),
+            "-ext",
+            "WixUtilExtension",
+            "-sice:ICE61",
+            "-out",
+            str(msi),
+            str(build_dir / "2pyramid.wixobj"),
+            str(build_dir / "payload.wixobj"),
+        ],
+        ROOT,
+        "WiX light",
+    )
+    if msi.exists():
+        write_sha256_sidecar(msi)
+        print(f"    MSI: {msi}")
+        return msi
+    return None
+
+
 def write_sha256_sidecar(final: Path) -> None:
     """为安装包生成同名 .sha256 校验文件（更新器下载后据此做完整性校验）。
     发版时需把 .exe 与 .sha256 一并上传为 release 资产。"""

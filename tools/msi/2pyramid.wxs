@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WiX 3.x package for 2-Pyramid portable payload (staging/) -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="2-Pyramid"
+    Language="1033"
+    Codepage="65001"
+    Version="$(var.ProductVersion)"
+    Manufacturer="2-Pyramid Studio"
+    UpgradeCode="B7E2C1A0-4D5F-4E8A-9C3B-1F0A2D6E8C11">
+    <Package
+      InstallerVersion="500"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Platform="x64"
+      Description="2-Pyramid resource pack converter"
+      Manufacturer="2-Pyramid Studio"
+      Comments="Silent: msiexec /i this.msi /qn" />
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version is already installed."
+      AllowSameVersionUpgrades="yes" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.StagingDir)\2-pyramid.exe" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/realLivedInCorner/2-Pyramid" />
+
+    <!-- 静默/企业安装：msiexec /i xxx.msi /qn -->
+    <Property Id="REBOOT" Value="ReallySuppress" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="2-Pyramid">
+          <Directory Id="PayloadFolder" Name="app" />
+        </Directory>
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="2-Pyramid" />
+      </Directory>
+    </Directory>
+
+    <Feature Id="MainFeature" Title="2-Pyramid" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <!-- 快捷方式组件 -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="9A1B2C3D-4E5F-6789-ABCD-EF0123456789" Win64="yes">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Name="2-Pyramid"
+          Description="Resource Pack Converter"
+          Target="[PayloadFolder]2-pyramid.exe"
+          WorkingDirectory="PayloadFolder" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\2-Pyramid"
+          Name="installed"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Product>
+</Wix>
