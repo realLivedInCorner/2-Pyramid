@@ -141,15 +141,25 @@
           </div>
 
           <div class="setting-item" v-if="editorMode">
-            <div class="setting-label-row">
+            <div class="item-icon">
               <i class="ri-brain-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
               <div class="label">Foray AI（OpenAI 兼容）</div>
               <div class="desc">Key 仅存本机 ~/.2pyr/foray-ai.json；外部 API 与作者无关。提示词可改可还原。</div>
             </div>
-            <div class="foray-ai-form">
-              <label>Base URL <input v-model="aiBaseUrl" type="text" placeholder="https://api.openai.com/v1" /></label>
-              <label>API Key <input v-model="aiApiKey" type="password" autocomplete="off" /></label>
-              <label>Model <input v-model="aiModel" type="text" placeholder="gpt-4o-mini" /></label>
+          </div>
+          <div v-if="editorMode" class="foray-ai-form">
+            <div class="foray-ai-grid">
+              <label>Base URL
+                <input v-model="aiBaseUrl" type="text" placeholder="https://api.openai.com/v1" />
+              </label>
+              <label>API Key
+                <input v-model="aiApiKey" type="password" autocomplete="off" />
+              </label>
+              <label>Model
+                <input v-model="aiModel" type="text" placeholder="gpt-4o-mini" />
+              </label>
               <label>默认档位
                 <select v-model.number="aiTier">
                   <option :value="1">1 目录树</option>
@@ -159,16 +169,16 @@
                   <option :value="5">5 +贴图概括</option>
                 </select>
               </label>
-              <label>系统提示词
-                <textarea v-model="aiPrompt" rows="3" style="width:100%"></textarea>
-              </label>
-              <div class="row" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn" type="button" @click="saveAiToBackend">保存 AI 配置</button>
-                <button class="btn" type="button" @click="restoreAiPrompt">还原默认提示词</button>
-                <button class="btn" type="button" @click="testAiConnection">测试连接</button>
-              </div>
-              <p v-if="aiMsg" class="foray-ai-msg">{{ aiMsg }}</p>
             </div>
+            <label class="wide">系统提示词
+              <textarea v-model="aiPrompt" rows="3" placeholder="留空使用内置默认"></textarea>
+            </label>
+            <div class="foray-ai-actions">
+              <button class="ghost-btn" type="button" @click="saveAiToBackend">保存 AI 配置</button>
+              <button class="ghost-btn" type="button" @click="restoreAiPrompt">还原默认提示词</button>
+              <button class="btn-text" type="button" @click="testAiConnection">测试连接</button>
+            </div>
+            <p v-if="aiMsg" class="foray-ai-msg">{{ aiMsg }}</p>
           </div>
         <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('outputMode')">
@@ -2007,6 +2017,47 @@ const onThemeReset = async () => {
 
 .item-action { display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; }
 .switch-wrap { cursor: pointer; }
+.foray-ai-form {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.foray-ai-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+.foray-ai-grid label,
+.foray-ai-form > label.wide {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+}
+.foray-ai-grid input,
+.foray-ai-grid select,
+.foray-ai-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-btn, 10px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  color: #1d1d1f;
+  font-size: 13px;
+  font-family: inherit;
+}
+.foray-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
 .foray-ai-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; width: 100%; }
 .foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #6b7280; font-weight: 600; }
 .foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.8); color: #1d1d1f; font: inherit; font-weight: 500; }
