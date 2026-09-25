@@ -15,7 +15,8 @@
 //!   * get_install_context / is_update_mode —— 应用内更新（--from-app + 已安装）
 //!     时前端进入覆盖更新页，而不是全新安装向导
 //!
-//! 静默模式：`installer.exe --silent [--dir <path>]` 直接安装后退出
+//! 静默模式：`installer.exe --silent|--quiet|/S [-s] [--dir|--install-dir <path>] [--relaunch] [--shortcuts]` 安装后退出（0=成功）
+//! 帮助：`installer.exe --help`
 //! （自动更新器使用），不启动图形界面。
 //! 应用内更新：`installer.exe --from-app` 打开覆盖更新向导。
 
@@ -94,6 +95,10 @@ impl ShortcutOptions {
     /// 静默更新模式：不创建任何快捷方式（避免覆盖用户已删除的入口）。
     fn none() -> Self {
         Self { desktop: false, start_menu: false }
+    }
+    /// 静默安装 --shortcuts：创建桌面 + 开始菜单快捷方式。
+    fn all() -> Self {
+        Self { desktop: true, start_menu: true }
     }
 }
 
@@ -662,17 +667,53 @@ fn launch_app(dir: String) -> Result<(), String> {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    // 静默安装（自动更新器）：--silent [--dir <path>] [--relaunch]
+    let lower: Vec<String> = args.iter().map(|a| a.to_ascii_lowercase()).collect();
+
+    // --help / -h / /?
+    if lower.iter().any(|a| a == "--help" || a == "-h" || a == "/?") {
+        println!(
+            "2-Pyramid Installer\n\
+\n\
+Usage:\n\
+  installer.exe\n\
+  installer.exe --silent [--dir <path>] [--relaunch] [--shortcuts]\n\
+  installer.exe --uninstall\n\
+  installer.exe --from-app\n\
+\n\
+Silent aliases: --silent | /silent | /S | -s | --quiet | /quiet\n\
+  --dir / --install-dir <path>  install directory\n\
+  --relaunch                    start 2-Pyramid after install\n\
+  --shortcuts                   create desktop/start shortcuts\n\
+Exit codes: 0 success, 1 failure.\n"
+        );
+        std::process::exit(0);
+    }
+
+    // 静默安装（Store / 脚本 / 自动更新器）：不启动图形界面。
     // --relaunch：安装完成后直接启动主程序，用于应用内更新免走向导。
-    if args.iter().any(|a| a == "--silent") {
+    let silent = lower.iter().any(|a| {
+        matches!(
+            a.as_str(),
+            "--silent" | "/silent" | "/s" | "-s" | "--quiet" | "/quiet"
+        )
+    });
+    if silent {
         let dir = args
             .iter()
-            .position(|a| a == "--dir")
+            .position(|a| {
+                let x = a.to_ascii_lowercase();
+                x == "--dir" || x == "--install-dir" || x == "/dir"
+            })
             .and_then(|i| args.get(i + 1))
             .map(PathBuf::from)
             .unwrap_or_else(default_install_dir);
-        let relaunch = args.iter().any(|a| a == "--relaunch");
-        match install_impl(&dir, ShortcutOptions::none(), |_, _, _| {}) {
+        let relaunch = lower.iter().any(|a| a == "--relaunch");
+        let opts = if lower.iter().any(|a| a == "--shortcuts") {
+            ShortcutOptions::all()
+        } else {
+            ShortcutOptions::none()
+        };
+        match install_impl(&dir, opts, |_, _, _| {}) {
             Ok(_) => {
                 if relaunch {
                     let exe = dir.join(EXE_NAME);
