@@ -4,8 +4,6 @@
 
 - **打包线固定名安装包**：`build_release.py` 在版本化 `2-Pyramid-Installer-*.exe` 之外，每次额外产出 `2-Pyramid-Installer.exe` + `.sha256`，便于 Microsoft Store 等按固定文件名抓取更新。
 
-（暂无）
-
 ## [Beta-2.4.2] - 2026-09-24（BUILD 20047）
 
 ### Added
