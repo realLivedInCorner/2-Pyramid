@@ -121,6 +121,7 @@
 
       <!-- 转换设置 -->
       <section class="settings-group" v-if="shouldShowGroup('convert')">
+        <div class="group-card">
         <h3 class="group-title">{{ t('settings.groups.convert') }}</h3>
           <div class="setting-item">
             <div class="item-icon">
@@ -275,6 +276,7 @@
             <div class="item-arrow">→</div>
           </div>
         </div>
+      </div>
       </section>
 
       <!-- 转换历史 -->
