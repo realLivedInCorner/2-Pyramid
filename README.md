@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.4.2-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.5.0-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -325,7 +325,7 @@ npm run build                                               # frontend build
 
 使用可执行程序时另见 [EULA](./legal/EULA.md) 与 [DISCLAIMER](./legal/DISCLAIMER.md)。请同时遵守 Minecraft EULA 与资源包原作者授权。
 
-## Foray / 安装包（2.4.2）
+## Foray / 安装包（2.5.0）
 
 - **Foray**：设置 → Editor Mode 开启后，主页拖入 zip 进入资源包分析工作台（探针 / 轻量编辑 / 可选 AI）。
 - **静默安装**：`2-Pyramid-Installer.exe --silent [--dir <path>] [--relaunch] [--shortcuts]`；或 `msiexec /i 2-Pyramid-Installer-*.msi /qn`。
