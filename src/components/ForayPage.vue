@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 
-const emit = defineEmits<{ (e: "leave"): void }>();
+const emit = defineEmits<{ (e: "leave"): void; (e: "switch-page", p: string): void }>();
+
+const lightboxSrc = ref("");
+const issuesOpen = ref(false);
+const treeQuery = ref("");
+const openFolders = ref<Record<string, boolean>>({});
 
 const loading = ref(false);
 const err = ref("");
@@ -36,6 +41,47 @@ const aiText = ref("");
 const aiReport = ref("");
 const aiBusy = ref(false);
 const aiError = ref("");
+
+function onPreviewClick(ev: MouseEvent) {
+  // Shift / 吸管：仍走笔刷；单击：灯箱看大图
+  if (eyedropper.value || ev.shiftKey) {
+    void onPaintClick(ev);
+    return;
+  }
+  const img = ev.currentTarget as HTMLImageElement;
+  lightboxSrc.value = (paintPng.value || previewPng.value) as string;
+  void img;
+}
+
+function closeLightbox() {
+  lightboxSrc.value = "";
+}
+
+function onLeave() {
+  emit("leave");
+  emit("switch-page", "home");
+}
+
+const treeRoots = computed(() => {
+  const q = treeQuery.value.trim().toLowerCase();
+  const list = files.value.map((f) => {
+    const parts = f.path.split("/");
+    return { ...f, top: parts[1] || parts[0] || "", segs: parts };
+  });
+  const groups = new Map<string, typeof list>();
+  for (const f of list) {
+    if (q && !f.path.toLowerCase().includes(q)) continue;
+    const g = groups.get(f.top) ?? [];
+    g.push(f);
+    groups.set(f.top, g);
+  }
+  return [...groups.entries()].map(([top, items]) => ({
+    top,
+    count: items.length,
+    items: (openFolders.value[top] ? items : items.slice(0, 8)),
+    expanded: !!openFolders.value[top],
+  }));
+});
 
 async function openFromPath(path: string) {
   loading.value = true;
@@ -262,7 +308,7 @@ onMounted(() => {
 <template>
   <div class="foray-page">
     <header class="header-section">
-      <button class="ghost-btn back-btn" type="button" @click="emit('leave')">
+      <button class="ghost-btn back-btn" type="button" @click="onLeave">
         <i class="ri-arrow-left-line" aria-hidden="true"></i>
         返回
       </button>
@@ -288,19 +334,33 @@ onMounted(() => {
     <div v-else class="foray-grid">
       <section class="card pane tree-pane">
         <h2 class="card-title">ROM 树</h2>
-        <ul class="tree">
-          <li v-for="f in files" :key="f.path">
-            <button
-              class="tree-link"
-              :class="{ active: f.path === selected }"
-              type="button"
-              @click="selectPath(f.path)"
-            >
-              {{ f.path }}
+        <input v-model="treeQuery" class="tree-filter" type="search" placeholder="过滤路径…" />
+        <div class="tree">
+          <div v-for="g in treeRoots" :key="g.top" class="tree-group">
+            <button class="tree-group-btn" type="button" @click="openFolders[g.top] = !openFolders[g.top]">
+              <i :class="g.expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" />
+              <b>{{ g.top }}</b>
+              <span class="kind-tag">{{ g.count }}</span>
             </button>
-            <span class="kind-tag">{{ f.kind }}</span>
-          </li>
-        </ul>
+            <ul v-if="g.expanded || treeQuery">
+              <li v-for="f in g.items" :key="f.path">
+                <button
+                  class="tree-link"
+                  :class="{ active: f.path === selected }"
+                  type="button"
+                  :title="f.path"
+                  @click="selectPath(f.path)"
+                >
+                  {{ f.path.split("/").slice(2).join("/") || f.path }}
+                </button>
+                <span class="kind-tag">{{ f.kind }}</span>
+              </li>
+              <li v-if="!g.expanded && g.count > g.items.length" class="muted small">
+                … 还有 {{ g.count - g.items.length }} 项，点击文件夹展开
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       <section class="card pane main-pane">
@@ -311,8 +371,13 @@ onMounted(() => {
           <span class="pill">{{ files.length }} files</span>
         </p>
 
-        <h2 class="card-title">探针 / 问题</h2>
-        <ul class="issue-list">
+        <h2 class="card-title row-title">
+          <span>探针 / 问题</span>
+          <button class="ghost-btn sm" type="button" @click="issuesOpen = !issuesOpen">
+            {{ issuesOpen ? "收起" : "展开" }}（{{ issues.length }}）
+          </button>
+        </h2>
+        <ul v-if="issuesOpen" class="issue-list scroll-box">
           <li v-for="(i, idx) in issues" :key="idx" :class="i.level">
             <span class="issue-src">{{ i.source }}</span>
             <span class="issue-path">{{ i.path }}</span>
@@ -320,16 +385,18 @@ onMounted(() => {
           </li>
           <li v-if="!issues.length" class="muted">暂无 issue</li>
         </ul>
+        <p v-else class="muted small">{{ issues.length }} 条问题（点击展开）</p>
 
         <h2 class="card-title">预览</h2>
         <p class="muted small">{{ selected || "选择左侧文件" }}</p>
+        <p class="muted small">单击图片可放大预览；Shift+点击进入涂抹。</p>
         <pre v-if="previewUtf8" class="code-block">{{ previewUtf8.slice(0, 4000) }}</pre>
         <img
           v-if="paintPng || previewPng"
           class="paint-img"
           :src="paintPng || previewPng"
           alt="preview"
-          @click="onPaintClick"
+          @click="onPreviewClick"
         />
 
         <template v-if="paintPng">
@@ -348,7 +415,15 @@ onMounted(() => {
             <label>V <input v-model.number="hsv.dv" type="number" min="-100" max="100" /></label>
             <button class="ghost-btn" type="button" @click="applyHsv">应用 HSV</button>
           </div>
-        </template>
+        
+  <div v-if="lightboxSrc" class="lightbox-mask" @click.self="closeLightbox">
+    <button class="ghost-btn lightbox-close" type="button" @click="closeLightbox">关闭</button>
+    <img class="lightbox-img" :src="lightboxSrc" alt="preview-large" />
+    <div class="lightbox-bar">
+      <button class="ghost-btn" type="button" @click="closeLightbox">返回编辑</button>
+    </div>
+  </div>
+</template>
 
         <h2 class="card-title">导出</h2>
         <div class="toolbar">
@@ -414,7 +489,7 @@ onMounted(() => {
           <li v-for="(p, i) in aiPreview" :key="i">{{ p }}</li>
         </ul>
         <p v-if="aiError" class="page-error">{{ aiError }}</p>
-        <pre v-if="aiReport" class="code-block">{{ aiReport }}</pre>
+        <pre v-if="aiReport" class="code-block ai-report">{{ aiReport }}</pre>
 
         <h2 class="card-title">IFASO</h2>
         <p class="muted small">互链入口占位（2.5.0 不实现互通）。跨软件按对方 License。</p>
@@ -796,6 +871,91 @@ onMounted(() => {
   background: #fff;
 }
 
+
+.row-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ghost-btn.sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.scroll-box {
+  max-height: 180px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.ai-report {
+  max-height: 280px;
+  overflow: auto;
+}
+.tree-filter {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-btn, 10px);
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.8);
+  color: #1d1d1f;
+  font-size: 12px;
+}
+.tree-group {
+  margin: 6px 0;
+}
+.tree-group-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #1d1d1f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tree-group-btn:hover {
+  background: rgba(0,0,0,0.06);
+}
+.tree ul {
+  margin: 4px 0 0;
+  padding: 0 0 0 10px;
+  list-style: none;
+  border-left: 1px solid rgba(0,0,0,0.06);
+}
+.lightbox-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15,23,42,0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.lightbox-img {
+  max-width: min(92vw, 1100px);
+  max-height: min(82vh, 900px);
+  image-rendering: pixelated;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+}
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+}
+.paint-img {
+  max-height: 220px;
+  width: auto;
+}
 @media (max-width: 1100px) {
   .foray-grid {
     grid-template-columns: 1fr;

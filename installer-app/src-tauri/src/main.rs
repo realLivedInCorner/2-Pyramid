@@ -664,6 +664,15 @@ fn launch_app(dir: String) -> Result<(), String> {
 
 // ── 入口 ─────────────────────────────────────────────────────────
 
+/// Windows Installer 风格退出码（便于企业脚本 / 部署工具识别）。
+/// 0 成功 · 1602 用户取消 · 1603 安装失败 · 87 参数错误 · 1618 另一安装在跑 · 3010 需重启
+const ERROR_SUCCESS: i32 = 0;
+const ERROR_INVALID_PARAMETER: i32 = 87;
+const ERROR_INSTALL_USEREXIT: i32 = 1602;
+const ERROR_INSTALL_FAILURE: i32 = 1603;
+const ERROR_INSTALL_ALREADY_RUNNING: i32 = 1618;
+const ERROR_INSTALL_REBOOT_REQUIRED: i32 = 3010;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -686,7 +695,7 @@ Silent aliases: --silent | /silent | /S | -s | --quiet | /quiet\n\
   --shortcuts                   create desktop/start shortcuts\n\
 Exit codes: 0 success, 1 failure.\n"
         );
-        std::process::exit(0);
+        std::process::exit(ERROR_SUCCESS);
     }
 
     // 静默安装（Store / 脚本 / 自动更新器）：不启动图形界面。
@@ -721,9 +730,12 @@ Exit codes: 0 success, 1 failure.\n"
                         let _ = std::process::Command::new(&exe).spawn();
                     }
                 }
-                std::process::exit(0);
+                std::process::exit(ERROR_SUCCESS);
             }
-            Err(_) => std::process::exit(1),
+            Err(e) => {
+                let _ = e;
+                std::process::exit(ERROR_INSTALL_FAILURE);
+            }
         }
     }
 

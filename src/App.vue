@@ -144,7 +144,8 @@ const userName = ref<string>("");
    localStorage.setItem("themeColor", value); 
  }; 
   
- const switchPage = (page: string) => {
+ const onForayLeave = () => switchPage("home");
+  const switchPage = (page: string) => {
    if (page === "foray") {
      enterForay();
      return;
@@ -709,6 +710,7 @@ onMounted(async () => {
                :is="pageComponent"
                v-bind="pageProps"
                @switch-page="switchPage"
+               @leave="onForayLeave"
                @update:animation-style="updateAnimationStyle"
                @update:animation-speed="updateAnimationSpeed"
                @update:animation-enabled="updateAnimationEnabled"
