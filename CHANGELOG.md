@@ -1,27 +1,28 @@
 ## [Unreleased]
 
-### Added
-
-- **安装器静默参数增强（2.4.2-beta）**：`--silent` / `/S` / `--quiet` / `-s` 等别名；`--dir|--install-dir`、`--relaunch`、`--shortcuts`、`--help`；退出码 0/1。便于 Store/脚本/自研更新器。
-- **打包线固定名安装包**：`build_release.py` 在版本化 `2-Pyramid-Installer-*.exe` 之外，每次额外产出 `2-Pyramid-Installer.exe` + `.sha256`，便于 Microsoft Store 等按固定文件名抓取更新。另见 `docs/compose/ms-store-checklist.md`（MSIX/Store 上架缺口）。
+（暂无）
 
 ## [Beta-2.4.2] - 2026-09-24（BUILD 20047）
 
 ### Added
 
-- **Foray（Editor Mode）分析工作台**：设置中开启 EM 后，主页拖入 zip 进入 Foray，而不是普通转换。含 ROM 对象树、五探针（文件/权限/加密/解析/恶意）、轻量像素编辑（涂抹/吸管/HSV）、导出（默认另存；原地覆盖写 .bak 并原子替换）、OpenAI 兼容 AI（档位 0–5，贴图只发概括与直方图）。**默认关闭**；平行于 Hurray。详见 docs/compose/spec/foray.md。
-- **系统通知 Rust 路径**：show_system_notification（notify-rust / winrt）。
+- **Foray（Editor Mode）分析工作台**：设置开启 EM 后，主页拖入 zip 进入 Foray。ROM 树、五探针、轻量像素编辑、OpenAI 兼容 AI（档位 0–5，贴图只发概括与直方图）。默认关闭，平行于 Hurray。详见 `docs/compose/spec/foray.md`。
+- **系统通知 Rust 路径**：`show_system_notification`（notify-rust / winrt）。
+- **安装器静默参数**：`--silent|/S|-s|--quiet`，`--dir|--install-dir`、`--relaunch`、`--shortcuts`、`--help`；退出码 0 / 1603 等 MSI 风格。
+- **MSI 安装包**：WiX x64 产出 `2-Pyramid-Installer-{ver}.msi`；静默 `msiexec /i … /qn`。**不做 MSIX**。
+- **固定名安装包**：每次构建额外产出 `2-Pyramid-Installer.exe` + `.sha256`，便于脚本 / 商店侧按固定文件名抓取。
 
 ### Fixed
 
-- **通知弹不出**：toast 窗口 capability（toast-*）、透明窗口、durationMs 兼容；system 失败回退桌面 Toast。
-- **Foray 导出**：未改条目 raw_copy 字节保留；原地覆盖失败从 .bak 回滚。
+- **通知弹不出**：toast `toast-*` capability、透明窗口、`durationMs` 兼容；system 失败回退桌面 Toast。
+- **Foray 导出**：未改条目 raw_copy 字节保留；原地覆盖失败从 `.bak` 回滚。
+- **Foray 交互**：问题 / 轻量编辑 / AI 报告独立弹窗；图片灯箱可缩放；返回键可用；ROM 分组树与过滤。
 - **EM 拖放分流**：事件时读开关，不再误入普通转换。
+- **入口文件误覆盖**：恢复 Vite 应用 `index.html`，Foray 设计稿移至 `docs/compose/foray-design/`。
 
 ### Security
 
-- **legal/**：Foray AI 外部 API 免责与隐私（Key 仅本机；只发用户 baseURL；外部服务与作者无关）。
-- zip 门禁：Zip Slip / 上限 / bomb 比率；PNG 超大 iCCP/tEXt 告警。
+- **legal/**（中英）：Foray AI 外部 API 免责与隐私说明；zip 门禁与 PNG 辅助块告警。
 
 ## [2.4.1] - 2026-09-18（BUILD 20046）
 
