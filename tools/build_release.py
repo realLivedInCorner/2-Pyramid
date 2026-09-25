@@ -14,6 +14,8 @@
   6. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
      （--beta 时输出 2-Pyramid-Installer-{version}-beta.{BUILD}.exe，
        安装器以 beta 渠道编译：独立注册表键、Beta 标识、可并存）
+     同时复制固定名 release/2-Pyramid-Installer.exe（+ .sha256），
+     供 Microsoft Store 等按固定文件名抓取更新。
 
 便携版不对外发布，只作为安装器内嵌 payload。
 仅支持 Windows 平台。
@@ -146,7 +148,15 @@ def build_installer(version: str, beta: bool) -> None:
         final = OUTPUT / f"2-Pyramid-Installer-{version}.exe"
     shutil.copy2(installer_exe, final)
     write_sha256_sidecar(final)
+
+    # Microsoft Store / 固定名抓取：每次再产出无版本后缀的别名
+    # 2-Pyramid-Installer.exe（含 .sha256），便于商店轮询更新。
+    alias = OUTPUT / "2-Pyramid-Installer.exe"
+    shutil.copy2(installer_exe, alias)
+    write_sha256_sidecar(alias)
+
     print(f"\n✅ 安装器已生成（{channel} 渠道）: {final}")
+    print(f"   固定名（Store）: {alias}")
 
 
 def write_sha256_sidecar(final: Path) -> None:
