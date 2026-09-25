@@ -2,7 +2,8 @@
 
 ### Added
 
-- **打包线固定名安装包**：`build_release.py` 在版本化 `2-Pyramid-Installer-*.exe` 之外，每次额外产出 `2-Pyramid-Installer.exe` + `.sha256`，便于 Microsoft Store 等按固定文件名抓取更新。
+- **安装器静默参数增强（2.4.2-beta）**：`--silent` / `/S` / `--quiet` / `-s` 等别名；`--dir|--install-dir`、`--relaunch`、`--shortcuts`、`--help`；退出码 0/1。便于 Store/脚本/自研更新器。
+- **打包线固定名安装包**：`build_release.py` 在版本化 `2-Pyramid-Installer-*.exe` 之外，每次额外产出 `2-Pyramid-Installer.exe` + `.sha256`，便于 Microsoft Store 等按固定文件名抓取更新。另见 `docs/compose/ms-store-checklist.md`（MSIX/Store 上架缺口）。
 
 ## [Beta-2.4.2] - 2026-09-24（BUILD 20047）
 

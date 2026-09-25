@@ -10,6 +10,8 @@ Foray 分析工作台（Editor Mode，默认关闭）：在设置中开启 EM �
 
 系统通知改走 Rust 插件路径（notify-rust），桌面 Toast 作为可靠主通道。
 
+安装器静默参数：支持 --silent / /S / --quiet / -s，以及 --dir|--install-dir、--relaunch、--shortcuts、--help；退出码 0=成功、1=失败。打包线另产出固定名 2-Pyramid-Installer.exe（+ .sha256），便于 Microsoft Store / 脚本抓取。Store 上架 MSIX 缺口见 docs/compose/ms-store-checklist.md。
+
 🐛 修复
 
 通知无法弹出：桌面 Toast 窗口权限与透明窗口修复；系统通知不再依赖 WebView 的 window.Notification（在 Windows 上经常静默失败）。仅选「系统」时若系统通知失败，会自动回退桌面 Toast。
@@ -28,7 +30,7 @@ zip 安全门禁：拒绝路径穿越、条目/体积/压缩比异常；PNG 超�
 2-Pyramid-Installer-2.4.2-beta.20047.exe.sha256 两个资产（更新器 SHA-256 校验依赖后者）。
 
 校验（本次构建）：
-- 2-Pyramid-Installer-2.4.2-beta.20047.exe.sha256: 9871efcd1d70a285f0d93f60ef92955eb2356a24867a5325b4ea39a492b34950
+- 2-Pyramid-Installer-2.4.2-beta.20047.exe.sha256: 9d5068b3b9d9f40053541b47e87cc8410243c58d541ffc6a7b327af5e0a95b5b
 
 如何反馈问题：在仓库 Issues 提交即可，最好附上「设置 → 开发者模式 → 导出日志」的日志文件，
 以及原资源包版本与目标版本（Java / Bedrock）。
