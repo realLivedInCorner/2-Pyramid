@@ -14,8 +14,7 @@
   6. 输出单文件安装包 release/2-Pyramid-Installer-{version}.exe
      （--beta 时输出 2-Pyramid-Installer-{version}-beta.{BUILD}.exe，
        安装器以 beta 渠道编译：独立注册表键、Beta 标识、可并存）
-     同时复制固定名 release/2-Pyramid-Installer.exe（+ .sha256），
-     供 Microsoft Store 等按固定文件名抓取更新。
+     MSI 固定名 release/2-Pyramid-Installer.msi（无版本号）。
 
 便携版不对外发布，只作为安装器内嵌 payload。
 仅支持 Windows 平台。
@@ -148,15 +147,6 @@ def build_installer(version: str, beta: bool) -> None:
         final = OUTPUT / f"2-Pyramid-Installer-{version}.exe"
     shutil.copy2(installer_exe, final)
     write_sha256_sidecar(final)
-
-    # Microsoft Store / 固定名抓取：每次再产出无版本后缀的别名
-    # 2-Pyramid-Installer.exe（含 .sha256），便于商店轮询更新。
-    alias = OUTPUT / "2-Pyramid-Installer.exe"
-    shutil.copy2(installer_exe, alias)
-    write_sha256_sidecar(alias)
-
-    print(f"\n✅ 安装器已生成（{channel} 渠道）: {final}")
-    print(f"   固定名（Store）: {alias}")
 
 
 WIX_BIN = Path(r"C:\Program Files (x86)\WiX Toolset v3.14\bin")
@@ -300,6 +290,11 @@ def main() -> None:
         return
 
     build_installer(version, args.beta)
+    # MSI 固定名 2-Pyramid-Installer.msi（部署脚本友好；不做 MSIX）
+    try:
+        build_msi(version.split("-")[0], STAGING, "2-Pyramid-Installer.msi")
+    except Exception as e:
+        print(f"[WARN] MSI build failed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
