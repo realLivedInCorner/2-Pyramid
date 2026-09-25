@@ -1,0 +1,10 @@
+{
+  "_comment": "MS Store / Partner Center 包身份（已与 Partner Center 对齐，勿随意改动）。",
+  "identity_name": "2-PyramidStudio.2-Pyramid",
+  "publisher": "CN=7BC328FB-A6A3-42E9-A750-326D3BDC3F5F",
+  "publisher_display_name": "2-Pyramid Studio",
+  "display_name": "2-Pyramid",
+  "description": "Modern universal multi-version resource pack converter",
+  "min_version": "10.0.17763.0",
+  "max_version_tested": "10.0.22621.0"
+}

@@ -62,3 +62,11 @@ release/
 # Python
 __pycache__/
 *.pyc
+
+# MSIX / Store packaging (stray outputs & temp dirs)
+*.msix
+*.msixbundle
+*.appx
+msix-build/
+msix-check/
+installer-app/src-tauri/payload.zip

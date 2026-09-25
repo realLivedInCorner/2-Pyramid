@@ -1,6 +1,11 @@
 ## [Unreleased]
 
-（暂无）
+### Changed
+
+- **分发路线改为双通道，不再构建 MSI**：
+  - **GitHub Releases**：2-Pyramid-Installer-{ver}.exe（自研安装器，保留静默参数与 .sha256）
+  - **Microsoft Store**：2-Pyramid-{ver}.msix（makeappx + AppxManifest，符合 MS Store 规范；包身份见 	ools/msix/package-identity.json）
+  - uild_release.py 以 MSIX 产出替换 WiX MSI；需 Windows SDK makeappx
 
 ## [2.5.0] - 2026-09-24（BUILD 20048）
 

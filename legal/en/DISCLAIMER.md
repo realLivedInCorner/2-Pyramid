@@ -41,7 +41,7 @@ If you enable **Foray** AI analysis:
 
 ## 5. Updates and security
 
-**MSI / enterprise silent deploy**: if you install via `msiexec` or a silent script, you are treated as having read this disclaimer and [`EULA.md`](./EULA.md). Custom install dir / shortcuts / uninstall behavior follow the installer arguments. The fixed-name package (`2-Pyramid-Installer.exe`) is for deploy scripts and update channels only; it does not change license terms.
+**Silent deploy**: if you install via a silent script (--silent and related flags), you are treated as having read this disclaimer and [EULA.md](./EULA.md). Custom install dir / shortcuts / uninstall behavior follow the installer arguments. The fixed-name package (2-Pyramid-Installer.exe) is for deploy scripts and update channels only; it does not change license terms. Microsoft Store MSIX installs are governed by store terms together with this disclaimer.
 
 
 In-app updates download installers from GitHub Releases or a configured mirror and verify SHA-256. If you obtain installers from unofficial channels, security and integrity are your responsibility.
