@@ -28,7 +28,7 @@ zip 安全门禁：拒绝路径穿越、条目/体积/压缩比异常；PNG 超�
 2-Pyramid-Installer-2.4.2-beta.20047.exe.sha256 两个资产（更新器 SHA-256 校验依赖后者）。
 
 校验（本次构建）：
-- 2-Pyramid-Installer-2.4.2-beta.20047.exe.sha256: a2e6265986ceb8e16eec9750b3a6ed0b519e3dbcaf17e09014f288997928a036
+- 2-Pyramid-Installer-2.4.2-beta.20047.exe.sha256: c8535858ac42a3737e44d43d6e0aab35c10cc06662e76bba52f2694c52f391c4
 
 如何反馈问题：在仓库 Issues 提交即可，最好附上「设置 → 开发者模式 → 导出日志」的日志文件，
 以及原资源包版本与目标版本（Java / Bedrock）。
