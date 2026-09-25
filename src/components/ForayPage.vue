@@ -4,11 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 
 const emit = defineEmits<{ (e: "leave"): void; (e: "switch-page", p: string): void }>();
 
-const lightboxSrc = ref("");
-const issuesOpen = ref(false);
-const treeQuery = ref("");
-const openFolders = ref<Record<string, boolean>>({});
-
 const loading = ref(false);
 const err = ref("");
 const opened = ref(false);
@@ -21,7 +16,7 @@ const selected = ref("");
 const previewUtf8 = ref("");
 const previewPng = ref("");
 const paintPng = ref("");
-const brushR = ref(2);
+const brushR = ref(3);
 const brushOpacity = ref(0.8);
 const brushColor = ref("#3b82f6");
 const eyedropper = ref(false);
@@ -37,51 +32,23 @@ const aiConfig = ref({
   system_prompt: "",
 });
 const aiPreview = ref<string[]>([]);
-const aiText = ref("");
 const aiReport = ref("");
 const aiBusy = ref(false);
 const aiError = ref("");
 
-function onPreviewClick(ev: MouseEvent) {
-  // Shift / 吸管：仍走笔刷；单击：灯箱看大图
-  if (eyedropper.value || ev.shiftKey) {
-    void onPaintClick(ev);
-    return;
-  }
-  const img = ev.currentTarget as HTMLImageElement;
-  lightboxSrc.value = (paintPng.value || previewPng.value) as string;
-  void img;
-}
-
-function closeLightbox() {
-  lightboxSrc.value = "";
-}
+// dialogs
+const showIssues = ref(false);
+const showPaint = ref(false);
+const showReport = ref(false);
+const lightboxSrc = ref("");
+const lightboxZoom = ref(1);
+const treeQuery = ref("");
+const openFolders = ref<Record<string, boolean>>({});
 
 function onLeave() {
   emit("leave");
   emit("switch-page", "home");
 }
-
-const treeRoots = computed(() => {
-  const q = treeQuery.value.trim().toLowerCase();
-  const list = files.value.map((f) => {
-    const parts = f.path.split("/");
-    return { ...f, top: parts[1] || parts[0] || "", segs: parts };
-  });
-  const groups = new Map<string, typeof list>();
-  for (const f of list) {
-    if (q && !f.path.toLowerCase().includes(q)) continue;
-    const g = groups.get(f.top) ?? [];
-    g.push(f);
-    groups.set(f.top, g);
-  }
-  return [...groups.entries()].map(([top, items]) => ({
-    top,
-    count: items.length,
-    items: (openFolders.value[top] ? items : items.slice(0, 8)),
-    expanded: !!openFolders.value[top],
-  }));
-});
 
 async function openFromPath(path: string) {
   loading.value = true;
@@ -132,6 +99,7 @@ async function selectPath(path: string) {
     const f = await invoke<any>("foray_read_file", { path });
     if (f.png_base64) {
       previewPng.value = `data:image/png;base64,${f.png_base64}`;
+      paintPng.value = previewPng.value;
       await openPaint(path);
     } else {
       previewUtf8.value = f.utf8 ?? "";
@@ -144,12 +112,14 @@ async function selectPath(path: string) {
 async function openPaint(path: string) {
   await invoke("foray_paint_open", { path });
   await refreshPaint();
+  showPaint.value = true;
 }
 
 async function refreshPaint() {
   try {
     const b64 = await invoke<string>("foray_paint_preview");
     paintPng.value = `data:image/png;base64,${b64}`;
+    if (lightboxSrc.value) lightboxSrc.value = paintPng.value;
   } catch {
     paintPng.value = previewPng.value;
   }
@@ -213,6 +183,17 @@ async function commitPaint() {
   await selectPath(selected.value);
 }
 
+function openLightbox() {
+  if (!paintPng.value && !previewPng.value) return;
+  lightboxSrc.value = (paintPng.value || previewPng.value) as string;
+  lightboxZoom.value = 2;
+}
+
+function closeLightbox() {
+  lightboxSrc.value = "";
+  lightboxZoom.value = 1;
+}
+
 async function doExport() {
   err.value = "";
   try {
@@ -268,7 +249,6 @@ async function prepareAi() {
       selected: selected.value ? [selected.value] : [],
     });
     aiPreview.value = r.preview;
-    aiText.value = r.payload_text;
   } catch (e: any) {
     aiError.value = String(e);
   }
@@ -288,12 +268,34 @@ async function runAi() {
       tier: tier.value,
       selected: selected.value ? [selected.value] : [],
     });
+    showReport.value = true;
   } catch (e: any) {
     aiError.value = String(e);
   } finally {
     aiBusy.value = false;
   }
 }
+
+const treeRoots = computed(() => {
+  const q = treeQuery.value.trim().toLowerCase();
+  const list = files.value.map((f) => {
+    const parts = f.path.split("/");
+    return { ...f, top: parts[1] || parts[0] || "" };
+  });
+  const groups = new Map<string, typeof list>();
+  for (const f of list) {
+    if (q && !f.path.toLowerCase().includes(q)) continue;
+    const g = groups.get(f.top) ?? [];
+    g.push(f);
+    groups.set(f.top, g);
+  }
+  return [...groups.entries()].map(([top, items]) => ({
+    top,
+    count: items.length,
+    items: (openFolders.value[top] || q ? items : items.slice(0, 12)),
+    expanded: !!openFolders.value[top],
+  }));
+});
 
 onMounted(() => {
   const q = new URLSearchParams(window.location.search);
@@ -317,7 +319,13 @@ onMounted(() => {
         <p class="page-subtitle">{{ source || "打开资源包开始分析" }}</p>
       </div>
       <div class="header-actions">
-        <button class="start-conversion-button" type="button" :disabled="loading" @click="pickFile">
+        <button class="ghost-btn" type="button" :disabled="!opened || !issues.length" @click="showIssues = true">
+          问题（{{ issues.length }}）
+        </button>
+        <button class="ghost-btn" type="button" :disabled="!aiReport" @click="showReport = true">
+          AI 报告
+        </button>
+        <button class="start-conversion-button sm" type="button" :disabled="loading" @click="pickFile">
           {{ loading ? "解析中…" : "打开 zip" }}
         </button>
       </div>
@@ -328,7 +336,7 @@ onMounted(() => {
     <div v-if="!opened" class="empty-state card">
       <i class="ri-folder-zip-line empty-icon" aria-hidden="true"></i>
       <h2>Editor Mode 已启用</h2>
-      <p>从主页拖入 zip，或点击右上角「打开 zip」进入分析。普通转换在 EM 下已停用。</p>
+      <p>从主页拖入 zip，或点击「打开 zip」。普通转换在 EM 下已停用。</p>
     </div>
 
     <div v-else class="foray-grid">
@@ -355,9 +363,6 @@ onMounted(() => {
                 </button>
                 <span class="kind-tag">{{ f.kind }}</span>
               </li>
-              <li v-if="!g.expanded && g.count > g.items.length" class="muted small">
-                … 还有 {{ g.count - g.items.length }} 项，点击文件夹展开
-              </li>
             </ul>
           </div>
         </div>
@@ -369,67 +374,34 @@ onMounted(() => {
           <b>{{ desc || "（无描述）" }}</b>
           <span class="pill">format {{ packFormat ?? "?" }}</span>
           <span class="pill">{{ files.length }} files</span>
-        </p>
-
-        <h2 class="card-title row-title">
-          <span>探针 / 问题</span>
-          <button class="ghost-btn sm" type="button" @click="issuesOpen = !issuesOpen">
-            {{ issuesOpen ? "收起" : "展开" }}（{{ issues.length }}）
+          <button class="ghost-btn sm" type="button" @click="showIssues = true">
+            查看问题（{{ issues.length }}）
           </button>
-        </h2>
-        <ul v-if="issuesOpen" class="issue-list scroll-box">
-          <li v-for="(i, idx) in issues" :key="idx" :class="i.level">
-            <span class="issue-src">{{ i.source }}</span>
-            <span class="issue-path">{{ i.path }}</span>
-            <span class="issue-msg">{{ i.message }}</span>
-          </li>
-          <li v-if="!issues.length" class="muted">暂无 issue</li>
-        </ul>
-        <p v-else class="muted small">{{ issues.length }} 条问题（点击展开）</p>
+        </p>
 
         <h2 class="card-title">预览</h2>
         <p class="muted small">{{ selected || "选择左侧文件" }}</p>
-        <p class="muted small">单击图片可放大预览；Shift+点击进入涂抹。</p>
-        <pre v-if="previewUtf8" class="code-block">{{ previewUtf8.slice(0, 4000) }}</pre>
-        <img
-          v-if="paintPng || previewPng"
-          class="paint-img"
-          :src="paintPng || previewPng"
-          alt="preview"
-          @click="onPreviewClick"
-        />
-
-        <template v-if="paintPng">
-          <h2 class="card-title">轻量编辑</h2>
+        <pre v-if="previewUtf8" class="code-block">{{ previewUtf8.slice(0, 2500) }}</pre>
+        <div v-if="paintPng || previewPng" class="preview-wrap">
+          <img
+            class="paint-img"
+            :src="paintPng || previewPng"
+            alt="preview"
+            @click="openLightbox"
+          />
           <div class="toolbar">
-            <label>笔刷 <input v-model.number="brushR" type="number" min="1" max="32" /></label>
-            <label>透明 <input v-model.number="brushOpacity" type="number" min="0" max="1" step="0.05" /></label>
-            <label>颜色 <input v-model="brushColor" type="color" /></label>
-            <label class="check"><input v-model="eyedropper" type="checkbox" /> 吸管</label>
-            <button class="ghost-btn" type="button" @click="undoPaint">撤销</button>
-            <button class="start-conversion-button sm" type="button" @click="commitPaint">应用</button>
+            <button class="ghost-btn" type="button" @click="openLightbox">放大预览</button>
+            <button class="start-conversion-button sm" type="button" @click="openPaint(selected)">
+              轻量编辑
+            </button>
           </div>
-          <div class="toolbar">
-            <label>H <input v-model.number="hsv.dh" type="number" min="-180" max="180" /></label>
-            <label>S <input v-model.number="hsv.ds" type="number" min="-100" max="100" /></label>
-            <label>V <input v-model.number="hsv.dv" type="number" min="-100" max="100" /></label>
-            <button class="ghost-btn" type="button" @click="applyHsv">应用 HSV</button>
-          </div>
-        
-  <div v-if="lightboxSrc" class="lightbox-mask" @click.self="closeLightbox">
-    <button class="ghost-btn lightbox-close" type="button" @click="closeLightbox">关闭</button>
-    <img class="lightbox-img" :src="lightboxSrc" alt="preview-large" />
-    <div class="lightbox-bar">
-      <button class="ghost-btn" type="button" @click="closeLightbox">返回编辑</button>
-    </div>
-  </div>
-</template>
+        </div>
 
         <h2 class="card-title">导出</h2>
         <div class="toolbar">
           <label class="check">
             <input v-model="exportMode" type="radio" value="save_as" />
-            另存副本（默认）
+            另存副本
           </label>
           <label class="check">
             <input v-model="exportMode" type="radio" value="in_place" />
@@ -437,7 +409,7 @@ onMounted(() => {
           </label>
           <label v-if="exportMode === 'in_place'" class="check warn">
             <input v-model="confirmInPlace" type="checkbox" />
-            确认覆盖（写 .bak）
+            确认（写 .bak）
           </label>
           <button class="start-conversion-button sm" type="button" @click="doExport">导出</button>
         </div>
@@ -470,30 +442,116 @@ onMounted(() => {
         </label>
         <label class="field">
           <span>提示词</span>
-          <textarea v-model="aiConfig.system_prompt" rows="4" placeholder="留空使用内置默认"></textarea>
+          <textarea v-model="aiConfig.system_prompt" rows="3" placeholder="留空使用内置默认"></textarea>
         </label>
         <div class="toolbar">
-          <button class="ghost-btn" type="button" @click="restoreDefaultPrompt">还原默认提示词</button>
-          <button class="ghost-btn" type="button" :disabled="!aiReport" @click="copyReport">复制报告</button>
-        </div>
-        <p class="muted small">
-          ≥3 仅发送当前选中文件副本；贴图只发概括不发像素。外部 API 与作者无关。
-        </p>
-        <div class="toolbar">
+          <button class="ghost-btn" type="button" @click="restoreDefaultPrompt">还原默认</button>
           <button class="ghost-btn" type="button" @click="prepareAi">将发送预览</button>
           <button class="start-conversion-button sm" type="button" :disabled="aiBusy" @click="runAi">
             {{ aiBusy ? "分析中…" : "开始分析" }}
           </button>
         </div>
+        <p class="muted small">≥3 仅发送选中文件副本；贴图只发概括。外部 API 与作者无关。</p>
         <ul v-if="aiPreview.length" class="issue-list compact">
           <li v-for="(p, i) in aiPreview" :key="i">{{ p }}</li>
         </ul>
         <p v-if="aiError" class="page-error">{{ aiError }}</p>
-        <pre v-if="aiReport" class="code-block ai-report">{{ aiReport }}</pre>
+        <button v-if="aiReport" class="ghost-btn" type="button" @click="showReport = true">
+          查看完整报告
+        </button>
 
         <h2 class="card-title">IFASO</h2>
-        <p class="muted small">互链入口占位（2.5.0 不实现互通）。跨软件按对方 License。</p>
+        <p class="muted small">互链入口占位。跨软件按对方 License。</p>
       </section>
+    </div>
+
+    <!-- 问题弹窗 -->
+    <div v-if="showIssues" class="modal-mask" @click.self="showIssues = false">
+      <div class="modal panel-issues">
+        <header class="modal-head">
+          <h3>探针 / 问题（{{ issues.length }}）</h3>
+          <button class="ghost-btn sm" type="button" @click="showIssues = false">关闭</button>
+        </header>
+        <div class="modal-body">
+          <ul class="issue-list">
+            <li v-for="(i, idx) in issues" :key="idx" :class="i.level">
+              <span class="issue-src">{{ i.source }}</span>
+              <span class="issue-path">{{ i.path }}</span>
+              <span class="issue-msg">{{ i.message }}</span>
+            </li>
+            <li v-if="!issues.length" class="muted">暂无 issue</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div v-if="showPaint" class="modal-mask" @click.self="showPaint = false">
+      <div class="modal panel-paint">
+        <header class="modal-head">
+          <h3>轻量编辑 · {{ selected.split("/").pop() }}</h3>
+          <button class="ghost-btn sm" type="button" @click="showPaint = false">关闭</button>
+        </header>
+        <div class="modal-body paint-body">
+          <img
+            v-if="paintPng || previewPng"
+            class="paint-canvas"
+            :src="paintPng || previewPng"
+            alt="paint"
+            @click="onPaintClick"
+          />
+          <div class="toolbar">
+            <label>笔刷 <input v-model.number="brushR" type="number" min="1" max="32" /></label>
+            <label>透明 <input v-model.number="brushOpacity" type="number" min="0" max="1" step="0.05" /></label>
+            <label>颜色 <input v-model="brushColor" type="color" /></label>
+            <label class="check"><input v-model="eyedropper" type="checkbox" /> 吸管</label>
+            <button class="ghost-btn" type="button" @click="undoPaint">撤销</button>
+            <button class="start-conversion-button sm" type="button" @click="commitPaint">应用</button>
+          </div>
+          <div class="toolbar">
+            <label>H <input v-model.number="hsv.dh" type="number" min="-180" max="180" /></label>
+            <label>S <input v-model.number="hsv.ds" type="number" min="-100" max="100" /></label>
+            <label>V <input v-model.number="hsv.dv" type="number" min="-100" max="100" /></label>
+            <button class="ghost-btn" type="button" @click="applyHsv">应用 HSV</button>
+            <button class="ghost-btn" type="button" @click="openLightbox">全屏看图</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI 报告弹窗 -->
+    <div v-if="showReport" class="modal-mask" @click.self="showReport = false">
+      <div class="modal panel-report">
+        <header class="modal-head">
+          <h3>AI 报告</h3>
+          <div>
+            <button class="ghost-btn sm" type="button" @click="copyReport">复制</button>
+            <button class="ghost-btn sm" type="button" @click="showReport = false">关闭</button>
+          </div>
+        </header>
+        <div class="modal-body">
+          <pre class="code-block report-full">{{ aiReport }}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图片灯箱 -->
+    <div v-if="lightboxSrc" class="modal-mask lightbox" @click.self="closeLightbox">
+      <div class="lightbox-toolbar">
+        <button class="ghost-btn" type="button" @click="lightboxZoom = Math.max(0.5, lightboxZoom - 0.25)">−</button>
+        <span class="muted">{{ (lightboxZoom * 100).toFixed(0) }}%</span>
+        <button class="ghost-btn" type="button" @click="lightboxZoom = Math.min(8, lightboxZoom + 0.25)">+</button>
+        <button class="ghost-btn" type="button" @click="lightboxZoom = 2">2×</button>
+        <button class="ghost-btn" type="button" @click="closeLightbox">关闭</button>
+      </div>
+      <div class="lightbox-scroll">
+        <img
+          class="lightbox-img"
+          :src="lightboxSrc"
+          alt="preview-large"
+          :style="{ width: `${lightboxZoom * 100}%`, maxWidth: `${lightboxZoom * 100}%` }"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -509,9 +567,7 @@ onMounted(() => {
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", sans-serif;
-  position: relative;
 }
-
 .header-section {
   z-index: 5;
   padding: 28px 40px 10px;
@@ -520,20 +576,17 @@ onMounted(() => {
   gap: 16px;
   flex-shrink: 0;
 }
-
 .back-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-
 .title-group {
   display: flex;
   flex-direction: column;
   min-width: 0;
   flex: 1;
 }
-
 .page-title {
   font-size: 26px;
   font-weight: 800;
@@ -544,7 +597,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .page-subtitle {
   margin: 4px 0 0;
   color: #86868b;
@@ -553,13 +605,11 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .header-actions {
   display: flex;
   gap: 10px;
   flex-shrink: 0;
 }
-
 .start-conversion-button {
   border: none;
   background: var(--theme-color, #007bff);
@@ -570,14 +620,9 @@ onMounted(() => {
   border-radius: var(--ui-radius-btn, 12px);
   cursor: pointer;
   box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color, #007bff) 28%, transparent);
-  transition: transform 0.15s ease, filter 0.15s ease;
-  font-family: inherit;
 }
 .start-conversion-button:hover:not(:disabled) {
   filter: brightness(1.05);
-}
-.start-conversion-button:active:not(:disabled) {
-  transform: scale(0.98);
 }
 .start-conversion-button:disabled {
   opacity: 0.55;
@@ -587,7 +632,6 @@ onMounted(() => {
   padding: 8px 14px;
   font-size: 13px;
 }
-
 .ghost-btn {
   border: 1px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.72);
@@ -599,21 +643,23 @@ onMounted(() => {
   cursor: pointer;
   font-family: inherit;
 }
+.ghost-btn.sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
 .ghost-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.95);
+  background: #fff;
 }
 .ghost-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .page-error {
   margin: 0 40px 8px;
   color: #b91c1c;
   font-size: 13px;
   font-weight: 600;
 }
-
 .empty-state {
   margin: 12px 40px 28px;
   padding: 48px 28px;
@@ -626,40 +672,23 @@ onMounted(() => {
 .empty-icon {
   font-size: 42px;
   color: var(--theme-color, #007bff);
-  opacity: 0.85;
 }
-.empty-state h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #1d1d1f;
-}
-.empty-state p {
-  margin: 0;
-  color: #6b7280;
-  max-width: 420px;
-  font-size: 13px;
-}
-
 .foray-grid {
   flex: 1;
   min-height: 0;
-  z-index: 2;
   padding: 12px 40px 28px;
   display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.35fr) minmax(280px, 1fr);
   gap: 14px;
 }
-
 .pane {
-  padding: 18px 18px 22px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-height: 0;
   overflow: auto;
 }
-
 .card-title {
   font-size: 13px;
   font-weight: 700;
@@ -667,9 +696,7 @@ onMounted(() => {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin: 6px 0 0;
-  flex-shrink: 0;
 }
-
 .overview-line {
   margin: 0;
   display: flex;
@@ -677,12 +704,9 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #374151;
 }
-
 .pill {
   display: inline-flex;
-  align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 12px;
@@ -690,19 +714,46 @@ onMounted(() => {
   color: color-mix(in srgb, var(--theme-color, #007bff) 80%, #000);
   background: color-mix(in srgb, var(--theme-color, #007bff) 12%, transparent);
 }
-
-.tree {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
+.tree-filter {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-btn, 10px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.8);
   font-size: 12px;
+}
+.tree {
+  overflow: auto;
   min-height: 0;
+  font-size: 12px;
+}
+.tree-group {
+  margin: 6px 0;
+}
+.tree-group-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #1d1d1f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tree ul {
+  margin: 4px 0 0;
+  padding: 0 0 0 10px;
+  list-style: none;
 }
 .tree li {
   margin: 2px 0;
   display: flex;
-  align-items: baseline;
   gap: 8px;
   word-break: break-all;
 }
@@ -714,14 +765,12 @@ onMounted(() => {
   text-align: left;
   padding: 2px 0;
   font: inherit;
-  text-decoration: none;
 }
-.tree-link:hover {
-  color: var(--theme-color, #007bff);
-  text-decoration: underline;
-}
+.tree-link:hover,
 .tree-link.active {
   color: var(--theme-color, #007bff);
+}
+.tree-link.active {
   font-weight: 700;
 }
 .kind-tag {
@@ -729,7 +778,6 @@ onMounted(() => {
   color: #9ca3af;
   flex-shrink: 0;
 }
-
 .issue-list {
   margin: 0;
   padding: 0;
@@ -737,7 +785,7 @@ onMounted(() => {
   font-size: 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .issue-list li {
   display: flex;
@@ -745,16 +793,12 @@ onMounted(() => {
   gap: 6px;
   align-items: baseline;
 }
-.issue-list.compact li {
-  color: #6b7280;
-}
 .issue-src {
   font-weight: 700;
   color: #6b7280;
 }
 .issue-path {
   font-family: ui-monospace, Consolas, monospace;
-  color: #374151;
 }
 .issue-msg {
   color: #b91c1c;
@@ -762,10 +806,6 @@ onMounted(() => {
 .issue-list li.warn .issue-msg {
   color: #b45309;
 }
-.issue-list li.danger .issue-msg {
-  color: #b91c1c;
-}
-
 .muted {
   color: #9ca3af;
 }
@@ -773,7 +813,6 @@ onMounted(() => {
   font-size: 12px;
   margin: 0;
 }
-
 .code-block {
   margin: 0;
   padding: 12px 14px;
@@ -781,52 +820,51 @@ onMounted(() => {
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: var(--ui-radius-card, 14px);
   font-size: 12px;
-  line-height: 1.45;
-  max-height: 220px;
+  line-height: 1.5;
+  max-height: 200px;
   overflow: auto;
-  color: #374151;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
 }
-
+.preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
 .paint-img {
   max-width: 100%;
+  max-height: 280px;
+  width: auto;
   image-rendering: pixelated;
-  cursor: crosshair;
+  cursor: zoom-in;
   border-radius: var(--ui-radius-card, 12px);
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: #fff;
-  align-self: flex-start;
 }
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   font-size: 12px;
-  color: #374151;
 }
 .toolbar label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.toolbar input[type="number"],
-.toolbar select,
-.toolbar input[type="text"] {
-  width: 72px;
+.toolbar input[type="number"] {
+  width: 68px;
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.8);
-  color: #1d1d1f;
   font: inherit;
 }
 .toolbar input[type="color"] {
   width: 36px;
   height: 28px;
-  padding: 0;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   background: #fff;
@@ -838,7 +876,6 @@ onMounted(() => {
   color: #b45309;
   font-weight: 600;
 }
-
 .field {
   display: flex;
   flex-direction: column;
@@ -858,120 +895,113 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.78);
   color: #1d1d1f;
   font-size: 13px;
-  font-weight: 500;
   font-family: inherit;
   resize: vertical;
 }
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--theme-color, #007bff) 45%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color, #007bff) 16%, transparent);
-  background: #fff;
+
+/* dialogs */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
-
-
-.row-title {
+.modal {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 900px);
+  width: min(920px, 96vw);
+  overflow: hidden;
+}
+.panel-paint {
+  width: min(1100px, 96vw);
+}
+.panel-report {
+  width: min(980px, 96vw);
+}
+.modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
-.ghost-btn.sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-.scroll-box {
-  max-height: 180px;
-  overflow: auto;
-  padding-right: 4px;
-}
-.ai-report {
-  max-height: 280px;
-  overflow: auto;
-}
-.tree-filter {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 10px;
-  border-radius: var(--ui-radius-btn, 10px);
-  border: 1px solid rgba(0,0,0,0.08);
-  background: rgba(255,255,255,0.8);
+.modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
   color: #1d1d1f;
-  font-size: 12px;
 }
-.tree-group {
-  margin: 6px 0;
+.modal-body {
+  padding: 16px 18px 20px;
+  overflow: auto;
 }
-.tree-group-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: none;
-  background: rgba(0,0,0,0.03);
-  border-radius: 8px;
-  padding: 6px 8px;
-  cursor: pointer;
-  color: #1d1d1f;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-}
-.tree-group-btn:hover {
-  background: rgba(0,0,0,0.06);
-}
-.tree ul {
-  margin: 4px 0 0;
-  padding: 0 0 0 10px;
-  list-style: none;
-  border-left: 1px solid rgba(0,0,0,0.06);
-}
-.lightbox-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(15,23,42,0.55);
+.paint-body {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 12px;
 }
-.lightbox-img {
-  max-width: min(92vw, 1100px);
-  max-height: min(82vh, 900px);
-  image-rendering: pixelated;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.35);
-}
-.lightbox-close {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-}
-.paint-img {
-  max-height: 220px;
+.paint-canvas {
+  max-width: 100%;
+  max-height: 58vh;
   width: auto;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  align-self: center;
 }
+.report-full {
+  max-height: none;
+  min-height: 280px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.lightbox {
+  flex-direction: column;
+  gap: 12px;
+}
+.lightbox-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+.lightbox-scroll {
+  width: min(96vw, 1400px);
+  height: min(80vh, 900px);
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+}
+.lightbox-img {
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+  transform-origin: top left;
+}
+
 @media (max-width: 1100px) {
   .foray-grid {
     grid-template-columns: 1fr;
     overflow: auto;
-  }
-  .pane {
-    min-height: 240px;
+    padding: 8px 20px 20px;
   }
   .header-section {
     padding: 20px 20px 8px;
-  }
-  .foray-grid {
-    padding: 8px 20px 20px;
-  }
-  .page-error {
-    margin: 0 20px 8px;
+    flex-wrap: wrap;
   }
 }
 </style>
