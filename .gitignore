@@ -15,7 +15,7 @@ dist-ssr
 *.rs.bk
 .env*
 
-# tsc project-ref 误产物（配置以 vite.config.ts 为准）
+# tsc project-ref output (source of truth is vite.config.ts)
 vite.config.js
 
 # Project-specific
@@ -31,8 +31,12 @@ thumb*
 src-tauri/gen/
 installer-app/src-tauri/gen/
 
-# compose-next / agent working docs
-docs/compose/
+# One-off agent helper scripts
+tools/*.cjs
+tools/*.js.bak
+
+# compose scratch only（specs / releases 正常入库）
+docs/compose/_*/
 
 # Temp
 temp_overlay/
@@ -41,11 +45,10 @@ payload.zip
 
 # Release artifacts (build pipeline output)
 release/
+/store/
 
-# Claude
+# Claude / editor
 .claude/
-
-# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
