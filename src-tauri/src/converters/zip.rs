@@ -1,13 +1,69 @@
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use zip::write::FileOptions;
 
 // Prevent ZIP bomb: max total uncompressed size = 500 MB
 const ZIP_BOMB_LIMIT: u64 = 500 * 1024 * 1024;
+const ZIP_MAX_ENTRIES: usize = 100_000;
+const ZIP_MAX_DEPTH: usize = 64;
 
-/// 通用 ZIP 解压函数（含 ZIP bomb 防护 + 缓冲 I/O + 进度日志）。
+/// Sanitize a zip entry name into a path under `dest_dir`.
+/// Rejects absolute paths, drive prefixes, and `..` traversal (Zip Slip).
+fn safe_out_path(dest_dir: &Path, raw_name: &str) -> Result<PathBuf, String> {
+    let raw = raw_name.replace('\\', "/");
+    if raw.contains('\0') {
+        return Err(format!("zip entry contains NUL: {raw_name}"));
+    }
+    if raw.starts_with('/') || raw.starts_with('\\') {
+        return Err(format!("zip absolute path rejected: {raw_name}"));
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+    for comp in Path::new(&raw).components() {
+        match comp {
+            Component::Normal(s) => {
+                let s = s.to_string_lossy();
+                if s == ".." || s == "." {
+                    return Err(format!("zip path traversal rejected: {raw_name}"));
+                }
+                parts.push(s.into_owned());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                return Err(format!("zip path traversal rejected: {raw_name}"));
+            }
+            Component::RootDir | Component::Prefix(_) => {
+                return Err(format!("zip absolute path rejected: {raw_name}"));
+            }
+        }
+    }
+    if parts.is_empty() {
+        return Err(format!("zip empty path rejected: {raw_name}"));
+    }
+    if parts.len() > ZIP_MAX_DEPTH {
+        return Err(format!("zip path too deep: {raw_name}"));
+    }
+
+    let mut out = dest_dir.to_path_buf();
+    for p in &parts {
+        out.push(p);
+    }
+
+    // Defense in depth: resolved path must stay under dest_dir.
+    let dest_str = dest_dir.to_string_lossy();
+    let out_str = out.to_string_lossy();
+    let dest_norm = dest_str.replace('\\', "/");
+    let out_norm = out_str.replace('\\', "/");
+    if out_norm != dest_norm && !out_norm.starts_with(&format!("{dest_norm}/")) {
+        return Err(format!("zip entry escapes destination: {raw_name}"));
+    }
+
+    Ok(out)
+}
+
+/// 通用 ZIP 解压函数（含 Zip Slip / ZIP bomb 防护 + 缓冲 I/O + 进度日志）。
 /// 项目中所有 ZIP 解压都应调用此函数或 `extract_resource_pack`。
 pub fn extract_zip_to_dir(zip_path: &Path, dest_dir: &Path) -> Result<(), String> {
     crate::log_info!("extracting zip: {} -> {}", zip_path.display(), dest_dir.display());
@@ -16,6 +72,14 @@ pub fn extract_zip_to_dir(zip_path: &Path, dest_dir: &Path) -> Result<(), String
         .map_err(|e| format!("failed to open zip {}: {}", zip_path.display(), e))?;
     let mut archive = zip::ZipArchive::new(std::io::BufReader::with_capacity(1024 * 1024, file))
         .map_err(|e| format!("failed to read zip archive {}: {}", zip_path.display(), e))?;
+
+    if archive.len() > ZIP_MAX_ENTRIES {
+        return Err(format!(
+            "zip has too many entries: {} > {}",
+            archive.len(),
+            ZIP_MAX_ENTRIES
+        ));
+    }
 
     fs::create_dir_all(dest_dir)
         .map_err(|e| format!("failed to create extraction directory {}: {}", dest_dir.display(), e))?;
@@ -27,9 +91,19 @@ pub fn extract_zip_to_dir(zip_path: &Path, dest_dir: &Path) -> Result<(), String
             .by_index(i)
             .map_err(|e| format!("failed to read zip entry {}: {}", i, e))?;
 
-        let out_path = dest_dir.join(entry.name());
+        #[cfg(unix)]
+        {
+            if let Some(mode) = entry.unix_mode() {
+                if mode & 0o170000 == 0o120000 {
+                    return Err(format!("zip symlink rejected: {}", entry.name()));
+                }
+            }
+        }
 
-        if entry.name().ends_with('/') {
+        let raw_name = entry.name().to_string();
+        let out_path = safe_out_path(dest_dir, &raw_name)?;
+
+        if raw_name.ends_with('/') {
             fs::create_dir_all(&out_path)
                 .map_err(|e| format!("failed to create directory {}: {}", out_path.display(), e))?;
             continue;
@@ -157,4 +231,30 @@ fn compression_method_for_path(name: &str) -> zip::CompressionMethod {
         return zip::CompressionMethod::Stored;
     }
     zip::CompressionMethod::Deflated
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn rejects_zip_slip_and_absolute_paths() {
+        let dest = Path::new("/tmp/pack");
+        assert!(safe_out_path(dest, "../evil.txt").is_err());
+        assert!(safe_out_path(dest, "a/../../evil.txt").is_err());
+        assert!(safe_out_path(dest, "..\\evil.txt").is_err());
+        assert!(safe_out_path(dest, "/etc/passwd").is_err());
+        assert!(safe_out_path(dest, "C:/Windows/evil.dll").is_err());
+        assert!(safe_out_path(dest, "a\0b").is_err());
+    }
+
+    #[test]
+    fn accepts_normal_relative_paths() {
+        let dest = Path::new("/tmp/pack");
+        let p = safe_out_path(dest, "assets/minecraft/textures/block/stone.png").unwrap();
+        assert!(p.ends_with("assets/minecraft/textures/block/stone.png"));
+        let p2 = safe_out_path(dest, "./pack.mcmeta").unwrap();
+        assert!(p2.ends_with("pack.mcmeta"));
+    }
 }

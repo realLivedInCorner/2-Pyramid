@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use image::GenericImageView;
 use serde::Serialize;
 
 use super::mcmeta::PackMeta;
@@ -298,6 +299,7 @@ pub fn build(archive: &SafeArchive, source_path: &str) -> Rom {
     let mut icon = None;
     let mut root = RomDir::new("", "");
     let mut issues = Vec::new();
+    let mut img_fail = 0usize;
     let mut kind_bytes: BTreeMap<&'static str, (usize, u64)> = BTreeMap::new();
 
     for e in &archive.entries {
@@ -332,6 +334,7 @@ pub fn build(archive: &SafeArchive, source_path: &str) -> Rom {
         let mut parse = ParseStatus::Ok;
         if e.path.to_ascii_lowercase().ends_with(".png") {
             if let Err(msg) = check_png_dims(&e.data) {
+                img_fail += 1;
                 parse = ParseStatus::Error;
                 issues.push(RomIssue {
                     level: IssueLevel::Danger,
