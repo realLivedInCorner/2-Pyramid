@@ -179,19 +179,37 @@ fn is_paintable_png(entry: &SafeEntry) -> bool {
 }
 
 fn check_png_dims(data: &[u8]) -> Result<(u32, u32), String> {
-    // IHDR: 16..24 width/height big-endian after signature+len+type
-    if data.len() < 24 {
-        return Err("png truncated".into());
-    }
-    if &data[12..16] != b"IHDR" {
-        return Err("png missing IHDR".into());
-    }
-    let w = u32::from_be_bytes([data[16], data[17], data[18], data[19]]);
-    let h = u32::from_be_bytes([data[20], data[21], data[22], data[23]]);
-    if w == 0 || h == 0 || w > 8192 || h > 8192 {
+    // 优先用 image 解码：OptiFine 等包里 .png 可能不是标准 IHDR 偏移，
+    // 但 image 能解就不能算「missing IHDR」误报。
+    if let Ok(img) = image::load_from_memory(data) {
+        let (w, h) = img.dimensions();
+        if w > 0 && h > 0 && w <= 8192 && h <= 8192 {
+            return Ok((w, h));
+        }
         return Err(format!("png dims out of range: {w}x{h}"));
     }
-    Ok((w, h))
+    // 回退：标准 PNG 头
+    if data.len() < 24 {
+        return Err("image decode failed".into());
+    }
+    if data.starts_with(&[0x89, b'P', b'N', b'G']) && &data[12..16] == b"IHDR" {
+        let w = u32::from_be_bytes([data[16], data[17], data[18], data[19]]);
+        let h = u32::from_be_bytes([data[20], data[21], data[22], data[23]]);
+        return Ok((w, h));
+    }
+    Err("image decode failed".into())
+}
+
+fn looks_like_image(path: &str, data: &[u8]) -> bool {
+    let lower = path.to_ascii_lowercase();
+    let ext = std::path::Path::new(&lower)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    if !matches!(ext, "png" | "jpg" | "jpeg" | "webp" | "gif" | "tga") {
+        return false;
+    }
+    image::load_from_memory(data).is_ok()
 }
 
 /// 扫描 PNG 辅助块：超大 / 可疑 iCCP、tEXt、zTXt 给出告警（规格 S2.3）。
@@ -387,6 +405,15 @@ pub fn build(archive: &SafeArchive, source_path: &str) -> Rom {
         bytes: archive.entries.iter().map(|e| e.size).sum(),
         by_kind,
     };
+
+    if img_fail > 3 {
+        issues.push(RomIssue {
+            level: IssueLevel::Warn,
+            source: "parse".into(),
+            path: "assets/**".into(),
+            message: format!("{} images failed to decode (summarized; see logs)", img_fail),
+        });
+    }
 
     if meta.description.is_empty() && meta.pack_format.is_none() && meta.min_format.is_none() {
         issues.push(RomIssue {
