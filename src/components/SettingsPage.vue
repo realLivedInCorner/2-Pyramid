@@ -123,11 +123,20 @@
       <section class="settings-group" v-if="shouldShowGroup('convert')">
         <h3 class="group-title">{{ t('settings.groups.convert') }}</h3>
           <div class="setting-item">
-            <div class="setting-label-row">
+            <div class="item-icon">
               <i class="ri-code-box-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
               <div class="label">Editor Mode / Foray</div>
               <div class="desc">开启后主页拖入 zip 进入 Foray；关闭为普通转换。</div>
-              <input type="checkbox" :checked="editorMode" @change="onEditorModeChange" />
+            </div>
+            <div class="item-action">
+              <label class="switch-wrap">
+                <span class="switch">
+                  <input type="checkbox" :checked="editorMode" @change="onEditorModeChange" />
+                  <span class="slider"></span>
+                </span>
+              </label>
             </div>
           </div>
 
@@ -1996,6 +2005,12 @@ const onThemeReset = async () => {
   color: #9ca3af;
 }
 
+.item-action { display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; }
+.switch-wrap { cursor: pointer; }
+.foray-ai-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; width: 100%; }
+.foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #6b7280; font-weight: 600; }
+.foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.8); color: #1d1d1f; font: inherit; font-weight: 500; }
+.foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--theme-color, #007bff); font-weight: 600; }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {

@@ -12,31 +12,30 @@ const desc = ref("");
 const packFormat = ref<number | null>(null);
 const files = ref<Array<{ path: string; kind: string }>>([]);
 const issues = ref<Array<{ level: string; source: string; path: string; message: string }>>([]);
-const selected = ref<string>("");
+const selected = ref("");
 const previewUtf8 = ref("");
 const previewPng = ref("");
-
-// paint
 const paintPng = ref("");
 const brushR = ref(2);
 const brushOpacity = ref(0.8);
-const brushColor = ref("#ff0000");
+const brushColor = ref("#3b82f6");
 const eyedropper = ref(false);
 const hsv = ref({ dh: 0, ds: 0, dv: 0 });
-
-// export
 const exportMode = ref<"save_as" | "in_place">("save_as");
 const confirmInPlace = ref(false);
-
-// AI
 const tier = ref(1);
-const aiConfig = ref({ base_url: "https://api.openai.com/v1", api_key: "", model: "gpt-4o-mini", default_tier: 1, system_prompt: "" });
+const aiConfig = ref({
+  base_url: "https://api.openai.com/v1",
+  api_key: "",
+  model: "gpt-4o-mini",
+  default_tier: 1,
+  system_prompt: "",
+});
 const aiPreview = ref<string[]>([]);
 const aiText = ref("");
 const aiReport = ref("");
 const aiBusy = ref(false);
 const aiError = ref("");
-
 
 async function openFromPath(path: string) {
   loading.value = true;
@@ -68,7 +67,10 @@ async function refreshRom() {
 async function pickFile() {
   try {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const p = await open({ multiple: false, filters: [{ name: "zip", extensions: ["zip", "mcpack"] }] });
+    const p = await open({
+      multiple: false,
+      filters: [{ name: "zip", extensions: ["zip", "mcpack"] }],
+    });
     if (typeof p === "string") await openFromPath(p);
   } catch (e: any) {
     err.value = String(e);
@@ -79,6 +81,7 @@ async function selectPath(path: string) {
   selected.value = path;
   previewUtf8.value = "";
   previewPng.value = "";
+  paintPng.value = "";
   try {
     const f = await invoke<any>("foray_read_file", { path });
     if (f.png_base64) {
@@ -106,28 +109,14 @@ async function refreshPaint() {
   }
 }
 
-async function eyedropAt(x: number, y: number) {
-  // 从预览 canvas 取色（合成 1px）
-  const img = document.querySelector(".paint-img") as HTMLImageElement | null;
-  if (!img) return;
-  const c = document.createElement("canvas");
-  c.width = img.naturalWidth;
-  c.height = img.naturalHeight;
-  const ctx = c.getContext("2d");
-  if (!ctx) return;
-  ctx.drawImage(img, 0, 0);
-  const d = ctx.getImageData(x, y, 1, 1).data;
-  brushColor.value =
-    "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("");
-  eyedropper.value = false;
-}
-
 function colorToRgba(hex: string): [number, number, number, number] {
   const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return [r, g, b, 255];
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+    255,
+  ];
 }
 
 async function onPaintClick(ev: MouseEvent) {
@@ -137,9 +126,17 @@ async function onPaintClick(ev: MouseEvent) {
   const scaleY = img.naturalHeight / rect.height;
   const x = Math.floor((ev.clientX - rect.left) * scaleX);
   const y = Math.floor((ev.clientY - rect.top) * scaleY);
-  // Shift+点击 或 吸管模式：取色
   if (eyedropper.value || ev.shiftKey) {
-    await eyedropAt(x, y);
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(x, y, 1, 1).data;
+    brushColor.value =
+      "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("");
+    eyedropper.value = false;
     return;
   }
   await invoke("foray_paint_brush", {
@@ -196,22 +193,24 @@ async function refreshAi() {
   }
 }
 
+async function saveAiConfig() {
+  await invoke("foray_ai_config_set", { config: aiConfig.value });
+}
+
 function restoreDefaultPrompt() {
   aiConfig.value.system_prompt = "";
-  // 后端在空字符串时使用内置默认；这里再拉一次连接配置即可
 }
 
 async function copyReport() {
   try {
     await navigator.clipboard.writeText(aiReport.value);
-    alert("报告已复制");
+    err.value = "报告已复制";
+    setTimeout(() => {
+      if (err.value === "报告已复制") err.value = "";
+    }, 1500);
   } catch (e) {
     console.warn(e);
   }
-}
-
-async function saveAiConfig() {
-  await invoke("foray_ai_config_set", { config: aiConfig.value });
 }
 
 async function prepareAi() {
@@ -251,7 +250,6 @@ async function runAi() {
 }
 
 onMounted(() => {
-  // 支持 URL ?path= 直接打开
   const q = new URLSearchParams(window.location.search);
   const p = q.get("path") || localStorage.getItem("foray.pendingPath");
   if (p) {
@@ -263,264 +261,557 @@ onMounted(() => {
 
 <template>
   <div class="foray-page">
-    <header class="foray-top">
-      <button class="btn ghost" @click="emit('leave')">← 返回</button>
-      <h2>Foray 工作台</h2>
-      <span class="mono muted">{{ source || "未打开" }}</span>
-      <div class="spacer" />
-      <button class="btn" :disabled="loading" @click="pickFile">打开 zip</button>
+    <header class="header-section">
+      <button class="ghost-btn back-btn" type="button" @click="emit('leave')">
+        <i class="ri-arrow-left-line" aria-hidden="true"></i>
+        返回
+      </button>
+      <div class="title-group">
+        <h1 class="page-title">Foray 工作台</h1>
+        <p class="page-subtitle">{{ source || "打开资源包开始分析" }}</p>
+      </div>
+      <div class="header-actions">
+        <button class="start-conversion-button" type="button" :disabled="loading" @click="pickFile">
+          {{ loading ? "解析中…" : "打开 zip" }}
+        </button>
+      </div>
     </header>
 
-    <p v-if="err" class="error">{{ err }}</p>
-    <p v-if="!opened" class="hint">
-      Editor Mode 已开启。从主页拖入 zip，或在此选择资源包进入分析。普通转换已在此模式下停用。
-    </p>
+    <p v-if="err" class="page-error">{{ err }}</p>
 
-    <div v-if="opened" class="foray-grid">
-      <aside class="pane">
-        <h3>ROM 树</h3>
+    <div v-if="!opened" class="empty-state card">
+      <i class="ri-folder-zip-line empty-icon" aria-hidden="true"></i>
+      <h2>Editor Mode 已启用</h2>
+      <p>从主页拖入 zip，或点击右上角「打开 zip」进入分析。普通转换在 EM 下已停用。</p>
+    </div>
+
+    <div v-else class="foray-grid">
+      <section class="card pane tree-pane">
+        <h2 class="card-title">ROM 树</h2>
         <ul class="tree">
           <li v-for="f in files" :key="f.path">
-            <button class="link" :class="{ active: f.path === selected }" @click="selectPath(f.path)">
+            <button
+              class="tree-link"
+              :class="{ active: f.path === selected }"
+              type="button"
+              @click="selectPath(f.path)"
+            >
               {{ f.path }}
             </button>
-            <span class="badge">{{ f.kind }}</span>
+            <span class="kind-tag">{{ f.kind }}</span>
           </li>
         </ul>
-      </aside>
+      </section>
 
-      <main class="pane">
-        <h3>概览</h3>
-        <p>
-          {{ desc || "（无描述）" }}
-          · format {{ packFormat ?? "?" }}
-          · {{ files.length }} files
+      <section class="card pane main-pane">
+        <h2 class="card-title">概览</h2>
+        <p class="overview-line">
+          <b>{{ desc || "（无描述）" }}</b>
+          <span class="pill">format {{ packFormat ?? "?" }}</span>
+          <span class="pill">{{ files.length }} files</span>
         </p>
-        <h3>探针 / 问题</h3>
-        <ul class="issues">
+
+        <h2 class="card-title">探针 / 问题</h2>
+        <ul class="issue-list">
           <li v-for="(i, idx) in issues" :key="idx" :class="i.level">
-            <b>{{ i.source }}</b> {{ i.path }} — {{ i.message }}
+            <span class="issue-src">{{ i.source }}</span>
+            <span class="issue-path">{{ i.path }}</span>
+            <span class="issue-msg">{{ i.message }}</span>
           </li>
-          <li v-if="!issues.length" class="muted">无 issue</li>
+          <li v-if="!issues.length" class="muted">暂无 issue</li>
         </ul>
 
-        <h3>预览 {{ selected }}</h3>
-        <pre v-if="previewUtf8" class="code">{{ previewUtf8.slice(0, 4000) }}</pre>
-        <img v-if="paintPng || previewPng" class="paint-img" :src="paintPng || previewPng" @click="onPaintClick" />
+        <h2 class="card-title">预览</h2>
+        <p class="muted small">{{ selected || "选择左侧文件" }}</p>
+        <pre v-if="previewUtf8" class="code-block">{{ previewUtf8.slice(0, 4000) }}</pre>
+        <img
+          v-if="paintPng || previewPng"
+          class="paint-img"
+          :src="paintPng || previewPng"
+          alt="preview"
+          @click="onPaintClick"
+        />
 
         <template v-if="paintPng">
-          <h3>轻量编辑</h3>
-          <div class="row">
+          <h2 class="card-title">轻量编辑</h2>
+          <div class="toolbar">
             <label>笔刷 <input v-model.number="brushR" type="number" min="1" max="32" /></label>
             <label>透明 <input v-model.number="brushOpacity" type="number" min="0" max="1" step="0.05" /></label>
             <label>颜色 <input v-model="brushColor" type="color" /></label>
-            <label><input v-model="eyedropper" type="checkbox" /> 吸管（或 Shift+点击）</label>
-            <button class="btn" @click="undoPaint">撤销</button>
-            <button class="btn primary" @click="commitPaint">应用到 ROM</button>
+            <label class="check"><input v-model="eyedropper" type="checkbox" /> 吸管</label>
+            <button class="ghost-btn" type="button" @click="undoPaint">撤销</button>
+            <button class="start-conversion-button sm" type="button" @click="commitPaint">应用</button>
           </div>
-          <div class="row">
+          <div class="toolbar">
             <label>H <input v-model.number="hsv.dh" type="number" min="-180" max="180" /></label>
             <label>S <input v-model.number="hsv.ds" type="number" min="-100" max="100" /></label>
             <label>V <input v-model.number="hsv.dv" type="number" min="-100" max="100" /></label>
-            <button class="btn" @click="applyHsv">HSV</button>
+            <button class="ghost-btn" type="button" @click="applyHsv">应用 HSV</button>
           </div>
         </template>
 
-        <h3>导出</h3>
-        <div class="row">
-          <label><input v-model="exportMode" type="radio" value="save_as" /> 另存副本（默认）</label>
-          <label><input v-model="exportMode" type="radio" value="in_place" /> 原地覆盖</label>
-          <label v-if="exportMode === 'in_place'">
-            <input v-model="confirmInPlace" type="checkbox" /> 确认覆盖（写 .bak）
+        <h2 class="card-title">导出</h2>
+        <div class="toolbar">
+          <label class="check">
+            <input v-model="exportMode" type="radio" value="save_as" />
+            另存副本（默认）
           </label>
-          <button class="btn primary" @click="doExport">导出</button>
+          <label class="check">
+            <input v-model="exportMode" type="radio" value="in_place" />
+            原地覆盖
+          </label>
+          <label v-if="exportMode === 'in_place'" class="check warn">
+            <input v-model="confirmInPlace" type="checkbox" />
+            确认覆盖（写 .bak）
+          </label>
+          <button class="start-conversion-button sm" type="button" @click="doExport">导出</button>
         </div>
-      </main>
+      </section>
 
-      <aside class="pane">
-        <h3>AI 分析（OpenAI 兼容）</h3>
-        <label>baseURL <input v-model="aiConfig.base_url" /></label>
-        <label>API Key <input v-model="aiConfig.api_key" type="password" /></label>
-        <label>模型 <input v-model="aiConfig.model" /></label>
-        <div class="row">
-          <button class="btn" @click="restoreDefaultPrompt">还原默认提示词</button>
-          <button class="btn" :disabled="!aiReport" @click="copyReport">复制报告</button>
-        </div>
-        <label>提示词 <textarea v-model="aiConfig.system_prompt" rows="4" style="width:100%"></textarea></label>
-        <label>档位
+      <section class="card pane ai-pane">
+        <h2 class="card-title">AI 分析（OpenAI 兼容）</h2>
+        <label class="field">
+          <span>Base URL</span>
+          <input v-model="aiConfig.base_url" type="text" />
+        </label>
+        <label class="field">
+          <span>API Key</span>
+          <input v-model="aiConfig.api_key" type="password" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>模型</span>
+          <input v-model="aiConfig.model" type="text" />
+        </label>
+        <label class="field">
+          <span>档位</span>
           <select v-model.number="tier">
-            <option :value="0">0 无</option>
-            <option :value="1">1 目录树</option>
-            <option :value="2">2 +mcmeta</option>
-            <option :value="3">3 +JSON（选中）</option>
-            <option :value="4">4 +着色器（选中）</option>
-            <option :value="5">5 +贴图概括</option>
+            <option :value="0">0 · 无</option>
+            <option :value="1">1 · 目录树</option>
+            <option :value="2">2 · +mcmeta</option>
+            <option :value="3">3 · +JSON（选中）</option>
+            <option :value="4">4 · +着色器（选中）</option>
+            <option :value="5">5 · +贴图概括</option>
           </select>
         </label>
-        <p class="muted small">≥3 仅发送当前选中文件副本；贴图只发概括不发像素。外部 API 与作者无关。</p>
-        <div class="row">
-          <button class="btn" @click="prepareAi">将发送预览</button>
-          <button class="btn primary" :disabled="aiBusy" @click="runAi">
+        <label class="field">
+          <span>提示词</span>
+          <textarea v-model="aiConfig.system_prompt" rows="4" placeholder="留空使用内置默认"></textarea>
+        </label>
+        <div class="toolbar">
+          <button class="ghost-btn" type="button" @click="restoreDefaultPrompt">还原默认提示词</button>
+          <button class="ghost-btn" type="button" :disabled="!aiReport" @click="copyReport">复制报告</button>
+        </div>
+        <p class="muted small">
+          ≥3 仅发送当前选中文件副本；贴图只发概括不发像素。外部 API 与作者无关。
+        </p>
+        <div class="toolbar">
+          <button class="ghost-btn" type="button" @click="prepareAi">将发送预览</button>
+          <button class="start-conversion-button sm" type="button" :disabled="aiBusy" @click="runAi">
             {{ aiBusy ? "分析中…" : "开始分析" }}
           </button>
         </div>
-        <ul class="issues">
+        <ul v-if="aiPreview.length" class="issue-list compact">
           <li v-for="(p, i) in aiPreview" :key="i">{{ p }}</li>
         </ul>
-        <p v-if="aiError" class="error">{{ aiError }}</p>
-        <pre v-if="aiReport" class="code">{{ aiReport }}</pre>
+        <p v-if="aiError" class="page-error">{{ aiError }}</p>
+        <pre v-if="aiReport" class="code-block">{{ aiReport }}</pre>
 
-        <h3>Ifaso</h3>
+        <h2 class="card-title">IFASO</h2>
         <p class="muted small">互链入口占位（2.5.0 不实现互通）。跨软件按对方 License。</p>
-      </aside>
+      </section>
     </div>
   </div>
 </template>
 
 <style scoped>
 .foray-page {
-  padding: 12px 16px 32px;
-  color: var(--text, #e8eefc);
-}
-.foray-top {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  color: #1d1d1f;
+  overflow: hidden;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  position: relative;
+}
+
+.header-section {
+  z-index: 5;
+  padding: 28px 40px 10px;
+  display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 16px;
+  flex-shrink: 0;
 }
-.foray-top h2 {
-  margin: 0;
-  font-size: 18px;
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.spacer {
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   flex: 1;
 }
-.foray-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr 300px;
-  gap: 12px;
+
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  margin: 0;
+  color: #1d1d1f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-@media (max-width: 1100px) {
-  .foray-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.pane {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 12px;
-  padding: 12px;
-  min-height: 320px;
-}
-.pane h3 {
-  margin: 10px 0 6px;
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: #86868b;
   font-size: 13px;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.start-conversion-button {
+  border: none;
+  background: var(--theme-color, #007bff);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px 22px;
+  border-radius: var(--ui-radius-btn, 12px);
+  cursor: pointer;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color, #007bff) 28%, transparent);
+  transition: transform 0.15s ease, filter 0.15s ease;
+  font-family: inherit;
+}
+.start-conversion-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.start-conversion-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.start-conversion-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.start-conversion-button.sm {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.ghost-btn {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  color: #1d1d1f;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: var(--ui-radius-btn, 10px);
+  cursor: pointer;
+  font-family: inherit;
+}
+.ghost-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.95);
+}
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-error {
+  margin: 0 40px 8px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.empty-state {
+  margin: 12px 40px 28px;
+  padding: 48px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.empty-icon {
+  font-size: 42px;
+  color: var(--theme-color, #007bff);
+  opacity: 0.85;
+}
+.empty-state h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1d1d1f;
+}
+.empty-state p {
+  margin: 0;
+  color: #6b7280;
+  max-width: 420px;
+  font-size: 13px;
+}
+
+.foray-grid {
+  flex: 1;
+  min-height: 0;
+  z-index: 2;
+  padding: 12px 40px 28px;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr) minmax(260px, 1fr);
+  gap: 14px;
+}
+
+.pane {
+  padding: 18px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 6px 0 0;
+  flex-shrink: 0;
+}
+
+.overview-line {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--theme-color, #007bff) 80%, #000);
+  background: color-mix(in srgb, var(--theme-color, #007bff) 12%, transparent);
+}
+
 .tree {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 70vh;
   overflow: auto;
   font-size: 12px;
+  min-height: 0;
 }
 .tree li {
-  margin: 3px 0;
+  margin: 2px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   word-break: break-all;
 }
-.link {
-  background: none;
+.tree-link {
   border: none;
-  color: inherit;
+  background: none;
+  color: #1d1d1f;
   cursor: pointer;
   text-align: left;
-  padding: 0;
+  padding: 2px 0;
+  font: inherit;
+  text-decoration: none;
+}
+.tree-link:hover {
+  color: var(--theme-color, #007bff);
   text-decoration: underline;
 }
-.link.active {
-  color: #3b82f6;
+.tree-link.active {
+  color: var(--theme-color, #007bff);
   font-weight: 700;
 }
-.badge {
+.kind-tag {
   font-size: 10px;
-  opacity: 0.7;
-  margin-left: 6px;
+  color: #9ca3af;
+  flex-shrink: 0;
 }
-.issues {
+
+.issue-list {
   margin: 0;
-  padding-left: 1.1em;
+  padding: 0;
+  list-style: none;
   font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.issues .danger {
-  color: #ef4444;
+.issue-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
 }
-.issues .warn {
-  color: #f59e0b;
+.issue-list.compact li {
+  color: #6b7280;
 }
+.issue-src {
+  font-weight: 700;
+  color: #6b7280;
+}
+.issue-path {
+  font-family: ui-monospace, Consolas, monospace;
+  color: #374151;
+}
+.issue-msg {
+  color: #b91c1c;
+}
+.issue-list li.warn .issue-msg {
+  color: #b45309;
+}
+.issue-list li.danger .issue-msg {
+  color: #b91c1c;
+}
+
+.muted {
+  color: #9ca3af;
+}
+.small {
+  font-size: 12px;
+  margin: 0;
+}
+
+.code-block {
+  margin: 0;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--ui-radius-card, 14px);
+  font-size: 12px;
+  line-height: 1.45;
+  max-height: 220px;
+  overflow: auto;
+  color: #374151;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .paint-img {
   max-width: 100%;
   image-rendering: pixelated;
   cursor: crosshair;
-  background: #111;
-  border-radius: 8px;
+  border-radius: var(--ui-radius-card, 12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  align-self: flex-start;
 }
-.code {
-  max-height: 240px;
-  overflow: auto;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
-  padding: 8px;
-  font-size: 12px;
-}
-.row {
+
+.toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin: 6px 0;
-}
-label {
-  display: inline-flex;
-  gap: 4px;
+  gap: 10px;
   align-items: center;
   font-size: 12px;
+  color: #374151;
 }
-input,
-select {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  color: inherit;
-  border-radius: 6px;
-  padding: 4px 6px;
+.toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.btn {
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
+.toolbar input[type="number"],
+.toolbar select,
+.toolbar input[type="text"] {
+  width: 72px;
+  padding: 6px 8px;
   border-radius: 8px;
-  padding: 6px 10px;
-  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.8);
+  color: #1d1d1f;
+  font: inherit;
 }
-.btn.primary {
-  background: #3b82f6;
-  border-color: #3b82f6;
+.toolbar input[type="color"] {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: #fff;
 }
-.btn.ghost {
-  background: transparent;
+.check {
+  user-select: none;
 }
-.muted {
-  opacity: 0.65;
+.check.warn {
+  color: #b45309;
+  font-weight: 600;
 }
-.small {
-  font-size: 11px;
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
 }
-.error {
-  color: #f87171;
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-btn, 10px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.78);
+  color: #1d1d1f;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  resize: vertical;
 }
-.hint {
-  opacity: 0.75;
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--theme-color, #007bff) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color, #007bff) 16%, transparent);
+  background: #fff;
+}
+
+@media (max-width: 1100px) {
+  .foray-grid {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+  .pane {
+    min-height: 240px;
+  }
+  .header-section {
+    padding: 20px 20px 8px;
+  }
+  .foray-grid {
+    padding: 8px 20px 20px;
+  }
+  .page-error {
+    margin: 0 20px 8px;
+  }
 }
 </style>
