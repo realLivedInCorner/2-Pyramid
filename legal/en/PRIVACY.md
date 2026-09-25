@@ -65,6 +65,11 @@ The software is not directed at children under 13 and does not knowingly collect
 
 ## 8. Changes
 
+## 9. Install / uninstall (MSI / silent)
+
+Silent install (`--silent` / `msiexec /qn`) uploads nothing extra. Uninstall removes program files; `~/.2pyr` user data is kept by default. MSI and the custom exe installer behave the same: they only write the install directory and uninstall registry entries on this machine.
+
+
 Policy updates change the date at the top and are noted in the repository. Material changes will be highlighted in Release Notes.
 
 ---

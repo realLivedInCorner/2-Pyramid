@@ -324,3 +324,11 @@ npm run build                                               # frontend build
 [MIT](./LICENSE) © 2025–2026 2-Pyramid Studio
 
 使用可执行程序时另见 [EULA](./legal/EULA.md) 与 [DISCLAIMER](./legal/DISCLAIMER.md)。请同时遵守 Minecraft EULA 与资源包原作者授权。
+
+## Foray / 安装包（2.4.2）
+
+- **Foray**：设置 → Editor Mode 开启后，主页拖入 zip 进入资源包分析工作台（探针 / 轻量编辑 / 可选 AI）。
+- **静默安装**：`2-Pyramid-Installer.exe --silent [--dir <path>] [--relaunch] [--shortcuts]`；或 `msiexec /i 2-Pyramid-Installer-*.msi /qn`。
+- **产物**：版本化 exe、固定名 `2-Pyramid-Installer.exe`、以及 `.msi`（WiX）。**不打包 MSIX**。
+- 法律与隐私：`legal/`（含外部 AI API 说明）。
+
