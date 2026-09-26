@@ -22,7 +22,8 @@ jobs:
           MSG_TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
           MSG_AUTHOR: ${{ github.event.issue.user.login || github.event.pull_request.user.login }}
           MSG_URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
-        run: python3 - <<'EOF'
+        run: |
+          python3 - <<'EOF'
           import json, os, urllib.request
 
           webhook = os.environ["FEISHU_WEBHOOK"]
@@ -43,4 +44,4 @@ jobs:
           print(body)
           if json.loads(body).get("code") != 0:
               raise SystemExit(1)
-        EOF
+          EOF
