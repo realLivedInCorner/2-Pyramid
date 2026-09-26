@@ -60,6 +60,8 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 
 ## 5. 贡献内容的许可
 
+本项目管理方式等效于 Developer Certificate of Origin (DCO)。你无需签署额外 CLA，但需确保有权按 MIT 授权提交内容。
+
 除非另有书面约定，你提交的代码默认按 **MIT 许可证** 向公众授权，允许 2-Pyramid Studio **及所有后续接收者**使用、修改与再分发。提交即表示你有权做此授权（例如不违反雇佣协议或第三方版权）。
 
 **请勿提交：**

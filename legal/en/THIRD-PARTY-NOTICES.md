@@ -12,8 +12,8 @@ The main application license is [`LICENSE`](../LICENSE) (MIT). If a third-party 
 
 | Component | License (common) | Use |
 |-----------|------------------|-----|
-| [Tauri](https://tauri.app) | MIT / Apache-2.0 | Desktop shell and system APIs |
-| tauri-plugin-dialog / opener / notification | MIT / Apache-2.0 | Dialogs, open links, system notifications |
+| [Tauri](https://tauri.app) | MIT OR Apache-2.0 | Desktop shell and system APIs |
+| tauri-plugin-dialog / opener / notification | MIT OR Apache-2.0 | Dialogs, open links, system notifications |
 | [serde](https://serde.rs) / serde_json | MIT OR Apache-2.0 | Serialization |
 | [image](https://crates.io/crates/image) | MIT OR Apache-2.0 | Texture I/O |
 | [zip](https://crates.io/crates/zip) | MIT | Pack zip |
@@ -53,7 +53,7 @@ The main application license is [`LICENSE`](../LICENSE) (MIT). If a third-party 
 
 ## 3. Installer (installer-app)
 
-Same stack as the main app (Tauri 2 + Rust). See `installer-app/src-tauri/Cargo.lock`.
+Same stack as the main app (Tauri 2 + Rust); **the installer itself is also MIT-licensed**. See installer-app/src-tauri/Cargo.lock.
 
 ## 4. Platform and game assets
 
@@ -70,4 +70,4 @@ If a required component is missing from this list, open an Issue and we will add
 
 ---
 
-**Summary:** 2-Pyramid ships open-source libraries under MIT / Apache-2.0 and similar licenses. See `Cargo.lock` and `package-lock.json` for the full dependency list. Minecraft branding belongs to Mojang/Microsoft; we ship no official game assets.
+**Summary:** 2-Pyramid ships open-source libraries under MIT OR Apache-2.0 and similar licenses. See `Cargo.lock` and `package-lock.json` for the full dependency list. Minecraft branding belongs to Mojang/Microsoft; we ship no official game assets.

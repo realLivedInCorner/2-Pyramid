@@ -9,27 +9,28 @@
 
 ## 一句话结论
 
-转换资源包时，你的文件**不会离开本机**。我们不收集姓名以外的任何个人身份信息，也不做使用行为追踪。
+转换资源包时，你的文件**不会离开本机**。我们不上传任何个人身份信息，也不做使用行为追踪。
 
 ---
 
 ## 1. 我们不收集的内容
 
-- 不上传你导入的资源包、贴图、着色器或覆盖包配置
+- 不上传你导入的资源包、贴图、着色器或覆盖包配置（**Foray AI 分析除外**，见第 4 节）
 - 不采集崩溃堆栈自动上报、不埋点、不统计 DAU/功能使用率
 - 不要求注册账号，不存储密码、邮箱、手机号
 - 不读取与功能无关的浏览器历史、通讯录或其它应用数据
 
-你填写的「用户名」仅保存在本机配置中，用于主页问候语，可随时在设置中修改或清空。
+你填写的「显示名称 / 用户名」仅保存在本机配置中，用于主页问候语，可随时在设置中修改或清空；**不会上传**。
 
-## 2. 本机存储
+## 2. 本机存储（多个目录，用途如下）
 
-| 内容 | 大致位置 | 说明 |
+| 内容 | 实际位置 | 说明 |
 |------|----------|------|
-| 用户设置 | 系统配置目录下的 `2-Pyramid` | 语言、主题、输出模式、更新通道等 |
-| 覆盖包项目 | 文档目录下的 `2-Pyramid` | 项目元数据与你编辑的覆盖包工作区 |
-| 转换临时文件 | 系统临时目录 | 转换过程中解压与中间产物，正常结束后清理 |
-| 日志 | 应用数据/日志目录 | 运行日志，可通过「设置 → 开发者模式 → 导出日志」导出 |
+| 用户设置、历史、背景图、备份、Foray AI 配置 | 用户主目录下的 `.2pyr`（如 `~/.2pyr` / `%USERPROFILE%\.2pyr`） | `configs/settings.json`、`history.json`、`background/`、`backups/`、`foray-ai.json` |
+| 覆盖包项目 | 系统「文档」目录下的 `2-Pyramid` | 项目元数据与你编辑的覆盖包工作区 |
+| 运行日志 | 系统「本地应用数据」下的 `2-Pyramid\logs` | 日期滚动日志，可经「设置 → 开发者模式 → 导出日志」导出 |
+| 更新标记 | 系统「配置」目录下的 `2-Pyramid` | 应用内更新状态 |
+| 转换临时文件 | 系统临时目录 | 解压与中间产物，正常结束后清理 |
 
 日志可能包含**文件路径**与错误信息，便于排障。导出前请自行检查是否含敏感路径。
 
@@ -40,14 +41,15 @@
 | 检查更新 | GitHub Releases API，或镜像 `cdn.5eggpack.top` | 仅拉取 release 列表；不上传你的文件或设备指纹 |
 | 下载更新 | `github.com` / `objects.githubusercontent.com` / `cdn.5eggpack.top` | 下载官方安装包与 `.sha256` 校验文件 |
 | 更新源测速 | 同上 | 测量延迟与下载速率，用于「使用最快源」 |
+| **Foray AI 分析（可选，默认关闭）** | **你配置的 OpenAI 兼容 `baseURL`** | **依数据档位而定，详见第 4 节** |
 
-关闭「检查更新」或不点击更新相关按钮时，应用**不会**发起上述请求。
+关闭「检查更新」且不点击更新相关按钮、且未启用 Foray AI 时，应用**不会**发起上述请求。
 
 ## 4. 第三方处理者
 
-更新检查/下载会与 GitHub（及可选镜像）通信，受其自身隐私政策约束。除此之外，本软件不向第三方发送数据。
+除更新检查/下载（GitHub 及可选镜像，受其自身隐私政策约束）外，本软件默认**不向第三方发送数据**。
 
-**例外（仅当你主动启用 Foray AI 分析并配置了服务）**：请求会发往你填写的 **OpenAI 兼容** `baseURL`。可能包含：目录树与扩展名统计、`pack.mcmeta`、你勾选的 JSON / 着色器**副本**、贴图**概括**（尺寸/均色/直方图，**非像素**），依你选择的数据档位而定。API Key 仅保存在本机配置文件，用于向该服务鉴权。该服务的隐私政策由服务商制定，与 2-Pyramid 作者无关。
+**唯一例外：Foray AI 分析**（仅当你主动启用并配置服务时）：请求会发往你填写的 **OpenAI 兼容** `baseURL`。可能包含：目录树与扩展名统计、`pack.mcmeta`、你勾选的 JSON / 着色器**副本**、贴图**概括**（尺寸/均色/直方图，**非像素**），依你选择的数据档位而定。API Key 仅保存在本机配置文件，用于向该服务鉴权。该服务的隐私政策由服务商制定，与 2-Pyramid 作者无关。
 
 ## 5. 分享码
 
@@ -55,25 +57,24 @@
 
 ## 6. 未成年人
 
-本软件不面向 13 岁以下儿童设计，也不会 knowingly 收集儿童个人信息。
+本软件不面向 13 岁以下儿童设计，也不会在知情情况下收集儿童个人信息。
 
 ## 7. 你的权利
 
-- 可随时删除文档/配置目录下的 `2-Pyramid` 数据以清除本地记录
+- 可随时删除第 2 节所列各目录中的数据以清除本地记录（主要为 `~/.2pyr`、文档与本地应用数据下的 `2-Pyramid`）
 - 可卸载应用；卸载器默认保留用户数据，删除数据需你手动操作
 - 对隐私有疑问，请在仓库 Issues 提问
 
 ## 8. 变更
 
+政策更新会修改文首日期并在仓库说明。重大变更将通过 Release Notes 提示。
+
 ## 9. 安装与卸载（EXE / MSIX / 静默）
 
-静默安装（--silent）不会额外上传数据。卸载删除程序文件；~/.2pyr 用户数据默认保留。GitHub Releases 的 exe 安装器与 Microsoft Store 的 MSIX 包行为一致：仅本机写入安装目录（或包目录）与卸载注册表项。
-
-
-政策更新会修改文首日期并在仓库说明。重大变更将通过 Release Notes 提示。
+静默安装（`--silent`）不会额外上传数据。卸载删除程序文件；`~/.2pyr` 等用户数据默认保留。GitHub Releases 的 exe 安装器与 Microsoft Store 的 MSIX 包行为一致：仅本机写入安装目录（或包目录）与卸载注册表项。
 
 ---
 
-**English summary:** 2-Pyramid processes resource packs entirely on your device. No account, no telemetry, no upload of your packs. Network is used only when you check for or download updates (GitHub Releases and optional mirror). Share codes are exported locally; the app does not host them.
+**English summary:** 2-Pyramid processes resource packs entirely on your device. No account, no telemetry, no upload of your packs (except optional Foray AI analysis you enable yourself). Network is used only when you check for or download updates (GitHub Releases and optional mirror), or when Foray AI is enabled. Share codes are exported locally; the app does not host them.
 
 **联系方式：** GitHub Issues — https://github.com/realLivedInCorner/2-Pyramid/issues

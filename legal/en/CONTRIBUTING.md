@@ -60,6 +60,8 @@ Maintainers may ask for renames, split commits, or extra tests.
 
 ## 5. License of contributions
 
+This project is managed equivalently to a Developer Certificate of Origin (DCO). You do not need to sign an extra CLA, but you must have the right to license your contribution under MIT.
+
 Unless otherwise agreed in writing, you contribute under the **MIT License** to the public, allowing 2-Pyramid Studio **and all downstream recipients** to use, modify, and redistribute. By submitting you confirm you have the right to grant that (e.g. it does not violate employment or third-party copyright).
 
 **Do not submit:**

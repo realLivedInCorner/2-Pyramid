@@ -12,8 +12,8 @@
 
 | 组件 | 许可证（常见） | 用途 |
 |------|----------------|------|
-| [Tauri](https://tauri.app) | MIT / Apache-2.0 | 桌面壳与系统能力 |
-| tauri-plugin-dialog / opener / notification | MIT / Apache-2.0 | 对话框、打开链接、系统通知 |
+| [Tauri](https://tauri.app) | MIT OR Apache-2.0 | 桌面壳与系统能力 |
+| tauri-plugin-dialog / opener / notification | MIT OR Apache-2.0 | 对话框、打开链接、系统通知 |
 | [serde](https://serde.rs) / serde_json | MIT OR Apache-2.0 | 序列化 |
 | [image](https://crates.io/crates/image) | MIT OR Apache-2.0 | 贴图读写 |
 | [zip](https://crates.io/crates/zip) | MIT | 资源包打包 |
@@ -53,7 +53,7 @@
 
 ## 3. 安装器（installer-app）
 
-与主程序同栈（Tauri 2 + Rust），依赖见 `installer-app/src-tauri/Cargo.lock`。
+与主程序同栈（Tauri 2 + Rust），**本身同样以 MIT 许可证提供**，依赖见 installer-app/src-tauri/Cargo.lock。
 
 ## 4. 平台与游戏资产
 
@@ -70,4 +70,4 @@
 
 ---
 
-**English summary:** 2-Pyramid ships with open-source libraries under MIT / Apache-2.0 and similar licenses. See `Cargo.lock` and `package-lock.json` for the authoritative dependency list. Minecraft branding belongs to Mojang/Microsoft; we ship no official game assets.
+**English summary:** 2-Pyramid ships with open-source libraries under MIT OR Apache-2.0 and similar licenses. See `Cargo.lock` and `package-lock.json` for the authoritative dependency list. Minecraft branding belongs to Mojang/Microsoft; we ship no official game assets.
