@@ -241,11 +241,11 @@
     },
     "notificationMode": {
       "label": "通知方式",
-      "desc": "选择通知的显示方式",
+      "desc": "选择通知如何显示：系统通知、应用自绘 Toast（桌面），或两者",
       "searchLabel": "通知方式",
-      "searchDesc": "选择通知的显示方式",
-      "system": "Windows",
-      "app": "应用内",
+      "searchDesc": "选择通知如何显示：系统通知、应用自绘 Toast（桌面），或两者",
+      "system": "系统通知",
+      "app": "应用 Toast",
       "both": "两者"
     },
     "testNotification": {

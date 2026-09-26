@@ -241,11 +241,11 @@
     },
     "notificationMode": {
       "label": "Notification Mode",
-      "desc": "Choose how notifications are displayed",
+      "desc": "How to show alerts: system notification, app-styled desktop toast, or both",
       "searchLabel": "Notification Mode",
-      "searchDesc": "Choose how notifications are displayed",
+      "searchDesc": "How to show alerts: system notification, app-styled desktop toast, or both",
       "system": "System",
-      "app": "In-App",
+      "app": "App Toast",
       "both": "Both"
     },
     "testNotification": {

@@ -56,7 +56,7 @@ const isVisible = ref(false);
 const currentNotification = ref<NotificationItem | null>(null);
 const currentPage = ref<string>('home');
 const notificationEnabled = ref(true);
-const notificationMode = ref<NotificationMode>('both');
+const notificationMode = ref<NotificationMode>('app');
 // Desktop toast auto-dismiss duration (ms). Default 8000; synced from
 // the user's settings by App.vue via `setToastDuration`.
 const toastDuration = ref(8000);
@@ -157,9 +157,8 @@ async function fireDesktopToast(opts: {
         title: opts.title,
         body: opts.body,
         kind: opts.type,
-        // Both spellings — Rust accepts `duration_ms` / `durationMs`.
+        // Rust accepts duration_ms (alias durationMs). Send only one key.
         duration_ms: opts.durationMs,
-        durationMs: opts.durationMs,
         actions: opts.actions,
       },
     });
@@ -249,25 +248,35 @@ export function useNotification() {
     let desktopOk = false;
     let systemOk = false;
 
-    // Desktop top-level toast (independent always-on-top window).
+    // Strict channel split — never cross-fallback into the other style.
+    //   app    → custom desktop toast window only (toast.html on the monitor)
+    //   system → OS notification only
+    //   both   → fire both
+    // In-app overlay is a last resort ONLY when the selected channel itself fails.
+
+    // App-styled channel: custom-drawn toast window ON THE DESKTOP/MONITOR.
     if (wantApp && !silent) {
       desktopOk = await fireDesktopToast({ title, body, type, actions, durationMs });
-      if (!desktopOk) {
-        console.warn('Top-level toast failed, falling back to in-app queue');
-        queueInAppFallback({ title, body, type, source });
-      }
     }
 
-    // OS notification center (Windows Action Center / macOS banner).
+    // System channel: Windows / OS toast.
     if (wantSystem && !silent) {
       systemOk = await fireSystemNotification(title, body);
-      // system-only mode: if OS toast failed, still give the user a
-      // visible desktop toast so the feedback is never silent.
-      if (!systemOk && !wantApp && !silent) {
-        desktopOk = await fireDesktopToast({ title, body, type, actions, durationMs });
-        if (!desktopOk) {
-          queueInAppFallback({ title, body, type, source });
-        }
+    }
+
+    if (silent) {
+      return;
+    }
+
+    // Per-channel last resort: if the channel the user asked for failed,
+    // show the in-app overlay. Do NOT call the other channel (that is
+    // how "app only" was leaking Windows toasts).
+    const appFailed = wantApp && !desktopOk;
+    const systemFailed = wantSystem && !systemOk;
+    if (appFailed || systemFailed) {
+      if (!desktopOk && !systemOk) {
+        console.warn('Selected toast channel failed, using in-app overlay fallback');
+        queueInAppFallback({ title, body, type, source });
       }
     }
   };
