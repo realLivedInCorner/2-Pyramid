@@ -1,11 +1,19 @@
-name: 飞书通知 Issue/PR
+name: 飞书通知 Issue/PR/提交/Actions
 
-# 触发条件：Issue 或 PR 新建 / 重新打开时推送到飞书大群
+# 触发条件：
+# - Issue 或 PR 新建 / 重新打开
+# - 任意提交推送到仓库
+# - 其他工作流运行完成（Actions 动态）
 on:
   issues:
     types: [opened, reopened]
   pull_request:
     types: [opened, reopened]
+  push:
+  workflow_run:
+    # 监听其他工作流完成后推送结果；要加新工作流时把名称加进列表
+    workflows: ["pages build and deployment"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -14,7 +22,8 @@ jobs:
   notify-feishu:
     runs-on: ubuntu-latest
     steps:
-      - name: 推送通知到飞书群
+      - name: 推送 Issue / PR 通知
+        if: github.event_name == 'issues' || github.event_name == 'pull_request'
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           MSG_TYPE: ${{ github.event.issue && 'Issue' || 'PR' }}
@@ -32,6 +41,84 @@ jobs:
               f"{os.environ['MSG_TITLE']}\n"
               f"by {os.environ['MSG_AUTHOR']}\n"
               f"{os.environ['MSG_URL']}"
+          )
+          payload = {"msg_type": "text", "content": {"text": text}}
+          req = urllib.request.Request(
+              webhook,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(req, timeout=15) as resp:
+              body = resp.read().decode("utf-8")
+          print(body)
+          if json.loads(body).get("code") != 0:
+              raise SystemExit(1)
+          EOF
+
+      - name: 推送新提交通知
+        if: github.event_name == 'push'
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          MSG_SHA: ${{ github.event.head_commit.id }}
+          MSG_MSG: ${{ github.event.head_commit.message }}
+          MSG_AUTHOR: ${{ github.event.head_commit.author.name }}
+          MSG_BRANCH: ${{ github.event.ref }}
+          MSG_COMPARE: ${{ github.event.compare }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+
+          webhook = os.environ["FEISHU_WEBHOOK"]
+          branch = os.environ["MSG_BRANCH"].replace("refs/heads/", "")
+          raw_msg = os.environ["MSG_MSG"].strip()
+          first_line = raw_msg.splitlines()[0] if raw_msg else "(无提交说明)"
+          sha = os.environ["MSG_SHA"][:7] if os.environ["MSG_SHA"] else "?"
+          text = (
+              f"【新提交】{branch} · {sha}\n"
+              f"{first_line}\n"
+              f"by {os.environ['MSG_AUTHOR']}\n"
+              f"{os.environ['MSG_COMPARE']}"
+          )
+          payload = {"msg_type": "text", "content": {"text": text}}
+          req = urllib.request.Request(
+              webhook,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(req, timeout=15) as resp:
+              body = resp.read().decode("utf-8")
+          print(body)
+          if json.loads(body).get("code") != 0:
+              raise SystemExit(1)
+          EOF
+
+      - name: 推送 Actions 运行结果
+        if: github.event_name == 'workflow_run'
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WF_DISPLAY: ${{ github.event.workflow_run.display_title }}
+          WF_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+
+          webhook = os.environ["FEISHU_WEBHOOK"]
+          result = os.environ["WF_CONCLUSION"]
+          if result == "success":
+              status = "成功"
+          elif result == "failure":
+              status = "失败"
+          elif result == "cancelled":
+              status = "已取消"
+          else:
+              status = result
+          text = (
+              f"【Actions】{os.environ['WF_NAME']} · {status}\n"
+              f"分支 {os.environ['WF_BRANCH']} · {os.environ['WF_DISPLAY']}\n"
+              f"{os.environ['WF_URL']}"
           )
           payload = {"msg_type": "text", "content": {"text": text}}
           req = urllib.request.Request(
