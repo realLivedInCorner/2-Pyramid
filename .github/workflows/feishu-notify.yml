@@ -1,0 +1,46 @@
+name: 飞书通知 Issue/PR
+
+# 触发条件：Issue 或 PR 新建 / 重新打开时推送到飞书大群
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  notify-feishu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 推送通知到飞书群
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          MSG_TYPE: ${{ github.event.issue && 'Issue' || 'PR' }}
+          MSG_NUM: ${{ github.event.issue.number || github.event.pull_request.number }}
+          MSG_TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
+          MSG_AUTHOR: ${{ github.event.issue.user.login || github.event.pull_request.user.login }}
+          MSG_URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+        run: python3 - <<'EOF'
+          import json, os, urllib.request
+
+          webhook = os.environ["FEISHU_WEBHOOK"]
+          text = (
+              f"【新{os.environ['MSG_TYPE']}】#{os.environ['MSG_NUM']} "
+              f"{os.environ['MSG_TITLE']}\n"
+              f"by {os.environ['MSG_AUTHOR']}\n"
+              f"{os.environ['MSG_URL']}"
+          )
+          payload = {"msg_type": "text", "content": {"text": text}}
+          req = urllib.request.Request(
+              webhook,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(req, timeout=15) as resp:
+              body = resp.read().decode("utf-8")
+          print(body)
+          if json.loads(body).get("code") != 0:
+              raise SystemExit(1)
+        EOF
