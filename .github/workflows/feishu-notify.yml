@@ -4,6 +4,8 @@ name: 飞书通知 Issue/PR/提交/Actions
 # - Issue 或 PR 新建 / 重新打开
 # - 任意提交推送到仓库
 # - 其他工作流运行完成（Actions 动态）
+# - 每天 09:00（北京时间，UTC 01:00）推送每日一梗
+# - 手动触发（Actions 页面点 Run workflow，用于测试每日一梗）
 on:
   issues:
     types: [opened, reopened]
@@ -14,6 +16,9 @@ on:
     # 监听其他工作流完成后推送结果；要加新工作流时把名称加进列表
     workflows: ["pages build and deployment"]
     types: [completed]
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,11 +38,16 @@ jobs:
           MSG_URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
         run: |
           python3 - <<'EOF'
-          import json, os, urllib.request
+          import json, os, random, urllib.request
+
+          KAOMOJI = [
+              "(≧▽≦)", "(◕‿◕)", "٩(◕‿◕)۶", "(•̀ᴗ•́)و", "ヾ(≧▽≦*)o",
+              "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(ง •̀_•́)ง", "(๑•̀ㅂ•́)و✧", "(￣▽￣)ノ", "(*≧ω≦)",
+          ]
 
           webhook = os.environ["FEISHU_WEBHOOK"]
           text = (
-              f"【新{os.environ['MSG_TYPE']}】#{os.environ['MSG_NUM']} "
+              f"{random.choice(KAOMOJI)}  【新{os.environ['MSG_TYPE']}】#{os.environ['MSG_NUM']} "
               f"{os.environ['MSG_TITLE']}\n"
               f"by {os.environ['MSG_AUTHOR']}\n"
               f"{os.environ['MSG_URL']}"
@@ -66,7 +76,12 @@ jobs:
           MSG_COMPARE: ${{ github.event.compare }}
         run: |
           python3 - <<'EOF'
-          import json, os, urllib.request
+          import json, os, random, urllib.request
+
+          KAOMOJI = [
+              "(≧▽≦)", "(◕‿◕)", "٩(◕‿◕)۶", "(•̀ᴗ•́)و", "ヾ(≧▽≦*)o",
+              "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(ง •̀_•́)ง", "(๑•̀ㅂ•́)و✧", "(￣▽￣)ノ", "(*≧ω≦)",
+          ]
 
           webhook = os.environ["FEISHU_WEBHOOK"]
           branch = os.environ["MSG_BRANCH"].replace("refs/heads/", "")
@@ -74,7 +89,7 @@ jobs:
           first_line = raw_msg.splitlines()[0] if raw_msg else "(无提交说明)"
           sha = os.environ["MSG_SHA"][:7] if os.environ["MSG_SHA"] else "?"
           text = (
-              f"【新提交】{branch} · {sha}\n"
+              f"{random.choice(KAOMOJI)}  【新提交】{branch} · {sha}\n"
               f"{first_line}\n"
               f"by {os.environ['MSG_AUTHOR']}\n"
               f"{os.environ['MSG_COMPARE']}"
@@ -103,14 +118,29 @@ jobs:
           WF_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           python3 - <<'EOF'
-          import json, os, urllib.request
+          import json, os, random, urllib.request
+
+          PRAISE = [
+              "这波 CI 稳如老狗 ✅",
+              "一次过，不愧是你 🏆",
+              "全绿！今晚加鸡腿 🍗",
+              "构建之神今天也上班了 ✨",
+              "顺利得离谱，确认一下是不是真跑了 😏",
+          ]
+          ROAST = [
+              "翻车了，日志已经准备好背锅 🐛",
+              "红灯预警，建议先喝口水平复一下 ☕",
+              "这波失败很稳定，稳定到想给你点赞 👏",
+              "构建卒，享年 N 分钟 ⚰️",
+              "失败是成功之母，但你好像认错妈了 🤔",
+          ]
 
           webhook = os.environ["FEISHU_WEBHOOK"]
           result = os.environ["WF_CONCLUSION"]
           if result == "success":
-              status = "成功"
+              status = f"成功 · {random.choice(PRAISE)}"
           elif result == "failure":
-              status = "失败"
+              status = f"失败 · {random.choice(ROAST)}"
           elif result == "cancelled":
               status = "已取消"
           else:
@@ -120,6 +150,44 @@ jobs:
               f"分支 {os.environ['WF_BRANCH']} · {os.environ['WF_DISPLAY']}\n"
               f"{os.environ['WF_URL']}"
           )
+          payload = {"msg_type": "text", "content": {"text": text}}
+          req = urllib.request.Request(
+              webhook,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(req, timeout=15) as resp:
+              body = resp.read().decode("utf-8")
+          print(body)
+          if json.loads(body).get("code") != 0:
+              raise SystemExit(1)
+          EOF
+
+      - name: 每日一梗
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, random, urllib.request
+
+          JOKES = [
+              "程序员最讨厌的两件事：一是别人不写注释，二是自己写注释。",
+              "为什么程序员分不清万圣节和圣诞节？因为 Oct 31 == Dec 25。",
+              "我还在调试昨天写的代码，突然发现昨天是周五……那这代码是谁写的？",
+              "当你的代码没有 bug 时，说明你测试得不够多。",
+              "程序员三大错觉：这个 bug 快修好了、这周能准时发布、注释里写的是真的。",
+              "问：为什么程序员总在半夜工作？答：因为白天人多，bug 不好意思出来。",
+              "A：这个 bug 好奇怪，我什么都没做它就出现了。B：那你撤销一下。",
+              "老板：这个需求很简单，怎么实现我不管。程序员：这个需求很难，怎么实现你别管。",
+              "程序员的浪漫：if (你 && 我) { 在一起(); }",
+              "最好的 debug 方式：重启。不行就重装。还不行就重买。",
+              "产品经理：这个功能明天能上吗？程序员：能，明年。",
+              "代码写得好不好，看离职时同事哭不哭——不哭说明你写得太好了，没人能看懂。",
+          ]
+
+          webhook = os.environ["FEISHU_WEBHOOK"]
+          text = f"【每日一梗】{random.choice(JOKES)}"
           payload = {"msg_type": "text", "content": {"text": text}}
           req = urllib.request.Request(
               webhook,
