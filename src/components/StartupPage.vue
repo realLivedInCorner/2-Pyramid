@@ -17,7 +17,7 @@ const selectedLang = ref<SupportedLocale>(locale.value as SupportedLocale)
 const userName = ref('')
 const outputMode = ref<'follow' | 'fixed'>('follow')
 const notificationEnabled = ref(true)
-const notificationMode = ref<'system' | 'app' | 'both'>('both')
+const notificationMode = ref<'system' | 'app' | 'both'>('app')
 // Post-conversion source-pack handling + auto-open output folder.
 // Default `ask` is the safest choice for first-time users: the app
 // will prompt before deleting any of their packs.

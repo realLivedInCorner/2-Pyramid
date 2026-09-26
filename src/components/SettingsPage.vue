@@ -781,7 +781,7 @@ const onSaveOutputPath = async (path: string) => {
   }
 };
 const notificationEnabled = ref(true);
-const notificationMode = ref<NotificationMode>('both');
+const notificationMode = ref<NotificationMode>('app');
 type AnimationSpeed = 'slow' | 'normal' | 'fast';
 type AnimationEnabled = 'on' | 'off' | 'system';
 const animationSpeed = ref<AnimationSpeed>('normal');
