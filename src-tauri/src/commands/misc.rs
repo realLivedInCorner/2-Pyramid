@@ -634,38 +634,50 @@ pub fn open_folder(path: String) -> Result<(), String> {
         return Err(format!("Path does not exist: {}", path.display()));
     }
 
-    #[cfg(target_os = "windows")]
+    // Store 包不拉起 explorer/open/xdg-open（WACK 已阻止的可执行文件）。
+    #[cfg(feature = "store")]
     {
-        use std::process::Command;
-        use std::os::windows::process::CommandExt;
-        match Command::new("explorer")
-            .arg(path)
-            .creation_flags(0x08000000)
-            .status() {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Failed to open folder: {}", e)),
-        }
+        Err(format!(
+            "商店版不支持打开文件夹，请手动访问: {}",
+            path.display()
+        ))
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(not(feature = "store"))]
     {
-        match std::process::Command::new("open").arg(path).status() {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Failed to open folder: {}", e)),
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Command;
+            use std::os::windows::process::CommandExt;
+            match Command::new("explorer")
+                .arg(path)
+                .creation_flags(0x08000000)
+                .status() {
+                Ok(_) => Ok(()),
+                Err(e) => Err(format!("Failed to open folder: {}", e)),
+            }
         }
-    }
 
-    #[cfg(target_os = "linux")]
-    {
-        match std::process::Command::new("xdg-open").arg(path).status() {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Failed to open folder: {}", e)),
+        #[cfg(target_os = "macos")]
+        {
+            match std::process::Command::new("open").arg(path).status() {
+                Ok(_) => Ok(()),
+                Err(e) => Err(format!("Failed to open folder: {}", e)),
+            }
         }
-    }
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    {
-        Err("Opening folders not supported on current OS".to_string())
+        #[cfg(target_os = "linux")]
+        {
+            match std::process::Command::new("xdg-open").arg(path).status() {
+                Ok(_) => Ok(()),
+                Err(e) => Err(format!("Failed to open folder: {}", e)),
+            }
+        }
+
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        {
+            Err("Opening folders not supported on current OS".to_string())
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::Write;
+#[cfg(not(feature = "store"))]
 use std::process::Command;
 
 use reqwest::header::{ACCEPT, USER_AGENT};
@@ -621,26 +622,41 @@ fn write_update_marker(new_version: &str) -> Result<(), String> {
 }
 
 fn launch_installer(path: &str) -> Result<(), String> {
-    crate::log_info!("launching installer: {}", path);
-
-    if path.ends_with(".msi") {
-        Command::new("msiexec")
-            .args(["/i", path])
-            .spawn()
-            .map_err(|e| format!("Failed to launch MSI installer: {}", e))?;
-        return Ok(());
+    // Microsoft Store（feature = "store"）禁止拉起外部安装器 / msiexec，
+    // 以通过 WACK「已阻止的可执行文件」。商店渠道请走 Store 更新。
+    #[cfg(feature = "store")]
+    {
+        let _ = path;
+        Err(
+            "Microsoft Store 版请通过商店更新，不支持拉起本地安装器。\
+             Store builds update via the Microsoft Store only."
+                .to_string(),
+        )
     }
 
-    // 自制安装器：更新时打开图形向导（覆盖更新页），由用户确认后覆盖安装。
-    // 传 --from-app：检测到已安装时进入更新模式，而不是全新安装流程。
-    // 不要用 --silent：更新场景需要可见反馈，且旧 exe 退出时机由向导控制，
-    // 避免静默解压撞上文件锁。
-    Command::new(path)
-        .arg("--from-app")
-        .spawn()
-        .map_err(|e| format!("Failed to launch installer: {}", e))?;
+    #[cfg(not(feature = "store"))]
+    {
+        crate::log_info!("launching installer: {}", path);
 
-    Ok(())
+        if path.ends_with(".msi") {
+            Command::new("msiexec")
+                .args(["/i", path])
+                .spawn()
+                .map_err(|e| format!("Failed to launch MSI installer: {}", e))?;
+            return Ok(());
+        }
+
+        // 自制安装器：更新时打开图形向导（覆盖更新页），由用户确认后覆盖安装。
+        // 传 --from-app：检测到已安装时进入更新模式，而不是全新安装流程。
+        // 不要用 --silent：更新场景需要可见反馈，且旧 exe 退出时机由向导控制，
+        // 避免静默解压撞上文件锁。
+        Command::new(path)
+            .arg("--from-app")
+            .spawn()
+            .map_err(|e| format!("Failed to launch installer: {}", e))?;
+
+        Ok(())
+    }
 }
 
 // ── Current version ──────────────────────────────────────────
