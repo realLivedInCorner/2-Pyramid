@@ -19,7 +19,7 @@
 
 Preferred path:
 
-1. Open the repository [Security Advisories](https://github.com/realLivedInCorner/2-Pyramid/security/advisories) (if enabled) and file a **Private vulnerability report**  
+1. Open the repository [Security Advisories](https://github.com/realLivedInCorner/2-Pyramid/security/advisories) and file a **Private vulnerability report**; if that entry is unavailable, open an Issue titled [SECURITY] and maintainers will move it to a private channel
 2. Or open an Issue titled `[SECURITY]` with **only impact and a high-level repro summary**; maintainers will move the discussion to a private channel  
 3. Include: affected version / BUILD, repro steps, expected vs actual, PoC if you can share privately
 

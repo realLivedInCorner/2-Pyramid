@@ -19,7 +19,7 @@
 
 推荐路径：
 
-1. 打开仓库 [Security Advisories](https://github.com/realLivedInCorner/2-Pyramid/security/advisories)（若已启用）提交 **Private vulnerability report**  
+1. 打开仓库 [Security Advisories](https://github.com/realLivedInCorner/2-Pyramid/security/advisories) 提交 **Private vulnerability report**；若该入口不可用，请开带 [SECURITY] 前缀的 Issue，维护者会引导转入私下渠道
 2. 或在 Issues 发起标题含 `[SECURITY]` 的讨论，**仅描述影响面与复现步骤概要**，维护者会引导转入私下渠道  
 3. 附上：受影响版本 / BUILD 号、复现步骤、预期与实际行为、PoC（可私传）
 

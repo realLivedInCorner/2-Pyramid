@@ -3,74 +3,75 @@
 **Effective date:** 2026-09-14  
 **Product:** 2-Pyramid (Windows desktop app and first-party installer)
 
-2-Pyramid is designed for: **fully local processing, no account, no telemetry**. Below is what we do and do not collect.
+2-Pyramid is designed as **fully local: no account, no telemetry**. This document describes what we do and do not collect.
 
 ---
 
 ## In one sentence
 
-When you convert resource packs, your files **do not leave your machine**. We do not collect personal identity data beyond an optional display name, and we do not track usage.
+When converting resource packs, your files **never leave your device**. We do not upload personal identity data, and we do not track usage.
 
 ---
 
 ## 1. What we do not collect
 
-- We do not upload the packs, textures, shaders, or overlay configs you import
-- We do not auto-report crash stacks, run analytics, or count DAU / feature usage
-- We do not require an account and do not store passwords, emails, or phone numbers
-- We do not read browser history, contacts, or other app data unrelated to features
+- We do not upload your imported packs, textures, shaders, or overlay configs (**except Foray AI analysis**, see §4)
+- No automatic crash reporting, no analytics, no DAU / feature metrics
+- No account registration; we do not store passwords, emails, or phone numbers
+- We do not read browser history, contacts, or unrelated app data
 
-The “user name” you enter is stored only in local config for the home greeting; you can change or clear it in Settings anytime.
+The optional **display name** you enter is stored only in local config for the home greeting. You can change or clear it in Settings at any time; it is **not uploaded**.
 
-## 2. Local storage
+## 2. Local storage (multiple locations)
 
-| Content | Approximate location | Notes |
-|---------|----------------------|--------|
-| User settings | System config dir under `2-Pyramid` | Language, theme, output mode, update channel, etc. |
-| Overlay projects | Documents dir under `2-Pyramid` | Project metadata and overlay workspaces you edit |
-| Conversion temp files | System temp directory | Unpacked and intermediate files; cleaned after a normal finish |
-| Logs | App data / logs directory | Runtime logs; export via Settings → Developer → Export logs |
+| Content | Actual location | Notes |
+|---------|-----------------|-------|
+| Settings, history, background, backups, Foray AI config | `.2pyr` under your user home (e.g. `~/.2pyr` / `%USERPROFILE%\.2pyr`) | `configs/settings.json`, `history.json`, `background/`, `backups/`, `foray-ai.json` |
+| Overlay projects | `2-Pyramid` under system Documents | Project metadata and overlay workspaces |
+| Logs | `2-Pyramid\logs` under Local AppData | Rolling daily logs; export via Settings → Developer mode |
+| Update marker | `2-Pyramid` under system config dir | In-app update state |
+| Conversion temp files | System temp | Intermediate extract/build files; cleaned after a normal run |
 
-Logs may include **file paths** and error text for debugging. Review them before sharing.
+Logs may include **file paths** and error messages for troubleshooting. Review before exporting if paths may be sensitive.
 
 ## 3. Network access (only when you trigger it)
 
 | Scenario | Destination | Data |
 |----------|-------------|------|
-| Check for updates | GitHub Releases API, or mirror `cdn.5eggpack.top` | Pulls release list only; no upload of your files or device fingerprint |
+| Check for updates | GitHub Releases API or mirror `cdn.5eggpack.top` | Release list only; no file or device fingerprint upload |
 | Download updates | `github.com` / `objects.githubusercontent.com` / `cdn.5eggpack.top` | Official installer and `.sha256` checksum |
-| Measure update sources | Same as above | Latency and download speed for “use fastest source” |
+| Update source speed test | Same as above | Latency and download rate for “fastest source” |
+| **Foray AI analysis (optional, off by default)** | **Your configured OpenAI-compatible `baseURL`** | **Depends on data tier; see §4** |
 
-If you turn off update checks or never press update buttons, the app **does not** make those requests.
+If update checks are off and you never tap update actions, and Foray AI is disabled, the app makes **no** network requests.
 
-## 4. Third-party processors
+## 4. Third parties
 
-Update checks/downloads talk to GitHub (and an optional mirror), under their own privacy policies. Otherwise the software does not send data to third parties.
+Beyond update check/download (GitHub and optional mirror, under their own privacy policies), the software **does not send data to third parties by default**.
 
-**Exception (only if you enable Foray AI analysis and configure a service):** requests go to **your** OpenAI-compatible `baseURL`. Depending on the data tier you pick, this may include: directory tree and extension stats, `pack.mcmeta`, copies of JSON / shaders **you select**, and texture **summaries** (size / mean color / histograms — **not pixels**). The API key is stored only on your machine to authenticate to that service. That service’s privacy policy is set by the provider and is not the responsibility of 2-Pyramid authors.
+**Sole exception: Foray AI analysis** (only if you enable it and configure a service): requests go to your **OpenAI-compatible** `baseURL`. They may include: directory tree and extension stats, `pack.mcmeta`, copies of JSON/shaders you select, and texture **summaries** (size / average color / histogram, **not pixels**), depending on your data tier. The API key is stored only in local config for authenticating to that service. That service’s privacy policy is set by its provider and is unrelated to the 2-Pyramid authors.
 
 ## 5. Share codes
 
-Overlay share codes (`2PYR-…`) are exported on your machine and transferred by you. The app **does not host or relay** them. If you share via a third-party platform, read that platform’s terms and privacy notice too.
+Overlay share codes (`2PYR-…`) are exported on your device and transferred through your own channels. The app does **not** relay or host them. If you use a third-party platform, read that platform’s terms and privacy policy as well.
 
-## 6. Children
+## 6. Minors
 
-The software is not directed at children under 13 and does not knowingly collect children’s personal information.
+This software is not designed for children under 13 and does not knowingly collect children’s personal information.
 
 ## 7. Your rights
 
-- Delete the `2-Pyramid` folders under Documents / config to clear local records
+- Delete the local data listed in §2 at any time (mainly `~/.2pyr` and the `2-Pyramid` folders under Documents / Local AppData)
 - Uninstall the app; the uninstaller keeps user data by default—you must delete data yourself
-- Privacy questions: open a GitHub Issue
+- For privacy questions, open a GitHub Issue
 
 ## 8. Changes
 
+Policy updates change the date at the top and are noted in the repository. Significant changes are announced in Release Notes.
+
 ## 9. Install / uninstall (EXE / MSIX / silent)
 
-Silent install (--silent) uploads nothing extra. Uninstall removes program files; ~/.2pyr user data is kept by default. The GitHub Releases exe installer and the Microsoft Store MSIX package behave the same: they only write the install directory (or package location) and uninstall registry entries on this machine.
-
-
-Policy updates change the date at the top and are noted in the repository. Material changes will be highlighted in Release Notes.
+Silent install (`--silent`) uploads nothing extra. Uninstall removes program files; `~/.2pyr` and other user data are kept by default. The GitHub Releases exe installer and the Microsoft Store MSIX package behave the same: they only write the install directory (or package location) and uninstall registry entries on this machine.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Effective date:** 2026-09-14
 
-Please read this carefully before using 2-Pyramid. Installing or using the software means you have read, understood, and agree to the following.
+Please read this carefully before using 2-Pyramid. Installing or using the software means you have read the following. If you do not agree, stop using the official builds (you may still obtain the source under MIT and build it yourself).
 
 ---
 
@@ -30,7 +30,7 @@ When you convert or distribute packs with this software, you must comply with th
 
 The software includes many third-party open-source libraries. See [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md). Those components are under their own licenses; the authors are not liable for defects in third-party components.
 
-## 4a. External AI / API services (Foray)
+## 5. External AI / API services (Foray)
 
 If you enable **Foray** AI analysis:
 
@@ -39,18 +39,18 @@ If you enable **Foray** AI analysis:
 3. **Availability, accuracy, compliance, retention, and security of any model, relay, or cloud service are between you and that provider.** They are not the responsibility of 2-Pyramid authors or contributors.
 4. Prompts and tier descriptions are viewable and editable locally; review them before sending file copies that may be sensitive.
 
-## 5. Updates and security
+## 6. Updates and security
 
 **Silent deploy**: if you install via a silent script (--silent and related flags), you are treated as having read this disclaimer and [EULA.md](./EULA.md). Custom install dir / shortcuts / uninstall behavior follow the installer arguments. The fixed-name package (2-Pyramid-Installer.exe) is for deploy scripts and update channels only; it does not change license terms. Microsoft Store MSIX installs are governed by store terms together with this disclaimer.
 
 
 In-app updates download installers from GitHub Releases or a configured mirror and verify SHA-256. If you obtain installers from unofficial channels, security and integrity are your responsibility.
 
-## 6. Limitation of liability
+## 7. Limitation of liability
 
 To the maximum extent permitted by law, 2-Pyramid Studio and contributors are not liable for any indirect, incidental, special, or consequential damages (including lost profits, data loss, or business interruption), whether in contract, tort, or otherwise, even if advised of the possibility of such damages.
 
-## 7. Credits
+## 8. Credits
 
 The project has drawn on ideas from other tools and authors in the community. Credits are in-app under Settings → Version Info and in `README.md`. Credits express thanks only and **do not** create joint copyright, employment, or agency.
 

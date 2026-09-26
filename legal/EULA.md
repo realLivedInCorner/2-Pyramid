@@ -30,6 +30,7 @@
 
 - 你可以按 MIT 再分发本软件；再分发时请保留 `LICENSE` 与版权声明（MIT 唯一硬性条件）。
 - 「2-Pyramid」名称与标识用于指称本项目。请勿暗示你分发的版本得到 2-Pyramid Studio 官方背书，除非确属官方发布。
+- MIT 许可证**不授予**「2-Pyramid」名称、标识的任何商标许可；再分发时仅可作合理指称。
 - 本软件与 **Mojang Studios / Microsoft 无隶属、无赞助、未获认可**。请勿使用其商标暗示官方合作；指称 Minecraft 时仅作说明性使用。
 
 ## 3. 免责（摘要）
@@ -46,7 +47,7 @@
 
 ## 6. 变更与联系
 
-本协议更新会在仓库说明；继续使用即表示知悉。疑问请开 [Issues](https://github.com/realLivedInCorner/2-Pyramid/issues)。
+本协议更新会在仓库说明；继续使用即表示你已知悉更新内容（不构成 MIT 之外的额外义务）。疑问请开 [Issues](https://github.com/realLivedInCorner/2-Pyramid/issues)。
 
 ---
 
