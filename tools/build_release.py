@@ -35,6 +35,7 @@
 """
 
 import argparse
+import re
 import hashlib
 import json
 import os
@@ -252,7 +253,13 @@ def build_msix(version: str, staging: Path, beta: bool) -> Path | None:
         return None
 
     identity = load_package_identity()
-    version4 = package_version(version)
+    # 商店包版本可独立于 Cargo：每次 Partner Center 提交必须递增，且 revision=0
+    version4 = str(identity.get("package_version") or package_version(version))
+    if not re.match(r"^\d+\.\d+\.\d+\.0$", version4):
+        print(
+            f"[WARN] MSIX package_version 应为 major.minor.patch.0，当前: {version4}",
+            file=sys.stderr,
+        )
 
     pkg_dir = OUTPUT / "msix-build"
     if pkg_dir.exists():
@@ -291,9 +298,9 @@ def build_msix(version: str, staging: Path, beta: bool) -> Path | None:
     print(f"    AppxManifest Version={version4} Identity={identity['identity_name']}")
 
     if beta:
-        out_name = f"2-Pyramid-{version}-beta.{read_build()}.msix"
+        out_name = f"2-Pyramid-{version4}-beta.msix"
     else:
-        out_name = f"2-Pyramid-{version}.msix"
+        out_name = f"2-Pyramid-{version4}.msix"
     msix_path = OUTPUT / out_name
 
     run(
@@ -396,11 +403,17 @@ def main() -> None:
     run(
         ["npx", "tauri", "build", "--no-bundle"],
         ROOT,
-        "编译主程序 (tauri build --no-bundle)",
+        "编译主程序 (tauri build --no-bundle, 含 updater)",
         env=channel_env,
     )
 
     collect_staging()
+
+    # GitHub Releases 安装器内嵌「完整版」staging（含 updater）
+    github_staging = OUTPUT / "staging-github"
+    if github_staging.exists():
+        shutil.rmtree(github_staging)
+    shutil.copytree(STAGING, github_staging)
 
     if args.skip_installer and args.skip_msix:
         print(f"\n完成（跳过打包）。产物位于 {STAGING}")
@@ -413,6 +426,14 @@ def main() -> None:
 
     if not args.skip_msix:
         try:
+            # 商店包：feature=store，不含 updater / explorer 外部进程调用
+            run(
+                ["npx", "tauri", "build", "--no-bundle", "--features", "store"],
+                ROOT,
+                "编译主程序 (tauri build --no-bundle --features store)",
+                env=channel_env,
+            )
+            collect_staging()
             build_msix(version.split("-")[0], STAGING, args.beta)
         except Exception as e:
             print(f"[WARN] MSIX build failed: {e}", file=sys.stderr)

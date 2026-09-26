@@ -10,6 +10,11 @@ authors = ["2-Pyramid Studio"]
 edition = "2021"
 default-run = "2-pyramid"
 
+[features]
+# Microsoft Store / MSIX：不编译会启动外部进程的 updater / 资源管理器调用，
+# 以通过 WACK「已阻止的可执行文件」检查。GitHub Releases 构建不要开此 feature。
+store = []
+
 [lib]
 name = "two_pyramid_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
