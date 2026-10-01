@@ -128,6 +128,72 @@ impl GuiSurgeon {
         Self::scale_from_image_base(img, 256)
     }
 
+    /// 1.20 控件是「四边等厚」立体框；1.21 九宫格按固定边厚切开拉伸。
+    /// 这里把 button/slider 等 sprite 的上下左右边框统一为 `border` 像素，
+    /// 四边等厚，避免九宫格裁切后某一侧变薄/缺边导致 UI 错位。
+    ///
+    /// `border`：1x 设计 2px → `2 * scale`（scale = 宽/256 或 宽/200）。
+    fn equalize_nine_slice_frame(img: &RgbaImage, border: u32) -> RgbaImage {
+        let (w, h) = img.dimensions();
+        let b = border.clamp(1, w.min(h) / 2);
+        if w < 2 || h < 2 {
+            return img.clone();
+        }
+
+        // 取源图实际四边框厚度的最小值作为「真实边框」参考；
+        // 输出强制四边均为 b：中心取原中心，四边用原边条重采样。
+        let mut out = RgbaImage::new(w, h);
+
+        // 源边条厚度（便于诊断）：外缘到第一个「明显不同」像素——简化为直接用 b。
+        // 角：b×b，从原图对应角裁剪/复制。
+        // 边：原图 1px 边条沿边方向拉伸到 b 厚。
+
+        // 1) 中心
+        for y in b..(h - b) {
+            for x in b..(w - b) {
+                out.put_pixel(x, y, *img.get_pixel(x, y));
+            }
+        }
+
+        // 2) 上下边条（厚 b，宽 w）：用原图最外 1 行拉伸
+        for x in 0..w {
+            let top_src = *img.get_pixel(x.min(w - 1), 0);
+            let bot_src = *img.get_pixel(x.min(w - 1), h - 1);
+            for t in 0..b {
+                out.put_pixel(x, t, top_src);
+                out.put_pixel(x, h - 1 - t, bot_src);
+            }
+        }
+
+        // 3) 左右边条（厚 b，高 h）：用原图最外 1 列拉伸（角已被上下覆盖则跳过）
+        for y in 0..h {
+            let left_src = *img.get_pixel(0, y.min(h - 1));
+            let right_src = *img.get_pixel(w - 1, y.min(h - 1));
+            for t in 0..b {
+                out.put_pixel(t, y, left_src);
+                out.put_pixel(w - 1 - t, y, right_src);
+            }
+        }
+
+        // 4) 四角用原图角像素块（保留立体倒角），避免边条拉伸糊掉
+        for ty in 0..b {
+            for tx in 0..b {
+                let src_tx = tx.min(b - 1);
+                let src_ty = ty.min(b - 1);
+                // TL
+                out.put_pixel(tx, ty, *img.get_pixel(src_tx, src_ty));
+                // TR
+                out.put_pixel(w - 1 - tx, ty, *img.get_pixel(w - 1 - src_tx, src_ty));
+                // BL
+                out.put_pixel(tx, h - 1 - ty, *img.get_pixel(src_tx, h - 1 - src_ty));
+                // BR
+                out.put_pixel(w - 1 - tx, h - 1 - ty, *img.get_pixel(w - 1 - src_tx, h - 1 - src_ty));
+            }
+        }
+
+        out
+    }
+
     fn scale_coordinate(scale: f32, coord: u32) -> u32 {
         (coord as f32 * scale).round() as u32
     }
@@ -703,41 +769,23 @@ impl GuiSurgeon {
                 "hud",
             )?;
 
-            Self::save_slices(
-                &img,
-                base_path,
-                pool,
-                res,
-                (0, 46, 200, 66),
-                SplitMode::None,
-                (200, 20),
-                &["button_disabled.png"],
-                "widget",
-            )?;
-
-            Self::save_slices(
-                &img,
-                base_path,
-                pool,
-                res,
-                (0, 66, 200, 86),
-                SplitMode::None,
-                (200, 20),
-                &["button.png"],
-                "widget",
-            )?;
-
-            Self::save_slices(
-                &img,
-                base_path,
-                pool,
-                res,
-                (0, 86, 200, 106),
-                SplitMode::None,
-                (200, 20),
-                &["button_highlighted.png"],
-                "widget",
-            )?;
+            // 1.20 按钮：四边等厚立体框。切出后统一 2*scale 边厚，
+            // 保证 1.21 九宫格拆开时四边一致，不再裁切错位。
+            {
+                let bscale = Self::scale_from_image(&img);
+                let border = ((2.0 * bscale).round() as u32).max(2);
+                for (crop_y, name) in [
+                    (46u32, "button_disabled.png"),
+                    (66, "button.png"),
+                    (86, "button_highlighted.png"),
+                ] {
+                    let (x1, y1, w, h) = Self::scale_rect(bscale, 0, crop_y, 200, crop_y + 20);
+                    let raw = imageops::crop_imm(&img, x1, y1, w, h).to_image();
+                    let fixed = Self::equalize_nine_slice_frame(&raw, border);
+                    let target = Self::sprite_dir(base_path, "widget").join(name);
+                    pool.store_texture(&target, fixed);
+                }
+            }
 
             Self::save_slices(
                 &img,
@@ -756,32 +804,49 @@ impl GuiSurgeon {
                 base_path,
                 pool,
                 res,
-                (0, 146, 20, 206),
-                SplitMode::Vertical,
-                (20, 20),
-                &[
-                    "locked_button.png",
-                    "locked_button_highlighted.png",
-                    "locked_button_disabled.png",
-                ],
-                "widget",
+                (3, 109, 18, 124),
+                SplitMode::None,
+                (15, 15),
+                &["language.png"],
+                "icon",
             )?;
 
-            Self::save_slices(
-                &img,
-                base_path,
-                pool,
-                res,
-                (20, 146, 40, 206),
-                SplitMode::Vertical,
-                (20, 20),
-                &[
-                    "unlocked_button.png",
-                    "unlocked_button_highlighted.png",
-                    "unlocked_button_disabled.png",
-                ],
-                "widget",
-            )?;
+            {
+                let bscale = Self::scale_from_image(&img);
+                let border = ((2.0 * bscale).round() as u32).max(2);
+                for (x1, x2, names) in [
+                    (
+                        0u32,
+                        20u32,
+                        [
+                            "locked_button.png",
+                            "locked_button_highlighted.png",
+                            "locked_button_disabled.png",
+                        ],
+                    ),
+                    (
+                        20,
+                        40,
+                        [
+                            "unlocked_button.png",
+                            "unlocked_button_highlighted.png",
+                            "unlocked_button_disabled.png",
+                        ],
+                    ),
+                ] {
+                    let (rx1, ry1, rw, rh) = Self::scale_rect(bscale, x1, 146, x2, 206);
+                    let strip = imageops::crop_imm(&img, rx1, ry1, rw, rh).to_image();
+                    let slice_h = Self::scale_coordinate(bscale, 20);
+                    let slice_w = Self::scale_coordinate(bscale, 20);
+                    for (i, name) in names.iter().enumerate() {
+                        let sy = i as u32 * slice_h;
+                        let raw = imageops::crop_imm(&strip, 0, sy, slice_w, slice_h).to_image();
+                        let fixed = Self::equalize_nine_slice_frame(&raw, border);
+                        let target = Self::sprite_dir(base_path, "widget").join(name);
+                        pool.store_texture(&target, fixed);
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -1055,6 +1120,22 @@ impl GuiSurgeon {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn equalize_frame_makes_four_sides_equal() {
+        // 16x8 strip with thicker top (2) than left (1) — should become uniform border
+        let mut img = RgbaImage::new(16, 8);
+        for y in 0..8u32 {
+            for x in 0..16u32 {
+                img.put_pixel(x, y, image::Rgba([x as u8, y as u8, 0, 255]));
+            }
+        }
+        let out = GuiSurgeon::equalize_nine_slice_frame(&img, 2);
+        assert_eq!(out.dimensions(), (16, 8));
+        // 四角与四边外缘应有定义，中心保留
+        assert!(out.get_pixel(0, 0).0[3] == 255);
+        assert!(out.get_pixel(15, 7).0[3] == 255);
+    }
+
     use super::*;
     use image::Rgba;
     use tempfile::tempdir;

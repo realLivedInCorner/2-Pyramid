@@ -8,6 +8,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface InstallContext {
   updateMode: boolean;
+  storeInstalled?: boolean;
   uninstallMode: boolean;
   installed: boolean;
   installedVersion: string | null;
@@ -25,6 +26,8 @@ const installTotalSteps = 5;
 const updateTotalSteps = 3;
 
 const uninstallMode = ref(false);
+const deleteUserData = ref(false);
+const storeInstalled = ref(false);
 const updateMode = ref(false);
 const installed = ref(false);
 const installedVersion = ref<string | null>(null);
@@ -80,6 +83,7 @@ onMounted(async () => {
     const ctx = await invoke<InstallContext>("get_install_context");
     uninstallMode.value = ctx.uninstallMode;
     updateMode.value = ctx.updateMode;
+    storeInstalled.value = ctx.storeInstalled;
     installed.value = ctx.installed;
     installedVersion.value = ctx.installedVersion;
     dir.value = ctx.dir;
@@ -223,7 +227,10 @@ const doUninstall = async () => {
   busy.value = true;
   failed.value = false;
   try {
-    resultMessage.value = await invoke<string>("uninstall", { dir: dir.value.trim() });
+    resultMessage.value = await invoke<string>("uninstall", {
+      dir: dir.value.trim(),
+      deleteUserData: deleteUserData.value,
+    });
     installed.value = false;
     step.value = 4;
     window.setTimeout(() => { void closeWindow(); }, 3500);
@@ -298,6 +305,10 @@ const retryFromUpdateOverview = () => {
     <main class="content">
       <!-- ── 更新模式：步骤 0 覆盖更新确认 ── -->
       <div v-if="updateMode && step === 0" class="panel">
+        <div v-if="storeInstalled" class="status err" style="margin-bottom: 10px;">
+          <i class="ri-windows-line"></i>
+          <span>检测到 Microsoft Store 版本。本安装器仅覆盖 GitHub 安装版，不会改动商店应用。</span>
+        </div>
         <div class="panel-title">覆盖更新</div>
         <p class="panel-desc">
           检测到本机已安装 2-Pyramid。将覆盖程序文件完成更新，
@@ -514,12 +525,16 @@ const retryFromUpdateOverview = () => {
         <div class="panel-title">卸载 {{ channel === 'beta' ? '2-Pyramid Beta' : '2-Pyramid' }}</div>
         <p class="panel-desc">
           将从以下位置移除全部程序文件与快捷方式。
-          用户数据（转换记录、设置、背景等）将被保留。
+          可选择是否同时删除用户数据。
         </p>
         <label class="field-label">安装目录</label>
         <div class="field-row">
           <input v-model="dir" class="dir-input" spellcheck="false" readonly />
         </div>
+        <label class="check-row" style="margin-top: 12px; display: flex; gap: 8px; align-items: center; cursor: pointer;">
+          <input type="checkbox" v-model="deleteUserData" />
+          <span>同时删除用户数据（~/.2pyr、设置、转换记录、背景；不可恢复）</span>
+        </label>
         <div v-if="busy" class="status working">
           <i class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
           <span>正在卸载，请稍候…</span>

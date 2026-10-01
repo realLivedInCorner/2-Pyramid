@@ -445,8 +445,24 @@ fn spawn_self_delete_helper(self_path: &Path, dir: &Path) {
     run_powershell_detached(&script);
 }
 
-fn uninstall_impl(dir: &Path) -> Result<String, String> {
+fn delete_user_data() {
+    // ~/.2pyr、文档/本地应用数据下的 2-Pyramid（与 PRIVACY 第 2 节一致）
+    if let Some(home) = dirs::home_dir() {
+        let _ = std::fs::remove_dir_all(home.join(".2pyr"));
+    }
+    if let Some(docs) = dirs::document_dir() {
+        let _ = std::fs::remove_dir_all(docs.join("2-Pyramid"));
+    }
+    if let Some(local) = dirs::data_local_dir() {
+        let _ = std::fs::remove_dir_all(local.join("2-Pyramid"));
+    }
+}
+
+fn uninstall_impl(dir: &Path, delete_user_data: bool) -> Result<String, String> {
     delete_registry();
+    if delete_user_data {
+        self::delete_user_data();
+    }
     remove_shortcuts();
 
     let self_path = std::env::current_exe().ok();
@@ -478,13 +494,19 @@ fn uninstall_impl(dir: &Path) -> Result<String, String> {
         if let Some(sp) = &self_path {
             spawn_self_delete_helper(sp, dir);
         }
-        Ok("卸载完成：程序文件已移除，用户数据已保留。\n窗口即将自动关闭，卸载程序随后自行清理残留。".to_string())
+        Ok(format!(
+            "卸载完成：程序文件已移除，用户数据已{}。\\n窗口即将自动关闭，卸载程序随后自行清理残留。",
+            if delete_user_data { "删除" } else { "保留" }
+        ))
     } else {
         // 自身不在安装目录内（如 --uninstall 启动的原始安装包）：直接删除目录
         if dir.exists() {
             std::fs::remove_dir_all(dir).map_err(|e| format!("删除安装目录失败: {}", e))?;
         }
-        Ok("卸载完成（用户数据 ~/.2pyr 已保留）".to_string())
+        Ok(format!(
+            "卸载完成（用户数据 ~/.2pyr {}）",
+            if delete_user_data { "已删除" } else { "已保留" }
+        ))
     }
 }
 
@@ -511,11 +533,54 @@ fn get_github_url() -> String {
     GITHUB_URL.to_string()
 }
 
+/// 经典（GitHub EXE）安装：写在我们自己的 Uninstall 注册表键，且路径不在 WindowsApps。
+fn is_classic_installed() -> bool {
+    match registry_install_dir() {
+        Some(d) => {
+            if is_windows_apps_path(&d) {
+                return false;
+            }
+            d.join(EXE_NAME).exists()
+        }
+        None => false,
+    }
+}
+
+fn is_windows_apps_path(p: &Path) -> bool {
+    let s = p.to_string_lossy().to_ascii_lowercase();
+    s.contains("\\windowsapps\\") || s.starts_with("c:\\program files\\windowsapps")
+}
+
+/// Microsoft Store / MSIX 包是否已装（用于规避：商店版不走我们的覆盖更新）。
+fn is_store_installed() -> bool {
+    // 1) 包身份目录（MSIX 会写入 Packages）
+    if let Some(local) = dirs::data_local_dir() {
+        let packages = local.join("Packages");
+        if let Ok(rd) = std::fs::read_dir(&packages) {
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+                if name.contains("2-pyramid") && name.contains("studio") {
+                    return true;
+                }
+            }
+        }
+    }
+    // 2) WindowsApps 安装目录
+    let wa = PathBuf::from("C:\\Program Files\\WindowsApps");
+    if let Ok(rd) = std::fs::read_dir(&wa) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+            if name.contains("2-pyramid") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[tauri::command]
 fn is_installed() -> bool {
-    registry_install_dir()
-        .map(|d| d.join(EXE_NAME).exists())
-        .unwrap_or(false)
+    is_classic_installed()
 }
 
 #[tauri::command]
@@ -556,6 +621,8 @@ struct InstallContext {
     dir: String,
     /// 主程序是否仍在运行
     app_running: bool,
+    /// 是否检测到 Microsoft Store / MSIX 版（不进入覆盖更新）
+    store_installed: bool,
 }
 
 #[tauri::command]
@@ -586,6 +653,7 @@ fn get_install_context() -> InstallContext {
         channel: CHANNEL.to_string(),
         dir: dir.to_string_lossy().to_string(),
         app_running: is_app_running(),
+        store_installed: is_store_installed(),
     }
 }
 
@@ -646,8 +714,8 @@ fn install(app: AppHandle, dir: String, shortcuts: ShortcutOptions) -> Result<St
 }
 
 #[tauri::command]
-fn uninstall(dir: String) -> Result<String, String> {
-    uninstall_impl(&PathBuf::from(dir))
+fn uninstall(dir: String, delete_user_data: Option<bool>) -> Result<String, String> {
+    uninstall_impl(&PathBuf::from(dir), delete_user_data.unwrap_or(false))
 }
 
 #[tauri::command]
