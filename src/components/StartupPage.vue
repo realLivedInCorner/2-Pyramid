@@ -252,159 +252,162 @@ async function finish() {
           </div>
 
           <!-- Step 4: Settings -->
-          <div v-else-if="step === 3" class="startup-step" key="settings">
+          <div v-else-if="step === 3" class="startup-step startup-step-wide" key="settings">
             <h2 class="step-title">{{ stepMeta.title }}</h2>
             <p class="step-desc">{{ stepMeta.desc }}</p>
             <div class="startup-settings">
-              <!-- Output Mode -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-route-line" aria-hidden="true"></i>
+              <div class="startup-settings-grid">
+                <!-- 转换 -->
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">转换</h3>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-route-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('oobe.step4.outputMode') }}</span>
+                      <span class="startup-setting-desc">{{ t('oobe.step4.outputModeDesc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: outputMode === 'follow' }" @click="outputMode = 'follow'">{{ t('oobe.step4.outputModeFollow') }}</button>
+                      <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('oobe.step4.outputModeFixed') }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-cpu-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.conversionThreads.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.conversionThreads.desc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button
+                        v-for="opt in [1, 2, 4]"
+                        :key="opt"
+                        class="seg-btn"
+                        :class="{ active: conversionThreads === opt }"
+                        @click="conversionThreads = opt"
+                      >{{ opt }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('oobe.step4.sourceHandling.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('oobe.step4.sourceHandling.desc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: sourceHandling === 'ask' }" @click="sourceHandling = 'ask'">{{ t('oobe.step4.sourceHandling.ask') }}</button>
+                      <button class="seg-btn" :class="{ active: sourceHandling === 'delete' }" @click="sourceHandling = 'delete'">{{ t('oobe.step4.sourceHandling.delete') }}</button>
+                      <button class="seg-btn" :class="{ active: sourceHandling === 'keep' }" @click="sourceHandling = 'keep'">{{ t('oobe.step4.sourceHandling.keep') }}</button>
+                    </div>
+                  </div>
                 </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('oobe.step4.outputMode') }}</span>
-                  <span class="startup-setting-desc">{{ t('oobe.step4.outputModeDesc') }}</span>
-                </div>
-                <div class="segmented">
-                  <button class="seg-btn" :class="{ active: outputMode === 'follow' }" @click="outputMode = 'follow'">{{ t('oobe.step4.outputModeFollow') }}</button>
-                  <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('oobe.step4.outputModeFixed') }}</button>
-                </div>
-              </div>
 
-              <!-- Conversion Threads -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-cpu-line" aria-hidden="true"></i>
+                <!-- 通知 -->
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">通知</h3>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-notification-3-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
+                      <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="notificationEnabled" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                  <div class="startup-setting-row" v-if="notificationEnabled">
+                    <div class="item-icon">
+                      <i class="ri-window-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
+                      <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
+                      <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-external-link-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="openOutputAfterConvert" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
                 </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('settings.conversionThreads.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('settings.conversionThreads.desc') }}</span>
-                </div>
-                <div class="segmented">
-                  <button
-                    v-for="opt in [1, 2, 4]"
-                    :key="opt"
-                    class="seg-btn"
-                    :class="{ active: conversionThreads === opt }"
-                    @click="conversionThreads = opt"
-                  >{{ opt }}</button>
-                </div>
-              </div>
 
-              <!-- Notification -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-notification-3-line" aria-hidden="true"></i>
+                <!-- 更新 -->
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">更新</h3>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-git-branch-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.updateChannel.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.updateChannel.desc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="updateChannel = 'master'">{{ t('settings.updateChannel.stable') }}</button>
+                      <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="updateChannel = 'unstable'">{{ t('settings.updateChannel.unstable') }}</button>
+                      <button class="seg-btn" :class="{ active: updateChannel === 'both' }" @click="updateChannel = 'both'">{{ t('settings.updateChannel.both') }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-refresh-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.autoCheckUpdate.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.autoCheckUpdate.desc') }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="autoCheckUpdate" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
                 </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
-                  <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" v-model="notificationEnabled" />
-                  <span class="slider"></span>
-                </label>
-              </div>
 
-              <!-- Notification Mode -->
-              <div class="startup-setting-row" v-if="notificationEnabled">
-                <div class="item-icon">
-                  <i class="ri-window-line" aria-hidden="true"></i>
-                </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
-                </div>
-                <div class="segmented">
-                  <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
-                  <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
-                  <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
-                </div>
-              </div>
-
-              <!-- Source Pack Handling (post-conversion) -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
-                </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('oobe.step4.sourceHandling.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('oobe.step4.sourceHandling.desc') }}</span>
-                </div>
-                <div class="segmented">
-                  <button class="seg-btn" :class="{ active: sourceHandling === 'ask' }" @click="sourceHandling = 'ask'">{{ t('oobe.step4.sourceHandling.ask') }}</button>
-                  <button class="seg-btn" :class="{ active: sourceHandling === 'delete' }" @click="sourceHandling = 'delete'">{{ t('oobe.step4.sourceHandling.delete') }}</button>
-                  <button class="seg-btn" :class="{ active: sourceHandling === 'keep' }" @click="sourceHandling = 'keep'">{{ t('oobe.step4.sourceHandling.keep') }}</button>
-                </div>
-              </div>
-
-              <!-- Open Output Folder After Convert -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-external-link-line" aria-hidden="true"></i>
-                </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" v-model="openOutputAfterConvert" />
-                  <span class="slider"></span>
-                </label>
-              </div>
-
-              <!-- Update Channel -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-git-branch-line" aria-hidden="true"></i>
-                </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('settings.updateChannel.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('settings.updateChannel.desc') }}</span>
-                </div>
-                <div class="segmented">
-                  <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="updateChannel = 'master'">{{ t('settings.updateChannel.stable') }}</button>
-                  <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="updateChannel = 'unstable'">{{ t('settings.updateChannel.unstable') }}</button>
-                  <button class="seg-btn" :class="{ active: updateChannel === 'both' }" @click="updateChannel = 'both'">{{ t('settings.updateChannel.both') }}</button>
-                </div>
-              </div>
-
-              <!-- Auto check update -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-refresh-line" aria-hidden="true"></i>
-                </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('settings.autoCheckUpdate.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('settings.autoCheckUpdate.desc') }}</span>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" v-model="autoCheckUpdate" />
-                  <span class="slider"></span>
-                </label>
-              </div>
-
-              <!-- Output Naming Template -->
-              <div class="startup-setting-row">
-                <div class="item-icon">
-                  <i class="ri-file-text-line" aria-hidden="true"></i>
-                </div>
-                <div class="startup-setting-info">
-                  <span class="startup-setting-label">{{ t('settings.outputNaming.label') }}</span>
-                  <span class="startup-setting-desc">{{ t('settings.outputNaming.desc') }}</span>
-                </div>
-              </div>
-              <div class="naming-row-inline">
-                <input
-                  v-model="namingTemplate"
-                  class="naming-input"
-                  :placeholder="t('settings.outputNaming.placeholder')"
-                  spellcheck="false"
-                  maxlength="200"
-                />
-                <div class="naming-preview-inline">
-                  {{ t('settings.outputNaming.preview') }}:
-                  <b>{{ namingPreview }}</b>
+                <!-- 命名 -->
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">{{ t('settings.outputNaming.label') }}</h3>
+                  <div class="startup-setting-row naming-row-plain">
+                    <div class="item-icon">
+                      <i class="ri-file-text-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.outputNaming.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.outputNaming.desc') }}</span>
+                    </div>
+                  </div>
+                  <div class="naming-row-inline">
+                    <input
+                      v-model="namingTemplate"
+                      class="naming-input"
+                      spellcheck="false"
+                      :placeholder="t('settings.outputNaming.placeholder')"
+                    />
+                    <div class="naming-preview-inline">
+                      {{ t('settings.outputNaming.preview') }}:
+                      <b>{{ namingPreview }}</b>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -653,8 +656,10 @@ async function finish() {
   flex: 1;
   display: flex;
   align-items: center;
+  /* 内容高于容器时避免顶部被裁掉（居中改为「安全居中」） */
+  align-items: safe center;
   justify-content: center;
-  padding: 24px 48px 12px;
+  padding: 24px 48px 20px;
   min-height: 0;
   overflow-y: auto;
 }
@@ -665,6 +670,11 @@ async function finish() {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* 设置步骤内容更多：放宽容器，避免卡片被挤成单字竖排 */
+.startup-step-wide {
+  max-width: 960px;
 }
 
 .step-title {
@@ -845,25 +855,82 @@ async function finish() {
 /* 设置行 —— 与设置页同款卡片 */
 .startup-settings {
   width: 100%;
+}
+
+.startup-settings-grid {
+  display: grid;
+  /* 列宽不足 380px 就自动变单列，避免卡片过窄导致正文逐字换行 */
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.startup-group-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  min-width: 0;
+}
+
+/* 宽版设置步骤：整体更紧凑，四张卡同屏无需滚动 */
+.startup-step-wide .step-desc {
+  margin-bottom: 18px;
+}
+.startup-step-wide .startup-setting-row {
+  padding: 10px 16px;
+}
+.startup-step-wide .startup-settings-grid {
+  gap: 12px;
+}
+
+.startup-group-title {
+  margin: 0;
+  padding: 12px 16px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #86868b;
 }
 
 .startup-setting-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
+  transition: background 0.2s ease;
+  min-width: 0;
 }
 .startup-setting-row:hover {
-  border-color: color-mix(in srgb, var(--theme-color) 25%, transparent);
-  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* 行内控件不参与压缩（否则分段按钮会被挤掉、正文被压成竖排） */
+.startup-setting-row > .segmented,
+.startup-setting-row > .switch {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1040px) {
+  .startup-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 窄窗口：控件换行到正文下方，仍然可读 */
+@media (max-width: 620px) {
+  .startup-setting-row {
+    flex-wrap: wrap;
+  }
+  .startup-setting-row > .segmented,
+  .startup-setting-row > .switch {
+    margin-left: 48px;
+  }
 }
 
 .item-icon {
@@ -903,11 +970,11 @@ async function finish() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  padding: 4px 16px 14px;
+}
+.naming-row-plain {
+  border-top: none;
+  padding-bottom: 4px;
 }
 
 .naming-input {
