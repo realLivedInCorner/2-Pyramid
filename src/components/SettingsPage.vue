@@ -493,35 +493,20 @@
               </label>
             </div>
           </div>
-          <div class="setting-item" v-if="shouldShowItem('updateSource')">
+          <div class="setting-item update-source-item" v-if="shouldShowItem('updateSource')">
             <div class="item-icon">
               <i class="ri-server-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
               <div class="label">{{ t('settings.updateSource.label') }}</div>
               <div class="desc">{{ t('settings.updateSource.desc') }}</div>
-              <!-- 测速结果 -->
-              <div v-if="speedResults" class="source-speed">
-                <div
-                  v-for="r in speedResults"
-                  :key="r.source"
-                  class="speed-row"
-                  :class="{ unreachable: !r.reachable }"
-                >
-                  <span class="speed-name">{{ r.source === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}</span>
-                  <span v-if="r.reachable" class="speed-val">
-                    {{ r.speedKbps >= 1024 ? (r.speedKbps / 1024).toFixed(1) + ' MB/s' : r.speedKbps + ' KB/s' }} · {{ r.latencyMs }}ms
-                  </span>
-                  <span v-else class="speed-val">{{ r.error || t('settings.updateSource.unreachable') }}</span>
-                </div>
-              </div>
             </div>
-            <div class="item-action source-actions">
+            <div class="item-action update-source-action">
               <div class="segmented">
                 <button class="seg-btn" :class="{ active: updateSource === 'mirror' }" @click="changeSource('mirror')">{{ t('settings.updateSource.mirror') }}</button>
                 <button class="seg-btn" :class="{ active: updateSource === 'github' }" @click="changeSource('github')">{{ t('settings.updateSource.github') }}</button>
               </div>
-              <div class="speed-btns">
+              <div class="speed-toolbar">
                 <button class="btn-text secondary speed-btn" :disabled="sourceMeasuring" @click="measureSources">
                   <i :class="sourceMeasuring ? 'ri-loader-4-line ri-spin' : 'ri-speed-up-line'" aria-hidden="true"></i>
                   {{ sourceMeasuring ? t('settings.updateSource.measuring') : t('settings.updateSource.speedTest') }}
@@ -531,6 +516,20 @@
                   class="btn-text speed-btn"
                   @click="changeSource(fastestSource)"
                 >{{ t('settings.updateSource.useFastest') }}（{{ fastestSource === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}）</button>
+              </div>
+              <div v-if="speedResults && speedResults.length" class="source-speed">
+                <div
+                  v-for="r in speedResults"
+                  :key="r.source"
+                  class="speed-row"
+                  :class="{ unreachable: !r.reachable, active: updateSource === r.source }"
+                >
+                  <span class="speed-name">{{ r.source === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}</span>
+                  <span v-if="r.reachable" class="speed-val">
+                    {{ r.speedKbps >= 1024 ? (r.speedKbps / 1024).toFixed(1) + ' MB/s' : r.speedKbps + ' KB/s' }} · {{ r.latencyMs }}ms
+                  </span>
+                  <span v-else class="speed-val">{{ r.error || t('settings.updateSource.unreachable') }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1807,8 +1806,20 @@ const onThemeReset = async () => {
 .item-arrow { color: #c6c6c8; font-weight: 800; }
 
 /* 更新源：测速结果与操作按钮 */
-.source-actions { flex-direction: column; align-items: flex-end; gap: 8px; }
-.speed-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.source-actions,
+.update-source-action {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 200px;
+}
+.update-source-item { align-items: flex-start; }
+.update-source-action .segmented { width: 100%; justify-content: stretch; }
+.update-source-action .seg-btn { flex: 1; }
+.speed-toolbar,
+.speed-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; width: 100%; }
+.speed-row.active .speed-name,
+.speed-row.active .speed-val { color: #2563eb; font-weight: 600; }
 .speed-btn { padding: 6px 12px; font-size: 12px; }
 .source-speed { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
 .speed-row { display: flex; gap: 8px; font-size: 11.5px; color: #6b7280; }
