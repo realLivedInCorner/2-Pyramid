@@ -1,11 +1,19 @@
 ## [Unreleased]
 
+### Added
+
+- **分辨率三路采样**：分辨率识别改为 item / block / gui 分别采样并取众数倍率（主倍率优先级 item > gui > block > 1.0，兼容旧调用方）。混合分辨率包（如 32x 物品 + 16x 方块 + 1x GUI）不再互相污染——此前会用 `inventory.png` 宽/16 之类错误基准把 GUI 判成高倍率；混合情况会分别记录并在日志告警。新增 `get_item_scale` / `get_block_scale` / `get_gui_scale` / `scales()` / `scale_coordinate_with()`。
+- **九宫格边框等化**：GUI 处理新增 `equalize_nine_slice_frame`，九宫格缩放后四边边框等宽，修复边框粗细不均。
+
 ### Changed
 
 - **分发路线改为双通道，不再构建 MSI**：
   - **GitHub Releases**：2-Pyramid-Installer-{ver}.exe（自研安装器，保留静默参数与 .sha256）
-  - **Microsoft Store**：2-Pyramid-{ver}.msix（makeappx + AppxManifest，符合 MS Store 规范；包身份见 	tools/msix/package-identity.json）
+  - **Microsoft Store**：2-Pyramid-{ver}.msix（makeappx + AppxManifest，符合 MS Store 规范；包身份见 tools/msix/package-identity.json）
   - build_release.py 以 MSIX 产出替换 WiX MSI；需 Windows SDK makeappx
+- **卸载支持可选删除用户数据**：卸载器新增「同时删除用户数据（设置、转换记录）」选项，默认保留。
+- **安装方式识别**：安装器区分 Classic（独立安装，含自定义目录）与 Microsoft Store 安装（WindowsApps 路径），卸载时走对应清理路径。
+- 设置页更新源测速区版式打磨：结果行高亮当前源，测速与「使用最快源」收进同一工具条。
 
 ### Fixed
 
