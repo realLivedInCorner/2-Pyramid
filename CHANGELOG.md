@@ -4,8 +4,12 @@
 
 - **分发路线改为双通道，不再构建 MSI**：
   - **GitHub Releases**：2-Pyramid-Installer-{ver}.exe（自研安装器，保留静默参数与 .sha256）
-  - **Microsoft Store**：2-Pyramid-{ver}.msix（makeappx + AppxManifest，符合 MS Store 规范；包身份见 	ools/msix/package-identity.json）
-  - uild_release.py 以 MSIX 产出替换 WiX MSI；需 Windows SDK makeappx
+  - **Microsoft Store**：2-Pyramid-{ver}.msix（makeappx + AppxManifest，符合 MS Store 规范；包身份见 	tools/msix/package-identity.json）
+  - build_release.py 以 MSIX 产出替换 WiX MSI；需 Windows SDK makeappx
+
+### Fixed
+
+- **首次运行向导（OOBE）设置步骤排版重做**：步骤容器上限由 500px 放宽到 960px，分组卡片改为自适应列（列宽不足 380px 自动单列），行内控件不再被压缩——修复卡片过窄导致正文逐字换行、分段按钮被裁切的问题；四张分组卡同屏显示，窄窗口时控件自动换行到正文下方，内容超出时安全居中不裁顶。
 
 ## [2.5.0] - 2026-09-24（BUILD 20048）
 
