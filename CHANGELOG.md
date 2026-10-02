@@ -7,6 +7,8 @@
 
 ### Changed
 
+- **移除国内镜像更新源**：`cdn.5eggpack.top` 因**镜像作者停止维护**而不可用，已从更新链路与下载域名白名单中移除；设置页「更新源」里该选项显示为**已停止维护、不可用**（按钮禁用），配置里遗留的 `mirror` 值一律按 GitHub 官方源处理，测速只实测 GitHub。
+- **更新校验改为强制**：`.sha256` 缺失、校验文件拉取失败或哈希不匹配，更新器**一律拒绝下载/安装**（此前缺失时仅告警跳过）。发版必须同时上传安装包与同名 `.sha256`。
 - **分发路线改为双通道，不再构建 MSI**：
   - **GitHub Releases**：2-Pyramid-Installer-{ver}.exe（自研安装器，保留静默参数与 .sha256）
   - **Microsoft Store**：2-Pyramid-{ver}.msix（makeappx + AppxManifest，符合 MS Store 规范；包身份见 tools/msix/package-identity.json）

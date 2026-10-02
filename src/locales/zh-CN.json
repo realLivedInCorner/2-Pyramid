@@ -406,10 +406,11 @@
     },
     "updateSource": {
       "label": "更新源",
-      "desc": "国内用户建议使用镜像源；如需官方源可切换为 GitHub",
+      "desc": "国内镜像已停止维护，现固定使用 GitHub 官方源",
       "searchDesc": "选择镜像源或 GitHub 官方源",
       "mirror": "镜像源",
       "github": "GitHub 官方",
+      "mirrorRetired": "镜像源已停止维护（作者不再维护），不可用；更新固定走 GitHub 官方源。",
       "speedTest": "测速",
       "measuring": "测速中…",
       "unreachable": "不可达",

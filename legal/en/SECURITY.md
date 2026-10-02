@@ -28,8 +28,8 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 ## 3. Security design notes (for your risk review)
 
 - **Local-first:** conversions do not upload files by default; see `PRIVACY.md`
-- **Update integrity:** releases ship `.sha256`; the updater verifies the hash after download and **refuses and deletes mismatched files**. If a release has no `.sha256` asset, or fetching it fails, verification is **skipped with a logged warning** (backward compatibility with older releases)
-- **Download allowlist:** installers and hashes only from `github.com` / `objects.githubusercontent.com` / mirror `cdn.5eggpack.top`
+- **Update integrity (mandatory):** releases **must** ship `.sha256`; the updater verifies the hash after download — **mismatches are refused and deleted, and any release without a `.sha256` asset (or whose checksum cannot be fetched) is refused outright** (updates that cannot be proven intact are never installed)
+- **Download allowlist:** installers and hashes only from `github.com` / `objects.githubusercontent.com` (the China mirror `cdn.5eggpack.top` is retired and has been removed from the update path)
 - **CSP:** the WebView restricts script and resource origins
 - **No admin rights:** install uses HKCU; no UAC elevation required
 
