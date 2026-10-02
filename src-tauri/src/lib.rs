@@ -318,9 +318,6 @@ pub fn run() {
             updater::install_update,
             updater::get_update_channel,
             updater::set_update_channel,
-            updater::get_update_source,
-            updater::set_update_source,
-            updater::measure_update_sources,
             updater::check_update_marker
         ))
         .build(tauri::generate_context!())

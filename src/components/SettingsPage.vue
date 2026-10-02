@@ -493,50 +493,6 @@
               </label>
             </div>
           </div>
-          <div class="setting-item update-source-item" v-if="shouldShowItem('updateSource')">
-            <div class="item-icon">
-              <i class="ri-server-line" aria-hidden="true"></i>
-            </div>
-            <div class="item-info">
-              <div class="label">{{ t('settings.updateSource.label') }}</div>
-              <div class="desc">{{ t('settings.updateSource.desc') }}</div>
-              <div class="desc source-retired">
-                <i class="ri-error-warning-line" aria-hidden="true"></i>
-                {{ t('settings.updateSource.mirrorRetired') }}
-              </div>
-            </div>
-            <div class="item-action update-source-action">
-              <div class="segmented">
-                <button class="seg-btn" disabled :title="t('settings.updateSource.mirrorRetired')">{{ t('settings.updateSource.mirror') }}</button>
-                <button class="seg-btn" :class="{ active: updateSource === 'github' }" @click="changeSource('github')">{{ t('settings.updateSource.github') }}</button>
-              </div>
-              <div class="speed-toolbar">
-                <button class="btn-text secondary speed-btn" :disabled="sourceMeasuring" @click="measureSources">
-                  <i :class="sourceMeasuring ? 'ri-loader-4-line ri-spin' : 'ri-speed-up-line'" aria-hidden="true"></i>
-                  {{ sourceMeasuring ? t('settings.updateSource.measuring') : t('settings.updateSource.speedTest') }}
-                </button>
-                <button
-                  v-if="fastestSource"
-                  class="btn-text speed-btn"
-                  @click="changeSource(fastestSource)"
-                >{{ t('settings.updateSource.useFastestOf', { source: fastestSource === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }) }}</button>
-              </div>
-              <div v-if="speedResults && speedResults.length" class="source-speed">
-                <div
-                  v-for="r in speedResults"
-                  :key="r.source"
-                  class="speed-row"
-                  :class="{ unreachable: !r.reachable, active: updateSource === r.source }"
-                >
-                  <span class="speed-name">{{ r.source === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}</span>
-                  <span v-if="r.reachable" class="speed-val">
-                    {{ r.speedKbps >= 1024 ? (r.speedKbps / 1024).toFixed(1) + ' MB/s' : r.speedKbps + ' KB/s' }} · {{ r.latencyMs }}ms
-                  </span>
-                  <span v-else class="speed-val">{{ r.error || t('settings.updateSource.unreachable') }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
           <div class="setting-item clickable" @click="showVersionInfo = true" v-if="shouldShowItem('versionInfo')">
             <div class="item-icon">
               <i class="ri-information-line" aria-hidden="true"></i>
@@ -988,7 +944,6 @@ const onDevUnlocked = () => {
 const { checkForUpdate, getChannel } = useUpdater();
 const updateChannel = ref('master');
 const autoCheckUpdate = ref(true);
-const updateSource = ref('mirror');
 const updateChecking = ref(false);
 const updateError = ref('');
 const currentVersion = ref('');
@@ -999,50 +954,9 @@ const displayVersion = computed(() => {
   return v || '—';
 });
 
-interface SourceSpeedResult {
-  source: string;
-  reachable: boolean;
-  latencyMs: number;
-  speedKbps: number;
-  error: string | null;
-}
-const speedResults = ref<SourceSpeedResult[] | null>(null);
-const sourceMeasuring = ref(false);
-
-const fastestSource = computed(() => {
-  const list = speedResults.value;
-  if (!list) return null;
-  const reachable = list.filter((r) => r.reachable);
-  if (reachable.length < 2) return null;
-  const a = reachable[0];
-  const b = reachable[1];
-  if (a.speedKbps !== b.speedKbps) {
-    return a.speedKbps > b.speedKbps ? a.source : b.source;
-  }
-  return a.latencyMs <= b.latencyMs ? a.source : b.source;
-});
-
-async function measureSources() {
-  if (sourceMeasuring.value) return;
-  sourceMeasuring.value = true;
-  speedResults.value = null;
-  try {
-    const results = await invoke<SourceSpeedResult[]>('measure_update_sources');
-    speedResults.value = results;
-  } catch (e) {
-    speedResults.value = null;
-    console.error('measure_update_sources failed', e);
-  } finally {
-    sourceMeasuring.value = false;
-  }
-}
-
 async function loadUpdateChannel() {
   try {
     updateChannel.value = await getChannel();
-  } catch { /* use default */ }
-  try {
-    updateSource.value = await invoke<string>('get_update_source');
   } catch { /* use default */ }
   try {
     const cfg = await invoke<any>('get_config');
@@ -1075,15 +989,6 @@ async function changeChannel(ch: string) {
   }
 }
 
-async function changeSource(src: string) {
-  updateSource.value = src;
-  try {
-    await invoke('set_update_source', { source: src });
-  } catch (e) {
-    console.error('set_update_source failed', e);
-  }
-}
-
 const settingItems = [
   { id: 'language', group: 'language', label: t('settings.language.label'), desc: t('settings.language.desc') },
   { id: 'userName', group: 'personal', label: t('settings.userName.label'), desc: t('settings.userName.desc', { name: localUserName.value || '—' }) },
@@ -1101,7 +1006,6 @@ const settingItems = [
   { id: 'conversionHistory', group: 'conversionHistory', label: t('settings.conversionHistory.label'), desc: t('settings.conversionHistory.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
   { id: 'autoCheckUpdate', group: 'version', label: t('settings.autoCheckUpdate.label'), desc: t('settings.autoCheckUpdate.desc') },
-  { id: 'updateSource', group: 'version', label: t('settings.updateSource.label'), desc: t('settings.updateSource.desc') },
   { id: 'animationEnabled', group: 'animationSpeed', label: t('settings.animationEnabled.label'), desc: t('settings.animationEnabled.desc') },
   { id: 'animationSpeed', group: 'animationSpeed', label: t('settings.animationSpeed.label'), desc: t('settings.animationSpeed.desc') },
   { id: 'versionInfo', group: 'version', label: t('settings.versionInfo.label'), desc: t('settings.versionInfo.desc') },
@@ -1832,44 +1736,6 @@ const onThemeReset = async () => {
 }
 
 .item-arrow { color: #c6c6c8; font-weight: 800; }
-
-/* 更新源：测速结果与操作按钮 */
-.source-actions,
-.update-source-action {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  min-width: 200px;
-}
-.update-source-item { align-items: flex-start; }
-.update-source-action .segmented { width: 100%; justify-content: stretch; }
-.update-source-action .seg-btn { flex: 1; }
-.speed-toolbar,
-.speed-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; width: 100%; }
-.speed-row.active .speed-name,
-.speed-row.active .speed-val { color: #2563eb; font-weight: 600; }
-.speed-btn { padding: 6px 12px; font-size: 12px; }
-.source-speed { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
-.speed-row { display: flex; gap: 8px; font-size: 11.5px; color: #6b7280; }
-.speed-row.unreachable .speed-val { color: #dc2626; }
-.speed-name { font-weight: 700; color: #374151; min-width: 56px; }
-.speed-val { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-
-/* 已停用的更新源提示 */
-.source-retired {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  color: #d97706;
-  font-weight: 600;
-}
-.source-retired i { font-size: 13px; }
-.segmented .seg-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  text-decoration: line-through;
-}
 
 .fanhua-select {
   background: rgba(0, 0, 0, 0.05); border: none; padding: 6px 10px;

@@ -404,19 +404,6 @@
       "desc": "启动时自动检查 GitHub Releases；关闭后仅可在设置里手动检查",
       "searchDesc": "启动时自动检查更新"
     },
-    "updateSource": {
-      "label": "更新源",
-      "desc": "国内镜像已停止维护，现固定使用 GitHub 官方源",
-      "searchDesc": "选择镜像源或 GitHub 官方源",
-      "mirror": "镜像源",
-      "github": "GitHub 官方",
-      "mirrorRetired": "镜像源已停止维护（作者不再维护），不可用；更新固定走 GitHub 官方源。",
-      "speedTest": "测速",
-      "measuring": "测速中…",
-      "unreachable": "不可达",
-      "useFastest": "使用最快源",
-      "useFastestOf": "使用最快源（{source}）"
-    },
     "versionInfo": {
       "label": "版本详情",
       "desc": "查看当前软件版本、构建号与作者",

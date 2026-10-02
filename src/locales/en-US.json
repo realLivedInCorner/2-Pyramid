@@ -404,19 +404,6 @@
       "desc": "Automatically check GitHub Releases at startup; turn off to only check manually in Settings",
       "searchDesc": "Check for updates on launch"
     },
-    "updateSource": {
-      "label": "Update Source",
-      "desc": "The China mirror is no longer maintained; updates now always use the official GitHub source",
-      "searchDesc": "Choose mirror source or official GitHub",
-      "mirror": "Mirror",
-      "github": "GitHub Official",
-      "mirrorRetired": "The mirror source is retired (its maintainer stopped maintaining it) and cannot be used; updates always go through official GitHub.",
-      "speedTest": "Speed Test",
-      "measuring": "Testing…",
-      "unreachable": "Unreachable",
-      "useFastest": "Use Fastest",
-      "useFastestOf": "Use fastest ({source})"
-    },
     "versionInfo": {
       "label": "Version Info",
       "desc": "View current version, build number, and authors",

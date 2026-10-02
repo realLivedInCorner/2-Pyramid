@@ -1,6 +1,8 @@
 ## [Unreleased]
 
-（暂无）
+### Changed
+
+- **彻底移除「更新源」相关功能**：2.6.0 里镜像源只是「显示为不可用」，本次把整个更新源概念删干净——设置页不再有「更新源」项（含镜像按钮、测速、「使用最快源」），前端不再有相关状态与样式，后端删除 `get_update_source` / `set_update_source` / `measure_update_sources` 命令与 `SourceSpeed` 结构，配置结构去掉 `update_source` 字段（旧配置文件里的该字段直接忽略），i18n 删除 `settings.updateSource.*` 全部键。更新检查固定走 GitHub 官方 API。
 
 ## [2.6.0] - 2026-10-01（BUILD 20051）
 

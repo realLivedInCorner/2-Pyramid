@@ -209,39 +209,17 @@ fn version_bump(current: &str, latest: &str) -> VersionBump {
 
 // ── GitHub API (async) ──────────────────────────────────────
 
-// 更新源：**只剩官方 GitHub Releases**。
+// 更新源：**只有官方 GitHub Releases**。
 //
-// 历史上的国内镜像 `cdn.5eggpack.top` 已移除（2026-10：镜像作者停止维护，
-// 服务不可用）。配置里遗留的 "mirror" 值一律按 "github" 处理，前端把镜像源
-// 显示为「已停止维护，不可用」，不允许再选中。
+// 历史上的国内镜像 `cdn.5eggpack.top` 已彻底移除（2026-10：镜像作者停止维护），
+// 更新源概念（含设置项、测速、切换命令）一并删除——没有任何可切换的源，
+// 也不再有相关 UI。配置文件里遗留的 `update_source` 字段会被忽略。
 const GITHUB_API: &str = "https://api.github.com/repos/realLivedInCorner/2-Pyramid/releases";
 
-/// 镜像源停用原因（同时用于前端提示与测速结果说明）。
-pub const MIRROR_DISABLED_REASON: &str = "镜像源已停止维护，不可用";
-
-/// 读取当前更新源配置。镜像源已停用，因此恒为 "github"。
-fn effective_update_source() -> String {
-    if let Ok(cfg) = read_config_file() {
-        if cfg.update_source.as_deref() == Some("mirror") {
-            crate::log_warn!(
-                "update source 'mirror' is retired (maintainer stopped maintaining it); falling back to github"
-            );
-        }
-    }
-    "github".to_string()
-}
-
-/// 本次要请求的 releases API 端点（镜像停用后仅此一处）。
-fn releases_api_endpoint() -> &'static str {
-    let _ = effective_update_source();
-    GITHUB_API
-}
-
 async fn fetch_releases() -> Result<Vec<GitHubRelease>, String> {
-    let endpoint = releases_api_endpoint();
     let client = reqwest::Client::new();
     let resp = client
-        .get(endpoint)
+        .get(GITHUB_API)
         .query(&[("per_page", "30")])
         .header(USER_AGENT, "2-Pyramid-Updater/2.0")
         .header(ACCEPT, "application/vnd.github+json")
@@ -530,93 +508,6 @@ async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<St
     Ok(file_path_str)
 }
 
-// ── 更新源测速 ──────────────────────────────────────────────
-
-/// 单个更新源的测速结果（序列化给前端展示）。
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SourceSpeed {
-    pub source: String,
-    pub reachable: bool,
-    /// 从发起到收到响应头的耗时（毫秒）
-    pub latency_ms: u64,
-    /// 平均下载速率（KB/s，保留 1 位小数）
-    pub speed_kbps: f64,
-    pub error: Option<String>,
-}
-
-/// 测一个更新源：GET releases API（per_page=1），最多读 512KB，
-/// 统计响应头耗时与平均速率。超时 10 秒。
-async fn measure_source(endpoint: &str, source: &str) -> SourceSpeed {
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(8))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            return SourceSpeed {
-                source: source.to_string(),
-                reachable: false,
-                latency_ms: 0,
-                speed_kbps: 0.0,
-                error: Some(e.to_string()),
-            }
-        }
-    };
-    let started = std::time::Instant::now();
-    match client
-        .get(endpoint)
-        .query(&[("per_page", "1")])
-        .header(USER_AGENT, "2-Pyramid-Updater/2.0")
-        .header(ACCEPT, "application/vnd.github+json")
-        .send()
-        .await
-    {
-        Ok(mut resp) => {
-            let latency_ms = started.elapsed().as_millis() as u64;
-            let ok = resp.status().is_success();
-            let mut bytes: usize = 0;
-            while let Some(chunk) = resp.chunk().await.ok().flatten() {
-                bytes += chunk.len();
-                if bytes >= 512 * 1024 {
-                    break;
-                }
-            }
-            let elapsed_s = started.elapsed().as_millis().max(1) as f64 / 1000.0;
-            let speed_kbps = (bytes as f64 / 1024.0) / elapsed_s;
-            SourceSpeed {
-                source: source.to_string(),
-                reachable: ok,
-                latency_ms,
-                speed_kbps: (speed_kbps * 10.0).round() / 10.0,
-                error: if ok { None } else { Some(format!("HTTP {}", resp.status())) },
-            }
-        }
-        Err(e) => SourceSpeed {
-            source: source.to_string(),
-            reachable: false,
-            latency_ms: 0,
-            speed_kbps: 0.0,
-            error: Some(e.to_string()),
-        },
-    }
-}
-
-/// 更新源测速。镜像源已停用，因此只实测 GitHub；镜像项照旧返回，
-/// 但直接标记为不可达并给出停用原因，前端据此显示「已停止维护」。
-#[tauri::command]
-pub async fn measure_update_sources() -> Result<Vec<SourceSpeed>, String> {
-    let mirror = SourceSpeed {
-        source: "mirror".to_string(),
-        reachable: false,
-        latency_ms: 0,
-        speed_kbps: 0.0,
-        error: Some(MIRROR_DISABLED_REASON.to_string()),
-    };
-    let github = measure_source(GITHUB_API, "github").await;
-    Ok(vec![mirror, github])
-}
-
 // ── Install ──────────────────────────────────────────────────
 
 fn update_marker_path() -> Result<std::path::PathBuf, String> {
@@ -759,29 +650,6 @@ pub fn set_update_channel(channel: String) -> Result<(), String> {
     }
     let mut cfg = read_config_file()?;
     cfg.update_channel = Some(channel);
-    write_config_file(&cfg)?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_update_source() -> Result<String, String> {
-    let cfg = read_config_file()?;
-    // 镜像源已停用：遗留配置一律回报 github
-    let stored = cfg.update_source.unwrap_or_else(|| "github".to_string());
-    Ok(if stored == "github" { stored } else { "github".to_string() })
-}
-
-#[tauri::command]
-pub fn set_update_source(source: String) -> Result<(), String> {
-    // 仅剩官方源；镜像源已停止维护，明确拒绝，不回写配置
-    if source == "mirror" {
-        return Err(MIRROR_DISABLED_REASON.to_string());
-    }
-    if source != "github" {
-        return Err(format!("Invalid update source: {}", source));
-    }
-    let mut cfg = read_config_file()?;
-    cfg.update_source = Some(source);
     write_config_file(&cfg)?;
     Ok(())
 }
