@@ -41,6 +41,8 @@ pub struct AppConfig {
     pub ui_style: Option<String>,
     /// 启动时自动检查更新（默认 true）。
     pub auto_check_update: Option<bool>,
+    /// 导出日志时是否脱敏（默认 true；关闭后导出原文）。
+    pub log_redaction: Option<bool>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -77,6 +79,8 @@ pub struct ConfigPatch {
     pub ui_style: Option<String>,
     #[serde(alias = "autoCheckUpdate")]
     pub auto_check_update: Option<bool>,
+    #[serde(alias = "logRedaction")]
+    pub log_redaction: Option<bool>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -406,6 +410,7 @@ pub fn import_last_backup() -> Result<String, String> {
 pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     // 收敛为一条 OKAY 日志（字段值不值得逐条刷屏；错误路径照常记 Error）
     let changed: Vec<&'static str> = [
+        patch.log_redaction.as_ref().map(|_| "log_redaction"),
         patch.output_mode.as_ref().map(|_| "output_mode"),
         patch.output_path.as_ref().map(|_| "output_path"),
         patch.palette.as_ref().map(|_| "palette"),
@@ -485,6 +490,9 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     }
     if let Some(v) = patch.auto_check_update {
         cfg.auto_check_update = Some(v);
+    }
+    if let Some(v) = patch.log_redaction {
+        cfg.log_redaction = Some(v);
     }
     write_config_file(&cfg)?;
     crate::log_info!("OKAY update_config [{}]", changed.join(", "));

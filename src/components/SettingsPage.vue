@@ -700,6 +700,23 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
+          <div class="setting-item" v-if="shouldShowItem('devLogRedaction')">
+            <div class="item-icon">
+              <i class="ri-shield-keyhole-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.logRedaction') }}</div>
+              <div class="desc">
+                {{ logRedaction ? t('settings.devMode.logRedactionOn') : t('settings.devMode.logRedactionOff') }}
+              </div>
+            </div>
+            <div class="item-action">
+              <label class="switch">
+                <input type="checkbox" v-model="logRedaction" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
           <div class="setting-item clickable danger" v-if="shouldShowItem('devClearConfig')" @click="showClearConfigDialog = true">
             <div class="item-icon">
               <i class="ri-delete-bin-line" aria-hidden="true"></i>
@@ -956,6 +973,11 @@ const versionTapCount = ref(0);
 const devHint = ref('');
 const showDevUnlockDialog = ref(false);
 const showLogWindow = ref(false);
+// 导出日志脱敏（默认开启；仅影响导出，磁盘与界面日志保持原文）
+const logRedaction = ref(true);
+watch(logRedaction, (val) => {
+  invoke('update_config', { patch: { logRedaction: val } }).catch(() => {});
+});
 
 const onDevUnlocked = () => {
   devModeEnabled.value = true;
@@ -1025,6 +1047,7 @@ async function loadUpdateChannel() {
   try {
     const cfg = await invoke<any>('get_config');
     if (typeof cfg?.auto_check_update === 'boolean') autoCheckUpdate.value = cfg.auto_check_update;
+    if (typeof cfg?.log_redaction === 'boolean') logRedaction.value = cfg.log_redaction;
   } catch { /* default true */ }
 }
 
@@ -1086,6 +1109,7 @@ const settingItems = [
   { id: 'legal', group: 'version', label: t('settings.legal.label'), desc: t('settings.legal.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
   { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
+  { id: 'devLogRedaction', group: 'dev', label: t('settings.devMode.logRedaction'), desc: t('settings.devMode.logRedactionSearchDesc') },
   { id: 'devExportAmr', group: 'dev', label: t('settings.devMode.exportActions'), desc: t('settings.devMode.exportActionsDesc') },
   { id: 'devClearActions', group: 'dev', label: t('settings.devMode.clearActions'), desc: t('settings.devMode.clearActionsDesc') },
   { id: 'devClearConfig', group: 'dev', label: t('settings.devMode.clearConfig'), desc: t('settings.devMode.clearConfigDesc') },
