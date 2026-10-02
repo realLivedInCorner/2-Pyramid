@@ -46,6 +46,17 @@
 - **智能更新** — 按 major.minor.patch 判定：major 与 `Safe-*` 强制更新，minor / patch 可选
 - **Beta 双渠道** — 正式版与 Beta 版可并存安装（独立注册表、独立目录、Beta 标识），`betabuild` 一键构建
 
+### ⚠️ 已知限制（请先读）
+
+2-Pyramid 是**结构转换器**，不是原版素材库。以下几点是设计取舍，不是待修 bug：
+
+- **目标版本的新增内容为「近似生成」**：升级时若目标版本引入了原包不存在的新方块 / 新物品（例如 netherite、copper、breeze、pale / poplar 木板、部分树叶），程序会从**最接近的现有贴图**按**手工标定的色相/饱和度/明度参数**派生一张近似贴图（部分树叶额外钉住色相以避免漂色）。**这些贴图不是原版资源，与原版视觉存在差异** —— 想要 1:1 原版观感，请在转换后自行替换这些文件。
+- **结构转换优先，不做像素重绘**：物品 / 方块贴图分辨率、GUI 布局、模型与动画按版本规则改写（含九宫格等厚、sprite 切割、图集生成等），但不会重画美术资源。
+- **Bedrock 双向转换为实验性**：j2b / b2j 未完成且存在严重问题，仅用于测试；选中该目标会弹出警示，材质包选择也不接受 `.mcpack` 作为输入。
+- **发行版默认只记录 Warn / Error 日志**：release 构建下 Info 级日志（含转换进度与 OKAY 明细）默认不写入日志文件；若需完整日志用于排查，请在**设置 → 开发者模式**中开启后再复现问题。
+- **更新检查会访问网络**：可切换「GitHub 官方」或第三方镜像（`cdn.5eggpack.top`，非本项目维护，不保证时效与可用性）；转换过程本身全程离线。
+- **Editor Mode / Foray 的 AI 功能会把内容发给第三方**：该功能使用**你自己填写的** OpenAI 兼容 endpoint 与密钥，你选择分析的贴图/文本会被发送到该 endpoint。默认关闭。
+
 ### 🚀 快速开始
 
 #### 用户（直接使用）
@@ -205,6 +216,17 @@ npm run build                                               # 前端 build
 - **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts; in-app updates enter an overwrite-update flow (locks the original dir, keeps user data); install dir auto-aligns to the existing location on reinstall
 - **Smart updates** — Compared by major.minor.patch: major and `Safe-*` force the update; minor / patch are optional
 - **Beta channel** — Stable and Beta installs coexist (separate registry, directory and badges); built with `betabuild`
+
+### ⚠️ Known Limitations (read first)
+
+2-Pyramid is a **structure converter**, not a vanilla asset library. The following are design trade-offs, not bugs to be fixed:
+
+- **New content in newer target versions is approximated**: when upgrading, blocks/items introduced by the target version but absent from your pack (e.g. netherite, copper, breeze, pale / poplar planks, some leaves) are derived from the **closest existing texture** using **hand-calibrated hue/saturation/value parameters** (some leaves additionally pin hue to avoid drifting). **These are not vanilla assets and will differ visually** — replace them manually if you need a 1:1 vanilla look.
+- **Structure first, no pixel repainting**: item/block resolutions, GUI layout, models and animations are rewritten per version rules (nine-slice equalization, sprite slicing, atlas generation, …), but art is never redrawn.
+- **Bedrock conversion is experimental**: j2b / b2j are incomplete and known to be broken — testing only; selecting that target shows a warning, and `.mcpack` is rejected as input.
+- **Release builds log Warn / Error only**: Info-level logs (conversion progress and OKAY details) are not written in release builds; enable **Settings → Developer Mode** first if you need full logs for a bug report.
+- **Update checks reach the network**: switchable between official GitHub and a third-party mirror (`cdn.5eggpack.top`, not maintained by this project, no freshness/availability guarantee). Conversion itself is fully offline.
+- **Editor Mode / Foray AI sends content to a third party**: it uses the OpenAI-compatible endpoint and key **you provide**, and the textures/text you choose to analyze are sent there. Off by default.
 
 ### 🚀 Quick Start
 
