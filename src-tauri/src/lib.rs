@@ -13,6 +13,7 @@ use self::commands::{
     open_folder,
     get_install_dir,
     read_legal_file,
+    analyze_pack,
     write_file,
     create_dir,
     delete_paths,
@@ -95,6 +96,9 @@ mod updater;
 pub mod hurray;
 
 pub use invoke_conversion::invoke_conversion;
+
+/// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
+pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -248,6 +252,7 @@ pub fn run() {
             open_folder,
             get_install_dir,
             read_legal_file,
+            analyze_pack,
             write_file,
             create_dir,
             commands::misc::delete_paths,

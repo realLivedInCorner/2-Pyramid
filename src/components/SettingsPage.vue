@@ -623,6 +623,16 @@
         </div>
 
         <div class="group-card">
+          <div class="setting-item clickable" v-if="shouldShowItem('devAnalyzePack')" @click="analyzePack">
+            <div class="item-icon">
+              <i class="ri-survey-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.devMode.analyzePack') }}</div>
+              <div class="desc">{{ t('settings.devMode.analyzePackDesc') }}</div>
+            </div>
+            <div class="item-arrow">→</div>
+          </div>
           <div class="setting-item clickable" v-if="shouldShowItem('devLog')" @click="showLogWindow = true">
             <div class="item-icon">
               <i class="ri-terminal-box-line" aria-hidden="true"></i>
@@ -690,6 +700,7 @@
     <ClearConfigDialog v-model="showClearConfigDialog" />
     <FactoryResetDialog v-model="showFactoryResetDialog" @reset="emit('reset-to-oobe')" />
     <LogWindowDialog v-model="showLogWindow" />
+    <PackAnalysisDialog v-model="showAnalysisDialog" :analysis="packAnalysis" />
   </div>
 </template>
 
@@ -711,6 +722,7 @@ import HistoryDialog from './settings/HistoryDialog.vue';
 import ThemeDialog from './settings/ThemeDialog.vue';
 import BackgroundDialog from './settings/BackgroundDialog.vue';
 import LogWindowDialog from './settings/LogWindowDialog.vue';
+import PackAnalysisDialog, { type PackAnalysis } from './settings/PackAnalysisDialog.vue';
 import FactoryResetDialog from './settings/FactoryResetDialog.vue';
 import ClearConfigDialog from './settings/ClearConfigDialog.vue';
 import OutputPathDialog from './settings/OutputPathDialog.vue';
@@ -929,6 +941,30 @@ const versionTapCount = ref(0);
 const devHint = ref('');
 const showDevUnlockDialog = ref(false);
 const showLogWindow = ref(false);
+// 资源包结构分析（多版本包调研用）
+const showAnalysisDialog = ref(false);
+const packAnalysis = ref<PackAnalysis | null>(null);
+
+async function analyzePack() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const picked = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: 'Resource Pack', extensions: ['zip', 'mcpack'] }],
+    });
+    if (!picked || typeof picked !== 'string') return;
+    packAnalysis.value = await invoke<PackAnalysis>('analyze_pack', { path: picked });
+    showAnalysisDialog.value = true;
+  } catch (e) {
+    notify({
+      title: t('common.error'),
+      body: t('settings.devMode.analyzePackFailed', { error: String(e) }),
+      type: 'error',
+      source: 'system',
+    });
+  }
+}
 // 导出日志脱敏（默认开启；仅影响导出，磁盘与界面日志保持原文）
 const logRedaction = ref(true);
 watch(logRedaction, (val) => {
@@ -1013,6 +1049,7 @@ const settingItems = [
   { id: 'legal', group: 'version', label: t('settings.legal.label'), desc: t('settings.legal.desc') },
   { id: 'update', group: 'version', label: t('settings.checkUpdate.label'), desc: t('settings.checkUpdate.searchDesc') },
   { id: 'devLog', group: 'dev', label: t('settings.devMode.logWindowTitle'), desc: t('settings.devMode.viewLog') },
+  { id: 'devAnalyzePack', group: 'dev', label: t('settings.devMode.analyzePack'), desc: t('settings.devMode.analyzePackDesc') },
   { id: 'devLogRedaction', group: 'dev', label: t('settings.devMode.logRedaction'), desc: t('settings.devMode.logRedactionSearchDesc') },
   { id: 'devExportAmr', group: 'dev', label: t('settings.devMode.exportActions'), desc: t('settings.devMode.exportActionsDesc') },
   { id: 'devClearActions', group: 'dev', label: t('settings.devMode.clearActions'), desc: t('settings.devMode.clearActionsDesc') },

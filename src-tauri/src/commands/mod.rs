@@ -6,6 +6,7 @@ mod history;
 pub mod misc;
 pub mod notification;
 mod overlay;
+mod pack_analysis;
 
 // `misc` and `notification` are re-exported as flat names from
 // `commands::*` (see the `pub use misc::…` / `pub use notification::…`
@@ -34,3 +35,4 @@ pub use foray::{
     ForayState,
 };
 pub use overlay::{get_overlay_projects, delete_overlay_project, overlay_init, import_lang_from_parent, get_overlay_lang, save_overlay_lang, read_lang_file, get_overlay_json, save_overlay_json, export_overlay_share_code, import_overlay_share_code, overlay_package, get_overlay_settings, save_overlay_settings, overlay_set_parent_pack};
+pub use pack_analysis::analyze_pack;

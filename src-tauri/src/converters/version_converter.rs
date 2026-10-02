@@ -544,6 +544,35 @@ pub fn process_zip(
         source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
     }
     log_info!("detected pack_format: {}", source_version);
+
+    // 结构分析（只读、只记录，不改变本次转换行为）：
+    // 多版本包（overlays / supported_formats / 版本折叠目录 / 一包多根）目前
+    // 只转换基础层，覆盖层原样保留——先把真实结构打进日志，便于据此定语义。
+    match crate::converters::pack_analysis::analyze_dir(temp_dir.path()) {
+        Ok(report) => {
+            log_info!("pack structure: {}", report.summary());
+            for layer in &report.layers {
+                if layer.directory.is_empty() {
+                    continue;
+                }
+                log_info!(
+                    "  layer {} formats={:?} files={} overrides={}",
+                    layer.directory,
+                    layer.formats,
+                    layer.file_count,
+                    layer.override_count
+                );
+            }
+            for dir in &report.folding_dirs {
+                log_info!("  folding dir {} files={}", dir.directory, dir.file_count);
+            }
+            for w in &report.warnings {
+                log_warn!("  pack analysis: {}", w);
+            }
+        }
+        Err(e) => log_warn!("pack analysis failed: {}", e),
+    }
+
     if is_bedrock_target {
         log_info!("bedrock target: convert to Java 26.3 (format 97) first, then j2b");
     }
