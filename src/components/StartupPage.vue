@@ -866,12 +866,10 @@ async function finish() {
 }
 
 .startup-group-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  /* 卡片表面（背景/边框/圆角/阴影）由 App.vue 全局 --ui-* 令牌统一提供，
+     这里只保留布局与裁剪，避免与全局规则打架 */
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
   min-width: 0;

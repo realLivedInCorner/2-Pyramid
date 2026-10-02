@@ -977,12 +977,9 @@ onMounted(async () => {
  .app-container .home-greeting,
  .app-container .engine-indicator,
  .app-container .home-header,
- .app-container .startup-setting-row,
- .app-container .naming-row-inline,
  .app-container .lang-card,
  .app-container .welcome-card,
- .startup-root .startup-setting-row,
- .startup-root .naming-row-inline,
+ .startup-root .startup-group-card,
  .startup-root .lang-card,
  .startup-root .welcome-card {
    background: var(--ui-card-surface);
