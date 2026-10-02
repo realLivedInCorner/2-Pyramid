@@ -94,7 +94,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 ### 🔄 更新机制
 
-应用内的「检查更新」读取本仓库的 Releases（来源可选 GitHub 官方 API 或第三方镜像）。Release tag 约定（`{版本}` 例如 `2.5.0`）：
+应用内的「检查更新」读取本仓库的 Releases（仅 GitHub 官方 API）。Release tag 约定（`{版本}` 例如 `2.5.0`）：
 
 | Tag 前缀 | 含义 | 可见通道 |
 |---|---|---|
@@ -138,7 +138,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
                                   │
                                   ▼
         ┌───────────────────────────────────────────────────────┐
-        │            Target Version (1.6 → 26.1+)              │
+        │            Target Version (1.6 → 26.3)                │
         └───────────────────────────────────────────────────────┘
 ```
 
@@ -202,7 +202,7 @@ npm run build                                               # 前端 build
 
 ## English
 
-**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 27 Java target version ranges from 1.6 to the latest 26.3, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
+**2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.3, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
 
 ### ✨ Features
 
