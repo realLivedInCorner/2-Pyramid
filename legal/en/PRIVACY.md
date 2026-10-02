@@ -44,6 +44,7 @@ Logs may include **file paths** and error messages for troubleshooting. Review b
 | **Foray AI analysis (optional, off by default)** | **Your configured OpenAI-compatible `baseURL`** | **Depends on data tier; see §4** |
 
 If update checks are off and you never tap update actions, and Foray AI is disabled, the app makes **no** network requests.
+(Note: the automatic update check is **on by default** at startup; turn it off in Settings → Version & Updates.)
 
 ## 4. Third parties
 
@@ -68,6 +69,13 @@ This software is not designed for children under 13 and does not knowingly colle
 ## 8. Changes
 
 Policy updates change the date at the top and are noted in the repository. Significant changes are announced in Release Notes.
+
+## 8.1 Repository-level data flow (not the app)
+
+This section covers the **GitHub repository**, not the installed application:
+
+- **Issue / PR / commit metadata → Feishu (Lark)**: a GitHub Actions workflow in this repository (`.github/workflows/feishu-notify.yml`) sends **issue and pull-request titles, author logins, URLs and commit metadata** to a third-party Feishu (Lark) webhook maintained by the project, so maintainers get notified. This metadata is **public on GitHub** and contains nothing from your local machine or resource packs; if you would rather not have it forwarded, do not open issues/PRs, or ask the maintainers to remove the webhook.
+- The application itself never talks to Feishu and never sends your pack contents anywhere except the optional Foray AI endpoint you configure.
 
 ## 9. Install / uninstall (EXE / MSIX / silent)
 

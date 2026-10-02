@@ -129,7 +129,7 @@
             </div>
             <div class="item-info">
               <div class="label">Editor Mode / Foray</div>
-              <div class="desc">开启后主页拖入 zip 进入 Foray；关闭为普通转换。</div>
+              <div class="desc">{{ t('settings.forayAi.editorModeDesc') }}</div>
             </div>
             <div class="item-action">
               <label class="switch-wrap">
@@ -146,8 +146,8 @@
               <i class="ri-brain-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
-              <div class="label">Foray AI（OpenAI 兼容）</div>
-              <div class="desc">Key 仅存本机 ~/.2pyr/foray-ai.json；外部 API 与作者无关。提示词可改可还原。</div>
+              <div class="label">{{ t('settings.forayAi.label') }}</div>
+              <div class="desc">{{ t('settings.forayAi.desc') }}</div>
             </div>
           </div>
           <div v-if="editorMode" class="foray-ai-form">
@@ -161,23 +161,23 @@
               <label>Model
                 <input v-model="aiModel" type="text" placeholder="gpt-4o-mini" />
               </label>
-              <label>默认档位
+              <label>{{ t('settings.forayAi.defaultTier') }}
                 <select v-model.number="aiTier">
-                  <option :value="1">1 目录树</option>
-                  <option :value="2">2 +mcmeta</option>
-                  <option :value="3">3 +JSON</option>
-                  <option :value="4">4 +着色器</option>
-                  <option :value="5">5 +贴图概括</option>
+                  <option :value="1">{{ t('settings.forayAi.tier1') }}</option>
+                  <option :value="2">{{ t('settings.forayAi.tier2') }}</option>
+                  <option :value="3">{{ t('settings.forayAi.tier3') }}</option>
+                  <option :value="4">{{ t('settings.forayAi.tier4') }}</option>
+                  <option :value="5">{{ t('settings.forayAi.tier5') }}</option>
                 </select>
               </label>
             </div>
-            <label class="wide">系统提示词
-              <textarea v-model="aiPrompt" rows="3" placeholder="留空使用内置默认"></textarea>
+            <label class="wide">{{ t('settings.forayAi.systemPrompt') }}
+              <textarea v-model="aiPrompt" rows="3" :placeholder="t('settings.forayAi.promptPlaceholder')"></textarea>
             </label>
             <div class="foray-ai-actions">
-              <button class="ghost-btn" type="button" @click="saveAiToBackend">保存 AI 配置</button>
-              <button class="ghost-btn" type="button" @click="restoreAiPrompt">还原默认提示词</button>
-              <button class="btn-text" type="button" @click="testAiConnection">测试连接</button>
+              <button class="ghost-btn" type="button" @click="saveAiToBackend">{{ t('settings.forayAi.save') }}</button>
+              <button class="ghost-btn" type="button" @click="restoreAiPrompt">{{ t('settings.forayAi.restorePrompt') }}</button>
+              <button class="btn-text" type="button" @click="testAiConnection">{{ t('settings.forayAi.testConnection') }}</button>
             </div>
             <p v-if="aiMsg" class="foray-ai-msg">{{ aiMsg }}</p>
           </div>
@@ -271,7 +271,7 @@
             </div>
             <div class="item-info">
               <div class="label">{{ t('settings.outputNaming.label') }}</div>
-              <div class="desc">{{ t('settings.outputNaming.desc') }}：{{ namingTemplate }}</div>
+              <div class="desc">{{ t('settings.outputNaming.descInline', { name: namingTemplate }) }}</div>
             </div>
             <div class="item-arrow">→</div>
           </div>
@@ -515,7 +515,7 @@
                   v-if="fastestSource"
                   class="btn-text speed-btn"
                   @click="changeSource(fastestSource)"
-                >{{ t('settings.updateSource.useFastest') }}（{{ fastestSource === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }}）</button>
+                >{{ t('settings.updateSource.useFastestOf', { source: fastestSource === 'mirror' ? t('settings.updateSource.mirror') : t('settings.updateSource.github') }) }}</button>
               </div>
               <div v-if="speedResults && speedResults.length" class="source-speed">
                 <div
@@ -920,7 +920,7 @@ async function saveAiToBackend() {
         system_prompt: aiPrompt.value,
       },
     });
-    aiMsg.value = '已保存到本机配置';
+    aiMsg.value = t('settings.forayAi.saved');
   } catch (e: any) {
     aiMsg.value = String(e);
   }
@@ -928,16 +928,16 @@ async function saveAiToBackend() {
 
 function restoreAiPrompt() {
   aiPrompt.value = '';
-  aiMsg.value = '已还原内置默认提示词（保存后生效）';
+  aiMsg.value = t('settings.forayAi.promptRestored');
 }
 
 async function testAiConnection() {
   await saveAiToBackend();
   try {
     const r = await invoke<string>('foray_ai_test');
-    aiMsg.value = '连接 OK：' + String(r).slice(0, 80);
+    aiMsg.value = t('settings.forayAi.connOk', { msg: String(r).slice(0, 80) });
   } catch (e: any) {
-    aiMsg.value = '连接失败：' + String(e).slice(0, 160);
+    aiMsg.value = t('settings.forayAi.connFailed', { msg: String(e).slice(0, 160) });
   }
 }
 

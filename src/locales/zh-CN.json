@@ -142,6 +142,88 @@
     "cancelledText": "转换已取消",
     "manyFilesWarning": "文件较多,可能需要等待较长时间"
   },
+  "foray": {
+    "header": {
+      "title": "Foray 工作台",
+      "subtitle": "打开资源包开始分析",
+      "openZip": "打开 zip",
+      "opening": "解析中…",
+      "issues": "问题（{count}）"
+    },
+    "empty": {
+      "title": "Editor Mode 已启用",
+      "desc": "从主页拖入 zip，或点击「打开 zip」。普通转换在 EM 下已停用。"
+    },
+    "tree": {
+      "title": "ROM 树",
+      "filterPlaceholder": "过滤路径…"
+    },
+    "overview": {
+      "title": "概览",
+      "noDescription": "（无描述）",
+      "format": "format {version}",
+      "files": "{count} files",
+      "viewIssues": "查看问题（{count}）"
+    },
+    "issues": {
+      "title": "探针 / 问题（{count}）",
+      "empty": "暂无 issue"
+    },
+    "preview": {
+      "title": "预览",
+      "selectHint": "选择左侧文件",
+      "zoomIn": "放大预览"
+    },
+    "paint": {
+      "title": "轻量编辑",
+      "brush": "笔刷",
+      "opacity": "透明",
+      "color": "颜色",
+      "eyedropper": "吸管",
+      "undo": "撤销",
+      "apply": "应用",
+      "applyHsv": "应用 HSV",
+      "fullscreen": "全屏看图"
+    },
+    "ai": {
+      "title": "AI 分析（OpenAI 兼容）",
+      "model": "模型",
+      "tier": "档位",
+      "tier0": "0 · 无",
+      "tier1": "1 · 目录树",
+      "tier2": "2 · +mcmeta",
+      "tier3": "3 · +JSON（选中）",
+      "tier4": "4 · +着色器（选中）",
+      "tier5": "5 · +贴图概括",
+      "prompt": "提示词",
+      "promptPlaceholder": "留空使用内置默认",
+      "restoreDefault": "还原默认",
+      "prepare": "将发送预览",
+      "analyze": "开始分析",
+      "analyzing": "分析中…",
+      "privacyNotice": "≥3 仅发送选中文件副本；贴图只发概括。外部 API 与作者无关。",
+      "tier0Notice": "档位 0 不会调用外部 API",
+      "viewReport": "查看完整报告"
+    },
+    "ifaso": {
+      "note": "互链入口占位。跨软件按对方 License。"
+    },
+    "report": {
+      "title": "AI 报告",
+      "copied": "报告已复制"
+    },
+    "export": {
+      "title": "导出",
+      "saveAs": "另存副本",
+      "inPlace": "原地覆盖",
+      "confirmBak": "确认（写 .bak）",
+      "confirmRequired": "原地覆盖需勾选确认，并会写 .bak 备份",
+      "done": "已导出：\n{path}"
+    },
+    "lightbox": {
+      "zoomPercent": "{percent}%"
+    }
+  },
   "settings": {
     "title": "偏好设置",
     "subtitle": "偏好与配置",
@@ -168,7 +250,6 @@
     "theme": {
       "label": "主题色",
       "desc": "当前颜色: {color}",
-      "searchLabel": "主题色",
       "searchDesc": "自定义界面颜色",
       "dialogTitle": "主题色",
       "currentColor": "当前颜色",
@@ -182,7 +263,6 @@
     "background": {
       "label": "背景图片",
       "desc": "自定义应用背景与玻璃透色",
-      "searchLabel": "背景图片",
       "searchDesc": "自定义应用背景与玻璃透色",
       "dialogTitle": "更换背景",
       "choose": "选择图片",
@@ -205,7 +285,6 @@
     "uiStyle": {
       "label": "控件样式",
       "desc": "卡片与控件的透光质感",
-      "searchLabel": "控件样式",
       "searchDesc": "卡片与控件的透光质感",
       "glass": "玻璃",
       "frosted": "磨砂"
@@ -213,7 +292,6 @@
     "outputMode": {
       "label": "输出目录策略",
       "desc": "选择固定目录或跟随原材质包",
-      "searchLabel": "输出目录策略",
       "searchDesc": "选择固定目录或跟随原材质包",
       "follow": "跟随",
       "fixed": "固定"
@@ -237,13 +315,11 @@
     "notification": {
       "label": "通知",
       "desc": "开启或关闭通知提醒",
-      "searchLabel": "通知",
       "searchDesc": "开启或关闭通知提醒"
     },
     "notificationMode": {
       "label": "通知方式",
       "desc": "选择通知如何显示：系统通知、应用自绘 Toast（桌面），或两者",
-      "searchLabel": "通知方式",
       "searchDesc": "选择通知如何显示：系统通知、应用自绘 Toast（桌面），或两者",
       "system": "系统通知",
       "app": "应用 Toast",
@@ -252,7 +328,6 @@
     "testNotification": {
       "label": "测试通知",
       "desc": "发送测试通知以验证功能是否正常",
-      "searchLabel": "测试通知",
       "searchDesc": "发送测试通知以验证功能是否正常",
       "testTitle": "测试通知",
       "testBody": "这是一条测试通知，用于验证通知功能是否正常工作。"
@@ -260,13 +335,11 @@
     "toastDuration": {
       "label": "通知显示时长",
       "desc": "桌面通知自动消失前的停留时间",
-      "searchLabel": "通知显示时长",
       "searchDesc": "桌面通知自动消失前的停留时间"
     },
     "toastPosition": {
       "label": "通知位置",
       "desc": "桌面通知出现在屏幕的哪个角落",
-      "searchLabel": "通知位置",
       "searchDesc": "桌面通知出现在屏幕的哪个角落",
       "topLeft": "左上",
       "topRight": "右上",
@@ -276,14 +349,13 @@
     "conversionThreads": {
       "label": "转换并发数",
       "desc": "同时转换的资源包数量，更多更快但更占内存",
-      "searchLabel": "转换并发数",
       "searchDesc": "同时转换的资源包数量"
     },
     "outputNaming": {
       "label": "输出命名模板",
       "desc": "自定义输出文件名",
+      "descInline": "自定义输出文件名：{name}",
       "dialogTitle": "输出命名模板",
-      "searchLabel": "输出命名模板",
       "searchDesc": "自定义输出文件名",
       "placeholder": "例如：[Ver][Name]",
       "tags": "插入占位符",
@@ -297,7 +369,6 @@
       "groupTitle": "转换历史",
       "label": "最近转换记录",
       "desc": "查看最近的转换任务与结果",
-      "searchLabel": "转换历史",
       "searchDesc": "查看最近的转换任务与结果",
       "clear": "清空历史",
       "openOutput": "打开输出",
@@ -307,7 +378,6 @@
     "animationEnabled": {
       "label": "界面动画",
       "desc": "开启后页面与弹层有平滑过渡；关闭或跟随系统时会减少动效",
-      "searchLabel": "界面动画",
       "searchDesc": "开启 / 跟随系统 / 关闭",
       "on": "开启",
       "system": "跟随系统",
@@ -316,7 +386,6 @@
     "animationSpeed": {
       "label": "动画速率",
       "desc": "控制页面切换和元素依次出现的速度",
-      "searchLabel": "动画速率",
       "searchDesc": "慢 / 正常 / 快",
       "slow": "慢",
       "normal": "优雅",
@@ -325,7 +394,6 @@
     "updateChannel": {
       "label": "更新通道",
       "desc": "选择接受稳定版、测试版，或同时接受两个通道的更新",
-      "searchLabel": "更新通道",
       "searchDesc": "选择稳定版、测试版或全部",
       "stable": "稳定版",
       "unstable": "测试版",
@@ -334,25 +402,23 @@
     "autoCheckUpdate": {
       "label": "自动检查更新",
       "desc": "启动时自动检查 GitHub Releases；关闭后仅可在设置里手动检查",
-      "searchLabel": "自动检查更新",
       "searchDesc": "启动时自动检查更新"
     },
     "updateSource": {
       "label": "更新源",
       "desc": "国内用户建议使用镜像源；如需官方源可切换为 GitHub",
-      "searchLabel": "更新源",
       "searchDesc": "选择镜像源或 GitHub 官方源",
       "mirror": "镜像源",
       "github": "GitHub 官方",
       "speedTest": "测速",
       "measuring": "测速中…",
       "unreachable": "不可达",
-      "useFastest": "使用最快源"
+      "useFastest": "使用最快源",
+      "useFastestOf": "使用最快源（{source}）"
     },
     "versionInfo": {
       "label": "版本详情",
       "desc": "查看当前软件版本、构建号与作者",
-      "searchLabel": "版本详情",
       "searchDesc": "查看当前软件版本与构建号",
       "dialogTitle": "版本信息",
       "betaChannelTag": "Beta 版本 · 测试渠道",
@@ -374,7 +440,6 @@
     "checkUpdate": {
       "label": "检查更新",
       "desc": "当前版本: {version}",
-      "searchLabel": "检查更新",
       "searchDesc": "保持软件处于最新状态",
       "checking": "正在检查...",
       "alreadyLatest": "已是最新版本",
@@ -449,6 +514,26 @@
       "deepLabel": "同时清理日志和覆盖包历史",
       "deepHint": "额外删除 logs/ 目录和 settings.json 里的覆盖包历史。不会删除用户已创建的覆盖包项目。",
       "successBodyDeep": "用户配置已删除(深度清理),应用将重启。"
+    },
+    "forayAi": {
+      "label": "Foray AI（OpenAI 兼容）",
+      "editorModeDesc": "开启后主页拖入 zip 进入 Foray；关闭为普通转换。",
+      "desc": "Key 仅存本机 ~/.2pyr/foray-ai.json；外部 API 与作者无关。提示词可改可还原。",
+      "defaultTier": "默认档位",
+      "tier1": "1 目录树",
+      "tier2": "2 +mcmeta",
+      "tier3": "3 +JSON",
+      "tier4": "4 +着色器",
+      "tier5": "5 +贴图概括",
+      "systemPrompt": "系统提示词",
+      "promptPlaceholder": "留空使用内置默认",
+      "save": "保存 AI 配置",
+      "restorePrompt": "还原默认提示词",
+      "testConnection": "测试连接",
+      "saved": "已保存到本机配置",
+      "promptRestored": "已还原内置默认提示词（保存后生效）",
+      "connOk": "连接 OK：{msg}",
+      "connFailed": "连接失败：{msg}"
     }
   },
   "overlay": {
