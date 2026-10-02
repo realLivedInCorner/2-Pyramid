@@ -12,6 +12,16 @@ const visible = defineModel<boolean>({ required: true });
 const logsText = ref("");
 let timer: ReturnType<typeof setInterval> | null = null;
 
+// 未脱敏导出（仅开发者模式）：两步确认，避免顺手把原文发出去
+const devMode = ref(false);
+const confirmRaw = ref(false);
+
+interface LogExportResult {
+  path: string;
+  redacted: number;
+  redaction: boolean;
+}
+
 async function refresh() {
   try {
     logsText.value = await invoke<string>("get_logs");
@@ -20,7 +30,7 @@ async function refresh() {
   }
 }
 
-async function exportLog() {
+async function exportLog(raw = false) {
   try {
     const defaultPath = await invoke<string | null>("get_log_path");
     const dest = await save({
@@ -28,13 +38,23 @@ async function exportLog() {
       filters: [{ name: "Log", extensions: ["log", "txt"] }],
     });
     if (!dest) return;
-    const result = await invoke<string>("export_logs", { dest });
+    const result = await invoke<LogExportResult>("export_logs", {
+      dest,
+      raw: raw ? true : undefined,
+    });
+    const body = result.redaction
+      ? t("settings.devMode.exportSuccessRedacted", {
+          path: result.path,
+          count: result.redacted,
+        })
+      : t("settings.devMode.exportSuccess", { path: result.path });
     await notify({
       title: t("common.success"),
-      body: t("settings.devMode.exportSuccess", { path: result }),
+      body,
       type: "success",
       source: "system",
     });
+    confirmRaw.value = false;
   } catch (e) {
     await notify({
       title: t("common.error"),
@@ -60,7 +80,13 @@ function close() {
 watch(visible, async (open) => {
   if (!open) {
     stopTimer();
+    confirmRaw.value = false;
     return;
+  }
+  try {
+    devMode.value = await invoke<boolean>("get_dev_mode");
+  } catch {
+    devMode.value = false;
   }
   await refresh();
   if (timer) clearInterval(timer);
@@ -81,7 +107,20 @@ onUnmounted(stopTimer);
         <div class="dialog-body">
           <div class="log-toolbar">
             <button class="btn-text secondary" @click="refresh">{{ t("common.refresh") }}</button>
-            <button class="btn-text" @click="exportLog">{{ t("settings.devMode.exportLog") }}</button>
+            <button class="btn-text" @click="exportLog(false)">{{ t("settings.devMode.exportLog") }}</button>
+            <button
+              v-if="devMode"
+              class="btn-text raw-export-btn"
+              @click="confirmRaw = !confirmRaw"
+            >{{ t("settings.devMode.exportRawLog") }}</button>
+          </div>
+          <div v-if="confirmRaw" class="raw-warn">
+            <i class="ri-alert-line" aria-hidden="true"></i>
+            <span>{{ t("settings.devMode.exportRawWarn") }}</span>
+            <button class="btn-text danger" @click="exportLog(true)">
+              {{ t("settings.devMode.exportRawConfirm") }}
+            </button>
+            <button class="btn-text secondary" @click="confirmRaw = false">{{ t("common.cancel") }}</button>
           </div>
           <pre class="log-output">{{ logsText || t("common.noLogs") }}</pre>
         </div>
@@ -98,6 +137,25 @@ onUnmounted(stopTimer);
   justify-content: flex-end;
   margin-bottom: 8px;
 }
+.raw-export-btn { color: #b45309; }
+.raw-warn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #b45309;
+  font-size: 12px;
+  text-align: left;
+}
+.raw-warn i { font-size: 15px; }
+.raw-warn span { flex: 1; min-width: 200px; }
+.btn-text.danger { color: #dc2626; }
+.btn-text.danger:hover { background: rgba(220, 38, 38, 0.1); }
 .log-output {
   min-height: 220px;
   max-height: 50vh;

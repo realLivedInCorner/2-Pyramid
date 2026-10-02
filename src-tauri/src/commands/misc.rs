@@ -582,11 +582,45 @@ pub fn log_notification(notification_type: String, title: String, body: String) 
     GLOBAL_LOGGER.info(&format!("[Notif] [{}] {}: {}", notification_type, title, body));
 }
 
-/// Export the in-memory log buffer to a file at `dest` path.
+/// 导出日志结果：路径 + 脱敏处数 + 是否脱敏。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogExportResult {
+    pub path: String,
+    pub redacted: usize,
+    pub redaction: bool,
+}
+
+/// 导出日志。默认**脱敏后**导出（用户可在设置关闭脱敏）；
+/// `raw = true` 仅在开发者模式下允许，导出未脱敏原文。
 #[tauri::command]
-pub fn export_logs(dest: String) -> Result<String, String> {
+pub fn export_logs(dest: String, raw: Option<bool>) -> Result<LogExportResult, String> {
     use crate::logger::GLOBAL_LOGGER;
-    GLOBAL_LOGGER.export_logs(&dest)
+    let want_raw = raw.unwrap_or(false);
+    if want_raw && !GLOBAL_LOGGER.is_dev_mode() {
+        return Err("未脱敏导出仅在开发者模式下可用".to_string());
+    }
+    let redact_enabled = crate::commands::read_config_file()
+        .ok()
+        .and_then(|c| c.log_redaction)
+        .unwrap_or(true);
+    let redact = !want_raw && redact_enabled;
+    let (path, redacted) = GLOBAL_LOGGER.export_logs(&dest, redact)?;
+    crate::log_info!(
+        "OKAY export_logs [{}]",
+        if want_raw {
+            "raw(dev)".to_string()
+        } else if redact {
+            format!("redacted={}", redacted)
+        } else {
+            "raw(user-disabled-redaction)".to_string()
+        }
+    );
+    Ok(LogExportResult {
+        path,
+        redacted,
+        redaction: redact,
+    })
 }
 
 /// Return the path to today's log file.

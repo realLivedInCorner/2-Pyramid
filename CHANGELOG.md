@@ -2,6 +2,7 @@
 
 ### Added
 
+- **导出日志脱敏**：「导出日志」默认对导出的文件做隐私脱敏——Windows 用户名（`C:\Users\张三` → `C:\Users\<user>`）、机器名/主机名、IP（保留 127.0.0.1/::1）、邮箱、API Key/token（`sk-…`、`Authorization: Bearer …`、`api_key=`）以及资源包绝对路径的目录部分（`D:\私密项目\包.zip` → `<path>\包.zip`）。**仅作用于导出文件**：磁盘日志与界面查看保持原文，便于本地排查。可在「设置 → 开发者选项 → 导出日志脱敏」关闭；开发者模式下可导出未脱敏原文（界面二次确认 + 后端校验开发者模式）。导出完成会提示脱敏处数。新增 5 个单测。
 - **分辨率三路采样**：分辨率识别改为 item / block / gui 分别采样并取众数倍率（主倍率优先级 item > gui > block > 1.0，兼容旧调用方）。混合分辨率包（如 32x 物品 + 16x 方块 + 1x GUI）不再互相污染——此前会用 `inventory.png` 宽/16 之类错误基准把 GUI 判成高倍率；混合情况会分别记录并在日志告警。新增 `get_item_scale` / `get_block_scale` / `get_gui_scale` / `scales()` / `scale_coordinate_with()`。
 - **九宫格边框等化**：GUI 处理新增 `equalize_nine_slice_frame`，九宫格缩放后四边边框等宽，修复边框粗细不均。
 
