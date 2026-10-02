@@ -582,19 +582,27 @@ pub fn log_notification(notification_type: String, title: String, body: String) 
     GLOBAL_LOGGER.info(&format!("[Notif] [{}] {}: {}", notification_type, title, body));
 }
 
-/// 导出日志结果：路径 + 脱敏处数 + 是否脱敏。
+/// 导出日志结果：路径 + 脱敏处数 + 是否脱敏 + 来源（会话/磁盘）+ 磁盘文件数。
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogExportResult {
     pub path: String,
     pub redacted: usize,
     pub redaction: bool,
+    pub scope: String,
+    pub files: usize,
 }
 
 /// 导出日志。默认**脱敏后**导出（用户可在设置关闭脱敏）；
 /// `raw = true` 仅在开发者模式下允许，导出未脱敏原文。
+/// `scope`：`"session"`（默认，内存缓冲会话日志）或 `"disk"`（logs 目录下
+/// 全部 `.log` 文件合并导出）。
 #[tauri::command]
-pub fn export_logs(dest: String, raw: Option<bool>) -> Result<LogExportResult, String> {
+pub fn export_logs(
+    dest: String,
+    raw: Option<bool>,
+    scope: Option<String>,
+) -> Result<LogExportResult, String> {
     use crate::logger::GLOBAL_LOGGER;
     let want_raw = raw.unwrap_or(false);
     if want_raw && !GLOBAL_LOGGER.is_dev_mode() {
@@ -605,9 +613,18 @@ pub fn export_logs(dest: String, raw: Option<bool>) -> Result<LogExportResult, S
         .and_then(|c| c.log_redaction)
         .unwrap_or(true);
     let redact = !want_raw && redact_enabled;
-    let (path, redacted) = GLOBAL_LOGGER.export_logs(&dest, redact)?;
+    let disk = scope.as_deref().map(|s| s.eq_ignore_ascii_case("disk")).unwrap_or(false);
+
+    let (path, redacted, files) = if disk {
+        GLOBAL_LOGGER.export_disk_logs(&dest, redact)?
+    } else {
+        let (p, n) = GLOBAL_LOGGER.export_logs(&dest, redact)?;
+        (p, n, 1)
+    };
+
     crate::log_info!(
-        "OKAY export_logs [{}]",
+        "OKAY export_logs [{} {}]",
+        if disk { format!("disk files={}", files) } else { "session".to_string() },
         if want_raw {
             "raw(dev)".to_string()
         } else if redact {
@@ -620,6 +637,8 @@ pub fn export_logs(dest: String, raw: Option<bool>) -> Result<LogExportResult, S
         path,
         redacted,
         redaction: redact,
+        scope: if disk { "disk".to_string() } else { "session".to_string() },
+        files,
     })
 }
 

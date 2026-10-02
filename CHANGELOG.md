@@ -1,8 +1,12 @@
 ## [Unreleased]
 
+（暂无）
+
+## [2.6.0] - 2026-10-01（BUILD 20051）
+
 ### Added
 
-- **导出日志脱敏**：「导出日志」默认对导出的文件做隐私脱敏——Windows 用户名（`C:\Users\张三` → `C:\Users\<user>`）、机器名/主机名、IP（保留 127.0.0.1/::1）、邮箱、API Key/token（`sk-…`、`Authorization: Bearer …`、`api_key=`）以及资源包绝对路径的目录部分（`D:\私密项目\包.zip` → `<path>\包.zip`）。**仅作用于导出文件**：磁盘日志与界面查看保持原文，便于本地排查。可在「设置 → 开发者选项 → 导出日志脱敏」关闭；开发者模式下可导出未脱敏原文（界面二次确认 + 后端校验开发者模式）。导出完成会提示脱敏处数。新增 5 个单测。
+- **日志脱敏（会话日志 + 磁盘日志）**：「导出日志」与新增的「导出磁盘日志」（合并 `logs/` 下全部 `.log`）默认对**导出的文件**做隐私脱敏——Windows 用户名（`C:\Users\张三` → `C:\Users\<user>`）、机器名/主机名、IP（保留 127.0.0.1/::1）、邮箱、API Key/token（`sk-…`、`Authorization: Bearer …`、`api_key=`）以及资源包绝对路径的目录部分（`D:\私密项目\包.zip` → `<path>\包.zip`）。**仅作用于导出文件**：磁盘日志与界面查看保持原文，便于本地排查。可在「设置 → 开发者选项 → 导出日志脱敏」关闭；开发者模式下可导出未脱敏原文（界面二次确认 + 后端校验开发者模式）。导出完成会提示脱敏处数（磁盘导出另报文件数）。新增 5 个脱敏单测。
 - **分辨率三路采样**：分辨率识别改为 item / block / gui 分别采样并取众数倍率（主倍率优先级 item > gui > block > 1.0，兼容旧调用方）。混合分辨率包（如 32x 物品 + 16x 方块 + 1x GUI）不再互相污染——此前会用 `inventory.png` 宽/16 之类错误基准把 GUI 判成高倍率；混合情况会分别记录并在日志告警。新增 `get_item_scale` / `get_block_scale` / `get_gui_scale` / `scales()` / `scale_coordinate_with()`。
 - **九宫格边框等化**：GUI 处理新增 `equalize_nine_slice_frame`，九宫格缩放后四边边框等宽，修复边框粗细不均。
 
@@ -26,18 +30,15 @@
 - **OOBE 卡片表面归属修正**：全局玻璃卡片规则原先套在 `.startup-setting-row` / `.naming-row-inline` 上，导致每一行都变成独立白卡、行与行挤在一起并溢出分组卡圆角；现改由 `.startup-group-card` 承担卡片表面，行只保留分隔线，与设置页 `.group-card` + `.setting-item` 的分层保持一致。
 - **i18n 修复**：`ItemNameDialog` 引用不存在的 `dialog.itemName.saving` 会渲染出裸键名（改用已有 `common.saving`）；补齐 OOBE 分组标题、转换结果数量、Beta 渠道标记、覆盖包默认名等硬编码文案的中英键；修掉 zh 侧 4 条英文残留（版本状态徽章、主题预览标题）与 en 侧 4 条中英混排（界面语言、命名模板字段说明）。
 - **Foray（Editor Mode）界面完成国际化**：`ForayPage.vue` 64 处 + `SettingsPage.vue` Foray AI 表单 18 处硬编码文案全部接入 i18n（新增 `foray.*` 56 键、`settings.forayAi.*` 18 键）；各数据档位说明与隐私提示（「≥3 仅发送选中文件副本；贴图只发概括」）忠实对译，英文用户首次能看到 AI 数据出境提示。
-- 两个 locale 键集合保持 1:1 对等（729↔729），清理 19×2 条无引用的 `settings.*.searchLabel` 死键，并把写死在模板里的全角冒号/括号（输出命名说明、「使用最快源（…）」）改为带占位符的键，英文界面不再出现全角标点。
+- 两个 locale 键集合保持 1:1 对等（742↔742），清理 38 条无引用的 `settings.*.searchLabel` 死键，并把写死在模板里的全角冒号/括号（输出命名说明、「使用最快源（…）」）改为带占位符的键，英文界面不再出现全角标点。
 
 ### Docs
 
 - **legal 补充仓库层面数据流披露**：`PRIVACY.md` / `legal/en/PRIVACY.md` 新增 §8.1，说明 `.github/workflows/feishu-notify.yml` 会把 Issue/PR 标题、作者用户名、链接与提交元数据推送到第三方飞书 webhook（内容在 GitHub 上本就公开、不含本机数据），应用本身从不访问飞书。
 - **英文法律正文可达**：`read_legal_file` 新增 `lang` 参数，界面语言为英文时优先读取 `legal/en/`，缺失自动回落中文原文（此前 `legal/en/*.md` 六份文件不可达，切英文仍显示中文）。
-
-### Docs
-
-- **README 新增「已知限制」一节**（中英）：明确目标版本新增内容为**近似生成**（手工标定 HSV 参数、非原版资源）、Bedrock 双向转换为实验性、发行版默认只记 Warn/Error 日志、更新检查与 Foray AI 的联网行为。
-- **legal 事实一致性修订**：`PRIVACY.md` 承认**自动检查更新默认开启**（原先写「仅在你主动触发时」）、标明镜像 `cdn.5eggpack.top` 为第三方运营、点明 Foray **默认档位 1 会发送包内目录树**、补充 API Key 在 Windows 为明文存储与 MSIX 路径虚拟化说明；`SECURITY.md` 把「不匹配则拒绝安装」改为「有 `.sha256` 时校验并拒绝，缺失则跳过并告警」（与实现一致）；`DISCLAIMER.md` 更正「默认不发送内容」的错误表述；`THIRD-PARTY-NOTICES.md` 把 Remix Icon 的许可证从 Apache-2.0 更正为 Remix Icon License v1.0；`legal/en/EULA.md` 修掉字面 `\n` 转义。
-- **README 更新机制补全**：tag 示例改为 `{版本}` 占位符（避免版本漂移）、补充更新源切换与 `.sha256` 校验要求、说明应用内更新走 `--from-app` **覆盖更新向导**、补 Microsoft Store/MSIX 途径与新增脚本（`test` / `buildrelease:noinstaller` / `--skip-msix`）。
+- **README 新增「已知限制」一节**（中英）：明确目标版本新增内容为**近似生成**（手工标定 HSV 参数、非原版资源）、Bedrock 双向转换为实验性、发行版默认只记 Warn/Error 日志、更新检查与 Foray AI 的联网行为；修正架构图目标版本（26.1+ → 26.3）、统一 Java 目标区间数量（27 → 26）、删除更新机制里遗留的「来源可选镜像」表述、补日志脱敏特性说明。
+- **legal 事实一致性修订**：`PRIVACY.md` 承认**自动检查更新默认开启**（原先写「仅在你主动触发时」）、标明镜像 `cdn.5eggpack.top` 为第三方运营（现已移除）、点明 Foray **默认档位 1 会发送包内目录树**、补充 API Key 在 Windows 为明文存储与 MSIX 路径虚拟化说明、说明**两种日志导出默认脱敏**；`SECURITY.md` 改为**强制校验**口径（未附带 `.sha256`、拉取失败或哈希不匹配一律拒绝更新），并从白名单移除镜像域名；`DISCLAIMER.md` 更正「默认不发送内容」；`EULA.md` 更正「仅在你主动检查更新时联网」；`THIRD-PARTY-NOTICES.md` 把 Remix Icon 的许可证从 Apache-2.0 更正为 Remix Icon License v1.0；`legal/en/EULA.md` 修掉字面 `\n` 转义。
+- **README 更新机制补全**：tag 示例改为 `{版本}` 占位符（避免版本漂移）、补充 `.sha256` 强制校验要求、说明应用内更新走 `--from-app` **覆盖更新向导**、补 Microsoft Store/MSIX 途径与新增脚本（`test` / `buildrelease:noinstaller` / `--skip-msix`）。
 
 ## [2.5.0] - 2026-09-24（BUILD 20048）
 

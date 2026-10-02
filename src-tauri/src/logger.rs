@@ -35,10 +35,16 @@ impl LogLevel {
 
 /// Returns the log file path: `<local_data>/2-Pyramid/logs/2_pyramid_YYYY-MM-DD.log`
 fn log_file_path() -> Option<PathBuf> {
-    let dir = dirs::data_local_dir()?.join("2-Pyramid").join("logs");
-    let _ = fs::create_dir_all(&dir);
+    let dir = logs_dir()?;
     let today = chrono::Local::now().format("%Y-%m-%d");
     Some(dir.join(format!("2_pyramid_{}.log", today)))
+}
+
+/// 日志目录：`<local_data>/2-Pyramid/logs`（不存在时创建）。
+fn logs_dir() -> Option<PathBuf> {
+    let dir = dirs::data_local_dir()?.join("2-Pyramid").join("logs");
+    let _ = fs::create_dir_all(&dir);
+    Some(dir)
 }
 
 /// Human-readable timestamp: `2026-05-30 14:23:45.123`
@@ -168,6 +174,51 @@ impl Logger {
         fs::write(&path, content)
             .map_err(|e| format!("Failed to write log file: {}", e))?;
         Ok((path.to_string_lossy().to_string(), count))
+    }
+
+    /// 导出**磁盘上的全部日志文件**（logs 目录下所有 `.log`，按文件名排序
+    /// 拼接，带文件名分隔头）。与内存导出一样支持脱敏。
+    /// 返回 `(路径, 脱敏处数, 文件数)`。
+    pub fn export_disk_logs(&self, dest: &str, redact: bool) -> Result<(String, usize, usize), String> {
+        let dir = logs_dir().ok_or_else(|| "logs directory not found".to_string())?;
+        let mut files: Vec<PathBuf> = fs::read_dir(&dir)
+            .map_err(|e| format!("Failed to read logs dir: {}", e))?
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.is_file() && p.extension().map(|x| x.eq_ignore_ascii_case("log")).unwrap_or(false))
+            .collect();
+        files.sort();
+
+        let mut merged = String::new();
+        for f in &files {
+            let name = f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            merged.push_str(&format!("===== {} =====\n", name));
+            match fs::read_to_string(f) {
+                Ok(text) => {
+                    merged.push_str(&text);
+                    if !text.ends_with('\n') {
+                        merged.push('\n');
+                    }
+                }
+                Err(e) => merged.push_str(&format!("<read failed: {}>\n", e)),
+            }
+            merged.push('\n');
+        }
+
+        let (content, count) = if redact {
+            let host = machine_name();
+            redact_text(&merged, host.as_deref())
+        } else {
+            (merged, 0)
+        };
+
+        let path = PathBuf::from(dest);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+        fs::write(&path, content).map_err(|e| format!("Failed to write log file: {}", e))?;
+        Ok((path.to_string_lossy().to_string(), count, files.len()))
     }
 
     /// Return the path to today's log file.
