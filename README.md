@@ -34,7 +34,7 @@
   - 贴图别名对齐 vanilla Bedrock（药水瓶、床、桶、木板/原木、盔甲层等）
   - 生成 `gui/icons.png` HUD 图集、`textures_list.json`、容器界面扁平化与 POT 适配
   - 平台独有内容按方向剥离（不互转 Java model ↔ Bedrock geometry）
-- **完全本地** — 无云端、无账号、无遥测，文件全程不离开你的电脑
+- **完全本地** — 无云端、无账号、无遥测，**转换全程不联网**（更新检查与可选的 Foray AI 分析会联网，详见「已知限制」）
 - **批量处理** — 一次拖入多个资源包，1–4 线程并行转换
 - **目录规整防呆** — 自动把嵌套的 `pack.mcmeta` 提升到压缩包根目录；`pack.mcmeta.txt` 之类多扩展名文件只要内容是合法 mcmeta（能解析出 format 数值）也会统一改名为 `pack.mcmeta`
 - **动态贴图转换** — 老版 `{"animation": {}}` 的 `.png.mcmeta` 自动按贴图尺寸推导帧数，改写为高版本 `frametime` + `interpolate` 格式
@@ -62,7 +62,8 @@
 #### 用户（直接使用）
 
 1. 前往 [Releases](https://github.com/realLivedInCorner/2-Pyramid/releases) 下载 `2-Pyramid-Installer-{版本}.exe`（Beta 版为 `2-Pyramid-Installer-{版本}-beta.{BUILD}.exe`）
-2. 安装后启动，首次运行跟随 OOBE 引导配置即可
+2. 或从 **Microsoft Store** 安装（`2-Pyramid-{版本}.msix`，与应用内更新互不影响）
+3. 安装后启动，首次运行跟随 OOBE 引导配置即可
 
 #### 开发者（本地运行）
 
@@ -84,24 +85,31 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `npm run buildrelease` | 正式版完整构建（前端 + 主程序 + 自研安装器 → `release/`） |
 | `npm run betabuild` | Beta 渠道构建（输出 `-beta.{BUILD}.exe`，与正式版可并存） |
 | `npm run buildrelease:nobump` / `npm run betabuild:nobump` | 同上但不递增 BUILD 构建号 |
+| `npm run test` / `npm run test:offline` | 运行 Rust 单测（`test:offline` 强制离线） |
+| `npm run buildrelease:noinstaller` | 只构建主程序，跳过安装器（更快） |
+| `python tools/build_release.py --skip-msix` / `--sign-msix` | 跳过 MSIX / 签名 MSIX（sideload 测试） |
+| `npm run bump:build:show` / `bump:build:set` | 查看 / 手动设置 BUILD 构建号 |
 
 > 构建号说明：`BUILD` 文件由主程序 `build.rs` 在 release 编译时**唯一递增一次**；`--no-bump` 通过环境变量 `2PYR_NO_BUMP=1` 完全跳过递增。
 
 ### 🔄 更新机制
 
-应用内的「检查更新」读取本仓库的 GitHub Releases。Release tag 约定：
+应用内的「检查更新」读取本仓库的 Releases（来源可选 GitHub 官方 API 或第三方镜像）。Release tag 约定（`{版本}` 例如 `2.5.0`）：
 
 | Tag 前缀 | 含义 | 可见通道 |
 |---|---|---|
-| `Safe-2.0.3` | 重要安全更新（强制提醒） | 全部 |
-| `Stable-2.0.3` | 稳定版 | 稳定通道 / 全部 |
-| `v2.0.3` | 稳定版（无前缀） | 稳定通道 / 全部 |
-| `UnStable-2.0.3` / `Beta-2.0.3` | 测试版更新 | 测试通道 / 全部 |
+| `Safe-{版本}` | 重要安全更新（强制提醒） | 全部 |
+| `Stable-{版本}` | 稳定版 | 稳定通道 / 全部 |
+| `v{版本}` | 稳定版（无前缀） | 稳定通道 / 全部 |
+| `UnStable-{版本}` / `Beta-{版本}` | 测试版更新 | 测试通道 / 全部 |
 
 更新通道为三态：**稳定版**（仅稳定发布）/ **测试版**（仅测试发布）/ **全部**（同时接受两个通道的更新内容，取最高版本）。
 更新源可切换：**镜像源**（`cdn.5eggpack.top`，国内加速，第三方维护）/ **GitHub 官方**，设置页内置测速与「使用最快源」。
 
-发版时记得给 Release 附带 `.exe` 安装包附件及**同名 `.sha256` 校验文件**（流水线自动生成，更新器会做完整性校验；更新会拉起图形安装向导）。
+发版要求：
+1. Release 附带 `.exe` 安装包（自研安装器）及**同名 `.sha256` 校验文件**（`build_release.py` 自动生成；更新器下载后会做完整性校验，缺 `.sha256` 只告警跳过）；
+2. 应用内更新时，更新器以 `--from-app` 拉起安装器的**覆盖更新向导**（保留用户数据、锁定原安装目录），而不是全新安装流程；
+3. 走 Microsoft Store 时另附 `release/2-Pyramid-{版本}.msix`（`build_release.py` 默认产出，可用 `--skip-msix` 跳过）。
 
 ### 🏗️ 架构
 
@@ -205,7 +213,7 @@ npm run build                                               # 前端 build
   - Vanilla-aligned texture aliases (potions, beds, buckets, planks/logs, armor layers)
   - Builds `gui/icons.png` HUD atlas, `textures_list.json`; flattens container UI and pads to power-of-two
   - Platform-exclusive assets are dropped per direction (no Java model ↔ Bedrock geometry conversion)
-- **Fully local** — No cloud, no account, no telemetry
+- **Fully local** — No cloud, no account, no telemetry; **conversion never touches the network** (update checks and the optional Foray AI analysis do — see Known Limitations)
 - **Batch processing** — Multiple packs at once, 1–4 parallel workers
 - **Directory normalization** — Nested `pack.mcmeta` is promoted to the zip root; `pack.mcmeta.txt`-style files are renamed to `pack.mcmeta` when they contain a valid `format` value
 - **Animated texture conversion** — Legacy `{"animation": {}}` mcmeta files are upgraded to explicit `frametime` + `interpolate` (frame count derived from texture dimensions)
@@ -233,7 +241,8 @@ npm run build                                               # 前端 build
 #### Users
 
 1. Download `2-Pyramid-Installer-{version}.exe` (or `...-beta.{BUILD}.exe` for Beta) from [Releases](https://github.com/realLivedInCorner/2-Pyramid/releases)
-2. Install, launch, and follow the OOBE setup on first run
+2. Or install from the **Microsoft Store** (`2-Pyramid-{version}.msix`; independent of in-app updates)
+3. Install, launch, and follow the OOBE setup on first run
 
 #### Developers
 
@@ -260,18 +269,21 @@ Common scripts:
 
 ### 🔄 Updates
 
-In-app update checks read this repository's GitHub Releases. Tag conventions:
+In-app update checks read this repository's Releases (source switchable between the official GitHub API and a third-party mirror). Tag conventions (`{version}`, e.g. `2.5.0`):
 
 | Tag prefix | Meaning | Visible to |
 |---|---|---|
-| `Safe-2.0.3` | Important security update | All channels |
-| `Stable-2.0.3` | Stable | Stable / Both |
-| `v2.0.3` | Stable (no prefix) | Stable / Both |
-| `UnStable-2.0.3` / `Beta-2.0.3` | Test / Beta update | Test / Both |
+| `Safe-{version}` | Important security update | All channels |
+| `Stable-{version}` | Stable | Stable / Both |
+| `v{version}` | Stable (no prefix) | Stable / Both |
+| `UnStable-{version}` / `Beta-{version}` | Test / Beta update | Test / Both |
 
 The update channel has three states: **Stable** (stable releases only) / **Pre-Release** (test releases only) / **Both** (accepts updates from both channels at once, highest version wins).
 
-Attach the `.exe` installer to each release (updates launch the GUI installer wizard).
+Release requirements:
+1. Attach the `.exe` installer plus a **matching `.sha256` file** (`build_release.py` writes it; the updater verifies the digest, and only warns when the checksum asset is missing);
+2. For in-app updates the updater launches the installer with `--from-app`, which opens the **overwrite-update wizard** (keeps user data, locks the existing install dir) instead of the fresh-install flow;
+3. For Microsoft Store, attach `release/2-Pyramid-{version}.msix` as well (produced by default; skip with `--skip-msix`).
 
 ### 🏗️ Architecture
 

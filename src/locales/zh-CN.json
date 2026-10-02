@@ -72,6 +72,7 @@
     "totalLabel": "总计：",
     "successLabel": "成功：",
     "failLabel": "失败：",
+    "resultCountUnit": "{count} 个",
     "errorDetails": "失败详情：",
     "errorFile": "文件",
     "severeError": "转换过程中出现严重错误，请查看日志了解详情。",
@@ -89,9 +90,9 @@
       "bedrock": "Bedrock · 基岩版"
     },
     "versionStatus": {
-      "latest": "Latest",
-      "stable": "Stable",
-      "beta": "Beta"
+      "latest": "最新",
+      "stable": "稳定",
+      "beta": "测试版"
     },
     "fullImportList": "全部导入项（{count}）",
     "ready": "准备就绪",
@@ -157,7 +158,7 @@
     },
     "language": {
       "label": "界面语言",
-      "desc": "切换应用显示语言 / Switch UI language"
+      "desc": "切换应用显示语言"
     },
     "userName": {
       "label": "用户名称",
@@ -171,7 +172,7 @@
       "searchDesc": "自定义界面颜色",
       "dialogTitle": "主题色",
       "currentColor": "当前颜色",
-      "previewTitle": "2-Pyramid Theme",
+      "previewTitle": "2-Pyramid 主题",
       "previewSubtitle": "现代化通用多版本资源包转换器",
       "applyHint": "选择后将应用到全局界面。",
       "resetTitle": "重置主题色",
@@ -287,9 +288,9 @@
       "placeholder": "例如：[Ver][Name]",
       "tags": "插入占位符",
       "preview": "预览",
-      "nameDesc": "原材质包名 / Source pack name",
-      "verDesc": "目标版本 / Target version",
-      "timeDesc": "时间戳 / Timestamp",
+      "nameDesc": "原材质包名",
+      "verDesc": "目标版本",
+      "timeDesc": "时间戳",
       "defaultName": "欢迎使用2-Pyramid"
     },
     "conversionHistory": {
@@ -354,6 +355,7 @@
       "searchLabel": "版本详情",
       "searchDesc": "查看当前软件版本与构建号",
       "dialogTitle": "版本信息",
+      "betaChannelTag": "Beta 版本 · 测试渠道",
       "mainVersion": "主版本",
       "buildNumber": "构建号",
       "authors": "作者与贡献",
@@ -477,6 +479,7 @@
     "importTitle": "导入分享码",
     "importDesc": "粘贴 2PYR 开头的分享码以导入项目（兼容旧版 HRCN）",
     "importPlaceholder": "2PYR-...",
+    "defaultPackName": "你的覆盖包",
     "exportTitle": "分享码已生成",
     "exportDesc": "复制下方代码分享给其他用户",
     "copyCode": "复制分享码",
@@ -764,6 +767,11 @@
     "step4": {
       "title": "快速设置",
       "desc": "让我们快速配置几个选项，您之后可以随时在设置中修改",
+      "groups": {
+        "convert": "转换",
+        "notification": "通知",
+        "update": "更新"
+      },
       "outputMode": "输出模式",
       "outputModeDesc": "转换后的文件保存位置",
       "outputModeFollow": "跟随源文件",

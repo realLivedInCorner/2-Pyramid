@@ -72,6 +72,7 @@
     "totalLabel": "Total: ",
     "successLabel": "Success: ",
     "failLabel": "Failed: ",
+    "resultCountUnit": "{count}",
     "errorDetails": "Error Details: ",
     "errorFile": "File",
     "severeError": "A severe error occurred during conversion. Please check the logs for details.",
@@ -157,7 +158,7 @@
     },
     "language": {
       "label": "Language",
-      "desc": "Switch UI language / 切换应用显示语言"
+      "desc": "Switch UI language"
     },
     "userName": {
       "label": "User Name",
@@ -287,9 +288,9 @@
       "placeholder": "e.g. [Ver][Name]",
       "tags": "Insert placeholder",
       "preview": "Preview",
-      "nameDesc": "原材质包名 / Source pack name",
-      "verDesc": "目标版本 / Target version",
-      "timeDesc": "时间戳 / Timestamp",
+      "nameDesc": "Source pack name",
+      "verDesc": "Target version",
+      "timeDesc": "Timestamp",
       "defaultName": "Welcome to 2-Pyramid"
     },
     "conversionHistory": {
@@ -354,6 +355,7 @@
       "searchLabel": "Version Info",
       "searchDesc": "View current version and build number",
       "dialogTitle": "Version Information",
+      "betaChannelTag": "Beta build · Test channel",
       "mainVersion": "Main Version",
       "buildNumber": "Build Number",
       "authors": "Authors & Credits",
@@ -477,6 +479,7 @@
     "importTitle": "Import Share Code",
     "importDesc": "Paste a share code starting with 2PYR (legacy HRCN codes still work)",
     "importPlaceholder": "2PYR-...",
+    "defaultPackName": "Your overlay pack",
     "exportTitle": "Share Code Generated",
     "exportDesc": "Copy the code below to share with other users",
     "copyCode": "Copy Share Code",
@@ -764,6 +767,11 @@
     "step4": {
       "title": "Quick Settings",
       "desc": "Let's configure a few options — you can always change these later in Settings",
+      "groups": {
+        "convert": "Conversion",
+        "notification": "Notifications",
+        "update": "Updates"
+      },
       "outputMode": "Output Mode",
       "outputModeDesc": "Where converted files are saved",
       "outputModeFollow": "Follow Source",

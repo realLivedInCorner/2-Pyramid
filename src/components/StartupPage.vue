@@ -259,7 +259,7 @@ async function finish() {
               <div class="startup-settings-grid">
                 <!-- 转换 -->
                 <div class="startup-group-card">
-                  <h3 class="startup-group-title">转换</h3>
+                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.convert') }}</h3>
                   <div class="startup-setting-row">
                     <div class="item-icon">
                       <i class="ri-route-line" aria-hidden="true"></i>
@@ -309,7 +309,7 @@ async function finish() {
 
                 <!-- 通知 -->
                 <div class="startup-group-card">
-                  <h3 class="startup-group-title">通知</h3>
+                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.notification') }}</h3>
                   <div class="startup-setting-row">
                     <div class="item-icon">
                       <i class="ri-notification-3-line" aria-hidden="true"></i>
@@ -354,7 +354,7 @@ async function finish() {
 
                 <!-- 更新 -->
                 <div class="startup-group-card">
-                  <h3 class="startup-group-title">更新</h3>
+                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.update') }}</h3>
                   <div class="startup-setting-row">
                     <div class="item-icon">
                       <i class="ri-git-branch-line" aria-hidden="true"></i>

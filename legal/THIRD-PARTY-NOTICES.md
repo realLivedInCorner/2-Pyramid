@@ -46,7 +46,7 @@
 | [Vite](https://vitejs.dev) | MIT | 构建 |
 | [TypeScript](https://www.typescriptlang.org) | Apache-2.0 | 类型 |
 | [@tauri-apps/api](https://github.com/tauri-apps/tauri) | MIT OR Apache-2.0 | 前端桥接 |
-| [Remix Icon](https://remixicon.com) | Apache-2.0 | 图标字体 |
+| [Remix Icon](https://remixicon.com) | Remix Icon License v1.0（上游 `package.json` 标为 Apache-2.0，实际许可见 `node_modules/remixicon/License`） | 图标字体 |
 | [@vitejs/plugin-vue](https://github.com/vitejs/vite-plugin-vue) | MIT | Vue 插件 |
 
 > 以 `package.json` 与 lockfile 为准。
