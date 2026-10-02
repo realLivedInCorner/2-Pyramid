@@ -6,7 +6,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { renderMarkdown } from "../utils/markdown";
 import { useSidebarSlide } from "../composables/useSidebarSlide";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const visible = defineModel<boolean>({ required: true });
 
 const { onBeforeEnter, onEnter, onAfterEnter, onBeforeLeave, onLeave, onAfterLeave } =
@@ -36,7 +36,11 @@ async function loadFile(name: string) {
   error.value = "";
   content.value = "";
   try {
-    const raw = await invoke<string>("read_legal_file", { filename: name });
+    // 英文界面优先读 legal/en/（缺失时后端自动回落到中文原文）
+    const raw = await invoke<string>("read_legal_file", {
+      filename: name,
+      lang: locale.value,
+    });
     content.value = renderMarkdown(raw);
   } catch (e) {
     error.value = String(e);

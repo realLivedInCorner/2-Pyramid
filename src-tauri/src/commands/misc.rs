@@ -605,8 +605,9 @@ pub fn get_install_dir() -> Option<String> {
 }
 
 /// 读取安装目录 legal/ 下的法律文本（开发时回落到仓库根 legal/）。
+/// `lang` 以 "en" 开头时优先读 `legal/en/`，找不到再回落到中文原文。
 #[tauri::command]
-pub fn read_legal_file(filename: String) -> Result<String, String> {
+pub fn read_legal_file(filename: String, lang: Option<String>) -> Result<String, String> {
     let name = Path::new(&filename)
         .file_name()
         .and_then(|n| n.to_str())
@@ -614,11 +615,26 @@ pub fn read_legal_file(filename: String) -> Result<String, String> {
     if name.is_empty() || name.contains("..") || name.contains('/') || name.contains('\\') {
         return Err("invalid filename".into());
     }
+    let prefer_en = lang
+        .as_deref()
+        .map(|l| l.to_ascii_lowercase().starts_with("en"))
+        .unwrap_or(false);
+
+    let install_legal = get_install_dir().map(|d| std::path::PathBuf::from(d).join("legal"));
+    let repo_legal = std::path::PathBuf::from("legal");
+
     let mut candidates: Vec<std::path::PathBuf> = Vec::new();
-    if let Some(dir) = get_install_dir() {
-        candidates.push(std::path::PathBuf::from(dir).join("legal").join(name));
+    if prefer_en {
+        if let Some(dir) = &install_legal {
+            candidates.push(dir.join("en").join(name));
+        }
+        candidates.push(repo_legal.join("en").join(name));
     }
-    candidates.push(std::path::PathBuf::from("legal").join(name));
+    if let Some(dir) = &install_legal {
+        candidates.push(dir.join(name));
+    }
+    candidates.push(repo_legal.join(name));
+
     for p in candidates {
         if p.is_file() {
             return std::fs::read_to_string(&p).map_err(|e| format!("read {}: {}", p.display(), e));

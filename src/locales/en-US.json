@@ -142,6 +142,88 @@
     "cancelledText": "Conversion cancelled",
     "manyFilesWarning": "Many files — this may take a while"
   },
+  "foray": {
+    "header": {
+      "title": "Foray Workbench",
+      "subtitle": "Open a resource pack to start analyzing",
+      "openZip": "Open zip",
+      "opening": "Parsing…",
+      "issues": "Issues ({count})"
+    },
+    "empty": {
+      "title": "Editor Mode is on",
+      "desc": "Drag a zip in from the home page, or click \"Open zip\". Normal conversion is disabled under EM."
+    },
+    "tree": {
+      "title": "ROM tree",
+      "filterPlaceholder": "Filter paths…"
+    },
+    "overview": {
+      "title": "Overview",
+      "noDescription": "(no description)",
+      "format": "format {version}",
+      "files": "{count} files",
+      "viewIssues": "View issues ({count})"
+    },
+    "issues": {
+      "title": "Probes / issues ({count})",
+      "empty": "No issues"
+    },
+    "preview": {
+      "title": "Preview",
+      "selectHint": "Select a file on the left",
+      "zoomIn": "Zoom in"
+    },
+    "paint": {
+      "title": "Quick edit",
+      "brush": "Brush",
+      "opacity": "Opacity",
+      "color": "Color",
+      "eyedropper": "Eyedropper",
+      "undo": "Undo",
+      "apply": "Apply",
+      "applyHsv": "Apply HSV",
+      "fullscreen": "View fullscreen"
+    },
+    "ai": {
+      "title": "AI analysis (OpenAI-compatible)",
+      "model": "Model",
+      "tier": "Tier",
+      "tier0": "0 · None",
+      "tier1": "1 · Directory tree",
+      "tier2": "2 · +mcmeta",
+      "tier3": "3 · +JSON (selected)",
+      "tier4": "4 · +shaders (selected)",
+      "tier5": "5 · +texture summary",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Leave blank to use the built-in default",
+      "restoreDefault": "Restore default",
+      "prepare": "Preview what is sent",
+      "analyze": "Start analysis",
+      "analyzing": "Analyzing…",
+      "privacyNotice": "Tier ≥3 sends only copies of the selected files; textures are sent as a summary only. External APIs are not affiliated with the author.",
+      "tier0Notice": "Tier 0 does not call any external API",
+      "viewReport": "View full report"
+    },
+    "ifaso": {
+      "note": "Cross-link entry placeholder. Cross-software use follows the other party's license."
+    },
+    "report": {
+      "title": "AI report",
+      "copied": "Report copied"
+    },
+    "export": {
+      "title": "Export",
+      "saveAs": "Save a copy",
+      "inPlace": "Overwrite in place",
+      "confirmBak": "Confirm (writes .bak)",
+      "confirmRequired": "In-place overwrite needs to be confirmed and will write a .bak backup",
+      "done": "Exported:\n{path}"
+    },
+    "lightbox": {
+      "zoomPercent": "{percent}%"
+    }
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Preferences & Configuration",
@@ -168,7 +250,6 @@
     "theme": {
       "label": "Theme Color",
       "desc": "Current Color: {color}",
-      "searchLabel": "Theme Color",
       "searchDesc": "Customize interface color",
       "dialogTitle": "Theme Color",
       "currentColor": "Current Color",
@@ -182,7 +263,6 @@
     "background": {
       "label": "Background Image",
       "desc": "Custom app background with glass effect",
-      "searchLabel": "Background Image",
       "searchDesc": "Custom app background with glass effect",
       "dialogTitle": "Change Background",
       "choose": "Choose image",
@@ -205,7 +285,6 @@
     "uiStyle": {
       "label": "Control Style",
       "desc": "Translucency of cards and controls",
-      "searchLabel": "Control Style",
       "searchDesc": "Translucency of cards and controls",
       "glass": "Glass",
       "frosted": "Frosted"
@@ -213,7 +292,6 @@
     "outputMode": {
       "label": "Output Directory Strategy",
       "desc": "Choose fixed directory or follow source pack",
-      "searchLabel": "Output Directory Strategy",
       "searchDesc": "Choose fixed directory or follow source pack",
       "follow": "Follow",
       "fixed": "Fixed"
@@ -237,13 +315,11 @@
     "notification": {
       "label": "Notifications",
       "desc": "Enable or disable notification alerts",
-      "searchLabel": "Notifications",
       "searchDesc": "Enable or disable notification alerts"
     },
     "notificationMode": {
       "label": "Notification Mode",
       "desc": "How to show alerts: system notification, app-styled desktop toast, or both",
-      "searchLabel": "Notification Mode",
       "searchDesc": "How to show alerts: system notification, app-styled desktop toast, or both",
       "system": "System",
       "app": "App Toast",
@@ -252,7 +328,6 @@
     "testNotification": {
       "label": "Test Notification",
       "desc": "Send a test notification to verify functionality",
-      "searchLabel": "Test Notification",
       "searchDesc": "Send a test notification to verify functionality",
       "testTitle": "Test Notification",
       "testBody": "This is a test notification to verify that the notification feature is working properly."
@@ -260,13 +335,11 @@
     "toastDuration": {
       "label": "Toast Duration",
       "desc": "How long desktop toasts stay before auto-dismissing",
-      "searchLabel": "Toast Duration",
       "searchDesc": "How long desktop toasts stay before auto-dismissing"
     },
     "toastPosition": {
       "label": "Toast Position",
       "desc": "Which screen corner desktop toasts appear in",
-      "searchLabel": "Toast Position",
       "searchDesc": "Which screen corner desktop toasts appear in",
       "topLeft": "Top Left",
       "topRight": "Top Right",
@@ -276,14 +349,13 @@
     "conversionThreads": {
       "label": "Conversion Threads",
       "desc": "How many packs convert in parallel - more is faster but uses more memory",
-      "searchLabel": "Conversion Threads",
       "searchDesc": "How many packs convert in parallel"
     },
     "outputNaming": {
       "label": "Output Naming Template",
       "desc": "Custom output file name",
+      "descInline": "Custom output file name: {name}",
       "dialogTitle": "Output Naming Template",
-      "searchLabel": "Output Naming Template",
       "searchDesc": "Custom output file name",
       "placeholder": "e.g. [Ver][Name]",
       "tags": "Insert placeholder",
@@ -297,7 +369,6 @@
       "groupTitle": "Conversion History",
       "label": "Recent conversions",
       "desc": "Review recent conversion tasks and results",
-      "searchLabel": "Conversion History",
       "searchDesc": "Review recent conversion tasks and results",
       "clear": "Clear history",
       "openOutput": "Open output",
@@ -307,7 +378,6 @@
     "animationEnabled": {
       "label": "Interface Animations",
       "desc": "When on, pages and dialogs transition smoothly. Off or follow system reduces motion.",
-      "searchLabel": "Interface Animations",
       "searchDesc": "On / Follow system / Off",
       "on": "On",
       "system": "Follow system",
@@ -316,7 +386,6 @@
     "animationSpeed": {
       "label": "Animation Speed",
       "desc": "Controls page transition and stagger speed",
-      "searchLabel": "Animation Speed",
       "searchDesc": "Slow / Normal / Fast",
       "slow": "Slow",
       "normal": "Graceful",
@@ -325,7 +394,6 @@
     "updateChannel": {
       "label": "Update Channel",
       "desc": "Accept stable updates, pre-release updates, or both channels at once",
-      "searchLabel": "Update Channel",
       "searchDesc": "Stable, pre-release, or both channels",
       "stable": "Stable",
       "unstable": "Pre-Release",
@@ -334,25 +402,23 @@
     "autoCheckUpdate": {
       "label": "Check for updates on launch",
       "desc": "Automatically check GitHub Releases at startup; turn off to only check manually in Settings",
-      "searchLabel": "Auto update check",
       "searchDesc": "Check for updates on launch"
     },
     "updateSource": {
       "label": "Update Source",
       "desc": "Mirror source recommended for users in mainland China; switch to GitHub official for the original source",
-      "searchLabel": "Update Source",
       "searchDesc": "Choose mirror source or official GitHub",
       "mirror": "Mirror",
       "github": "GitHub Official",
       "speedTest": "Speed Test",
       "measuring": "Testing…",
       "unreachable": "Unreachable",
-      "useFastest": "Use Fastest"
+      "useFastest": "Use Fastest",
+      "useFastestOf": "Use fastest ({source})"
     },
     "versionInfo": {
       "label": "Version Info",
       "desc": "View current version, build number, and authors",
-      "searchLabel": "Version Info",
       "searchDesc": "View current version and build number",
       "dialogTitle": "Version Information",
       "betaChannelTag": "Beta build · Test channel",
@@ -374,7 +440,6 @@
     "checkUpdate": {
       "label": "Check for Updates",
       "desc": "Current Version: {version}",
-      "searchLabel": "Check for Updates",
       "searchDesc": "Keep the app up to date",
       "checking": "Checking...",
       "alreadyLatest": "Already up to date",
@@ -449,6 +514,26 @@
       "deepLabel": "Also clear logs and overlay history",
       "deepHint": "Additionally removes the logs/ directory and the overlay history inside settings.json. User-built overlay projects are not touched.",
       "successBodyDeep": "User profile deleted (deep clean). The app will now restart."
+    },
+    "forayAi": {
+      "label": "Foray AI (OpenAI-compatible)",
+      "editorModeDesc": "When on, dropping a zip on the home page opens Foray; when off, it converts normally.",
+      "desc": "The key is stored only locally at ~/.2pyr/foray-ai.json; external APIs are not affiliated with the author. The prompt can be edited and restored.",
+      "defaultTier": "Default tier",
+      "tier1": "1 Directory tree",
+      "tier2": "2 +mcmeta",
+      "tier3": "3 +JSON",
+      "tier4": "4 +shaders",
+      "tier5": "5 +texture summary",
+      "systemPrompt": "System prompt",
+      "promptPlaceholder": "Leave blank to use the built-in default",
+      "save": "Save AI config",
+      "restorePrompt": "Restore default prompt",
+      "testConnection": "Test connection",
+      "saved": "Saved to local config",
+      "promptRestored": "Built-in default prompt restored (takes effect after saving)",
+      "connOk": "Connection OK: {msg}",
+      "connFailed": "Connection failed: {msg}"
     }
   },
   "overlay": {

@@ -22,6 +22,13 @@
 - **首次运行向导（OOBE）设置步骤排版重做**：步骤容器上限由 500px 放宽到 960px，分组卡片改为自适应列（列宽不足 380px 自动单列），行内控件不再被压缩——修复卡片过窄导致正文逐字换行、分段按钮被裁切的问题；四张分组卡同屏显示，窄窗口时控件自动换行到正文下方，内容超出时安全居中不裁顶。
 - **OOBE 卡片表面归属修正**：全局玻璃卡片规则原先套在 `.startup-setting-row` / `.naming-row-inline` 上，导致每一行都变成独立白卡、行与行挤在一起并溢出分组卡圆角；现改由 `.startup-group-card` 承担卡片表面，行只保留分隔线，与设置页 `.group-card` + `.setting-item` 的分层保持一致。
 - **i18n 修复**：`ItemNameDialog` 引用不存在的 `dialog.itemName.saving` 会渲染出裸键名（改用已有 `common.saving`）；补齐 OOBE 分组标题、转换结果数量、Beta 渠道标记、覆盖包默认名等硬编码文案的中英键；修掉 zh 侧 4 条英文残留（版本状态徽章、主题预览标题）与 en 侧 4 条中英混排（界面语言、命名模板字段说明）。
+- **Foray（Editor Mode）界面完成国际化**：`ForayPage.vue` 64 处 + `SettingsPage.vue` Foray AI 表单 18 处硬编码文案全部接入 i18n（新增 `foray.*` 56 键、`settings.forayAi.*` 18 键）；各数据档位说明与隐私提示（「≥3 仅发送选中文件副本；贴图只发概括」）忠实对译，英文用户首次能看到 AI 数据出境提示。
+- 两个 locale 键集合保持 1:1 对等（729↔729），清理 19×2 条无引用的 `settings.*.searchLabel` 死键，并把写死在模板里的全角冒号/括号（输出命名说明、「使用最快源（…）」）改为带占位符的键，英文界面不再出现全角标点。
+
+### Docs
+
+- **legal 补充仓库层面数据流披露**：`PRIVACY.md` / `legal/en/PRIVACY.md` 新增 §8.1，说明 `.github/workflows/feishu-notify.yml` 会把 Issue/PR 标题、作者用户名、链接与提交元数据推送到第三方飞书 webhook（内容在 GitHub 上本就公开、不含本机数据），应用本身从不访问飞书。
+- **英文法律正文可达**：`read_legal_file` 新增 `lang` 参数，界面语言为英文时优先读取 `legal/en/`，缺失自动回落中文原文（此前 `legal/en/*.md` 六份文件不可达，切英文仍显示中文）。
 
 ### Docs
 

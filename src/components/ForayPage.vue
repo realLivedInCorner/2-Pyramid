@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 const emit = defineEmits<{ (e: "leave"): void; (e: "switch-page", p: string): void }>();
 
@@ -198,14 +201,14 @@ async function doExport() {
   err.value = "";
   try {
     if (exportMode.value === "in_place" && !confirmInPlace.value) {
-      err.value = "原地覆盖需勾选确认，并会写 .bak 备份";
+      err.value = t('foray.export.confirmRequired');
       return;
     }
     const res = await invoke<any>("foray_export", {
       mode: exportMode.value === "in_place" ? "in_place" : "save_as",
       destDir: null,
     });
-    alert("已导出：\n" + res.path);
+    alert(t('foray.export.done', { path: res.path }));
     confirmInPlace.value = false;
   } catch (e: any) {
     err.value = String(e);
@@ -231,9 +234,9 @@ function restoreDefaultPrompt() {
 async function copyReport() {
   try {
     await navigator.clipboard.writeText(aiReport.value);
-    err.value = "报告已复制";
+    err.value = t('foray.report.copied');
     setTimeout(() => {
-      if (err.value === "报告已复制") err.value = "";
+      if (err.value === t('foray.report.copied')) err.value = "";
     }, 1500);
   } catch (e) {
     console.warn(e);
@@ -261,7 +264,7 @@ async function runAi() {
   try {
     await prepareAi();
     if (tier.value === 0) {
-      aiError.value = "档位 0 不会调用外部 API";
+      aiError.value = t('foray.ai.tier0Notice');
       return;
     }
     aiReport.value = await invoke<string>("foray_ai_analyze", {
@@ -312,21 +315,21 @@ onMounted(() => {
     <header class="header-section">
       <button class="ghost-btn back-btn" type="button" @click="onLeave">
         <i class="ri-arrow-left-line" aria-hidden="true"></i>
-        返回
+        {{ t('common.back') }}
       </button>
       <div class="title-group">
-        <h1 class="page-title">Foray 工作台</h1>
-        <p class="page-subtitle">{{ source || "打开资源包开始分析" }}</p>
+        <h1 class="page-title">{{ t('foray.header.title') }}</h1>
+        <p class="page-subtitle">{{ source || t('foray.header.subtitle') }}</p>
       </div>
       <div class="header-actions">
         <button class="ghost-btn" type="button" :disabled="!opened || !issues.length" @click="showIssues = true">
-          问题（{{ issues.length }}）
+          {{ t('foray.header.issues', { count: issues.length }) }}
         </button>
         <button class="ghost-btn" type="button" :disabled="!aiReport" @click="showReport = true">
-          AI 报告
+          {{ t('foray.report.title') }}
         </button>
         <button class="start-conversion-button sm" type="button" :disabled="loading" @click="pickFile">
-          {{ loading ? "解析中…" : "打开 zip" }}
+          {{ loading ? t('foray.header.opening') : t('foray.header.openZip') }}
         </button>
       </div>
     </header>
@@ -335,14 +338,14 @@ onMounted(() => {
 
     <div v-if="!opened" class="empty-state card">
       <i class="ri-folder-zip-line empty-icon" aria-hidden="true"></i>
-      <h2>Editor Mode 已启用</h2>
-      <p>从主页拖入 zip，或点击「打开 zip」。普通转换在 EM 下已停用。</p>
+      <h2>{{ t('foray.empty.title') }}</h2>
+      <p>{{ t('foray.empty.desc') }}</p>
     </div>
 
     <div v-else class="foray-grid">
       <section class="card pane tree-pane">
-        <h2 class="card-title">ROM 树</h2>
-        <input v-model="treeQuery" class="tree-filter" type="search" placeholder="过滤路径…" />
+        <h2 class="card-title">{{ t('foray.tree.title') }}</h2>
+        <input v-model="treeQuery" class="tree-filter" type="search" :placeholder="t('foray.tree.filterPlaceholder')" />
         <div class="tree">
           <div v-for="g in treeRoots" :key="g.top" class="tree-group">
             <button class="tree-group-btn" type="button" @click="openFolders[g.top] = !openFolders[g.top]">
@@ -369,18 +372,18 @@ onMounted(() => {
       </section>
 
       <section class="card pane main-pane">
-        <h2 class="card-title">概览</h2>
+        <h2 class="card-title">{{ t('foray.overview.title') }}</h2>
         <p class="overview-line">
-          <b>{{ desc || "（无描述）" }}</b>
-          <span class="pill">format {{ packFormat ?? "?" }}</span>
-          <span class="pill">{{ files.length }} files</span>
+          <b>{{ desc || t('foray.overview.noDescription') }}</b>
+          <span class="pill">{{ t('foray.overview.format', { version: packFormat ?? "?" }) }}</span>
+          <span class="pill">{{ t('foray.overview.files', { count: files.length }) }}</span>
           <button class="ghost-btn sm" type="button" @click="showIssues = true">
-            查看问题（{{ issues.length }}）
+            {{ t('foray.overview.viewIssues', { count: issues.length }) }}
           </button>
         </p>
 
-        <h2 class="card-title">预览</h2>
-        <p class="muted small">{{ selected || "选择左侧文件" }}</p>
+        <h2 class="card-title">{{ t('foray.preview.title') }}</h2>
+        <p class="muted small">{{ selected || t('foray.preview.selectHint') }}</p>
         <pre v-if="previewUtf8" class="code-block">{{ previewUtf8.slice(0, 2500) }}</pre>
         <div v-if="paintPng || previewPng" class="preview-wrap">
           <img
@@ -390,33 +393,33 @@ onMounted(() => {
             @click="openLightbox"
           />
           <div class="toolbar">
-            <button class="ghost-btn" type="button" @click="openLightbox">放大预览</button>
+            <button class="ghost-btn" type="button" @click="openLightbox">{{ t('foray.preview.zoomIn') }}</button>
             <button class="start-conversion-button sm" type="button" @click="openPaint(selected)">
-              轻量编辑
+              {{ t('foray.paint.title') }}
             </button>
           </div>
         </div>
 
-        <h2 class="card-title">导出</h2>
+        <h2 class="card-title">{{ t('foray.export.title') }}</h2>
         <div class="toolbar">
           <label class="check">
             <input v-model="exportMode" type="radio" value="save_as" />
-            另存副本
+            {{ t('foray.export.saveAs') }}
           </label>
           <label class="check">
             <input v-model="exportMode" type="radio" value="in_place" />
-            原地覆盖
+            {{ t('foray.export.inPlace') }}
           </label>
           <label v-if="exportMode === 'in_place'" class="check warn">
             <input v-model="confirmInPlace" type="checkbox" />
-            确认（写 .bak）
+            {{ t('foray.export.confirmBak') }}
           </label>
-          <button class="start-conversion-button sm" type="button" @click="doExport">导出</button>
+          <button class="start-conversion-button sm" type="button" @click="doExport">{{ t('common.export') }}</button>
         </div>
       </section>
 
       <section class="card pane ai-pane">
-        <h2 class="card-title">AI 分析（OpenAI 兼容）</h2>
+        <h2 class="card-title">{{ t('foray.ai.title') }}</h2>
         <label class="field">
           <span>Base URL</span>
           <input v-model="aiConfig.base_url" type="text" />
@@ -426,42 +429,42 @@ onMounted(() => {
           <input v-model="aiConfig.api_key" type="password" autocomplete="off" />
         </label>
         <label class="field">
-          <span>模型</span>
+          <span>{{ t('foray.ai.model') }}</span>
           <input v-model="aiConfig.model" type="text" />
         </label>
         <label class="field">
-          <span>档位</span>
+          <span>{{ t('foray.ai.tier') }}</span>
           <select v-model.number="tier">
-            <option :value="0">0 · 无</option>
-            <option :value="1">1 · 目录树</option>
-            <option :value="2">2 · +mcmeta</option>
-            <option :value="3">3 · +JSON（选中）</option>
-            <option :value="4">4 · +着色器（选中）</option>
-            <option :value="5">5 · +贴图概括</option>
+            <option :value="0">{{ t('foray.ai.tier0') }}</option>
+            <option :value="1">{{ t('foray.ai.tier1') }}</option>
+            <option :value="2">{{ t('foray.ai.tier2') }}</option>
+            <option :value="3">{{ t('foray.ai.tier3') }}</option>
+            <option :value="4">{{ t('foray.ai.tier4') }}</option>
+            <option :value="5">{{ t('foray.ai.tier5') }}</option>
           </select>
         </label>
         <label class="field">
-          <span>提示词</span>
-          <textarea v-model="aiConfig.system_prompt" rows="3" placeholder="留空使用内置默认"></textarea>
+          <span>{{ t('foray.ai.prompt') }}</span>
+          <textarea v-model="aiConfig.system_prompt" rows="3" :placeholder="t('foray.ai.promptPlaceholder')"></textarea>
         </label>
         <div class="toolbar">
-          <button class="ghost-btn" type="button" @click="restoreDefaultPrompt">还原默认</button>
-          <button class="ghost-btn" type="button" @click="prepareAi">将发送预览</button>
+          <button class="ghost-btn" type="button" @click="restoreDefaultPrompt">{{ t('foray.ai.restoreDefault') }}</button>
+          <button class="ghost-btn" type="button" @click="prepareAi">{{ t('foray.ai.prepare') }}</button>
           <button class="start-conversion-button sm" type="button" :disabled="aiBusy" @click="runAi">
-            {{ aiBusy ? "分析中…" : "开始分析" }}
+            {{ aiBusy ? t('foray.ai.analyzing') : t('foray.ai.analyze') }}
           </button>
         </div>
-        <p class="muted small">≥3 仅发送选中文件副本；贴图只发概括。外部 API 与作者无关。</p>
+        <p class="muted small">{{ t('foray.ai.privacyNotice') }}</p>
         <ul v-if="aiPreview.length" class="issue-list compact">
           <li v-for="(p, i) in aiPreview" :key="i">{{ p }}</li>
         </ul>
         <p v-if="aiError" class="page-error">{{ aiError }}</p>
         <button v-if="aiReport" class="ghost-btn" type="button" @click="showReport = true">
-          查看完整报告
+          {{ t('foray.ai.viewReport') }}
         </button>
 
         <h2 class="card-title">IFASO</h2>
-        <p class="muted small">互链入口占位。跨软件按对方 License。</p>
+        <p class="muted small">{{ t('foray.ifaso.note') }}</p>
       </section>
     </div>
 
@@ -469,8 +472,8 @@ onMounted(() => {
     <div v-if="showIssues" class="modal-mask" @click.self="showIssues = false">
       <div class="modal panel-issues">
         <header class="modal-head">
-          <h3>探针 / 问题（{{ issues.length }}）</h3>
-          <button class="ghost-btn sm" type="button" @click="showIssues = false">关闭</button>
+          <h3>{{ t('foray.issues.title', { count: issues.length }) }}</h3>
+          <button class="ghost-btn sm" type="button" @click="showIssues = false">{{ t('common.close') }}</button>
         </header>
         <div class="modal-body">
           <ul class="issue-list">
@@ -479,7 +482,7 @@ onMounted(() => {
               <span class="issue-path">{{ i.path }}</span>
               <span class="issue-msg">{{ i.message }}</span>
             </li>
-            <li v-if="!issues.length" class="muted">暂无 issue</li>
+            <li v-if="!issues.length" class="muted">{{ t('foray.issues.empty') }}</li>
           </ul>
         </div>
       </div>
@@ -489,8 +492,8 @@ onMounted(() => {
     <div v-if="showPaint" class="modal-mask" @click.self="showPaint = false">
       <div class="modal panel-paint">
         <header class="modal-head">
-          <h3>轻量编辑 · {{ selected.split("/").pop() }}</h3>
-          <button class="ghost-btn sm" type="button" @click="showPaint = false">关闭</button>
+          <h3>{{ t('foray.paint.title') }} · {{ selected.split("/").pop() }}</h3>
+          <button class="ghost-btn sm" type="button" @click="showPaint = false">{{ t('common.close') }}</button>
         </header>
         <div class="modal-body paint-body">
           <img
@@ -501,19 +504,19 @@ onMounted(() => {
             @click="onPaintClick"
           />
           <div class="toolbar">
-            <label>笔刷 <input v-model.number="brushR" type="number" min="1" max="32" /></label>
-            <label>透明 <input v-model.number="brushOpacity" type="number" min="0" max="1" step="0.05" /></label>
-            <label>颜色 <input v-model="brushColor" type="color" /></label>
-            <label class="check"><input v-model="eyedropper" type="checkbox" /> 吸管</label>
-            <button class="ghost-btn" type="button" @click="undoPaint">撤销</button>
-            <button class="start-conversion-button sm" type="button" @click="commitPaint">应用</button>
+            <label>{{ t('foray.paint.brush') }} <input v-model.number="brushR" type="number" min="1" max="32" /></label>
+            <label>{{ t('foray.paint.opacity') }} <input v-model.number="brushOpacity" type="number" min="0" max="1" step="0.05" /></label>
+            <label>{{ t('foray.paint.color') }} <input v-model="brushColor" type="color" /></label>
+            <label class="check"><input v-model="eyedropper" type="checkbox" /> {{ t('foray.paint.eyedropper') }}</label>
+            <button class="ghost-btn" type="button" @click="undoPaint">{{ t('foray.paint.undo') }}</button>
+            <button class="start-conversion-button sm" type="button" @click="commitPaint">{{ t('foray.paint.apply') }}</button>
           </div>
           <div class="toolbar">
             <label>H <input v-model.number="hsv.dh" type="number" min="-180" max="180" /></label>
             <label>S <input v-model.number="hsv.ds" type="number" min="-100" max="100" /></label>
             <label>V <input v-model.number="hsv.dv" type="number" min="-100" max="100" /></label>
-            <button class="ghost-btn" type="button" @click="applyHsv">应用 HSV</button>
-            <button class="ghost-btn" type="button" @click="openLightbox">全屏看图</button>
+            <button class="ghost-btn" type="button" @click="applyHsv">{{ t('foray.paint.applyHsv') }}</button>
+            <button class="ghost-btn" type="button" @click="openLightbox">{{ t('foray.paint.fullscreen') }}</button>
           </div>
         </div>
       </div>
@@ -523,10 +526,10 @@ onMounted(() => {
     <div v-if="showReport" class="modal-mask" @click.self="showReport = false">
       <div class="modal panel-report">
         <header class="modal-head">
-          <h3>AI 报告</h3>
+          <h3>{{ t('foray.report.title') }}</h3>
           <div>
-            <button class="ghost-btn sm" type="button" @click="copyReport">复制</button>
-            <button class="ghost-btn sm" type="button" @click="showReport = false">关闭</button>
+            <button class="ghost-btn sm" type="button" @click="copyReport">{{ t('common.copy') }}</button>
+            <button class="ghost-btn sm" type="button" @click="showReport = false">{{ t('common.close') }}</button>
           </div>
         </header>
         <div class="modal-body">
@@ -539,10 +542,10 @@ onMounted(() => {
     <div v-if="lightboxSrc" class="modal-mask lightbox" @click.self="closeLightbox">
       <div class="lightbox-toolbar">
         <button class="ghost-btn" type="button" @click="lightboxZoom = Math.max(0.5, lightboxZoom - 0.25)">−</button>
-        <span class="muted">{{ (lightboxZoom * 100).toFixed(0) }}%</span>
+        <span class="muted">{{ t('foray.lightbox.zoomPercent', { percent: (lightboxZoom * 100).toFixed(0) }) }}</span>
         <button class="ghost-btn" type="button" @click="lightboxZoom = Math.min(8, lightboxZoom + 0.25)">+</button>
         <button class="ghost-btn" type="button" @click="lightboxZoom = 2">2×</button>
-        <button class="ghost-btn" type="button" @click="closeLightbox">关闭</button>
+        <button class="ghost-btn" type="button" @click="closeLightbox">{{ t('common.close') }}</button>
       </div>
       <div class="lightbox-scroll">
         <img

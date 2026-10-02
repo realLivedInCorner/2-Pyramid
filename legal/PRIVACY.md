@@ -69,6 +69,13 @@
 
 政策更新会修改文首日期并在仓库说明。重大变更将通过 Release Notes 提示。
 
+## 8.1 仓库层面的数据流（与应用无关）
+
+本节说明的是 **GitHub 仓库**，不是安装后的应用：
+
+- **Issue / PR / 提交元数据 → 飞书（Lark）**：本仓库的 GitHub Actions 工作流（`.github/workflows/feishu-notify.yml`）会把 **Issue 与 PR 的标题、作者用户名、链接，以及提交元数据**发送到项目维护的第三方飞书（Lark）webhook，用于通知维护者。这些信息在 GitHub 上本就是**公开内容**，不包含你本机的任何数据或资源包内容；若你不希望被转发，请不要提交 Issue / PR，或要求维护者移除该 webhook。
+- 应用本身**从不访问飞书**，除你自行配置的 Foray AI endpoint 外，也不会把资源包内容发往任何地方。
+
 ## 9. 安装与卸载（EXE / MSIX / 静默）
 
 静默安装（`--silent`）不会额外上传数据。卸载删除程序文件；`~/.2pyr` 等用户数据默认保留。GitHub Releases 的 exe 安装器与 Microsoft Store 的 MSIX 包写入的是**同样的逻辑路径**，但 MSIX（打包应用）下 Windows 会把 `%APPDATA%` / `%LOCALAPPDATA%` / `%TEMP%` 写入**重定向到包专属的虚拟化位置**，因此实际落盘位置与 exe 版不同（卸载行为由商店条款约束）。
