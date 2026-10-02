@@ -105,7 +105,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `UnStable-{版本}` / `Beta-{版本}` | 测试版更新 | 测试通道 / 全部 |
 
 更新通道为三态：**稳定版**（仅稳定发布）/ **测试版**（仅测试发布）/ **全部**（同时接受两个通道的更新内容，取最高版本）。
-更新源：**仅 GitHub 官方**。国内镜像 `cdn.5eggpack.top` 曾作为可选项，**已于 2026-10 移除**（镜像作者停止维护），设置页中该选项显示为「已停止维护，不可用」。
+更新源：**仅 GitHub 官方**——国内镜像 `cdn.5eggpack.top` 已于 2026-10 **彻底移除**（镜像作者停止维护），设置里不再有「更新源」选项，也没有测速 / 切换入口。
 
 发版要求：
 1. Release 附带 `.exe` 安装包（自研安装器）及**同名 `.sha256` 校验文件**（`build_release.py` 自动生成）。**校验是强制的**：缺少 `.sha256`、校验文件拉取失败或哈希不匹配，更新器一律拒绝下载/安装；
@@ -281,7 +281,7 @@ In-app update checks read this repository's Releases (official GitHub API only).
 | `UnStable-{version}` / `Beta-{version}` | Test / Beta update | Test / Both |
 
 The update channel has three states: **Stable** (stable releases only) / **Pre-Release** (test releases only) / **Both** (accepts updates from both channels at once, highest version wins).
-Update source: **official GitHub only**. The China mirror `cdn.5eggpack.top` was an optional source and was **removed in 2026-10** (its maintainer stopped maintaining it); the option is shown as “retired / unavailable” in Settings.
+Update source: **official GitHub only** — the China mirror `cdn.5eggpack.top` was **fully removed in 2026-10** (its maintainer stopped maintaining it); Settings no longer offers an update-source option, speed test or switch.
 
 Release requirements:
 1. Attach the `.exe` installer plus a **matching `.sha256` file** (`build_release.py` writes it). **Verification is mandatory**: a missing checksum, a failed checksum fetch, or a hash mismatch makes the updater refuse to download/install;
