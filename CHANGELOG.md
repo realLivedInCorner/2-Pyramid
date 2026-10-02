@@ -1,10 +1,8 @@
 ## [Unreleased]
 
-### Changed
+（暂无）
 
-- **彻底移除「更新源」相关功能**：2.6.0 里镜像源只是「显示为不可用」，本次把整个更新源概念删干净——设置页不再有「更新源」项（含镜像按钮、测速、「使用最快源」），前端不再有相关状态与样式，后端删除 `get_update_source` / `set_update_source` / `measure_update_sources` 命令与 `SourceSpeed` 结构，配置结构去掉 `update_source` 字段（旧配置文件里的该字段直接忽略），i18n 删除 `settings.updateSource.*` 全部键。更新检查固定走 GitHub 官方 API。
-
-## [2.6.0] - 2026-10-01（BUILD 20051）
+## [2.6.0] - 2026-10-01（BUILD 20054）
 
 ### Added
 
@@ -14,7 +12,7 @@
 
 ### Changed
 
-- **移除国内镜像更新源**：`cdn.5eggpack.top` 因**镜像作者停止维护**而不可用，已从更新链路与下载域名白名单中移除；设置页「更新源」里该选项显示为**已停止维护、不可用**（按钮禁用），配置里遗留的 `mirror` 值一律按 GitHub 官方源处理，测速只实测 GitHub。
+- **彻底移除「更新源」功能（不再只是置灰）**：镜像源退役后设置里仍留着一个不可用的选项与测速入口，本版把整个更新源概念删干净——设置页不再有「更新源」项（含镜像按钮、测速、「使用最快源」），前端相关状态与样式一并删除，后端删除 `get_update_source` / `set_update_source` / `measure_update_sources` 命令与 `SourceSpeed` 结构，配置结构去掉 `update_source` 字段（旧配置文件里的该字段直接忽略），i18n 删除 `settings.updateSource.*` 全部键。更新检查固定走 GitHub 官方 API，下载域名白名单只保留 `github.com` / `objects.githubusercontent.com`。
 - **更新校验改为强制**：`.sha256` 缺失、校验文件拉取失败或哈希不匹配，更新器**一律拒绝下载/安装**（此前缺失时仅告警跳过）。发版必须同时上传安装包与同名 `.sha256`。
 - **分发路线改为双通道，不再构建 MSI**：
   - **GitHub Releases**：2-Pyramid-Installer-{ver}.exe（自研安装器，保留静默参数与 .sha256）
@@ -32,7 +30,8 @@
 - **OOBE 卡片表面归属修正**：全局玻璃卡片规则原先套在 `.startup-setting-row` / `.naming-row-inline` 上，导致每一行都变成独立白卡、行与行挤在一起并溢出分组卡圆角；现改由 `.startup-group-card` 承担卡片表面，行只保留分隔线，与设置页 `.group-card` + `.setting-item` 的分层保持一致。
 - **i18n 修复**：`ItemNameDialog` 引用不存在的 `dialog.itemName.saving` 会渲染出裸键名（改用已有 `common.saving`）；补齐 OOBE 分组标题、转换结果数量、Beta 渠道标记、覆盖包默认名等硬编码文案的中英键；修掉 zh 侧 4 条英文残留（版本状态徽章、主题预览标题）与 en 侧 4 条中英混排（界面语言、命名模板字段说明）。
 - **Foray（Editor Mode）界面完成国际化**：`ForayPage.vue` 64 处 + `SettingsPage.vue` Foray AI 表单 18 处硬编码文案全部接入 i18n（新增 `foray.*` 56 键、`settings.forayAi.*` 18 键）；各数据档位说明与隐私提示（「≥3 仅发送选中文件副本；贴图只发概括」）忠实对译，英文用户首次能看到 AI 数据出境提示。
-- 两个 locale 键集合保持 1:1 对等（742↔742），清理 38 条无引用的 `settings.*.searchLabel` 死键，并把写死在模板里的全角冒号/括号（输出命名说明、「使用最快源（…）」）改为带占位符的键，英文界面不再出现全角标点。
+- 两个 locale 键集合保持 1:1 对等（731↔731），清理 38 条无引用的 `settings.*.searchLabel` 死键，并把写死在模板里的全角冒号/括号（输出命名说明、「使用最快源（…）」）改为带占位符的键，英文界面不再出现全角标点。
+- **发布流水线 BUILD 重复递增修复**：MSIX 的第二次编译（`--features store`）此前复用同一套环境变量、未带 `2PYR_NO_BUMP=1`，导致每次发布 BUILD 递增两次（+2）；现该次编译显式跳过递增，BUILD 每次发布只 +1。
 
 ### Docs
 

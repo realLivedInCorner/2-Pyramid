@@ -426,12 +426,17 @@ def main() -> None:
 
     if not args.skip_msix:
         try:
-            # 商店包：feature=store，不含 updater / explorer 外部进程调用
+            # 商店包：feature=store，不含 updater / explorer 外部进程调用。
+            #
+            # 注意：这是同一版本的**第二次编译**，BUILD 已在上面的主程序编译时
+            # 递增过一次（build.rs 是唯一递增点）。这里必须显式跳过递增，
+            # 否则每次发布 BUILD 都会 +2。
+            store_env = {**channel_env, "2PYR_NO_BUMP": "1"}
             run(
                 ["npx", "tauri", "build", "--no-bundle", "--features", "store"],
                 ROOT,
                 "编译主程序 (tauri build --no-bundle --features store)",
-                env=channel_env,
+                env=store_env,
             )
             collect_staging()
             build_msix(version.split("-")[0], STAGING, args.beta)
