@@ -17,6 +17,7 @@ pub mod color;
 pub mod legacy_eraser;
 pub mod legacy_processor;
 pub mod main_converter;
+pub mod pack_analysis;
 pub mod reverse;
 pub mod scale_factor;
 pub mod shaders;
