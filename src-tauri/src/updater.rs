@@ -209,27 +209,32 @@ fn version_bump(current: &str, latest: &str) -> VersionBump {
 
 // ── GitHub API (async) ──────────────────────────────────────
 
-// 可用的更新源：
-//   * mirror（默认）— 国内镜像，由 cdn.5eggpack.top 提供，schema 与 GitHub Releases
-//     API 一致，便于国内用户快速检测与下载更新。
-//   * github — 官方 GitHub Releases 源。
-const MIRROR_API: &str = "https://cdn.5eggpack.top/api/github/releases";
+// 更新源：**只剩官方 GitHub Releases**。
+//
+// 历史上的国内镜像 `cdn.5eggpack.top` 已移除（2026-10：镜像作者停止维护，
+// 服务不可用）。配置里遗留的 "mirror" 值一律按 "github" 处理，前端把镜像源
+// 显示为「已停止维护，不可用」，不允许再选中。
 const GITHUB_API: &str = "https://api.github.com/repos/realLivedInCorner/2-Pyramid/releases";
 
-/// 读取当前更新源配置（"github" 或默认 "mirror"）。
+/// 镜像源停用原因（同时用于前端提示与测速结果说明）。
+pub const MIRROR_DISABLED_REASON: &str = "镜像源已停止维护，不可用";
+
+/// 读取当前更新源配置。镜像源已停用，因此恒为 "github"。
 fn effective_update_source() -> String {
-    read_config_file()
-        .ok()
-        .and_then(|c| c.update_source)
-        .unwrap_or_else(|| "mirror".to_string())
+    if let Ok(cfg) = read_config_file() {
+        if cfg.update_source.as_deref() == Some("mirror") {
+            crate::log_warn!(
+                "update source 'mirror' is retired (maintainer stopped maintaining it); falling back to github"
+            );
+        }
+    }
+    "github".to_string()
 }
 
-/// 根据配置返回本次要请求的 releases API 端点。
+/// 本次要请求的 releases API 端点（镜像停用后仅此一处）。
 fn releases_api_endpoint() -> &'static str {
-    match effective_update_source().as_str() {
-        "github" => GITHUB_API,
-        _ => MIRROR_API,
-    }
+    let _ = effective_update_source();
+    GITHUB_API
 }
 
 async fn fetch_releases() -> Result<Vec<GitHubRelease>, String> {
@@ -335,15 +340,14 @@ async fn check_github_releases(channel: &str, current_version: &str) -> Result<U
 // ── Download (async streaming) ──────────────────────────────
 
 /// 下载域名白名单：安装包与哈希文件只允许从这些主机下载。
-/// 镜像/API 返回的 browser_download_url 一律先过这里，防止被
-/// 篡改的数据把用户引向任意域名。
+/// 响应里返回的 browser_download_url 一律先过这里，防止被篡改的数据
+/// 把用户引向任意域名。（镜像源已停用，故白名单同步收掉其域名。）
 fn is_allowed_download_url(url: &str) -> bool {
     match reqwest::Url::parse(url) {
         Ok(u) => u.host_str().map(|h| {
             h == "github.com"
                 || h.ends_with(".github.com")
                 || h == "objects.githubusercontent.com"
-                || h == "cdn.5eggpack.top"
         }).unwrap_or(false),
         Err(_) => false,
     }
@@ -433,18 +437,26 @@ async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<St
         ));
     }
 
-    // 2. 预取期望的 SHA-256（若有同名 .sha256 资产）；没有则跳过校验
+    // 2. SHA-256 是**强制**的：没有校验文件就无法证明安装包完整，
+    //    一律拒绝更新（不再「缺失就跳过」）。
     let expected_sha256 = match find_sha256_asset(release, &asset.name) {
         Some(sha_asset) => match fetch_expected_sha256(&sha_asset.browser_download_url).await {
-            Ok(hex) => Some(hex),
+            Ok(hex) => hex,
             Err(e) => {
-                crate::log_warn!("sha256 资产获取失败（跳过校验）: {}", e);
-                None
+                crate::log_error!("sha256 资产获取失败，拒绝更新: {}", e);
+                return Err(format!(
+                    "无法获取安装包的校验文件（.sha256），已拒绝更新：{}. \
+                     请联系发布者重新上传带校验文件的版本。",
+                    e
+                ));
             }
         },
         None => {
-            crate::log_warn!("release 未附带 .sha256 校验文件，跳过完整性校验");
-            None
+            crate::log_error!("release 未附带 .sha256 校验文件，拒绝更新");
+            return Err(format!(
+                "该版本（{}）未附带 .sha256 校验文件，无法校验安装包完整性，已拒绝更新。",
+                release.version
+            ));
         }
     };
 
@@ -495,17 +507,17 @@ async fn download_installer(app: &AppHandle, release: &ReleaseInfo) -> Result<St
 
     file.flush().map_err(|e| format!("Failed to flush file: {}", e))?;
 
-    // 3. SHA-256 校验
-    if let Some(expected) = expected_sha256 {
+    // 3. SHA-256 校验（强制：前面已确保 expected_sha256 存在）
+    {
         let actual = format!("{:x}", hasher.finalize());
-        if !actual.eq_ignore_ascii_case(&expected) {
+        if !actual.eq_ignore_ascii_case(&expected_sha256) {
             let _ = fs::remove_file(&file_path);
             return Err(format!(
-                "安装包 SHA-256 校验失败：期望 {}，实际 {}。已删除下载文件",
-                expected, actual
+                "安装包 SHA-256 校验失败：期望 {}，实际 {}。已删除下载文件，更新中止。",
+                expected_sha256, actual
             ));
         }
-        crate::log_info!("sha256 verified: {}", expected);
+        crate::log_info!("sha256 verified: {}", expected_sha256);
     }
 
     // Final progress event
@@ -590,11 +602,17 @@ async fn measure_source(endpoint: &str, source: &str) -> SourceSpeed {
     }
 }
 
-/// 并发测速两个更新源（镜像 / GitHub 官方），供设置页展示。
-/// 注：离线依赖受限（无 tokio-macros），此处顺序执行；单源超时 8 秒。
+/// 更新源测速。镜像源已停用，因此只实测 GitHub；镜像项照旧返回，
+/// 但直接标记为不可达并给出停用原因，前端据此显示「已停止维护」。
 #[tauri::command]
 pub async fn measure_update_sources() -> Result<Vec<SourceSpeed>, String> {
-    let mirror = measure_source(MIRROR_API, "mirror").await;
+    let mirror = SourceSpeed {
+        source: "mirror".to_string(),
+        reachable: false,
+        latency_ms: 0,
+        speed_kbps: 0.0,
+        error: Some(MIRROR_DISABLED_REASON.to_string()),
+    };
     let github = measure_source(GITHUB_API, "github").await;
     Ok(vec![mirror, github])
 }
@@ -748,13 +766,18 @@ pub fn set_update_channel(channel: String) -> Result<(), String> {
 #[tauri::command]
 pub fn get_update_source() -> Result<String, String> {
     let cfg = read_config_file()?;
-    Ok(cfg.update_source.unwrap_or_else(|| "mirror".to_string()))
+    // 镜像源已停用：遗留配置一律回报 github
+    let stored = cfg.update_source.unwrap_or_else(|| "github".to_string());
+    Ok(if stored == "github" { stored } else { "github".to_string() })
 }
 
 #[tauri::command]
 pub fn set_update_source(source: String) -> Result<(), String> {
-    // mirror = 国内镜像（默认）；github = 官方 GitHub Releases
-    if source != "mirror" && source != "github" {
+    // 仅剩官方源；镜像源已停止维护，明确拒绝，不回写配置
+    if source == "mirror" {
+        return Err(MIRROR_DISABLED_REASON.to_string());
+    }
+    if source != "github" {
         return Err(format!("Invalid update source: {}", source));
     }
     let mut cfg = read_config_file()?;

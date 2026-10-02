@@ -34,21 +34,22 @@ The optional **display name** you enter is stored only in local config for the h
 
 Logs may include **file paths** and error messages for troubleshooting. Review before exporting if paths may be sensitive.
 
-## 3. Network access (only when you trigger it)
+## 3. Network access (when you trigger it, or while the automatic update check is on)
 
 | Scenario | Destination | Data |
 |----------|-------------|------|
-| Check for updates | GitHub Releases API or mirror `cdn.5eggpack.top` | Release list only; no file or device fingerprint upload |
-| Download updates | `github.com` / `objects.githubusercontent.com` / `cdn.5eggpack.top` | Official installer and `.sha256` checksum |
-| Update source speed test | Same as above | Latency and download rate for “fastest source” |
+| Update check | GitHub Releases API (`api.github.com`) | Release list only; your files and device fingerprint are never uploaded |
+| Update download | `github.com` / `objects.githubusercontent.com` | Official installer and its `.sha256` checksum |
+| Update speed test | Same | Latency and download rate |
 | **Foray AI analysis (optional, off by default)** | **Your configured OpenAI-compatible `baseURL`** | **Depends on data tier; see §4** |
 
-If update checks are off and you never tap update actions, and Foray AI is disabled, the app makes **no** network requests.
-(Note: the automatic update check is **on by default** at startup; turn it off in Settings → Version & Updates.)
+> The China mirror `cdn.5eggpack.top` used to be an optional update source and was **removed in 2026-10** (its maintainer stopped maintaining it). No request is sent to that domain any more.
+
+**The automatic update check is on by default**: the app fetches the release list once at startup (first row above). If you turn off “Automatically check for updates” in Settings → Version & Updates, the app only goes online when you explicitly check or download. Beyond that, and with Foray AI disabled, the app makes no network requests.
 
 ## 4. Third parties
 
-Beyond update check/download (GitHub and optional mirror, under their own privacy policies), the software **does not send data to third parties by default**.
+Beyond update check/download (GitHub only), the software **does not send data to third parties by default**.
 
 **Sole exception: Foray AI analysis** (only if you enable it and configure a service): requests go to your **OpenAI-compatible** `baseURL`. They may include: directory tree and extension stats, `pack.mcmeta`, copies of JSON/shaders you select, and texture **summaries** (size / average color / histogram, **not pixels**), depending on your data tier. The API key is stored only in local config for authenticating to that service. That service’s privacy policy is set by its provider and is unrelated to the 2-Pyramid authors.
 

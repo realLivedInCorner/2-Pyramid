@@ -500,10 +500,14 @@
             <div class="item-info">
               <div class="label">{{ t('settings.updateSource.label') }}</div>
               <div class="desc">{{ t('settings.updateSource.desc') }}</div>
+              <div class="desc source-retired">
+                <i class="ri-error-warning-line" aria-hidden="true"></i>
+                {{ t('settings.updateSource.mirrorRetired') }}
+              </div>
             </div>
             <div class="item-action update-source-action">
               <div class="segmented">
-                <button class="seg-btn" :class="{ active: updateSource === 'mirror' }" @click="changeSource('mirror')">{{ t('settings.updateSource.mirror') }}</button>
+                <button class="seg-btn" disabled :title="t('settings.updateSource.mirrorRetired')">{{ t('settings.updateSource.mirror') }}</button>
                 <button class="seg-btn" :class="{ active: updateSource === 'github' }" @click="changeSource('github')">{{ t('settings.updateSource.github') }}</button>
               </div>
               <div class="speed-toolbar">
@@ -1826,6 +1830,22 @@ const onThemeReset = async () => {
 .speed-row.unreachable .speed-val { color: #dc2626; }
 .speed-name { font-weight: 700; color: #374151; min-width: 56px; }
 .speed-val { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+/* 已停用的更新源提示 */
+.source-retired {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: #d97706;
+  font-weight: 600;
+}
+.source-retired i { font-size: 13px; }
+.segmented .seg-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
 
 .fanhua-select {
   background: rgba(0, 0, 0, 0.05); border: none; padding: 6px 10px;
