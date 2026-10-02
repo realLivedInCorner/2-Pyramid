@@ -17,21 +17,30 @@
 
 ### Fixed
 
+- **任务登记静默失效（ConversionMaps 覆盖）**：`ConversionMaps` 用 `HashMap::insert` 登记任务，同一区间写第二次会**静默覆盖**前一次。已修复三处：`(6,7)` 升版丢失 `generate_snow_bucket`（6→7 从不生成雪球贴图）、`(7,6)` 降版被空表覆盖丢失 `adapt_java_shaders`、`(69,64)` 被空表覆盖丢失铜材质逆生成。新增 4 个防回归单测。
+- **26.x 改写 pack.mcmeta 丢失顶层字段**：目标 `pack_format ≥ 69` 时旧实现整体重建 JSON，`overlays` / `filter` 等顶层字段被抹掉（用 overlays 的包转换后失效）；现改为只就地改写 `pack` 对象。新增 2 个单测覆盖 overlays 与旧格式分支。
 - **首次运行向导（OOBE）设置步骤排版重做**：步骤容器上限由 500px 放宽到 960px，分组卡片改为自适应列（列宽不足 380px 自动单列），行内控件不再被压缩——修复卡片过窄导致正文逐字换行、分段按钮被裁切的问题；四张分组卡同屏显示，窄窗口时控件自动换行到正文下方，内容超出时安全居中不裁顶。
 - **OOBE 卡片表面归属修正**：全局玻璃卡片规则原先套在 `.startup-setting-row` / `.naming-row-inline` 上，导致每一行都变成独立白卡、行与行挤在一起并溢出分组卡圆角；现改由 `.startup-group-card` 承担卡片表面，行只保留分隔线，与设置页 `.group-card` + `.setting-item` 的分层保持一致。
+- **i18n 修复**：`ItemNameDialog` 引用不存在的 `dialog.itemName.saving` 会渲染出裸键名（改用已有 `common.saving`）；补齐 OOBE 分组标题、转换结果数量、Beta 渠道标记、覆盖包默认名等硬编码文案的中英键；修掉 zh 侧 4 条英文残留（版本状态徽章、主题预览标题）与 en 侧 4 条中英混排（界面语言、命名模板字段说明）。
+
+### Docs
+
+- **README 新增「已知限制」一节**（中英）：明确目标版本新增内容为**近似生成**（手工标定 HSV 参数、非原版资源）、Bedrock 双向转换为实验性、发行版默认只记 Warn/Error 日志、更新检查与 Foray AI 的联网行为。
+- **legal 事实一致性修订**：`PRIVACY.md` 承认**自动检查更新默认开启**（原先写「仅在你主动触发时」）、标明镜像 `cdn.5eggpack.top` 为第三方运营、点明 Foray **默认档位 1 会发送包内目录树**、补充 API Key 在 Windows 为明文存储与 MSIX 路径虚拟化说明；`SECURITY.md` 把「不匹配则拒绝安装」改为「有 `.sha256` 时校验并拒绝，缺失则跳过并告警」（与实现一致）；`DISCLAIMER.md` 更正「默认不发送内容」的错误表述；`THIRD-PARTY-NOTICES.md` 把 Remix Icon 的许可证从 Apache-2.0 更正为 Remix Icon License v1.0；`legal/en/EULA.md` 修掉字面 `\n` 转义。
+- **README 更新机制补全**：tag 示例改为 `{版本}` 占位符（避免版本漂移）、补充更新源切换与 `.sha256` 校验要求、说明应用内更新走 `--from-app` **覆盖更新向导**、补 Microsoft Store/MSIX 途径与新增脚本（`test` / `buildrelease:noinstaller` / `--skip-msix`）。
 
 ## [2.5.0] - 2026-09-24（BUILD 20048）
 
 ### Added
 
 - **Foray（Editor Mode）分析工作台**：设置开启 EM 后，主页拖入 zip 进入 Foray。ROM 树、五探针、轻量像素编辑、OpenAI 兼容 AI（档位 0–5）。默认关闭。详见 `docs/compose/spec/foray.md`。
-- **MSI 安装包（固定名 `2-Pyramid-Installer.msi`）**：WiX x64；静默 `msiexec /i 2-Pyramid-Installer.msi /qn`。**不做 MSIX**。
+- **MSI 安装包（固定名 `2-Pyramid-Installer.msi`）**：WiX x64；静默 `msiexec /i 2-Pyramid-Installer.msi /qn`。**不做 MSIX**。（历史决定：2.5.x 后续已改为 MSIX 双通道分发，见 Unreleased；MSI 不再产出。）
 - **安装器静默参数**：`--silent|/S|-s|--quiet` 等；`--dir`、`--relaunch`、`--shortcuts`、`--help`。
 - **系统通知 Rust 路径**：`show_system_notification`（notify-rust / winrt）。
 
 ### Changed
 
-- 打包线不再产出固定名 `2-Pyramid-Installer.exe` 别名；部署请用 **MSI** 或版本化 exe。
+- 打包线不再产出固定名 `2-Pyramid-Installer.exe` 别名；部署请用 **版本化 exe**（当时的 MSI 方案已在后续版本改为 MSIX）。
 
 ### Fixed
 

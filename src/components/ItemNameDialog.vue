@@ -26,8 +26,8 @@
             <span>{{ t('dialog.itemName.syncParent') }}</span>
           </button>
           <select v-model="selectedLang" class="lang-select" @change="loadLangFile">
-            <option value="zh_cn">简体中文 (zh_cn)</option>
-            <option value="en_us">English (en_us)</option>
+            <option value="zh_cn">{{ t('dialog.itemName.langZh') }}</option>
+            <option value="en_us">{{ t('dialog.itemName.langEn') }}</option>
           </select>
         </div>
       </div>
@@ -143,7 +143,7 @@
           <button class="primary-btn" :disabled="isSaving || modifiedKeys.length === 0" @click="saveAndClose">
             <i class="ri-save-line" v-if="!isSaving"></i>
             <i class="ri-loader-4-line spin" v-else></i>
-            {{ isSaving ? t('dialog.itemName.saving') : t('dialog.itemName.saveChanges') }}
+            {{ isSaving ? t('common.saving') : t('dialog.itemName.saveChanges') }}
           </button>
           <button class="ghost-btn back-btn" @click="visible = false">
             <i class="ri-arrow-go-back-line"></i>

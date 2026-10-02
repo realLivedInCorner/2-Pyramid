@@ -29,7 +29,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
               <button class="version-tag" @click="emit('tapVersion')">
                 2-Pyramid v{{ props.version }}
               </button>
-              <span v-if="props.isBeta" class="version-build-mode beta">Beta 版本 · 测试渠道</span>
+              <span v-if="props.isBeta" class="version-build-mode beta">{{ t('settings.versionInfo.betaChannelTag') }}</span>
             </div>
             <div v-if="props.devHint" class="dev-hint">{{ props.devHint }}</div>
           </div>

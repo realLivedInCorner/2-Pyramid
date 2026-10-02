@@ -29,7 +29,8 @@ Installing or using the software means you have read the files above. If you do 
 ## 2. Trademarks and “unofficial” wording
 
 - You may redistribute the software under MIT; when you do, keep `LICENSE` and copyright notices (MIT’s only hard requirement).
-- MIT does **not** grant any trademark license to the name or mark “2-Pyramid”; use them only for reasonable reference when redistributing.\n- The name and mark “2-Pyramid” identify this project. Do not imply that your distribution is officially endorsed by 2-Pyramid Studio unless it is an official release.
+- MIT does **not** grant any trademark license to the name or mark “2-Pyramid”; use them only for reasonable reference when redistributing.
+- The name and mark “2-Pyramid” identify this project. Do not imply that your distribution is officially endorsed by 2-Pyramid Studio unless it is an official release.
 - This software is **not affiliated with, sponsored by, or endorsed by Mojang Studios / Microsoft**. Do not use their trademarks to imply official partnership; use Minecraft only for factual reference.
 
 ## 3. Disclaimer (summary)

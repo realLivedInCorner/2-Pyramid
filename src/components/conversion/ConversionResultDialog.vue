@@ -42,15 +42,15 @@ const failures = computed(() =>
             <div class="result-summary">
               <div class="result-item">
                 <span class="result-label">{{ t("conversion.totalLabel") }}</span>
-                <span class="result-value">{{ results.length }} 个</span>
+                <span class="result-value">{{ t("conversion.resultCountUnit", { count: results.length }) }}</span>
               </div>
               <div class="result-item">
                 <span class="result-label">{{ t("conversion.successLabel") }}</span>
-                <span class="result-value success">{{ successCount }} 个</span>
+                <span class="result-value success">{{ t("conversion.resultCountUnit", { count: successCount }) }}</span>
               </div>
               <div class="result-item">
                 <span class="result-label">{{ t("conversion.failLabel") }}</span>
-                <span class="result-value error">{{ failCount }} 个</span>
+                <span class="result-value error">{{ t("conversion.resultCountUnit", { count: failCount }) }}</span>
               </div>
             </div>
             <div v-if="failures.length > 0" class="error-details">

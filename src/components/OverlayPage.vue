@@ -383,7 +383,7 @@ const selectParentPack = async () => {
 };
 
 const handlePackage = async () => {
-  const defaultName = (currentOverlay.name || '你的覆盖包').replace(/[\\/:*?"<>|]/g, '_');
+  const defaultName = (currentOverlay.name || t('overlay.defaultPackName')).replace(/[\\/:*?"<>|]/g, '_');
   let picked: string | null = null;
   try {
     picked = await save({

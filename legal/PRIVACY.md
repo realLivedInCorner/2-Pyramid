@@ -34,7 +34,7 @@
 
 日志可能包含**文件路径**与错误信息，便于排障。导出前请自行检查是否含敏感路径。
 
-## 3. 网络访问（仅在你主动触发时）
+## 3. 网络访问（在你主动触发时，或「自动检查更新」开启时）
 
 | 场景 | 目的地 | 数据 |
 |------|--------|------|
@@ -43,13 +43,13 @@
 | 更新源测速 | 同上 | 测量延迟与下载速率，用于「使用最快源」 |
 | **Foray AI 分析（可选，默认关闭）** | **你配置的 OpenAI 兼容 `baseURL`** | **依数据档位而定，详见第 4 节** |
 
-关闭「检查更新」且不点击更新相关按钮、且未启用 Foray AI 时，应用**不会**发起上述请求。
+**自动检查更新默认开启**：应用启动时会请求一次 release 列表（即上表第一行）。在「设置 → 版本与更新」关闭「自动检查更新」后，只有你主动点击检查/下载时才会联网。除此之外，未启用 Foray AI 时应用不会发起上述请求。
 
 ## 4. 第三方处理者
 
-除更新检查/下载（GitHub 及可选镜像，受其自身隐私政策约束）外，本软件默认**不向第三方发送数据**。
+除更新检查/下载（GitHub 及可选镜像 `cdn.5eggpack.top`——**由第三方运营、与本项目作者无关**，受其自身隐私政策约束）外，本软件默认**不向第三方发送数据**。
 
-**唯一例外：Foray AI 分析**（仅当你主动启用并配置服务时）：请求会发往你填写的 **OpenAI 兼容** `baseURL`。可能包含：目录树与扩展名统计、`pack.mcmeta`、你勾选的 JSON / 着色器**副本**、贴图**概括**（尺寸/均色/直方图，**非像素**），依你选择的数据档位而定。API Key 仅保存在本机配置文件，用于向该服务鉴权。该服务的隐私政策由服务商制定，与 2-Pyramid 作者无关。
+**唯一例外：Foray AI 分析**（仅当你主动启用并配置服务时）：请求会发往你填写的 **OpenAI 兼容** `baseURL`。可能包含：**目录树与扩展名统计（数据档位 ≥1 即包含，这是默认档位）**、`pack.mcmeta`、你勾选的 JSON（≤64 KB）/ 着色器（≤128 KB）**副本**、贴图**概括**（尺寸/均色/直方图，**非像素**），依你选择的数据档位而定；**档位 0 不发送任何内容、也不调用外部服务**。API Key 仅保存在本机配置文件（`~/.2pyr/foray-ai.json`）用于向该服务鉴权；**Windows 下该文件按当前用户可读的明文保存，请勿在共享账户中留存密钥**。该服务的隐私政策由服务商制定，与 2-Pyramid 作者无关。
 
 ## 5. 分享码
 
@@ -71,10 +71,10 @@
 
 ## 9. 安装与卸载（EXE / MSIX / 静默）
 
-静默安装（`--silent`）不会额外上传数据。卸载删除程序文件；`~/.2pyr` 等用户数据默认保留。GitHub Releases 的 exe 安装器与 Microsoft Store 的 MSIX 包行为一致：仅本机写入安装目录（或包目录）与卸载注册表项。
+静默安装（`--silent`）不会额外上传数据。卸载删除程序文件；`~/.2pyr` 等用户数据默认保留。GitHub Releases 的 exe 安装器与 Microsoft Store 的 MSIX 包写入的是**同样的逻辑路径**，但 MSIX（打包应用）下 Windows 会把 `%APPDATA%` / `%LOCALAPPDATA%` / `%TEMP%` 写入**重定向到包专属的虚拟化位置**，因此实际落盘位置与 exe 版不同（卸载行为由商店条款约束）。
 
 ---
 
-**English summary:** 2-Pyramid processes resource packs entirely on your device. No account, no telemetry, no upload of your packs (except optional Foray AI analysis you enable yourself). Network is used only when you check for or download updates (GitHub Releases and optional mirror), or when Foray AI is enabled. Share codes are exported locally; the app does not host them.
+**English summary:** 2-Pyramid processes resource packs entirely on your device. No account, no telemetry, no upload of your packs (except optional Foray AI analysis you enable yourself). Network is used for update checks — **automatic update check is on by default at startup** and can be disabled in Settings — for downloading updates (GitHub Releases and optional third-party mirror), or when Foray AI is enabled. Share codes are exported locally; the app does not host them.
 
 **联系方式：** GitHub Issues — https://github.com/realLivedInCorner/2-Pyramid/issues
