@@ -52,7 +52,6 @@ impl ConversionMaps {
         forward.insert((3, 4), vec!["rename_blocks_items".to_string(), "fix_sign".to_string(), "fix_sign_entities".to_string(), "generate_furnace".to_string(), "fix_machinery_ui".to_string(), "fix_particles".to_string(), "generate_fish_bucket".to_string(), "generate_crossbow".to_string()]);
         forward.insert((4, 5), vec!["process_chest_folder".to_string(), "generate_netherite_block".to_string(), "generate_netherite_ingot".to_string(), "delete_enchanted_item_glint".to_string(), "generate_netherite_tools".to_string(), "generate_netherite_armor_models".to_string(), "generate_smithing_ui".to_string()]);
         forward.insert((5, 6), vec!["delete_font_folder".to_string()]);
-        forward.insert((6, 7), vec!["generate_snow_bucket".to_string()]);
         forward.insert((7, 8), vec!["rename_mcpatcher_to_optifine".to_string()]);
         forward.insert((8, 9), vec![]);
         forward.insert((9, 12), vec!["fix_tabs".to_string(), "generate_redwood_cherry_bamboo_planks".to_string()]);
@@ -63,8 +62,10 @@ impl ConversionMaps {
         forward.insert((22, 32), vec!["adapt_java_shaders".to_string()]);
         forward.insert((32, 34), vec!["generate_tricky_trials_breeze".to_string(), "adapt_java_shaders".to_string()]);
         forward.insert((34, 42), vec!["adapt_java_shaders".to_string()]);
-        // 1.17 着色器体系边界（format 7）
-        forward.insert((6, 7), vec!["adapt_java_shaders".to_string()]);
+        // 1.17 着色器体系边界（format 7）：6→7 既要生成雪球贴图，也要换着色器体系，
+        // 两件事必须写在同一条 insert 里 —— HashMap::insert 是覆盖语义，
+        // 拆成两条会让先写的那条静默失效（此前的 generate_snow_bucket 就是这样丢的）。
+        forward.insert((6, 7), vec!["generate_snow_bucket".to_string(), "adapt_java_shaders".to_string()]);
         reverse.insert((7, 6), vec!["adapt_java_shaders".to_string()]);
         forward.insert((42, 46), vec!["fix2_horse_ui".to_string(), "fix_armor_models".to_string(), "generate_pale_planks".to_string(), "adapt_java_shaders".to_string()]);
         forward.insert((46, 55), vec!["adapt_java_shaders".to_string()]);
@@ -87,7 +88,7 @@ impl ConversionMaps {
         reverse.insert((88, 84), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((84, 75), vec!["adapt_java_shaders".to_string()]);
         reverse.insert((75, 69), vec!["adapt_java_shaders".to_string()]);
-        reverse.insert((69, 64), vec![]);
+        // (69,64) 的铜材质逆变换在下方统一登记，此处不再写空表覆盖
         reverse.insert((64, 63), vec![]);
         reverse.insert((63, 55), vec![]);
         reverse.insert((55, 46), vec!["adapt_java_shaders".to_string()]);
@@ -102,7 +103,7 @@ impl ConversionMaps {
         reverse.insert((12, 9), vec!["reverse_generate_redwood_cherry_bamboo_planks".to_string()]);
         reverse.insert((9, 8), vec![]);
         reverse.insert((8, 7), vec!["reverse_rename_mcpatcher_to_optifine".to_string()]);
-        reverse.insert((7, 6), vec![]);
+        // (7,6) 已在着色器边界处登记 adapt_java_shaders，此处不可再 insert 空表覆盖
         reverse.insert((6, 5), vec!["reverse_generate_snow_bucket".to_string()]);
         reverse.insert((69, 64), vec!["reverse_generate_copper_ingot".to_string(), "reverse_generate_copper_block".to_string(), "reverse_generate_copper_tools".to_string(), "reverse_generate_copper_armor_models".to_string()]);
         reverse.insert((5, 4), vec!["reverse_process_chest_folder".to_string(), "reverse_generate_netherite_block".to_string(), "reverse_generate_netherite_ingot".to_string(), "reverse_generate_netherite_tools".to_string(), "reverse_generate_netherite_armor_models".to_string(), "reverse_generate_smithing_ui".to_string()]);
@@ -600,6 +601,73 @@ impl ProgressTracker {
                 stop,
                 join: Some(join),
             });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn has(map: &VersionMap, key: (u32, u32), task: &str) -> bool {
+        map.get(&key)
+            .map(|v| v.iter().any(|t| t == task))
+            .unwrap_or(false)
+    }
+
+    /// (6,7) 升版必须同时登记雪球贴图生成与着色器体系适配。
+    /// 回归点：`generate_snow_bucket` 曾被后一条 `forward.insert((6,7), ..)`
+    /// 静默覆盖，导致 6→7 转换从不生成雪球贴图。
+    #[test]
+    fn forward_6_to_7_keeps_both_tasks() {
+        let maps = ConversionMaps::new();
+        assert!(
+            has(&maps.forward, (6, 7), "generate_snow_bucket"),
+            "(6,7) 丢失 generate_snow_bucket：HashMap::insert 覆盖语义导致任务被吞"
+        );
+        assert!(
+            has(&maps.forward, (6, 7), "adapt_java_shaders"),
+            "(6,7) 丢失 adapt_java_shaders"
+        );
+    }
+
+    /// (7,6) 降版必须保留着色器体系适配（曾被一条空表覆盖成空）。
+    #[test]
+    fn reverse_7_to_6_keeps_shader_task() {
+        let maps = ConversionMaps::new();
+        assert!(
+            has(&maps.reverse, (7, 6), "adapt_java_shaders"),
+            "(7,6) 丢失 adapt_java_shaders：空表 insert 覆盖了有效登记"
+        );
+    }
+
+    /// (69,64) 逆变换应保留铜材质逆生成（曾被先登记的空表覆盖）。
+    #[test]
+    fn reverse_69_to_64_keeps_copper_tasks() {
+        let maps = ConversionMaps::new();
+        for task in [
+            "reverse_generate_copper_ingot",
+            "reverse_generate_copper_block",
+            "reverse_generate_copper_tools",
+            "reverse_generate_copper_armor_models",
+        ] {
+            assert!(
+                has(&maps.reverse, (69, 64), task),
+                "(69,64) 丢失 {}",
+                task
+            );
+        }
+    }
+
+    /// 关键跨版本区间必须存在登记（空表也算登记，用于“只改 pack_format”的直通段）。
+    #[test]
+    fn core_segments_are_registered() {
+        let maps = ConversionMaps::new();
+        for key in [(1, 2), (5, 6), (6, 7), (7, 8), (88, 97), (97, 1000)] {
+            assert!(maps.forward.contains_key(&key), "forward 缺少区间 {:?}", key);
+        }
+        for key in [(7, 6), (6, 5), (97, 88), (1000, 97)] {
+            assert!(maps.reverse.contains_key(&key), "reverse 缺少区间 {:?}", key);
         }
     }
 }

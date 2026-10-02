@@ -296,13 +296,19 @@ fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), S
     if target_version >= 69 {
         // 26.x 用 min/max_format；不要塞 pack_format:34 + 跨大版本 supported_formats
         // （26.3 上会显示不兼容）。min 与 max 落在同一 major，minor 覆盖 0..=目标。
-        data = json!({
-            "pack": {
-                "min_format": [maj, 0],
-                "max_format": [maj, min],
-                "description": description
-            }
-        });
+        //
+        // 注意：只改 pack 对象内部，**不要整体重建文档** —— 重建会抹掉顶层
+        // 的 overlays / filter 等字段，用 overlays 的包转换后失效。
+        if data.get("pack").is_none() {
+            data["pack"] = json!({});
+        }
+        if let Some(pack) = data["pack"].as_object_mut() {
+            pack.remove("pack_format");
+            pack.remove("supported_formats");
+            pack.insert("min_format".to_string(), json!([maj, 0]));
+            pack.insert("max_format".to_string(), json!([maj, min]));
+            pack.insert("description".to_string(), json!(description));
+        }
     } else {
         if data.get("pack").is_none() {
             data["pack"] = json!({});
@@ -740,5 +746,70 @@ mod tests {
         );
         // 无标签的名称原样保留
         assert_eq!(strip_version_prefix("我的包"), "我的包");
+    }
+
+    /// 26.x（target ≥ 69）改写 pack.mcmeta 时不得丢掉顶层字段。
+    /// 回归点：旧实现用 `data = json!({...})` 整体替换文档，`overlays` 被抹掉。
+    #[test]
+    fn test_write_pack_format_keeps_top_level_overlays() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let meta = temp.path().join("pack.mcmeta");
+        fs::write(
+            &meta,
+            r#"{
+  "pack": { "pack_format": 34, "description": "我的整合包" },
+  "overlays": {
+    "entries": [
+      { "formats": [34], "directory": "overlay_34" }
+    ]
+  }
+}"#,
+        )
+        .expect("write");
+
+        // 目标 97 = 26.3（major/minor 形式）
+        write_pack_format(&meta, 97).expect("write_pack_format");
+
+        let out: Value =
+            serde_json::from_str(&fs::read_to_string(&meta).expect("read")).expect("parse");
+
+        // 顶层 overlays 必须保留
+        assert!(
+            out.get("overlays").is_some(),
+            "顶层 overlays 被丢弃：{:?}",
+            out
+        );
+        assert_eq!(
+            out["overlays"]["entries"][0]["directory"], "overlay_34",
+            "overlays 内容被改写"
+        );
+        // pack 内的写法切换为 min/max_format
+        assert!(out["pack"].get("min_format").is_some(), "缺少 min_format");
+        assert!(out["pack"].get("max_format").is_some(), "缺少 max_format");
+        assert!(
+            out["pack"].get("pack_format").is_none(),
+            "26.x 不应再写 pack_format"
+        );
+        // description 保留原值（经归一化）
+        assert_eq!(out["pack"]["description"], "我的整合包");
+    }
+
+    /// 非 26.x 分支：只改 pack 字段，其他顶层内容原样保留
+    #[test]
+    fn test_write_pack_format_legacy_keeps_other_keys() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let meta = temp.path().join("pack.mcmeta");
+        fs::write(
+            &meta,
+            r#"{"pack": {"pack_format": 34, "description": "包"}, "filter": {"block": []}}"#,
+        )
+        .expect("write");
+
+        write_pack_format(&meta, 15).expect("write_pack_format");
+        let out: Value =
+            serde_json::from_str(&fs::read_to_string(&meta).expect("read")).expect("parse");
+
+        assert_eq!(out["pack"]["pack_format"], 15);
+        assert!(out.get("filter").is_some(), "顶层 filter 被丢弃");
     }
 }
