@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.5.0-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.6.0-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -44,6 +44,7 @@
 - **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、中英双语
 - **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单快捷方式；应用内更新时进入覆盖更新流（锁定原目录、保留用户数据）；重装时安装目录自动对齐现有位置
 - **智能更新** — 按 major.minor.patch 判定：major 与 `Safe-*` 强制更新，minor / patch 可选
+- **日志脱敏** — 导出日志（会话日志或磁盘日志）默认自动隐藏 Windows 用户名、机器名、IP、邮箱、API Key/token，并把包路径目录压成 `<path>\文件名`；仅导出文件脱敏，可在开发者选项中关闭
 - **Beta 双渠道** — 正式版与 Beta 版可并存安装（独立注册表、独立目录、Beta 标识），`betabuild` 一键构建
 
 ### ⚠️ 已知限制（请先读）
@@ -223,6 +224,7 @@ npm run build                                               # 前端 build
 - **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, zh / en
 - **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts; in-app updates enter an overwrite-update flow (locks the original dir, keeps user data); install dir auto-aligns to the existing location on reinstall
 - **Smart updates** — Compared by major.minor.patch: major and `Safe-*` force the update; minor / patch are optional
+- **Redacted log export** — exporting logs (session or on-disk) hides the Windows user name, machine name, IPs, e-mails and API keys/tokens, and collapses pack paths to `<path>\file.ext`; only the exported file is redacted, and it can be turned off in developer options
 - **Beta channel** — Stable and Beta installs coexist (separate registry, directory and badges); built with `betabuild`
 
 ### ⚠️ Known Limitations (read first)

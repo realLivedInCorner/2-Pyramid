@@ -20,6 +20,8 @@ interface LogExportResult {
   path: string;
   redacted: number;
   redaction: boolean;
+  scope: string;
+  files: number;
 }
 
 async function refresh() {
@@ -30,7 +32,9 @@ async function refresh() {
   }
 }
 
-async function exportLog(raw = false) {
+/// 导出日志：`scope` = session（内存会话日志）| disk（logs 目录下全部 .log）
+/// `raw` = true 时导出未脱敏原文（仅开发者模式，后端也会校验）
+async function exportLog(scope: "session" | "disk" = "session", raw = false) {
   try {
     const defaultPath = await invoke<string | null>("get_log_path");
     const dest = await save({
@@ -41,13 +45,26 @@ async function exportLog(raw = false) {
     const result = await invoke<LogExportResult>("export_logs", {
       dest,
       raw: raw ? true : undefined,
+      scope,
     });
-    const body = result.redaction
-      ? t("settings.devMode.exportSuccessRedacted", {
-          path: result.path,
-          count: result.redacted,
-        })
-      : t("settings.devMode.exportSuccess", { path: result.path });
+    let body: string;
+    if (!result.redaction) {
+      body =
+        result.scope === "disk"
+          ? t("settings.devMode.exportDiskSuccessRaw", { path: result.path, files: result.files })
+          : t("settings.devMode.exportSuccess", { path: result.path });
+    } else if (result.scope === "disk") {
+      body = t("settings.devMode.exportDiskSuccessRedacted", {
+        path: result.path,
+        count: result.redacted,
+        files: result.files,
+      });
+    } else {
+      body = t("settings.devMode.exportSuccessRedacted", {
+        path: result.path,
+        count: result.redacted,
+      });
+    }
     await notify({
       title: t("common.success"),
       body,
@@ -107,7 +124,8 @@ onUnmounted(stopTimer);
         <div class="dialog-body">
           <div class="log-toolbar">
             <button class="btn-text secondary" @click="refresh">{{ t("common.refresh") }}</button>
-            <button class="btn-text" @click="exportLog(false)">{{ t("settings.devMode.exportLog") }}</button>
+            <button class="btn-text" @click="exportLog('session', false)">{{ t("settings.devMode.exportLog") }}</button>
+            <button class="btn-text" @click="exportLog('disk', false)">{{ t("settings.devMode.exportDiskLog") }}</button>
             <button
               v-if="devMode"
               class="btn-text raw-export-btn"
@@ -117,8 +135,11 @@ onUnmounted(stopTimer);
           <div v-if="confirmRaw" class="raw-warn">
             <i class="ri-alert-line" aria-hidden="true"></i>
             <span>{{ t("settings.devMode.exportRawWarn") }}</span>
-            <button class="btn-text danger" @click="exportLog(true)">
-              {{ t("settings.devMode.exportRawConfirm") }}
+            <button class="btn-text danger" @click="exportLog('session', true)">
+              {{ t("settings.devMode.exportRawSessionConfirm") }}
+            </button>
+            <button class="btn-text danger" @click="exportLog('disk', true)">
+              {{ t("settings.devMode.exportRawDiskConfirm") }}
             </button>
             <button class="btn-text secondary" @click="confirmRaw = false">{{ t("common.cancel") }}</button>
           </div>

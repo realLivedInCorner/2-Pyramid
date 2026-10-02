@@ -1,6 +1,6 @@
 # 2-Pyramid End User Agreement (EULA)
 
-**Effective date:** 2026-09-14  
+**Effective date:** 2026-10-01  
 **Applies to:** any person or organization that obtains or uses the 2-Pyramid installer or executables.
 
 ---
@@ -39,7 +39,7 @@ The software is provided **as is**, without warranty; the authors are not liable
 
 ## 4. Privacy
 
-Fully local by default: no account, no telemetry; network only when you actively check or download updates. See [`PRIVACY.md`](./PRIVACY.md).
+Fully local by default: no account, no telemetry. The network is used for update checks (**the automatic check is on by default and can be disabled in Settings**), update downloads, and the Foray AI analysis you enable yourself. Exported logs are redacted by default. See [`PRIVACY.md`](./PRIVACY.md).
 
 ## 5. Third-party components
 

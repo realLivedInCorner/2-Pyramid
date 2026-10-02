@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-**Effective date:** 2026-09-14
+**Effective date:** 2026-10-01
 
 2-Pyramid includes or links third-party open-source components. Those components are provided under **their own licenses**. This notice is a summary only; the authoritative texts are in each component’s repository / `Cargo.lock` / `package-lock.json`.
 
