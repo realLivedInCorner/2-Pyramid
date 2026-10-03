@@ -569,8 +569,13 @@ fn run_bedrock_edge_task(
 pub struct ConversionTiming {
     pub pure_s: f32,
     pub total_s: f32,
+    /// IO：解压与重新打包
     pub extract_s: f32,
     pub pack_s: f32,
+    /// 引擎内部分段：预检（基岩探测/结构规整/结构分析）、转换管线、收尾（mcmeta/edge）
+    pub preflight_s: f32,
+    pub pipeline_s: f32,
+    pub post_s: f32,
     /// 逐任务画像（按耗时降序；并行任务含线程争用）。随返回值一起给出，
     /// 便于 CLI/报告使用（全局画像表在日志输出时已被取走）。
     pub task_profile: Vec<crate::hurray::scheduler::TaskTiming>,
@@ -692,7 +697,11 @@ pub fn process_zip_timed(
         log_info!("bedrock target: convert to Java 26.3 (format 97) first, then j2b");
     }
 
+    // 预检阶段结束：基岩探测 / 结构规整 / 结构分析 / 源格式读取
+    let preflight_elapsed = engine_start.elapsed();
+
     // Bedrock 目标时 Java 中间态跳过 GuiSurgeon，避免 sprite 手术干扰 j2b
+    let pipeline_start = std::time::Instant::now();
     crate::invoke_conversion::invoke_conversion_ex(
         input_zip,
         temp_dir.path(),
@@ -703,7 +712,10 @@ pub fn process_zip_timed(
         adapt_shaders,
     )
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
+    let pipeline_elapsed = pipeline_start.elapsed();
 
+    // 收尾阶段：mcmeta 改写 + 可选 j2b
+    let post_start = std::time::Instant::now();
     let pack_meta_path = temp_dir.path().join("pack.mcmeta");
     if pack_meta_path.exists() {
         write_pack_format(&pack_meta_path, java_target)?;
@@ -718,8 +730,9 @@ pub fn process_zip_timed(
         // 26.3 → Bedrock
         run_bedrock_edge_task(temp_dir.path(), 97, 1000, &pack_name)?;
     }
+    let post_elapsed = post_start.elapsed();
 
-    // 纯转换区段结束（b2j 预转换 + 结构分析 + 引擎管线 + mcmeta 改写 + j2b）
+    // 纯转换区段结束（预检 + 引擎管线 + 收尾）
     let engine_elapsed = engine_start.elapsed();
 
     let pack_start = std::time::Instant::now();
@@ -761,10 +774,13 @@ pub fn process_zip_timed(
         total_s: total_elapsed.as_secs_f32(),
         extract_s: extract_elapsed.as_secs_f32(),
         pack_s: pack_elapsed.as_secs_f32(),
+        preflight_s: preflight_elapsed.as_secs_f32(),
+        pipeline_s: pipeline_elapsed.as_secs_f32(),
+        post_s: post_elapsed.as_secs_f32(),
         task_profile: task_timings,
     };
     // 一行同时给出两个口径：pure = 纯转换（引擎），total = 含 IO 的总时间。
-    // 括号里是 IO 分解（解压 / 打包），便于判断瓶颈在引擎还是磁盘。
+    // 括号里是 IO 分解与引擎分段，便于判断瓶颈在引擎哪一段还是磁盘。
     log_info!(
         "conversion timing: pure={:.2}s total={:.2}s (extract={:.2}s, pack={:.2}s, io={:.2}s)",
         timing.pure_s,
@@ -772,6 +788,15 @@ pub fn process_zip_timed(
         timing.extract_s,
         timing.pack_s,
         timing.extract_s + timing.pack_s
+    );
+    log_info!(
+        "engine breakdown: preflight={:.2}s pipeline={:.2}s post={:.2}s | tasks: {} runs, sum={:.2}s, scheduler+worker overhead={:.2}s",
+        timing.preflight_s,
+        timing.pipeline_s,
+        timing.post_s,
+        timing.task_profile.len(),
+        timing.task_profile.iter().map(|t| t.seconds).sum::<f32>(),
+        (timing.pipeline_s - timing.task_profile.iter().map(|t| t.seconds).sum::<f32>()).max(0.0)
     );
 
     Ok((output_path.to_string_lossy().to_string(), timing))

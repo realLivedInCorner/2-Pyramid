@@ -525,8 +525,15 @@ struct ProgressTracker {
     prefix: String,
 }
 
+/// 进度 ticker 的停止信号：`(是否已停止, 唤醒条件变量)`。
+///
+/// 用 `Condvar::wait_timeout` 代替 `sleep`：任务结束时立刻唤醒 ticker 线程，
+/// 避免 `join()` 白等一个完整的 TICK（曾导致每个任务最多 200 ms 的隐性开销，
+/// 38 个任务累计约 1.4 s——正是"任务耗时之和"与"管线耗时"之间的差额）。
+type TickerStop = std::sync::Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>;
+
 struct LiveHandle {
-    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    stop: TickerStop,
     join: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -586,7 +593,14 @@ impl ProgressTracker {
     fn stop_live_ticker(&self) {
         let handle = self.live_handle.lock().ok().and_then(|mut g| g.take());
         if let Some(mut h) = handle {
-            h.stop.store(true, Ordering::SeqCst);
+            // 置位 + 唤醒：ticker 若正在 wait_timeout 会立即返回，join 不再等待
+            {
+                let (lock, cvar) = &*h.stop;
+                if let Ok(mut stopped) = lock.lock() {
+                    *stopped = true;
+                    cvar.notify_all();
+                }
+            }
             if let Some(j) = h.join.take() {
                 let _ = j.join();
             }
@@ -598,7 +612,8 @@ impl ProgressTracker {
         // only run between bumps, but be safe).
         self.stop_live_ticker();
 
-        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stop: TickerStop =
+            std::sync::Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
         let done = std::sync::Arc::clone(&self.done);
         let started = std::sync::Arc::clone(&self.current_started);
         let total = self.total;
@@ -616,11 +631,29 @@ impl ProgressTracker {
         let join = std::thread::Builder::new()
             .name("progress-ticker".into())
             .spawn(move || {
-                while !stop_clone.load(Ordering::Relaxed) {
-                    std::thread::sleep(std::time::Duration::from_millis(TICK_MS));
-                    if stop_clone.load(Ordering::Relaxed) {
+                let (lock, cvar) = &*stop_clone;
+                loop {
+                    // 可中断等待：stop 时 Condvar 会立刻唤醒，不再睡满 TICK。
+                    // 先查谓词再等待，避免"通知发生在未等待期间"造成的丢唤醒
+                    // （否则又会白等一个完整 TICK）。
+                    let guard = match lock.lock() {
+                        Ok(g) => g,
+                        Err(_) => break,
+                    };
+                    if *guard {
                         break;
                     }
+                    let (guard, _timeout) = match cvar
+                        .wait_timeout(guard, std::time::Duration::from_millis(TICK_MS))
+                    {
+                        Ok(pair) => pair,
+                        Err(_) => break,
+                    };
+                    if *guard {
+                        break;
+                    }
+                    drop(guard);
+
                     let done_now = done.load(Ordering::Relaxed);
                     let elapsed_ms = started
                         .lock()
