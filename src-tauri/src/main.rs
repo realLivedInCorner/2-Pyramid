@@ -3,6 +3,8 @@
 
 use std::env;
 
+mod cli;
+
 /// 结构分析 CLI：`2-pyramid.exe --analyze <zip | 目录>`（只读，不启动 GUI）。
 ///
 /// 用于「多版本资源包」调研阶段批量跑真实样本：
@@ -145,6 +147,11 @@ fn main() {
     // 输出对比（质量闸门）：只读，不启动 GUI
     if let Some(idx) = args.iter().position(|a| a == "--pack-diff") {
         std::process::exit(run_pack_diff_cli(&args, idx));
+    }
+
+    // 无界面转换（拖放脚本用）：跑完整管线并输出 JSON 报告
+    if let Some(idx) = args.iter().position(|a| a == "--convert") {
+        std::process::exit(cli::run_convert(&args, idx));
     }
 
     // 结构分析 CLI：只读分析，不启动 GUI
