@@ -105,6 +105,11 @@ pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAna
 /// 输出对比 / 质量闸门（CLI `--pack-diff`）。
 pub use converters::pack_diff;
 
+/// 无界面转换 CLI 所需的管线入口与版本解析。
+pub use converters::version_converter::{
+    pack_format_label_for_output, process_zip_timed, resolve_target_format, ConversionTiming,
+};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use crate::{log_info, log_debug, log_error};

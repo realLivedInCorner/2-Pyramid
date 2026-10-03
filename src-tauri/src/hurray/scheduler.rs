@@ -470,11 +470,13 @@ impl Scheduler {
 // `process_zip_timed` 取走并输出 top-N。并行任务的时间包含线程争用，
 // 因此它衡量的是"墙钟占用"，不是纯 CPU 时间——日志里会标注。
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskTiming {
     pub task: String,
     pub tier: &'static str,
     pub seconds: f32,
+    /// 并行任务的时间含线程争用（墙钟占用），不是纯 CPU 时间。
     pub parallel: bool,
 }
 

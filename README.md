@@ -154,6 +154,18 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 - 任务 `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java`（`Exclusive` + `Surgeon`）
 - 边：`(97, 1000)` j2b、`(1000, 97)` b2j；Java 中间态统一 **format 97（26.3）**
 
+### 🧪 命令行工具（排查 / 压测 / 质量闸门）
+
+主程序支持三个无界面模式，全部**只读或独立运行**、不启动 GUI：
+
+| 命令 | 作用 |
+|---|---|
+| `2-pyramid.exe --convert <包\|目录> [--to 26.3] [--out <目录>] [--report <报告.json>]` | 跑**完整转换管线**并输出结构化报告：结构分析 + 纯转换/总时间（含 IO 分解）+ 逐任务耗时 + 体积变化。目录会递归处理其中所有 `.zip`/`.mcpack`。 |
+| `2-pyramid.exe --analyze <包\|目录>` | 只读**结构分析**：官方分层（overlays）、`supported_formats` 区间、非标准版本折叠目录、一包多根，含每层文件数与覆盖计数。 |
+| `2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <报告>]` | **质量闸门**：PNG 像素级、JSON 语义级、其余字节级比对；默认允许"像素相同仅编码不同"，`--strict` 要求字节一致。退出码 0/1，可用于提速改动的回归验证。 |
+
+> **拖放即转换**：把资源包（或含包的文件夹）拖到 **`tools/convert-report.bat`** 上——脚本会找到已安装/已构建的程序、让你选目标版本、跑转换、打印两个耗时口径与慢任务，并把 JSON 报告存到资源包旁边同时打开所在文件夹。
+
 ### 🧰 技术栈
 
 | 层 | 技术 |

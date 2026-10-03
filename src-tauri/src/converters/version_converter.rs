@@ -77,6 +77,73 @@ pub fn pack_format_label_for_output(pack_format: u32) -> &'static str {
     pack_format_label(pack_format)
 }
 
+/// 已知目标版本标签 → pack_format（与前端 `MINECRAFT_VERSIONS` 一致）。
+const TARGET_LABELS: &[(&str, u32)] = &[
+    ("1.6-1.8", 1),
+    ("1.9-1.10", 2),
+    ("1.11-1.12", 3),
+    ("1.13-1.14", 4),
+    ("1.15-1.16.1", 5),
+    ("1.16.2-1.16.5", 6),
+    ("1.17", 7),
+    ("1.18", 8),
+    ("1.19-1.19.2", 9),
+    ("1.19.3", 12),
+    ("1.19.4", 13),
+    ("1.20-1.20.1", 15),
+    ("1.20.2", 18),
+    ("1.20.3-1.20.4", 22),
+    ("1.20.5-1.20.6", 32),
+    ("1.21-1.21.1", 34),
+    ("1.21.2-1.21.3", 42),
+    ("1.21.4", 46),
+    ("1.21.5", 55),
+    ("1.21.6", 63),
+    ("1.21.7-1.21.8", 64),
+    ("1.21.9-1.21.10", 69),
+    ("1.21.11", 75),
+    ("26.1-26.1.2", 84),
+    ("26.2", 88),
+    ("26.3", 97),
+];
+
+/// 把命令行/脚本书写的目标版本解析成 pack_format。
+///
+/// 接受：纯数字（`34`）、标签（`1.21-1.21.1`）、短版本（`1.21`）、
+/// `26.3`、`bedrock` / `bedrock latest`（→ 1000）。大小写与空格不敏感。
+pub fn resolve_target_format(spec: &str) -> Result<u32, String> {
+    let raw = spec.trim();
+    if raw.is_empty() {
+        return Err("未指定目标版本（--to <版本|pack_format>）".to_string());
+    }
+    if let Ok(n) = raw.parse::<u32>() {
+        if n > 0 {
+            return Ok(n);
+        }
+    }
+    let lower = raw.to_ascii_lowercase();
+    let s = lower.strip_prefix("java").unwrap_or(&lower).trim();
+    if s.starts_with("bedrock") {
+        return Ok(1000);
+    }
+    // 1) 完整标签精确匹配
+    for (label, fmt) in TARGET_LABELS {
+        if s == *label {
+            return Ok(*fmt);
+        }
+    }
+    // 2) 前缀匹配（"1.21" → "1.21-1.21.1"，"1.20" → "1.20-1.20.1"）
+    for (label, fmt) in TARGET_LABELS {
+        if label.starts_with(s) {
+            return Ok(*fmt);
+        }
+    }
+    Err(format!(
+        "未知目标版本：{}（可用：pack_format 数字如 34、版本如 1.21.4 / 26.3、bedrock）",
+        spec
+    ))
+}
+
 lazy_static! {
     static ref VERSION_PREFIX_RE: Regex = {
         let patterns = PACK_FORMAT_LABELS
@@ -497,13 +564,16 @@ fn run_bedrock_edge_task(
 }
 
 /// 转换耗时（秒）。`pure` = 纯转换（引擎），`total` = 含 IO 的总时间。
-#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversionTiming {
     pub pure_s: f32,
     pub total_s: f32,
     pub extract_s: f32,
     pub pack_s: f32,
+    /// 逐任务画像（按耗时降序；并行任务含线程争用）。随返回值一起给出，
+    /// 便于 CLI/报告使用（全局画像表在日志输出时已被取走）。
+    pub task_profile: Vec<crate::hurray::scheduler::TaskTiming>,
 }
 
 /// 兼容入口：只关心输出路径的调用方（单文件转换、单测）用这个。
@@ -663,15 +733,9 @@ pub fn process_zip_timed(
     }
 
     let total_elapsed = total_start.elapsed();
-    let timing = ConversionTiming {
-        pure_s: engine_elapsed.as_secs_f32(),
-        total_s: total_elapsed.as_secs_f32(),
-        extract_s: extract_elapsed.as_secs_f32(),
-        pack_s: pack_elapsed.as_secs_f32(),
-    };
 
     // 逐任务画像：取走本次转换的任务耗时，输出 top-N（并行任务含线程争用，
-    // 属"墙钟占用"而非纯 CPU 时间）。用于定位真正的耗时大头。
+    // 属"墙钟占用"而非纯 CPU 时间）。取走的列表随 timing 一起返回，供 CLI 报告。
     let task_timings = crate::hurray::scheduler::take_task_timings();
     if !task_timings.is_empty() {
         let task_sum: f32 = task_timings.iter().map(|t| t.seconds).sum();
@@ -692,6 +756,13 @@ pub fn process_zip_timed(
         }
     }
 
+    let timing = ConversionTiming {
+        pure_s: engine_elapsed.as_secs_f32(),
+        total_s: total_elapsed.as_secs_f32(),
+        extract_s: extract_elapsed.as_secs_f32(),
+        pack_s: pack_elapsed.as_secs_f32(),
+        task_profile: task_timings,
+    };
     // 一行同时给出两个口径：pure = 纯转换（引擎），total = 含 IO 的总时间。
     // 括号里是 IO 分解（解压 / 打包），便于判断瓶颈在引擎还是磁盘。
     log_info!(
@@ -718,6 +789,29 @@ mod tests {
 
     /// 耗时口径回归：`process_zip_timed` 必须同时给出「纯转换」与「总时间」
     /// 两个数，且 total ≥ pure（total 额外含解压与打包 IO）。
+    #[test]
+    fn resolve_target_format_accepts_common_forms() {
+        // 数字
+        assert_eq!(resolve_target_format("34").unwrap(), 34);
+        assert_eq!(resolve_target_format("1000").unwrap(), 1000);
+        // 完整标签（前端同款）
+        assert_eq!(resolve_target_format("1.21-1.21.1").unwrap(), 34);
+        assert_eq!(resolve_target_format("Java 1.20-1.20.1").unwrap(), 15);
+        // 短版本前缀
+        assert_eq!(resolve_target_format("1.21").unwrap(), 34);
+        assert_eq!(resolve_target_format("1.20").unwrap(), 15);
+        assert_eq!(resolve_target_format("26.1").unwrap(), 84);
+        assert_eq!(resolve_target_format("26.3").unwrap(), 97);
+        // 基岩
+        assert_eq!(resolve_target_format("bedrock").unwrap(), 1000);
+        assert_eq!(resolve_target_format("Bedrock Latest").unwrap(), 1000);
+        // 空白/大小写
+        assert_eq!(resolve_target_format("  1.21.4 ").unwrap(), 46);
+        // 错误
+        assert!(resolve_target_format("").is_err());
+        assert!(resolve_target_format("9.99").is_err());
+    }
+
     #[test]
     fn timing_reports_pure_and_total() {
         use std::io::Write;

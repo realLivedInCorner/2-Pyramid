@@ -8,6 +8,7 @@
     - 新增命令 `get_perf_plan`；批量转换日志开头打印 `Performance mode: <mode> (cores=…, thread budget=…, concurrent packs=…)`。
   - **逐任务耗时画像**：调度器为每个任务记录耗时（含所属 tier、是否并行），转换结束时输出 `task profile` 汇总与 **top-8 慢任务**（并行任务标注 `parallel`，其数值含线程争用，属"墙钟占用"而非纯 CPU 时间），用于定位真正的耗时大头。
   - **输出对比闸门（CLI）**：`2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <out>]` 比较两个转换产物——PNG 走**像素级**比对（尺寸 + 逐像素 RGBA + 最大通道差），JSON 走**语义级**比对，其余字节级；分级 `identical` / `encoding-only` / `json-equivalent` / `CONTENT-DIFF` / `only-in-A|B`。默认允许"像素相同、仅编码不同"，`--strict` 要求字节级完全一致；退出码 0/1，可作为提速改动的质量门槛。新增 4 个单测（一致、仅重编码、像素改变、JSON 语义等价 + 单边文件）。
+  - **无界面转换 CLI + 拖放脚本**：`2-pyramid.exe --convert <包|目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>]` 跑与 GUI 完全相同的管线，输出结构化报告（结构分析 + 两个耗时口径 + 逐任务画像 + 体积变化）；版本参数支持 `1.21.4` / `1.21` / `26.3` / `bedrock` 或直接给 pack_format（新增 `resolve_target_format` 与单测）。配套 **`tools/convert-report.bat`**：把资源包或文件夹**拖到脚本上** → 选目标版本 → 转换 → 打印两个耗时与慢任务 → JSON 报告写到包旁边并自动打开目录（Bedrock 目标会先警告）。`ConversionTiming` 现携带 `task_profile`，报告里可看到每个任务的耗时与所属 tier。
 
 - **资源包结构分析（只读，多版本包调研用）**：新增 `converters/pack_analysis.rs`，解析 `pack.mcmeta` 与目录结构，判定并报告：① 官方分层（`overlays.entries[]`，含每个覆盖层的 `formats`、文件数、**会覆盖基础层同路径的文件数与示例**）；② `supported_formats` 区间声明；③ 非标准「版本折叠目录」（如 `textures/item/1.20/…`）；④ 一包多根（一个压缩包里多个 `pack.mcmeta`）。**不修改任何文件、不改变转换行为**。入口有两个：
   - 设置 → 开发者选项 → **「分析资源包结构」**：选一个 zip 直接查看结构化报告（分层表、覆盖计数、折叠目录、警告 + 原始 JSON，可一键复制）；
