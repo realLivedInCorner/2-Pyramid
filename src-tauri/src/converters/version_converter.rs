@@ -669,6 +669,29 @@ pub fn process_zip_timed(
         extract_s: extract_elapsed.as_secs_f32(),
         pack_s: pack_elapsed.as_secs_f32(),
     };
+
+    // 逐任务画像：取走本次转换的任务耗时，输出 top-N（并行任务含线程争用，
+    // 属"墙钟占用"而非纯 CPU 时间）。用于定位真正的耗时大头。
+    let task_timings = crate::hurray::scheduler::take_task_timings();
+    if !task_timings.is_empty() {
+        let task_sum: f32 = task_timings.iter().map(|t| t.seconds).sum();
+        log_info!(
+            "task profile: {} tasks, sum={:.2}s (parallel wall time, incl. contention)",
+            task_timings.len(),
+            task_sum
+        );
+        for t in task_timings.iter().take(8) {
+            log_info!(
+                "  task {:<28} {:>7.2}s  [{}]{}{}",
+                t.task,
+                t.seconds,
+                t.tier,
+                if t.parallel { " parallel" } else { "" },
+                if t.seconds >= 1.0 { "  ← 大头" } else { "" }
+            );
+        }
+    }
+
     // 一行同时给出两个口径：pure = 纯转换（引擎），total = 含 IO 的总时间。
     // 括号里是 IO 分解（解压 / 打包），便于判断瓶颈在引擎还是磁盘。
     log_info!(

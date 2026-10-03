@@ -10,6 +10,7 @@ use self::commands::{
     convert_resource_packs_batch,
     cancel_conversion,
     is_conversion_running,
+    get_perf_plan,
     open_folder,
     get_install_dir,
     read_legal_file,
@@ -91,6 +92,7 @@ mod color_utils;
 mod invoke_conversion;
 mod logger;
 mod overlay;
+pub mod perf;
 mod resource_resolver;
 mod updater;
 pub mod hurray;
@@ -99,6 +101,9 @@ pub use invoke_conversion::invoke_conversion;
 
 /// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
 pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};
+
+/// 输出对比 / 质量闸门（CLI `--pack-diff`）。
+pub use converters::pack_diff;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -248,6 +253,7 @@ pub fn run() {
             convert_resource_packs_batch,
             cancel_conversion,
             is_conversion_running,
+            get_perf_plan,
             test_command,
             open_folder,
             get_install_dir,

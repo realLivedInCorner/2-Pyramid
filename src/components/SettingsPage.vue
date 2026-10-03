@@ -249,18 +249,33 @@
               <i class="ri-cpu-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
-              <div class="label">{{ t('settings.conversionThreads.label') }}</div>
-              <div class="desc">{{ t('settings.conversionThreads.desc') }}</div>
+              <div class="label">{{ t('settings.performanceMode.label') }}</div>
+              <div class="desc">
+                {{ performanceMode === 'performance'
+                  ? t('settings.performanceMode.performanceDesc')
+                  : t('settings.performanceMode.balancedDesc') }}
+              </div>
+              <div v-if="perfPlan" class="desc perf-detail">
+                {{ t('settings.performanceMode.detail', {
+                  cores: perfPlan.cores,
+                  threads: perfPlan.threads,
+                  packs: perfPlan.packs,
+                }) }}
+                <span v-if="perfPlan.note" class="perf-note">· {{ perfPlan.note }}</span>
+              </div>
             </div>
             <div class="item-action">
               <div class="segmented">
                 <button
-                  v-for="opt in conversionThreadsOptions"
-                  :key="opt"
                   class="seg-btn"
-                  :class="{ active: conversionThreads === opt }"
-                  @click="conversionThreads = opt"
-                >{{ opt }}</button>
+                  :class="{ active: performanceMode === 'balanced' }"
+                  @click="performanceMode = 'balanced'"
+                >{{ t('settings.performanceMode.balanced') }}</button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: performanceMode === 'performance' }"
+                  @click="performanceMode = 'performance'"
+                >{{ t('settings.performanceMode.performance') }}</button>
               </div>
             </div>
           </div>
@@ -790,7 +805,29 @@ const toastDuration = ref(8000);
 const toastDurationOptions = [4000, 6000, 8000, 10000, 12000];
 const toastPosition = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('top-right');
 const conversionThreads = ref(2);
-const conversionThreadsOptions = [1, 2, 4];
+// 性能档位：平衡 / 性能（后端解析成线程预算与并发包数）
+const performanceMode = ref<'balanced' | 'performance'>('balanced');
+interface PerfPlan {
+  mode: string;
+  cores: number;
+  threads: number;
+  packs: number;
+  availableMemoryMb: number | null;
+  note: string | null;
+}
+const perfPlan = ref<PerfPlan | null>(null);
+
+async function refreshPerfPlan() {
+  try {
+    perfPlan.value = await invoke<PerfPlan>('get_perf_plan');
+  } catch {
+    perfPlan.value = null;
+  }
+}
+watch(performanceMode, async (val) => {
+  invoke('update_config', { patch: { performanceMode: val } }).catch(() => {});
+  await refreshPerfPlan();
+});
 const namingTemplate = ref('[Ver][Name]');
 const showNamingDialog = ref(false);
 const onSaveNaming = (value: string) => {
@@ -1037,7 +1074,7 @@ const settingItems = [
   { id: 'testNotification', group: 'notification', label: t('settings.testNotification.label'), desc: t('settings.testNotification.desc') },
   { id: 'toastDuration', group: 'notification', label: t('settings.toastDuration.label'), desc: t('settings.toastDuration.desc') },
   { id: 'toastPosition', group: 'notification', label: t('settings.toastPosition.label'), desc: t('settings.toastPosition.desc') },
-  { id: 'conversionThreads', group: 'convert', label: t('settings.conversionThreads.label'), desc: t('settings.conversionThreads.desc') },
+  { id: 'conversionThreads', group: 'convert', label: t('settings.performanceMode.label'), desc: t('settings.performanceMode.balancedDesc') },
   { id: 'outputNaming', group: 'convert', label: t('settings.outputNaming.label'), desc: t('settings.outputNaming.desc') },
   { id: 'conversionHistory', group: 'conversionHistory', label: t('settings.conversionHistory.label'), desc: t('settings.conversionHistory.desc') },
   { id: 'channel', group: 'version', label: t('settings.updateChannel.label'), desc: t('settings.updateChannel.desc') },
@@ -1219,9 +1256,14 @@ onMounted(() => {
       if (cfg?.ui_style === 'glass' || cfg?.ui_style === 'frosted') {
         uiStyle.value = cfg.ui_style;
       }
-      if (typeof cfg?.conversion_threads === 'number' && [1, 2, 4].includes(cfg.conversion_threads)) {
+      if (cfg?.performance_mode === 'balanced' || cfg?.performance_mode === 'performance') {
+        performanceMode.value = cfg.performance_mode;
+      } else if (typeof cfg?.conversion_threads === 'number') {
+        // 旧配置迁移：≤2 → 平衡，≥3 → 性能
         conversionThreads.value = cfg.conversion_threads;
+        performanceMode.value = cfg.conversion_threads >= 3 ? 'performance' : 'balanced';
       }
+      void refreshPerfPlan();
       if (typeof cfg?.output_naming === 'string' && cfg.output_naming.length > 0) {
         const legacy: Record<string, string> = {
           default: '[Ver][Name]',
@@ -1339,10 +1381,6 @@ watch(toastDuration, (val) => {
 
 watch(toastPosition, (val) => {
   invoke('update_config', { patch: { toastPosition: val } }).catch(() => {});
-});
-
-watch(conversionThreads, (val) => {
-  invoke('update_config', { patch: { conversionThreads: val } }).catch(() => {});
 });
 
 watch(uiStyle, (val) => {
@@ -1773,6 +1811,15 @@ const onThemeReset = async () => {
 }
 
 .item-arrow { color: #c6c6c8; font-weight: 800; }
+
+/* 性能档位：档位说明与解析后的线程/包数 */
+.perf-detail {
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11.5px;
+  color: #007bff;
+}
+.perf-note { color: #d97706; }
 
 .fanhua-select {
   background: rgba(0, 0, 0, 0.05); border: none; padding: 6px 10px;

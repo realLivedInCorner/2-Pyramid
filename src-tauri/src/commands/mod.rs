@@ -23,7 +23,7 @@ pub use config::{AppConfig, read_config_file, write_config_file};
 // publicly so that `tauri::generate_handler!` in `lib.rs` can find them.
 pub use background::{set_background, clear_background, read_image_b64, update_background_settings};
 pub use config::{get_config, update_config, clear_config, factory_reset, factory_reset_deep, get_last_backup_info, import_last_backup, BackupInfo, BackupSummary, FactoryResetReport, __cmd__get_config, __cmd__update_config, __cmd__clear_config, __cmd__factory_reset, __cmd__factory_reset_deep, __cmd__get_last_backup_info, __cmd__import_last_backup};
-pub use conversion::{test_command, convert_zip, convert_resource_pack, convert_resource_packs_batch, cancel_conversion, is_conversion_running};
+pub use conversion::{test_command, convert_zip, convert_resource_pack, convert_resource_packs_batch, cancel_conversion, is_conversion_running, get_perf_plan};
 pub use history::{get_conversion_history, clear_conversion_history, HistoryEntry};
 pub use misc::{get_logs, set_dev_mode, get_dev_mode, log_notification, export_logs, LogExportResult, get_log_path, open_folder, get_install_dir, read_legal_file, write_file, create_dir, delete_paths, DeleteResult, get_app_info, AppInfo, force_quit, ping, set_action_monitor, is_action_monitor, log_action, export_action_records, clear_action_records, action_monitor_status, set_action_viewport, ActionRecord, ACTION_MONITOR};
 pub use notification::{show_toast, dismiss_toast, dismiss_all_toasts, focus_main_window, run_toast_action, show_system_notification};

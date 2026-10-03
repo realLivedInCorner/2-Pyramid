@@ -346,10 +346,13 @@
       "bottomLeft": "左下",
       "bottomRight": "右下"
     },
-    "conversionThreads": {
-      "label": "转换并发数",
-      "desc": "同时转换的资源包数量，更多更快但更占内存",
-      "searchDesc": "同时转换的资源包数量"
+    "performanceMode": {
+      "label": "性能档位",
+      "balanced": "平衡",
+      "performance": "性能",
+      "balancedDesc": "留出交互余量：用一半核心，同时转换 2 个包，机器可继续正常使用",
+      "performanceDesc": "吃满 CPU：全部核心参与转换，同时最多 6 个包（内存不足时自动降为 1）",
+      "detail": "本机 {cores} 核 · 线程预算 {threads} · 并发包数 {packs}"
     },
     "outputNaming": {
       "label": "输出命名模板",

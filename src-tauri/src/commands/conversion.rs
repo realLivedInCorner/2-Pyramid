@@ -20,21 +20,39 @@ static CONVERSION_CANCELLED: AtomicBool = AtomicBool::new(false);
 /// guard so every exit path (success, error, cancelled) resets it.
 static CONVERSION_RUNNING: AtomicBool = AtomicBool::new(false);
 
-/// Default parallelism for batch conversion, overridable per-user via
-/// the `conversion_threads` config setting (1–4). 2 is a deliberate
-/// balance: packs are IO-heavy (unzip → transform → rezip) so a single
-/// worker starves the disk, while too many workers blow up memory
-/// (every pack is fully extracted into its own tempdir) and fight with
-/// the hurray engine's internal rayon pool.
-const DEFAULT_CONCURRENT_PACKS: usize = 2;
+/// 当前的性能档位解析结果（平衡 / 性能 → 线程预算与并发包数）。
+///
+/// 引擎的并行是单一总预算：这里的 `threads` 是 rayon 池大小，包级与包内
+/// 并行（含 PNG 编码）共用它；`packs` 只是再限制"同时展开几个包"（内存保护）。
+fn perf_plan() -> crate::perf::PerfPlan {
+    let cfg = crate::commands::config::read_config_file().ok();
+    let mode = cfg.as_ref().and_then(|c| c.performance_mode.clone());
+    // 旧字段 conversion_threads（1–4）作为迁移来源：≤2 → 平衡，≥3 → 性能
+    let legacy = cfg.as_ref().and_then(|c| c.conversion_threads);
+    crate::perf::resolve(mode.as_deref(), legacy)
+}
 
-/// Read the user-configured batch parallelism (clamped to 1–4).
+/// 批处理同时转换的包数。
 fn concurrent_packs() -> usize {
-    crate::commands::config::read_config_file()
-        .ok()
-        .and_then(|c| c.conversion_threads)
-        .map(|n| n.clamp(1, 4) as usize)
-        .unwrap_or(DEFAULT_CONCURRENT_PACKS)
+    perf_plan().packs
+}
+
+/// 暴露给前端的性能档位信息（用于设置页显示解析后的线程/包数）。
+#[tauri::command]
+pub fn get_perf_plan() -> crate::perf::PerfPlan {
+    let plan = perf_plan();
+    crate::log_info!(
+        "OKAY get_perf_plan [mode={} cores={} threads={} packs={}]{}",
+        plan.mode,
+        plan.cores,
+        plan.threads,
+        plan.packs,
+        plan.note
+            .as_ref()
+            .map(|n| format!(" note={}", n))
+            .unwrap_or_default()
+    );
+    plan
 }
 
 /// RAII guard that keeps `CONVERSION_RUNNING` true for the lifetime of
@@ -173,7 +191,18 @@ pub async fn convert_resource_packs_batch(
 
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
-    let parallelism = concurrent_packs();
+    let plan = perf_plan();
+    let parallelism = plan.packs;
+    log_info!(
+        "Performance mode: {} (cores={}, thread budget={}, concurrent packs={})",
+        plan.mode,
+        plan.cores,
+        plan.threads,
+        plan.packs
+    );
+    if let Some(note) = &plan.note {
+        crate::log_warn!("Performance note: {}", note);
+    }
     log_info!("Files to process: {} (parallelism: {})", file_paths.len(), parallelism);
     log_info!("Target pack_format: {} ({})", target_format, pack_format_label_for_output(target_format));
     log_info!("fix_alpha_layers: {}, adapt_shaders: {}", fix_alpha, adapt_shaders);
