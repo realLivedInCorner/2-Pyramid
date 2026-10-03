@@ -20,7 +20,7 @@ vite.config.js
 
 # Project-specific
 Python_Script/
-set_version.py
+/set_version.py
 2pyr-logo.svg
 overlay_projects.json
 src-tauri/overlay_projects.json
