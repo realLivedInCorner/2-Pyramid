@@ -569,9 +569,11 @@ fn run_bedrock_edge_task(
 pub struct ConversionTiming {
     pub pure_s: f32,
     pub total_s: f32,
-    /// IO：解压与重新打包
+    /// IO：解压、重新打包与临时目录清理
     pub extract_s: f32,
     pub pack_s: f32,
+    /// 临时目录清理（删除解压出来的整棵树；几千个小文件时不可忽略）
+    pub cleanup_s: f32,
     /// 引擎内部分段：预检（基岩探测/结构规整/结构分析）、转换管线、收尾（mcmeta/edge）
     pub preflight_s: f32,
     pub pipeline_s: f32,
@@ -632,8 +634,21 @@ pub fn process_zip_timed(
     // total = extract(IO) + engine(纯转换) + repack(IO)
     let total_start = std::time::Instant::now();
 
-    let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {}", e))?;
+    let temp_dir = tempfile::Builder::new()
+        .prefix(crate::converters::zip::WORK_DIR_PREFIX)
+        .tempdir()
+        .map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
+
+    // 启动时顺手清理陈旧残留（异常退出/后台删除未完成的 .2pyr-work-*）；
+    // 只删超过 2 小时的目录，避免误伤正在并发的其他转换。
+    let swept = crate::converters::zip::sweep_stale_work_dirs(
+        &std::env::temp_dir(),
+        std::time::Duration::from_secs(2 * 60 * 60),
+    );
+    if swept > 0 {
+        log_info!("swept {} stale work dir(s) from previous runs", swept);
+    }
 
     let extract_start = std::time::Instant::now();
     extract_resource_pack(original_file_path, &temp_dir_path)?;
@@ -747,6 +762,32 @@ pub fn process_zip_timed(
 
     let total_elapsed = total_start.elapsed();
 
+    // 临时目录清理：异步（删除 4000+ 文件在 Windows 上要 1.5–2.5s，全部是杀软
+    // 逐个扫描的开销），把它挪出用户等待路径；`2PYR_SYNC_CLEANUP=1` 可强制同步
+    // 删除以便基准测试时看到真实耗时。残留由下次转换启动时的 sweep 兜底。
+    let async_cleanup = std::env::var("2PYR_SYNC_CLEANUP").is_err();
+    let cleanup_start = std::time::Instant::now();
+    let mut cleanup_async = false;
+    if async_cleanup {
+        // into_path 让 TempDir 不再在析构时重复删除，交给后台线程处理
+        let work_path = temp_dir.into_path();
+        cleanup_async = crate::converters::zip::remove_dir_in_background(&work_path);
+        if !cleanup_async {
+            // 派发失败就当前线程同步删除，别留下垃圾
+            if let Err(e) = crate::converters::zip::remove_dir_parallel(&work_path) {
+                log_warn!("temp dir cleanup failed: {}", e);
+            }
+        }
+    } else if let Err(e) = crate::converters::zip::remove_dir_parallel(temp_dir.path()) {
+        log_warn!("temp dir cleanup failed: {}", e);
+    }
+    let cleanup_elapsed = if cleanup_async {
+        std::time::Duration::ZERO
+    } else {
+        cleanup_start.elapsed()
+    };
+    let total_elapsed = total_elapsed + cleanup_elapsed;
+
     // 逐任务画像：取走本次转换的任务耗时，输出 top-N（并行任务含线程争用，
     // 属"墙钟占用"而非纯 CPU 时间）。取走的列表随 timing 一起返回，供 CLI 报告。
     let task_timings = crate::hurray::scheduler::take_task_timings();
@@ -774,6 +815,7 @@ pub fn process_zip_timed(
         total_s: total_elapsed.as_secs_f32(),
         extract_s: extract_elapsed.as_secs_f32(),
         pack_s: pack_elapsed.as_secs_f32(),
+        cleanup_s: cleanup_elapsed.as_secs_f32(),
         preflight_s: preflight_elapsed.as_secs_f32(),
         pipeline_s: pipeline_elapsed.as_secs_f32(),
         post_s: post_elapsed.as_secs_f32(),
@@ -782,12 +824,17 @@ pub fn process_zip_timed(
     // 一行同时给出两个口径：pure = 纯转换（引擎），total = 含 IO 的总时间。
     // 括号里是 IO 分解与引擎分段，便于判断瓶颈在引擎哪一段还是磁盘。
     log_info!(
-        "conversion timing: pure={:.2}s total={:.2}s (extract={:.2}s, pack={:.2}s, io={:.2}s)",
+        "conversion timing: pure={:.2}s total={:.2}s (extract={:.2}s, pack={:.2}s, cleanup={}, io={:.2}s)",
         timing.pure_s,
         timing.total_s,
         timing.extract_s,
         timing.pack_s,
-        timing.extract_s + timing.pack_s
+        if cleanup_async {
+            "async".to_string()
+        } else {
+            format!("{:.2}s", timing.cleanup_s)
+        },
+        timing.extract_s + timing.pack_s + timing.cleanup_s
     );
     log_info!(
         "engine breakdown: preflight={:.2}s pipeline={:.2}s post={:.2}s | tasks: {} runs, sum={:.2}s, scheduler+worker overhead={:.2}s",

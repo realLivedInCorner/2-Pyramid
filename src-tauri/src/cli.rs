@@ -340,3 +340,15 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
 
     if report.summary.failed > 0 { 1 } else { 0 }
 }
+
+/// CLI 退出前等待后台临时目录清理完成（进程退出会杀掉后台线程，
+/// 不等待就会在 %TEMP% 留下 .2pyr-work-* 残留）。
+pub fn finish_pending_cleanups() {
+    if two_pyramid_lib::pending_cleanups() == 0 {
+        return;
+    }
+    let ok = two_pyramid_lib::wait_for_cleanups(std::time::Duration::from_secs(30));
+    if !ok {
+        eprintln!("[提示] 仍有临时目录在后台清理，将在下次转换启动时自动清理。");
+    }
+}

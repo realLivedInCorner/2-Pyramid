@@ -27,6 +27,9 @@
   - **质量验证**：用 `--pack-diff` 比对改动前后同一包的产物——**4018 个文件 `diffs=0`，`--strict` 字节级完全一致**。
   - **可复现画像**：`--convert` 报告新增引擎分段耗时（`preflight` / `pipeline` / `post`）、完整任务列表与 `taskCount` / `taskSumS`；日志新增 `engine breakdown:` 行（含"调度与 worker 开销 = 管线 − 任务之和"），便于继续定位下一处瓶颈。
 
+  - **临时目录清理不再占用等待时间（并终于被计时）**：批处理墙钟里那 2 s 的"差额"来自 `TempDir` 析构——它在计时快照**之后**删除 4139 个解压文件（Windows + 杀软逐个扫描，实测 1.5–2.4 s），既不在 `pure` 也不在 `total` 里。现在：① 计时结构新增 `cleanup_s`，`total` 明确包含它；② 清理改为**后台异步删除**（并行删除一级子项，多包批处理时与下一个包重叠），`2PYR_SYNC_CLEANUP=1` 可强制同步以便基准测试；③ 工作目录改用专属前缀 `.2pyr-work-`，转换启动时清理超过 2 小时的陈旧残留；④ CLI 退出前等待后台清理完成（`wait_for_cleanups`），避免短命进程留下残留。**进程墙钟 5.2–6.1s → 3.8s**。
+  - **批量日志汇总更明确**：`Pure conversion time`（引擎）/ `IO time`（解压+打包+清理）/ `Total time (incl. IO)`（墙钟）/ `Unaccounted`（调度与报告开销）四项分开，不再把清理混进"IO 开销"。
+
 - **转换耗时日志区分两个口径**：每个包转换结束时记录一行
   `conversion timing: pure=<纯转换>s total=<总时间>s (extract=…, pack=…, io=…)`——
   **pure** 为引擎纯转换时间（b2j 预转换 + 结构分析 + 转换管线 + mcmeta 改写 + j2b，不含文件 IO），

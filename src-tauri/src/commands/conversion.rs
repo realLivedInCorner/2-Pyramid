@@ -280,6 +280,7 @@ pub async fn convert_resource_packs_batch(
                         "time": format!("{:.2}", elapsed.as_secs_f32()),
                         "pure": format!("{:.2}", timing.pure_s),
                         "total": format!("{:.2}", timing.total_s),
+                        "io": format!("{:.2}", timing.extract_s + timing.pack_s + timing.cleanup_s),
                     })
                 }
                 Err(e) => {
@@ -361,11 +362,21 @@ pub async fn convert_resource_packs_batch(
                 .filter_map(|r| r["pure"].as_str())
                 .filter_map(|s| s.parse::<f64>().ok())
                 .sum();
+            // IO 合计 = 解压 + 打包 + 临时目录清理（各包纯转换之外的实测工作）
+            let io_sum: f64 = results
+                .iter()
+                .filter_map(|r| r["io"].as_str())
+                .filter_map(|s| s.parse::<f64>().ok())
+                .sum();
             log_info!("Pure conversion time: {:.2}s (sum of engine work)", pure_sum);
+            log_info!(
+                "IO time: {:.2}s (extract + pack + temp cleanup)",
+                io_sum
+            );
             log_info!("Total time (incl. IO): {:.2}s", elapsed.as_secs_f32());
             log_info!(
-                "IO overhead: {:.2}s (extract+pack){}",
-                (elapsed.as_secs_f64() - pure_sum).max(0.0),
+                "Unaccounted: {:.2}s (scheduling, report writing, per-pack overhead){}",
+                (elapsed.as_secs_f64() - pure_sum - io_sum).max(0.0),
                 if parallelism > 1 {
                     format!(" · wall-clock with parallelism={}", parallelism)
                 } else {
