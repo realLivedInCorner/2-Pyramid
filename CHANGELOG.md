@@ -7,6 +7,16 @@
   - 命令行 **`2-pyramid.exe --analyze <zip | 目录>`**：传目录会递归分析其中所有 `.zip`/`.mcpack` 并输出 JSON 数组，便于批量跑真实样本（退出码 0/1）。
   - 转换流程启动时也会把同样的结构摘要打进日志（仅记录，不改变行为），新增 6 个单测覆盖四种形态与版本目录名启发式。
 
+### Changed
+
+- **转换耗时日志区分两个口径**：每个包转换结束时记录一行
+  `conversion timing: pure=<纯转换>s total=<总时间>s (extract=…, pack=…, io=…)`——
+  **pure** 为引擎纯转换时间（b2j 预转换 + 结构分析 + 转换管线 + mcmeta 改写 + j2b，不含文件 IO），
+  **total** 为含 IO 的总时间（加上解压与重新打包）；括号内为 IO 分解，便于判断瓶颈。
+  批处理结束时同样给出两个数：`Pure conversion time`（各包 pure 之和）与 `Total time (incl. IO)`（墙钟时间），
+  并附 IO 开销与并行度说明。新增 `process_zip_timed` 返回 `ConversionTiming`（`process_zip` 保留为兼容包装），
+  批处理结果 JSON 增加 `pure` / `total` 字段；新增 1 个计时口径回归测试（断言 total ≥ pure）。
+
 ## [2.6.0] - 2026-10-01（BUILD 20054）
 
 ### Added
