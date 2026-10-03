@@ -153,6 +153,8 @@ fn main() {
     if let Some(idx) = args.iter().position(|a| a == "--convert") {
         let code = cli::run_convert(&args, idx);
         cli::finish_pending_cleanups();
+        // std::process::exit 不跑析构函数：必须显式 flush，否则日志尾部丢失
+        two_pyramid_lib::flush_logs();
         std::process::exit(code);
     }
 

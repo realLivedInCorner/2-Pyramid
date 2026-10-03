@@ -111,7 +111,14 @@ pub use converters::version_converter::{
 };
 
 /// 后台临时目录清理的等待接口（CLI 退出前调用）。
-pub use converters::zip::{pending_cleanups, wait_for_cleanups};
+pub use converters::zip::{
+    pending_cleanups, set_cleanup_mode, wait_for_cleanups, CleanupMode,
+};
+
+/// 刷出日志缓冲（短命进程退出前必须调用，否则丢日志尾部）。
+pub fn flush_logs() {
+    logger::GLOBAL_LOGGER.flush();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

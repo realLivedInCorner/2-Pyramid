@@ -762,30 +762,19 @@ pub fn process_zip_timed(
 
     let total_elapsed = total_start.elapsed();
 
-    // 临时目录清理：异步（删除 4000+ 文件在 Windows 上要 1.5–2.5s，全部是杀软
-    // 逐个扫描的开销），把它挪出用户等待路径；`2PYR_SYNC_CLEANUP=1` 可强制同步
-    // 删除以便基准测试时看到真实耗时。残留由下次转换启动时的 sweep 兜底。
-    let async_cleanup = std::env::var("2PYR_SYNC_CLEANUP").is_err();
+    // 临时目录清理：默认交给后台（GUI 用后台线程；CLI/脚本用脱离进程的
+    // `rmdir`，进程立即退出、删除继续在系统里完成），删除 4000+ 文件在
+    // Windows 上要 1.5–2.5s，全部是杀软逐个扫描的开销，不该占用等待时间；
+    // `2PYR_SYNC_CLEANUP=1` 可强制同步删除以便基准测试。
     let cleanup_start = std::time::Instant::now();
-    let mut cleanup_async = false;
-    if async_cleanup {
-        // into_path 让 TempDir 不再在析构时重复删除，交给后台线程处理
-        let work_path = temp_dir.into_path();
-        cleanup_async = crate::converters::zip::remove_dir_in_background(&work_path);
-        if !cleanup_async {
-            // 派发失败就当前线程同步删除，别留下垃圾
-            if let Err(e) = crate::converters::zip::remove_dir_parallel(&work_path) {
-                log_warn!("temp dir cleanup failed: {}", e);
-            }
-        }
-    } else if let Err(e) = crate::converters::zip::remove_dir_parallel(temp_dir.path()) {
-        log_warn!("temp dir cleanup failed: {}", e);
-    }
-    let cleanup_elapsed = if cleanup_async {
-        std::time::Duration::ZERO
-    } else {
+    let work_path = temp_dir.into_path();
+    let cleanup_done_inline = crate::converters::zip::dispatch_cleanup(&work_path);
+    let cleanup_elapsed = if cleanup_done_inline {
         cleanup_start.elapsed()
+    } else {
+        std::time::Duration::ZERO
     };
+    let cleanup_async = !cleanup_done_inline;
     let total_elapsed = total_elapsed + cleanup_elapsed;
 
     // 逐任务画像：取走本次转换的任务耗时，输出 top-N（并行任务含线程争用，

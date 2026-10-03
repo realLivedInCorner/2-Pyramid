@@ -121,6 +121,10 @@ fn arg_value(args: &[String], flag: &str) -> Option<String> {
 
 /// `--convert` 入口。返回进程退出码。
 pub fn run_convert(args: &[String], idx: usize) -> i32 {
+    // CLI 是短命进程：临时目录清理交给脱离进程的 rmdir 子进程，
+    // 既不等待、也不会留下残留。
+    two_pyramid_lib::set_cleanup_mode(two_pyramid_lib::CleanupMode::Detached);
+
     let input = match args.get(idx + 1).filter(|v| !v.starts_with("--")) {
         Some(v) => v.clone(),
         None => {
@@ -154,6 +158,11 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         }
     };
 
+    // 进程内阶段计时：转换之外的开销（结构分析、报告写入）一目了然
+    let process_start = Instant::now();
+    let mut analyze_secs = 0.0f32;
+    let mut convert_secs = 0.0f32;
+
     println!("==> 2-Pyramid CLI 转换");
     println!("    输入：{}（{} 个资源包）", input, inputs.len());
     println!(
@@ -176,7 +185,9 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
             .unwrap_or_default();
         println!("[{}/{}] {}", i + 1, inputs.len(), name);
 
+        let analyze_start = Instant::now();
         let structure = analyze_zip(pack).ok();
+        analyze_secs += analyze_start.elapsed().as_secs_f32();
         if let Some(s) = &structure {
             println!("    结构：{}", s.summary());
             for w in &s.warnings {
@@ -185,6 +196,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         }
         let input_bytes = std::fs::metadata(pack).ok().map(|m| m.len());
 
+        let convert_start = Instant::now();
         match process_zip_timed(
             &pack.to_string_lossy(),
             target,
@@ -196,6 +208,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
             true,
         ) {
             Ok((output, timing)) => {
+                convert_secs += convert_start.elapsed().as_secs_f32();
                 let output_bytes = std::fs::metadata(&output).ok().map(|m| m.len());
                 let profile: Vec<TaskProfileEntry> = timing
                     .task_profile
@@ -246,6 +259,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                 });
             }
             Err(e) => {
+                convert_secs += convert_start.elapsed().as_secs_f32();
                 let profile: Vec<TaskProfileEntry> = Vec::new();
                 println!("    ✗ 失败：{}", e);
                 packs.push(PackReport {
@@ -267,6 +281,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
     }
 
     let wall = wall_start.elapsed().as_secs_f32();
+    let process_wall = process_start.elapsed().as_secs_f32();
     let success = packs.iter().filter(|p| p.status == "success").count();
     let pure_sum: f32 = packs
         .iter()
@@ -338,17 +353,25 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         }
     }
 
+    // 阶段耗时：区分"转换"与"转换之外"（结构分析、报告写入、进程自身开销）。
+    // 注意：临时目录清理默认交给脱离进程的 rmdir 子进程，不计入本行，
+    // 因此某些外壳（会等待整个进程树）测到的墙钟会比这里更长。
+    println!("阶段耗时：结构分析 {:.2}s · 转换 {:.2}s · 其他 {:.2}s = 进程内 {:.2}s",
+        analyze_secs,
+        convert_secs,
+        (process_wall - analyze_secs - convert_secs).max(0.0),
+        process_wall
+    );
+
     if report.summary.failed > 0 { 1 } else { 0 }
 }
 
-/// CLI 退出前等待后台临时目录清理完成（进程退出会杀掉后台线程，
-/// 不等待就会在 %TEMP% 留下 .2pyr-work-* 残留）。
+/// CLI 退出前不做任何等待：清理已交给**脱离本进程**的 `rmdir` 子进程，
+/// 进程立刻返回，删除在后台继续完成（因此也不会有临时目录残留）。
 pub fn finish_pending_cleanups() {
+    // 若仍有后台线程模式的清理在跑（例如模式被环境变量改过），最多等 3 秒
     if two_pyramid_lib::pending_cleanups() == 0 {
         return;
     }
-    let ok = two_pyramid_lib::wait_for_cleanups(std::time::Duration::from_secs(30));
-    if !ok {
-        eprintln!("[提示] 仍有临时目录在后台清理，将在下次转换启动时自动清理。");
-    }
+    let _ = two_pyramid_lib::wait_for_cleanups(std::time::Duration::from_secs(3));
 }

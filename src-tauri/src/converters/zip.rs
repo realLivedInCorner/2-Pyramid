@@ -156,6 +156,109 @@ lazy_static::lazy_static! {
         std::sync::Mutex::new(Vec::new());
 }
 
+/// 临时目录清理策略。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CleanupMode {
+    /// 当前线程同步删除（基准测试用，耗时计入 cleanup_s）。
+    Sync,
+    /// 后台线程删除；进程退出会中断，只适合 GUI 这类长命进程。
+    Background,
+    /// 交给**脱离本进程**的系统子进程删除（`rmdir /S /Q`）：本进程立即退出，
+    /// 删除在后台继续完成——短命进程（CLI/脚本）也不留残留、也不等待。
+    Detached,
+}
+
+lazy_static::lazy_static! {
+    static ref CLEANUP_MODE: std::sync::Mutex<CleanupMode> =
+        std::sync::Mutex::new(CleanupMode::Background);
+}
+
+/// 设置清理策略（CLI 启动时设为 `Detached`）。
+pub fn set_cleanup_mode(mode: CleanupMode) {
+    if let Ok(mut m) = CLEANUP_MODE.lock() {
+        *m = mode;
+    }
+}
+
+/// 当前清理策略。环境变量 `2PYR_SYNC_CLEANUP=1` 优先（强制同步，便于基准测试）。
+pub fn cleanup_mode() -> CleanupMode {
+    if std::env::var("2PYR_SYNC_CLEANUP").is_ok() {
+        return CleanupMode::Sync;
+    }
+    CLEANUP_MODE
+        .lock()
+        .map(|m| *m)
+        .unwrap_or(CleanupMode::Background)
+}
+
+/// 按当前策略派发清理。返回 `true` 表示已完成（同步、耗时需计入），
+/// `false` 表示已交给后台（不计入耗时）。
+pub fn dispatch_cleanup(root: &Path) -> bool {
+    let mode = cleanup_mode();
+    crate::log_info!("temp cleanup dispatch: mode={:?} path={}", mode, root.display());
+    match mode {
+        CleanupMode::Sync => {
+            if let Err(e) = remove_dir_parallel(root) {
+                crate::log_warn!("temp cleanup failed: {}", e);
+            }
+            true
+        }
+        CleanupMode::Background => {
+            if remove_dir_in_background(root) {
+                false
+            } else {
+                // 派发失败就同步删掉，别留下垃圾
+                if let Err(e) = remove_dir_parallel(root) {
+                    crate::log_warn!("temp cleanup failed: {}", e);
+                }
+                true
+            }
+        }
+        CleanupMode::Detached => {
+            if remove_dir_detached(root) {
+                false
+            } else if remove_dir_in_background(root) {
+                false
+            } else {
+                let _ = remove_dir_parallel(root);
+                true
+            }
+        }
+    }
+}
+
+/// 派发一个**脱离本进程**的删除：Windows 用 `cmd /C rmdir /S /Q`，Unix 用 `rm -rf`。
+/// 子进程不等待、不继承标准流、无窗口；本进程退出后它继续执行到完成。
+pub fn remove_dir_detached(root: &Path) -> bool {
+    use std::process::{Command, Stdio};
+    if !root.exists() {
+        return true;
+    }
+
+    #[cfg(windows)]
+    let mut cmd = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        let mut c = Command::new("cmd");
+        c.arg("/C").arg("rmdir").arg("/S").arg("/Q").arg(root);
+        c.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+        c
+    };
+    #[cfg(not(windows))]
+    let mut cmd = {
+        let mut c = Command::new("rm");
+        c.arg("-rf").arg(root);
+        c
+    };
+
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .is_ok()
+}
+
 /// 后台异步删除工作目录：删除几千个小文件在 Windows 上要 1.5–2.5 s
 /// （杀软逐个扫描），把它挪出用户等待路径。返回是否成功派发。
 ///
