@@ -110,6 +110,9 @@ pub use converters::version_converter::{
     pack_format_label_for_output, process_zip_timed, resolve_target_format, ConversionTiming,
 };
 
+/// 后台临时目录清理的等待接口（CLI 退出前调用）。
+pub use converters::zip::{pending_cleanups, wait_for_cleanups};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use crate::{log_info, log_debug, log_error};

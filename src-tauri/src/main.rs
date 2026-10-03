@@ -151,7 +151,9 @@ fn main() {
 
     // 无界面转换（拖放脚本用）：跑完整管线并输出 JSON 报告
     if let Some(idx) = args.iter().position(|a| a == "--convert") {
-        std::process::exit(cli::run_convert(&args, idx));
+        let code = cli::run_convert(&args, idx);
+        cli::finish_pending_cleanups();
+        std::process::exit(code);
     }
 
     // 结构分析 CLI：只读分析，不启动 GUI
