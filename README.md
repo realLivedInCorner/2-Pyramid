@@ -172,6 +172,10 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 > .\tools\convert-report.bat "D:\packs"        -MenuChoice 7 -Yes  # 菜单序号 7 = 1.21.4，跳过确认
 > ```
 > 参数：`-Target`（版本或 pack_format）、`-MenuChoice`（菜单 1–16）、`-Yes`（跳过确认与结尾等待）、`-NoOpen`（不自动打开文件夹）。
+>
+> **性能基准页**：`tools/benchmark/index.html`（单文件、零依赖）——横向对比各优化节点的耗时构成，含双计时口径切换与质量校验结论；数据更新方式见 `tools/benchmark/README.md`。
+>
+> 维护者文档：发布清单 `tools/release/README.md`；商店提交文案 `tools/store/`。
 
 ### 🧰 技术栈
 
