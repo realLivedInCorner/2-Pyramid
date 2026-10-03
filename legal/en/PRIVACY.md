@@ -30,7 +30,7 @@ The optional **display name** you enter is stored only in local config for the h
 | Overlay projects | `2-Pyramid` under system Documents | Project metadata and overlay workspaces |
 | Logs | `2-Pyramid\logs` under Local AppData | Rolling daily logs; export via Settings → Developer mode |
 | Update marker | `2-Pyramid` under system config dir | In-app update state |
-| Conversion temp files | System temp | Intermediate extract/build files; cleaned after a normal run |
+| Conversion temp files | System temp (`.2pyr-work-*`) | Intermediate extract/build files; removed after a normal run by a background thread or a detached child process, and stale leftovers are swept on the next conversion |
 
 Logs may include **file paths** and error messages for troubleshooting. **Both export paths (session log and on-disk logs) redact by default**: the exported file hides the Windows user name, machine name, IPs, e-mails and API keys/tokens, and collapses pack paths to `<path>\file.ext`. Redaction applies to the exported file only — on-disk and in-app logs stay verbatim so you can debug locally. It can be turned off in Settings → Developer options; developer mode additionally allows exporting the unredacted text (with a confirmation step — never share that publicly).
 
