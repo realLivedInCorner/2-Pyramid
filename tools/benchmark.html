@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2-Pyramid 转换性能基准 · 优化前后对比</title>
+<style>
+  :root{
+    --bg:#0a0d13; --panel:#111722; --panel2:#161d2b; --line:#232c3d;
+    --text:#e8edf7; --muted:#8e9bb3; --muted2:#66748c;
+    --extract:#38bdf8; --engine:#a78bfa; --pack:#fbbf24; --cleanup:#f87171;
+    --good:#34d399; --accent:#7c5cff; --accent2:#22d3ee;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:radial-gradient(1200px 600px at 20% -10%, #1a1330 0%, transparent 60%), var(--bg);
+    color:var(--text); font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:56px 22px 80px}
+  a{color:var(--accent2)}
+  .kicker{color:var(--muted);font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:clamp(30px,4.4vw,50px);line-height:1.12;margin:0 0 14px;font-weight:800;letter-spacing:-.02em}
+  h1 .grad{background:linear-gradient(100deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-size:23px;margin:54px 0 8px;font-weight:750;letter-spacing:-.01em}
+  h3{font-size:15px;margin:26px 0 8px;font-weight:700;color:var(--muted)}
+  .sub{color:var(--muted);max-width:78ch;margin:0 0 26px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:14px;margin:26px 0 6px}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px}
+  .card .big{font-size:30px;font-weight:800;letter-spacing:-.02em;display:block;margin-bottom:2px}
+  .card .lbl{color:var(--muted2);font-size:12.5px}
+  .card .note{color:var(--muted);font-size:13px;margin-top:8px}
+  .card.good .big{color:var(--good)}
+  .card.acc .big{background:linear-gradient(100deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;margin-top:16px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:6px 0 18px}
+  .chip{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .dot.hatch{background:repeating-linear-gradient(45deg,rgba(248,113,113,.85) 0 4px,rgba(248,113,113,.25) 4px 8px)}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 20px}
+  .seg{display:inline-flex;background:#0d121c;border:1px solid var(--line);border-radius:11px;padding:3px}
+  .seg button{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;padding:7px 14px;border-radius:8px;cursor:pointer}
+  .seg button.on{background:linear-gradient(100deg,rgba(124,92,255,.28),rgba(34,211,238,.22));color:var(--text);font-weight:650}
+  /* chart */
+  .chart{margin-top:6px}
+  .axis{display:flex;justify-content:space-between;color:var(--muted2);font-size:11.5px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:14px}
+  .row{display:grid;grid-template-columns:186px 1fr 74px;gap:14px;align-items:center;margin-bottom:12px;cursor:default}
+  .row .name{font-size:13.5px;color:var(--text)}
+  .row .name small{display:block;color:var(--muted2);font-size:11.5px;line-height:1.35}
+  .track{position:relative;height:26px;background:#0d121c;border-radius:8px;overflow:hidden}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:calc(100%/8) 100%;opacity:.55}
+  .bar{position:absolute;left:0;top:0;bottom:0;width:100%;display:flex;overflow:hidden}
+  .seg-part{height:100%;flex:0 0 auto}
+  .seg-part.hatch{background:repeating-linear-gradient(45deg,rgba(248,113,113,.8) 0 5px,rgba(248,113,113,.22) 5px 10px)}
+  .row .total{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;font-size:14px}
+  .row .total small{display:block;color:var(--muted2);font-size:11px;font-weight:500}
+  .speed{color:var(--good);font-size:11.5px}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
+  th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--muted);font-weight:650;font-size:12.5px;letter-spacing:.02em}
+  td.num{font-variant-numeric:tabular-nums;text-align:right}
+  tr.hl td{background:rgba(52,211,153,.06)}
+  .mini{position:relative;height:8px;background:#0d121c;border-radius:5px;overflow:hidden;min-width:90px}
+  .mini i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:5px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700}
+  .pill.ok{background:rgba(52,211,153,.14);color:var(--good)}
+  .pill.warn{background:rgba(251,191,36,.14);color:var(--pack)}
+  .pill.bad{background:rgba(248,113,113,.14);color:var(--cleanup)}
+  ul.clean{margin:10px 0 0;padding-left:20px;color:var(--muted)}
+  ul.clean li{margin:6px 0}
+  ul.clean b{color:var(--text)}
+  code{background:#0d121c;border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace}
+  .foot{margin-top:46px;color:var(--muted2);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px}
+  .tip{
+    position:fixed;pointer-events:none;background:#0b111b;border:1px solid var(--line);border-radius:10px;
+    padding:9px 11px;font-size:12.5px;box-shadow:0 12px 30px rgba(0,0,0,.5);opacity:0;transition:opacity .12s;z-index:9;max-width:300px
+  }
+  .tip b{color:var(--text)}
+  .tip .k{color:var(--muted2)}
+  @media (max-width:720px){
+    .row{grid-template-columns:118px 1fr 60px;gap:10px}
+    .row .name{font-size:12.5px}
+    th:nth-child(3),td:nth-child(3){display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">2-Pyramid · 内部性能基准 · 2026-10-03</div>
+  <h1>2-Pyramid <span class="grad">六个时间点</span><br>转换耗时对比</h1>
+  <p class="sub">
+    同一天、同一台机器、同一个输入包（<code>TapL 16x.zip</code>：3 631 个文件 / 18.41 MB / Java 1.6–1.8 → 26.3，pack_format 1 → 97）、
+    同一构建类型（debug）下，2-Pyramid 在六个优化节点上的实测耗时。数值越低越好。
+  </p>
+
+  <div class="cards">
+    <div class="card acc">
+      <span class="big" id="c-speedup">2.23×</span>
+      <div class="lbl">用户实际等待（含全部清理）</div>
+      <div class="note">7.86s → <span id="c-final">3.52s</span></div>
+    </div>
+    <div class="card good">
+      <span class="big">−32%</span>
+      <div class="lbl">引擎纯转换</div>
+      <div class="note">2.91s → 1.99s（38 个任务之和仅 1.48s，其余是调度开销）</div>
+    </div>
+    <div class="card good">
+      <span class="big">−54%</span>
+      <div class="lbl">解压（IO）</div>
+      <div class="note">2.12s → 0.98s（并行写盘：瓶颈是逐文件创建而非 Deflate）</div>
+    </div>
+    <div class="card good">
+      <span class="big">0 字节差异</span>
+      <div class="lbl">输出一致性（质量闸门）</div>
+      <div class="note">4018 个文件全部一致；<code>--strict</code> 字节级通过</div>
+    </div>
+  </div>
+
+  <h2>总览：各时间点的耗时构成</h2>
+  <p class="sub">每根柱子是一个优化节点，按阶段堆叠。虚线斜纹段表示<strong>当时真实发生、但没有被计时统计</strong>的临时目录清理（它发生在计时快照之后，只体现在用户等待里）。</p>
+
+  <div class="toolbar">
+    <div class="seg" id="mode">
+      <button class="on" data-m="wait">用户实际等待</button>
+      <button data-m="instrumented">进程内测量</button>
+    </div>
+    <span style="color:var(--muted2);font-size:12.5px">切换口径：前者含隐性清理与全部真实开销，后者是程序内部计时口径</span>
+  </div>
+
+  <div class="panel chart">
+    <div class="legend">
+      <span class="chip"><i class="dot" style="background:var(--extract)"></i>解压</span>
+      <span class="chip"><i class="dot" style="background:var(--engine)"></i>引擎（纯转换）</span>
+      <span class="chip"><i class="dot" style="background:var(--pack)"></i>打包</span>
+      <span class="chip"><i class="dot" style="background:var(--cleanup)"></i>临时目录清理</span>
+      <span class="chip"><i class="dot hatch"></i>当时未被计时的清理（隐性开销）</span>
+    </div>
+    <div class="axis"><span>0s</span><span>1s</span><span>2s</span><span>3s</span><span>4s</span><span>5s</span><span>6s</span><span>7s</span><span>8s</span></div>
+    <div id="chart"></div>
+  </div>
+
+  <h2>逐项数据</h2>
+  <p class="sub">同一输入、同一机器；单位秒。加速比 = 起点耗时 ÷ 该节点耗时。</p>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>时间点</th><th class="num">解压</th><th class="num">引擎</th><th class="num">打包</th>
+          <th class="num">清理</th><th class="num">合计</th><th class="num">加速比</th><th>对比</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <h2>引擎内部：钱花在哪儿</h2>
+  <p class="sub">引擎耗时 = 38 个任务的实际执行 + 调度与 worker 开销。两者都要单独看：优化前有 <b>1.40s</b> 的"无归属"开销，占引擎时间的一半。</p>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>引擎口径</th><th class="num">优化前</th><th class="num">优化后</th><th class="num">变化</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>38 个任务执行之和</td><td class="num">1.48s</td><td class="num">1.48s</td><td class="num">—</td><td>真正的转换工作，未变（输出逐字节一致）</td></tr>
+        <tr class="hl"><td>调度 + worker 开销</td><td class="num">1.40s</td><td class="num">0.46s</td><td class="num"><span class="pill ok">−67%</span></td><td>进度 ticker 线程在 <code>join()</code> 前正 <code>sleep(200ms)</code>，每个任务白等最多 200 ms</td></tr>
+        <tr><td>临时目录清理（3 631 个文件）</td><td class="num">2.27s</td><td class="num">0s<span style="color:var(--muted2)">（移出等待）</span></td><td class="num"><span class="pill ok">后台完成</span></td><td>Windows 上逐个删除都被杀软扫描；现交给后台线程 / 脱离进程的 <code>rmdir</code></td></tr>
+        <tr><td>解压（3 631 个文件）</td><td class="num">2.12s</td><td class="num">0.98s</td><td class="num"><span class="pill ok">−54%</span></td><td>读取线程顺序解压 → 有界队列 → 最多 8 个写线程并行落盘</td></tr>
+        <tr><td>打包（4 139 个文件）</td><td class="num">0.56s</td><td class="num">0.55s</td><td class="num">—</td><td>媒体文件已用 Stored 免压缩；仍是下一批优化目标</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>质量校验：提速是否改变了输出</h2>
+  <p class="sub">用内置的 <code>--pack-diff</code> 闸门，把优化前的产物与优化后的产物逐文件比对（PNG 走像素级、JSON 走语义级、其余字节级）。</p>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>校验项</th><th>结果</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>文件数</td><td class="num">4018 / 4018</td><td>两侧完全一致</td></tr>
+        <tr class="hl"><td>内容差异</td><td><span class="pill ok">diffs = 0</span></td><td>无缺失、无多余、无内容变化</td></tr>
+        <tr><td>严格模式（字节级）</td><td><span class="pill ok">PASS</span></td><td><code>--strict</code> 要求每个文件字节相同，全部通过</td></tr>
+        <tr><td>单元测试</td><td class="num">215 passed / 0 failed</td><td>含并行解压、残留清扫、后台清理等待等新增回归测试</td></tr>
+        <tr><td>临时目录残留</td><td class="num">0</td><td>连跑 3 次后 <code>%TEMP%</code> 中无 <code>.2pyr-work-*</code> 残留</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>结论</h2>
+  <ul class="clean">
+    <li><b>用户实际等待 7.86s → 3.52s（2.23×）。</b>其中最大一笔不是"转换"，而是两处与转换无关的等待：进度线程的 200 ms 轮询 join，以及临时目录清理。</li>
+    <li><b>解压提升 2.16×（2.12s → 0.98s）。</b>实测瓶颈不是 Deflate 解压（15 MB，约 0.05s），而是 3 631 次逐文件创建 + 杀软扫描；作为对照，PowerShell 的 <code>Expand-Archive</code> 处理同一个包需要 6.7–7.4s。</li>
+    <li><b>引擎开销降低 67%（1.40s → 0.46s）。</b>38 个任务本身仍是 1.48s —— 提速没有通过"少做事"获得。</li>
+    <li><b>提速完全无损。</b>优化前后产物在严格模式下字节级一致；这一点由自动化闸门保证，后续任何提速改动都必须通过它。</li>
+    <li><b>剩余空间：</b>打包 0.55s（可并行化）与任务长尾（38 个任务中 31 个 &lt; 0.05s，多为重复扫描目录，可用"文件索引一次遍历"消除）。</li>
+  </ul>
+
+  <h2>方法学</h2>
+  <ul class="clean">
+    <li><b>输入：</b><code>TapL 16x.zip</code> — 3 631 个文件 / 18.41 MB / 4 018 个条目，<code>pack_format</code> 1（1.6–1.8）→ 97（26.3），输出 [Java 26.3] 同尺寸级。</li>
+    <li><b>环境：</b>同一台 Windows 机器、24 逻辑核、同一 debug 构建；每个时间点连跑 2–3 次取稳定值，剔除首次冷启动。</li>
+    <li><b>计时口径：</b><code>pure</code> = 引擎（预检 + 管线 + 收尾，不含文件 IO）；<code>total</code> = 含解压与打包；<code>cleanup</code> = 临时目录清理（后期改为异步，故不再计入 total）。</li>
+    <li><b>关于"隐性开销"：</b>清理发生在计时快照之后，早期版本中它既不在 <code>pure</code> 也不在 <code>total</code>，只在批处理墙钟里出现（一次 GUI 运行的 6.02s 中占 2.27s）。图中以斜纹段标注，这是"用户等待 vs 进程内测量"两种口径差异的来源。</li>
+    <li><b>外部秒表的干扰：</b>用外壳（PowerShell <code>&amp;</code> / <code>Start-Process -Wait</code>）测得的墙钟可能额外包含控制台输出渲染与删除子进程的存活期；程序内部实测为 3.74s（结构分析 0.21s + 转换 3.52s），两者差异属测量方式，而非程序在等待。</li>
+    <li><b>数据来源：</b>各节点的日志行 <code>conversion timing:</code> / <code>engine breakdown:</code> 与同日提交记录（<code>63bf845</code> 进度线程与并行解压、<code>7db083c</code> 清理计时与异步、<code>6662465</code> 脱离进程清理与日志 flush）。</li>
+    <li><b>更新数据：</b>本页是单文件、零依赖的静态页面。新增时间点时，编辑 <code>&lt;script&gt;</code> 顶部的 <code>MILESTONES</code> 数组即可（每项含 <code>extract/engine/pack/cleanup</code> 四个耗时与说明），图表、表格与加速比会自动重算。数值可由
+      <code>2-pyramid.exe --convert &lt;包&gt; --to &lt;版本&gt; --report 报告.json</code> 直接取得。</li>
+  </ul>
+
+  <div class="foot">
+    内部基准：单机、单输入包、debug 构建，用于工程决策，不代表所有包或发布版的表现；结果可能随输入规模、磁盘与杀软设置变化。
+    由 2-Pyramid 的 <code>--convert</code>（结构化 JSON 报告）与 <code>--pack-diff</code>（质量闸门）自动产出数据。
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+// ── 数据集：同一输入包、同机、同构建类型的六个时间点（单位：秒）──────────
+const MILESTONES = [
+  { name:"起点（未优化）", tag:"基线", commit:"—",
+    extract:2.12, engine:2.91, pack:0.56, cleanup:2.27, hiddenCleanup:true,
+    note:"进度线程 join 白等 + 串行解压 + 同步删除临时目录" },
+  { name:"进度线程可中断", tag:"Condvar", commit:"63bf845（前半）",
+    extract:2.15, engine:2.22, pack:0.59, cleanup:2.27, hiddenCleanup:true,
+    note:"stop 时立即唤醒 ticker，不再睡满 200 ms" },
+  { name:"消除丢唤醒", tag:"谓词检查", commit:"63bf845（后半）",
+    extract:2.15, engine:1.98, pack:0.55, cleanup:2.27, hiddenCleanup:true,
+    note:"等待前先查谓词，避免通知落在等待窗口之外" },
+  { name:"解压并行化", tag:"8 写线程", commit:"63bf845",
+    extract:0.94, engine:1.97, pack:0.55, cleanup:2.27, hiddenCleanup:true,
+    note:"读取线程解压 → 有界队列 → 并行写盘；缓存已建目录" },
+  { name:"清理移出等待路径", tag:"后台线程", commit:"7db083c",
+    extract:0.94, engine:1.97, pack:0.55, cleanup:0, hiddenCleanup:false,
+    note:"GUI 提示不再等删除；清理耗时单独计入 cleanup" },
+  { name:"CLI 脱离进程清理", tag:"rmdir 子进程", commit:"6662465",
+    extract:0.98, engine:1.99, pack:0.55, cleanup:0, hiddenCleanup:false,
+    note:"脚本调用也零等待，且不留临时目录残留" },
+];
+
+const MAX = 8;               // 坐标轴上限（秒）
+let mode = "wait";           // "wait" = 用户实际等待；"instrumented" = 进程内测量
+
+const chart = document.getElementById("chart");
+const tbody = document.getElementById("tbody");
+const tip = document.getElementById("tip");
+
+const segColor = { extract:"var(--extract)", engine:"var(--engine)", pack:"var(--pack)", cleanup:"var(--cleanup)" };
+const labelOf  = { extract:"解压", engine:"引擎（纯转换）", pack:"打包", cleanup:"临时目录清理" };
+
+function totals(m){
+  const cleanup = m.cleanup;
+  const visible = m.extract + m.engine + m.pack + cleanup;
+  const instrumented = m.extract + m.engine + m.pack + (m.hiddenCleanup ? 0 : m.cleanup);
+  return { visible, instrumented };
+}
+
+function render(){
+  chart.innerHTML = "";
+  tbody.innerHTML = "";
+
+  MILESTONES.forEach((m, i) => {
+    const t = totals(m);
+    const total = mode === "wait" ? t.visible : t.instrumented;
+    const base = totals(MILESTONES[0]);
+    const baseTotal = mode === "wait" ? base.visible : base.instrumented;
+    const lastTotal = mode === "wait"
+      ? totals(MILESTONES[MILESTONES.length - 1]).visible
+      : totals(MILESTONES[MILESTONES.length - 1]).instrumented;
+
+    // ── 图表行 ─────────────────────────────────────────────
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const name = document.createElement("div");
+    name.className = "name";
+    name.innerHTML = `${m.name}<small>${m.tag} · ${m.commit}</small>`;
+
+    const track = document.createElement("div");
+    track.className = "track";
+    track.innerHTML = '<div class="grid"></div>';
+
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    // 堆叠顺序：解压 / 引擎 / 打包 / 清理
+    ["extract","engine","pack"].forEach(k => {
+      const d = document.createElement("div");
+      d.className = "seg-part";
+      d.style.width = (m[k] / MAX * 100) + "%";
+      d.style.background = segColor[k];
+      d.dataset.k = k;
+      d.dataset.v = m[k].toFixed(2);
+      bar.appendChild(d);
+    });
+    if (m.cleanup > 0) {
+      const d = document.createElement("div");
+      d.className = "seg-part" + (m.hiddenCleanup ? " hatch" : "");
+      d.style.width = (m.cleanup / MAX * 100) + "%";
+      if (!m.hiddenCleanup) d.style.background = segColor.cleanup;
+      d.dataset.k = "cleanup";
+      d.dataset.v = m.cleanup.toFixed(2);
+      bar.appendChild(d);
+    }
+    track.appendChild(bar);
+
+    const totalEl = document.createElement("div");
+    totalEl.className = "total";
+    const speed = baseTotal / total;
+    totalEl.innerHTML = `${total.toFixed(2)}s<small class="speed">${i === 0 ? "基准" : speed.toFixed(2) + "× 更快"}</small>`;
+
+    row.append(name, track, totalEl);
+    row.addEventListener("mousemove", e => showTip(e, m, total, speed, i));
+    row.addEventListener("mouseleave", hideTip);
+    chart.appendChild(row);
+
+    // ── 表格行 ─────────────────────────────────────────────
+    const tr = document.createElement("tr");
+    if (i === MILESTONES.length - 1) tr.className = "hl";
+    tr.innerHTML = `
+      <td><b>${m.name}</b><br><small style="color:var(--muted2)">${m.tag} · ${m.note}</small></td>
+      <td class="num">${m.extract.toFixed(2)}</td>
+      <td class="num">${m.engine.toFixed(2)}</td>
+      <td class="num">${m.pack.toFixed(2)}</td>
+      <td class="num">${m.cleanup === 0 ? "后台" : m.cleanup.toFixed(2) + (m.hiddenCleanup ? "*" : "")}</td>
+      <td class="num"><b>${total.toFixed(2)}</b></td>
+      <td class="num">${i === 0 ? "1.00×" : speed.toFixed(2) + "×"}</td>
+      <td><div class="mini"><i style="width:${Math.min(100, (lastTotal / total) * 100).toFixed(0)}%"></i></div></td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("c-speedup").textContent =
+    (totals(MILESTONES[0]).visible / totals(MILESTONES[MILESTONES.length-1]).visible).toFixed(2) + "×";
+  document.getElementById("c-final").textContent =
+    totals(MILESTONES[MILESTONES.length-1]).visible.toFixed(2) + "s";
+}
+
+function showTip(e, m, total, speed, i){
+  if (e.target.dataset.k) {
+    const k = e.target.dataset.k;
+    tip.innerHTML = `<b>${labelOf[k]}</b> · ${e.target.dataset.v}s` +
+      (k === "cleanup" && m.hiddenCleanup ? '<br><span class="k">当时未被计时，但真实占用用户等待</span>' : "");
+  } else {
+    const parts = ["extract","engine","pack","cleanup"]
+      .map(k => `${labelOf[k]} ${m[k].toFixed(2)}s`).join("<br>");
+    tip.innerHTML = `<b>${m.name}</b> · 合计 ${total.toFixed(2)}s` +
+      (i === 0 ? "" : `　<span style="color:var(--good)">${speed.toFixed(2)}× 更快</span>`) +
+      `<br><span class="k">${parts}</span>`;
+  }
+  tip.style.opacity = 1;
+  tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 320) + "px";
+  tip.style.top = (e.clientY + 16) + "px";
+}
+function hideTip(){ tip.style.opacity = 0; }
+
+document.querySelectorAll("#mode button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("#mode button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    mode = b.dataset.m;
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
