@@ -127,6 +127,18 @@ impl Logger {
 
     pub fn debug(&self, message: &str) { self.log(LogLevel::Debug, message); }
     pub fn info(&self, message: &str)  { self.log(LogLevel::Info,  message); }
+
+    /// 把 BufWriter 里尚未落盘的日志刷出去。
+    ///
+    /// 短命进程（CLI）用 `std::process::exit` 退出时不会执行析构函数，
+    /// 不显式 flush 会丢掉日志尾部（表现为"日志停在打包中途"）。
+    pub fn flush(&self) {
+        if let Ok(mut w) = self.writer.lock() {
+            if let Some(ref mut writer) = *w {
+                let _ = writer.flush();
+            }
+        }
+    }
     pub fn warn(&self, message: &str)  { self.log(LogLevel::Warn,  message); }
     pub fn error(&self, message: &str) { self.log(LogLevel::Error, message); }
 
