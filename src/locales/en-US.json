@@ -346,10 +346,13 @@
       "bottomLeft": "Bottom Left",
       "bottomRight": "Bottom Right"
     },
-    "conversionThreads": {
-      "label": "Conversion Threads",
-      "desc": "How many packs convert in parallel - more is faster but uses more memory",
-      "searchDesc": "How many packs convert in parallel"
+    "performanceMode": {
+      "label": "Performance Mode",
+      "balanced": "Balanced",
+      "performance": "Performance",
+      "balancedDesc": "Keeps the machine responsive: half the cores, 2 packs at a time",
+      "performanceDesc": "Uses every core, up to 6 packs at once (falls back to 1 when memory is low)",
+      "detail": "{cores} cores · thread budget {threads} · concurrent packs {packs}"
     },
     "outputNaming": {
       "label": "Output Naming Template",

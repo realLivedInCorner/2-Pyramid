@@ -40,6 +40,8 @@ pub struct AppConfig {
     pub auto_check_update: Option<bool>,
     /// 导出日志时是否脱敏（默认 true；关闭后导出原文）。
     pub log_redaction: Option<bool>,
+    /// 性能档位："balanced"（默认）| "performance"。
+    pub performance_mode: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -78,6 +80,8 @@ pub struct ConfigPatch {
     pub auto_check_update: Option<bool>,
     #[serde(alias = "logRedaction")]
     pub log_redaction: Option<bool>,
+    #[serde(alias = "performanceMode")]
+    pub performance_mode: Option<String>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -408,6 +412,7 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     // 收敛为一条 OKAY 日志（字段值不值得逐条刷屏；错误路径照常记 Error）
     let changed: Vec<&'static str> = [
         patch.log_redaction.as_ref().map(|_| "log_redaction"),
+        patch.performance_mode.as_ref().map(|_| "performance_mode"),
         patch.output_mode.as_ref().map(|_| "output_mode"),
         patch.output_path.as_ref().map(|_| "output_path"),
         patch.palette.as_ref().map(|_| "palette"),
@@ -490,6 +495,14 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     }
     if let Some(v) = patch.log_redaction {
         cfg.log_redaction = Some(v);
+    }
+    if let Some(v) = patch.performance_mode {
+        // 只接受两个已知档位，其余回落 balanced
+        let normalized = match v.as_str() {
+            "performance" => "performance".to_string(),
+            _ => "balanced".to_string(),
+        };
+        cfg.performance_mode = Some(normalized);
     }
     write_config_file(&cfg)?;
     crate::log_info!("OKAY update_config [{}]", changed.join(", "));

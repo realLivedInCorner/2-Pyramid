@@ -46,7 +46,7 @@ rayon = "1.9"
 reqwest = { version = "0.12", features = ["json", "stream", "blocking", "rustls-tls", "charset"], default-features = false }
 winreg = "0.52"
 sha2 = "0.10"
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_SystemInformation"] }
 
 [[bin]]
 name = "2-pyramid"

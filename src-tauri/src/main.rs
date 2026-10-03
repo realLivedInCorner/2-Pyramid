@@ -91,10 +91,61 @@ fn run_analyze_cli(path: &str) -> i32 {
     if failures > 0 { 1 } else { 0 }
 }
 
+/// 输出对比 CLI：`2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <out>]`
+///
+/// 质量闸门：比较两个转换产物是否内容等价。默认判定「PNG 像素相同但编码不同」
+/// 为可接受；`--strict` 要求字节级完全一致。退出码 0 = 通过，1 = 有内容差异。
+fn run_pack_diff_cli(args: &[String], idx: usize) -> i32 {
+    use two_pyramid_lib::pack_diff::{diff_containers, render_report};
+
+    let a = match args.get(idx + 1) {
+        Some(v) => v.clone(),
+        None => {
+            eprintln!("用法: 2-pyramid.exe --pack-diff <A.zip|目录> <B.zip|目录> [--strict] [--json <out>]");
+            return 2;
+        }
+    };
+    let b = match args.get(idx + 2).filter(|v| !v.starts_with("--")) {
+        Some(v) => v.clone(),
+        None => {
+            eprintln!("缺少第二个产物路径");
+            return 2;
+        }
+    };
+    let strict = args.iter().any(|a| a == "--strict");
+    let json_out = args
+        .iter()
+        .position(|a| a == "--json")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
+
+    match diff_containers(std::path::Path::new(&a), std::path::Path::new(&b)) {
+        Ok(report) => {
+            if let Some(path) = json_out {
+                if let Ok(text) = serde_json::to_string_pretty(&report) {
+                    let _ = std::fs::write(&path, text);
+                    eprintln!("[diff] JSON 报告已写入 {}", path);
+                }
+            }
+            println!("{}", render_report(&report, strict));
+            if report.passed(strict) { 0 } else { 1 }
+        }
+        Err(e) => {
+            eprintln!("对比失败: {}", e);
+            1
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     // （右键菜单静默转换入口已移除 —— 安装器不再注册 .zip 右键菜单）
+
+    // 输出对比（质量闸门）：只读，不启动 GUI
+    if let Some(idx) = args.iter().position(|a| a == "--pack-diff") {
+        std::process::exit(run_pack_diff_cli(&args, idx));
+    }
 
     // 结构分析 CLI：只读分析，不启动 GUI
     if let Some(idx) = args.iter().position(|a| a == "--analyze") {

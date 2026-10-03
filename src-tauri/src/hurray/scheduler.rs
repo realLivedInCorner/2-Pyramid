@@ -396,6 +396,7 @@ impl Scheduler {
         let parallel_failures: Vec<String> = parallel
             .par_iter()
             .filter_map(|task| {
+                let started = std::time::Instant::now();
                 let run = || (task.task)(context).map_err(|reason| EngineError::Task {
                     task: task.name.to_string(),
                     reason,
@@ -409,6 +410,7 @@ impl Scheduler {
                 } else {
                     run()
                 };
+                record_task_time(&task.name, tier_name, started.elapsed(), true);
 
                 if let Some(progress) = &progress {
                     progress.bump(&task.name);
@@ -425,6 +427,7 @@ impl Scheduler {
 
         for task in serial {
             let task_name = task.name.as_ref();
+            let started = std::time::Instant::now();
             let result = if use_pool_guard {
                 match pool_guard.write() {
                     Ok(_guard) => (task.task)(context),
@@ -433,6 +436,7 @@ impl Scheduler {
             } else {
                 (task.task)(context)
             };
+            record_task_time(task_name, tier_name, started.elapsed(), false);
 
             if let Err(reason) = result {
                 let wrapped = EngineError::Task {
@@ -458,6 +462,46 @@ impl Scheduler {
             failures,
         })
     }
+}
+
+// ── 逐任务耗时记录（性能画像） ───────────────────────────────
+//
+// 每次转换把每个任务的耗时段记进全局表，转换结束后由
+// `process_zip_timed` 取走并输出 top-N。并行任务的时间包含线程争用，
+// 因此它衡量的是"墙钟占用"，不是纯 CPU 时间——日志里会标注。
+
+#[derive(Debug, Clone)]
+pub struct TaskTiming {
+    pub task: String,
+    pub tier: &'static str,
+    pub seconds: f32,
+    pub parallel: bool,
+}
+
+lazy_static::lazy_static! {
+    static ref TASK_TIMINGS: std::sync::Mutex<Vec<TaskTiming>> =
+        std::sync::Mutex::new(Vec::new());
+}
+
+fn record_task_time(task: &str, tier: &'static str, elapsed: std::time::Duration, parallel: bool) {
+    if let Ok(mut list) = TASK_TIMINGS.lock() {
+        list.push(TaskTiming {
+            task: task.to_string(),
+            tier,
+            seconds: elapsed.as_secs_f32(),
+            parallel,
+        });
+    }
+}
+
+/// 取走并清空本次转换的任务耗时记录（按耗时降序）。
+pub fn take_task_timings() -> Vec<TaskTiming> {
+    let mut list = match TASK_TIMINGS.lock() {
+        Ok(mut l) => std::mem::take(&mut *l),
+        Err(_) => Vec::new(),
+    };
+    list.sort_by(|a, b| b.seconds.partial_cmp(&a.seconds).unwrap_or(std::cmp::Ordering::Equal));
+    list
 }
 
 struct ProgressTracker {
