@@ -78,3 +78,20 @@ installer-app/src-tauri/payload.zip
 tools/*.zip
 tools/*.mcpack
 tools/2pyr-report-*.json
+
+# 基准页的生成物（截图等；页面本身 tools/benchmark/index.html 正常入库）
+tools/benchmark/*.png
+tools/benchmark/*.json
+tools/**/*.preview.png
+
+# 发布 / 商店材料的本地副本（脚本与文案模板正常入库，导出的成品不入库）
+tools/release/out/
+tools/store/*.pdf
+tools/store/*.png
+
+# 工作区根目录的临时产物（调试脚本、截图、导出）
+/_*.ps1
+/_*.py
+/_*.png
+/_*.md
+/_*.json

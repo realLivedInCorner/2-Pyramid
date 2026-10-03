@@ -61,4 +61,21 @@ gh release create Stable-x.y.z `
 
 1. 新提交 → 使用 `release\2-Pyramid-x.y.z.0.msix`（不需本地签名）。
 2. 版本号 `x.y.z.0`；Identity `2-PyramidStudio.2-Pyramid`；Publisher `CN=7BC328FB-A6A3-42E9-A750-326D3BDC3F5F`。
-3. "What's new" 文案按版本主题撰写（中英各一份），可从 CHANGELOG 对应段落压缩生成。
+3. 「此版本的新增功能」按 `tools/store/whats-new-<版本>.md` 粘贴（中英各一份）；字段规则与归档方式见 `tools/store/README.md`。
+
+## 五、仓库目录约定（新增文件放哪）
+
+| 内容 | 位置 | 是否入库 |
+|---|---|---|
+| 维护者流程文档 | `tools/<领域>/README.md`（如 `tools/msi/`、`tools/release/`、`tools/store/`） | ✅ |
+| 项目级文档 | 仓库根（`README.md` / `CHANGELOG.md`） | ✅ |
+| 打包输入（清单模板、身份配置） | `tools/msix/`、`tools/msi/` | ✅ |
+| 脚本 | `tools/*.py`、`tools/*.mjs`、`tools/convert-report.*` | ✅ |
+| 商店提交文案 | `tools/store/whats-new-<版本>.md` | ✅ |
+| 基准页与其说明 | `tools/benchmark/index.html`、`README.md` | ✅ |
+| 截图 / 导出报告 / 渲染产物 | 与来源同目录，靠 `.gitignore` 隔离（如 `tools/benchmark/*.png`） | ❌ |
+| 本地专用材料（测试签名包、证书） | 根 `store/` | ❌（已忽略） |
+| 临时笔记与草稿 | 根 `docs/` | ❌（已忽略） |
+| 构建产物 | `release/`、`dist/` | ❌（已忽略） |
+
+> 新增任何文件前先对照本表；**生成物一律加 `.gitignore` 规则**，不要把截图、报告、导出文件提交进仓库。
