@@ -220,7 +220,7 @@ pub async fn convert_resource_packs_batch(
                 .cloned()
                 .and_then(|s| if s.is_empty() { None } else { Some(s) });
 
-            match process_zip(
+            match crate::converters::version_converter::process_zip_timed(
                 file_path,
                 target_format,
                 None,
@@ -230,10 +230,11 @@ pub async fn convert_resource_packs_batch(
                 fix_alpha,
                 adapt_shaders,
             ) {
-                Ok(result_path) => {
+                Ok((result_path, timing)) => {
                     let elapsed = file_start.elapsed();
-                    log_info!("[{}/{}] Complete ({:.2}s): {} -> {}",
-                        i + 1, file_paths.len(), elapsed.as_secs_f32(),
+                    // 同时给出两个口径：pure = 纯转换（引擎），total = 含 IO。
+                    log_info!("[{}/{}] Complete (pure {:.2}s / total {:.2}s): {} -> {}",
+                        i + 1, file_paths.len(), timing.pure_s, timing.total_s,
                         file_name, result_path);
 
                     if let Some(ref dir) = output_path {
@@ -247,7 +248,9 @@ pub async fn convert_resource_packs_batch(
                         "input": file_path,
                         "status": "success",
                         "output": result_path,
-                        "time": format!("{:.2}", elapsed.as_secs_f32())
+                        "time": format!("{:.2}", elapsed.as_secs_f32()),
+                        "pure": format!("{:.2}", timing.pure_s),
+                        "total": format!("{:.2}", timing.total_s),
                     })
                 }
                 Err(e) => {
@@ -322,7 +325,24 @@ pub async fn convert_resource_packs_batch(
             log_info!("{}", "=".repeat(60));
             log_info!("Batch conversion complete");
             log_info!("Results: {} success, {} failed, {} total", success_count, error_count, results.len());
-            log_info!("Total time: {:.2}s", elapsed.as_secs_f32());
+            // 两个口径：pure = 各包纯转换时间之和（引擎，不含 IO），
+            //          wall = 批处理墙钟时间（含解压/打包 IO 与并行调度）。
+            let pure_sum: f64 = results
+                .iter()
+                .filter_map(|r| r["pure"].as_str())
+                .filter_map(|s| s.parse::<f64>().ok())
+                .sum();
+            log_info!("Pure conversion time: {:.2}s (sum of engine work)", pure_sum);
+            log_info!("Total time (incl. IO): {:.2}s", elapsed.as_secs_f32());
+            log_info!(
+                "IO overhead: {:.2}s (extract+pack){}",
+                (elapsed.as_secs_f64() - pure_sum).max(0.0),
+                if parallelism > 1 {
+                    format!(" · wall-clock with parallelism={}", parallelism)
+                } else {
+                    String::new()
+                }
+            );
             log_info!("{}", "=".repeat(60));
             Ok(results)
         },

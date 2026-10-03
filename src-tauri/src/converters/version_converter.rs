@@ -496,6 +496,17 @@ fn run_bedrock_edge_task(
     Ok(())
 }
 
+/// 转换耗时（秒）。`pure` = 纯转换（引擎），`total` = 含 IO 的总时间。
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversionTiming {
+    pub pure_s: f32,
+    pub total_s: f32,
+    pub extract_s: f32,
+    pub pack_s: f32,
+}
+
+/// 兼容入口：只关心输出路径的调用方（单文件转换、单测）用这个。
 pub fn process_zip(
     original_file_path: &str,
     pack_format2: u32,
@@ -506,6 +517,31 @@ pub fn process_zip(
     fix_alpha_layers: bool,
     adapt_shaders: bool,
 ) -> Result<String, String> {
+    process_zip_timed(
+        original_file_path,
+        pack_format2,
+        _progress_callback,
+        _file_weight,
+        parent_folder_path,
+        output_dir_override,
+        fix_alpha_layers,
+        adapt_shaders,
+    )
+    .map(|(path, _timing)| path)
+}
+
+/// 完整转换：返回 `(输出路径, 耗时)`。日志里同时记录「纯转换时间」与
+/// 「总时间（含 IO）」两个口径。
+pub fn process_zip_timed(
+    original_file_path: &str,
+    pack_format2: u32,
+    _progress_callback: Option<fn(f64, &str)>,
+    _file_weight: f64,
+    parent_folder_path: Option<&str>,
+    output_dir_override: Option<&str>,
+    fix_alpha_layers: bool,
+    adapt_shaders: bool,
+) -> Result<(String, ConversionTiming), String> {
     let input_zip = Path::new(original_file_path);
     if !input_zip.exists() {
         return Err(format!("input file not found: {}", input_zip.display()));
@@ -517,10 +553,19 @@ pub fn process_zip(
     // Bedrock 中间态统一到最新 Java 26.3（pack_format 97），再经边 (97→1000) 重组
     let java_target = if is_bedrock_target { 97 } else { pack_format2 };
 
+    // ── 计时：总时间（含 IO） / 纯转换时间（引擎） / IO 分解 ──────────
+    // total = extract(IO) + engine(纯转换) + repack(IO)
+    let total_start = std::time::Instant::now();
+
     let temp_dir = tempfile::tempdir().map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
 
+    let extract_start = std::time::Instant::now();
     extract_resource_pack(original_file_path, &temp_dir_path)?;
+    let extract_elapsed = extract_start.elapsed();
+
+    // 纯转换区段：b2j 预转换（若有）、结构分析、引擎管线、mcmeta 改写、j2b
+    let engine_start = std::time::Instant::now();
 
     let mut source_version: u32;
     if crate::converters::bedrock::is_bedrock_resource_pack(temp_dir.path()) {
@@ -604,15 +649,38 @@ pub fn process_zip(
         run_bedrock_edge_task(temp_dir.path(), 97, 1000, &pack_name)?;
     }
 
+    // 纯转换区段结束（b2j 预转换 + 结构分析 + 引擎管线 + mcmeta 改写 + j2b）
+    let engine_elapsed = engine_start.elapsed();
+
+    let pack_start = std::time::Instant::now();
     let output_path = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;
 
     repack_resource_pack(&temp_dir_path, &output_path.to_string_lossy())?;
+    let pack_elapsed = pack_start.elapsed();
 
     if !output_path.exists() {
         return Err(format!("output file not found after repack: {}", output_path.display()));
     }
 
-    Ok(output_path.to_string_lossy().to_string())
+    let total_elapsed = total_start.elapsed();
+    let timing = ConversionTiming {
+        pure_s: engine_elapsed.as_secs_f32(),
+        total_s: total_elapsed.as_secs_f32(),
+        extract_s: extract_elapsed.as_secs_f32(),
+        pack_s: pack_elapsed.as_secs_f32(),
+    };
+    // 一行同时给出两个口径：pure = 纯转换（引擎），total = 含 IO 的总时间。
+    // 括号里是 IO 分解（解压 / 打包），便于判断瓶颈在引擎还是磁盘。
+    log_info!(
+        "conversion timing: pure={:.2}s total={:.2}s (extract={:.2}s, pack={:.2}s, io={:.2}s)",
+        timing.pure_s,
+        timing.total_s,
+        timing.extract_s,
+        timing.pack_s,
+        timing.extract_s + timing.pack_s
+    );
+
+    Ok((output_path.to_string_lossy().to_string(), timing))
 }
 
 pub fn register_task(_engine: &mut crate::hurray::engine::HurrayEngine) {
@@ -624,6 +692,71 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    /// 耗时口径回归：`process_zip_timed` 必须同时给出「纯转换」与「总时间」
+    /// 两个数，且 total ≥ pure（total 额外含解压与打包 IO）。
+    #[test]
+    fn timing_reports_pure_and_total() {
+        use std::io::Write;
+
+        let dir = tempdir().expect("tempdir");
+        let zip_path = dir.path().join("tiny.zip");
+
+        // 造一个最小但合法（含可解码 PNG）的包
+        let png = {
+            let img = image::RgbaImage::from_pixel(16, 16, image::Rgba([200, 40, 40, 255]));
+            let mut buf = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(img)
+                .write_to(&mut buf, image::ImageFormat::Png)
+                .expect("encode png");
+            buf.into_inner()
+        };
+        {
+            let file = std::fs::File::create(&zip_path).expect("create zip");
+            let mut zip = zip::ZipWriter::new(file);
+            let opts = zip::write::FileOptions::default();
+            zip.start_file("pack.mcmeta", opts).expect("start");
+            zip.write_all(br#"{"pack":{"pack_format":15,"description":"tiny"}}"#)
+                .expect("write");
+            zip.start_file("pack.png", opts).expect("start");
+            zip.write_all(&png).expect("write");
+            zip.start_file("assets/minecraft/textures/item/apple.png", opts)
+                .expect("start");
+            zip.write_all(&png).expect("write");
+            zip.start_file("assets/minecraft/textures/block/stone.png", opts)
+                .expect("start");
+            zip.write_all(&png).expect("write");
+            zip.finish().expect("finish");
+        }
+
+        let out_dir = dir.path().join("out");
+        fs::create_dir_all(&out_dir).expect("mkdir out");
+
+        let (_path, timing) = process_zip_timed(
+            zip_path.to_str().expect("path"),
+            34,
+            None,
+            1.0,
+            None,
+            Some(out_dir.to_str().expect("out path")),
+            false,
+            true,
+        )
+        .expect("conversion should succeed");
+
+        assert!(timing.total_s > 0.0, "total time must be measured");
+        assert!(timing.pure_s > 0.0, "pure time must be measured");
+        assert!(
+            timing.total_s >= timing.pure_s,
+            "total ({}) must be >= pure ({})",
+            timing.total_s,
+            timing.pure_s
+        );
+        assert!(
+            timing.extract_s >= 0.0 && timing.pack_s >= 0.0,
+            "IO breakdown must be non-negative"
+        );
+    }
 
     /// End-to-end smoke test: copy the Pika 5K 16x resource pack's container
     /// folder into a tempdir, run the full conversion pipeline targeting
