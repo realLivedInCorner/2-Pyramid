@@ -164,7 +164,14 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `2-pyramid.exe --analyze <包\|目录>` | 只读**结构分析**：官方分层（overlays）、`supported_formats` 区间、非标准版本折叠目录、一包多根，含每层文件数与覆盖计数。 |
 | `2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <报告>]` | **质量闸门**：PNG 像素级、JSON 语义级、其余字节级比对；默认允许"像素相同仅编码不同"，`--strict` 要求字节一致。退出码 0/1，可用于提速改动的回归验证。 |
 
-> **拖放即转换**：把资源包（或含包的文件夹）拖到 **`tools/convert-report.bat`** 上——脚本会找到已安装/已构建的程序、让你选目标版本、跑转换、打印两个耗时口径与慢任务，并把 JSON 报告存到资源包旁边同时打开所在文件夹。
+> **拖放即转换**：把资源包（或含包的文件夹）拖到 **`tools/convert-report.bat`** 上——脚本会找到支持 `--convert` 的程序（仓库构建优先，其次已安装版本）、让你选目标版本、跑转换、打印两个耗时口径与慢任务，并把 JSON 报告存到资源包旁边同时打开所在文件夹。
+>
+> 也可脚本化调用（`.bat` 只是纯 ASCII 启动器，逻辑在 `convert-report.ps1` 里）：
+> ```powershell
+> .\tools\convert-report.bat "D:\packs\my.zip" -Target 1.21.4      # 指定版本
+> .\tools\convert-report.bat "D:\packs"        -MenuChoice 7 -Yes  # 菜单序号 7 = 1.21.4，跳过确认
+> ```
+> 参数：`-Target`（版本或 pack_format）、`-MenuChoice`（菜单 1–16）、`-Yes`（跳过确认与结尾等待）、`-NoOpen`（不自动打开文件夹）。
 
 ### 🧰 技术栈
 
