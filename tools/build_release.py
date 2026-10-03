@@ -52,6 +52,7 @@ STAGING = ROOT / "release" / "staging"
 OUTPUT = ROOT / "release"
 BUILD_FILE = ROOT / "BUILD"
 MSIX_SRC = ROOT / "tools" / "msix"
+TOOLS = ROOT / "tools"
 ICON_DIR = TAURI_DIR / "icons"
 
 
@@ -398,6 +399,25 @@ def main() -> None:
         f"==> 2-Pyramid 发布流水线 · 版本 {version} · 渠道 {channel}"
         f"（{'测试' if args.beta else '正式'}版）"
     )
+
+    # ── 版本号守门：七处 + 两个 Cargo.lock + README 徽章必须一致 ──────────
+    # 2026-10-03 的事故：installer-app 的版本漏改，导致「2.7.0 的安装包显示成
+    # 2.6.0」——更新程序界面、覆盖更新目标、控制面板登记版本全都取自它。
+    # 这里在编译前拦截：任何一处不一致直接拒绝出包。
+    guard = subprocess.run(
+        [sys.executable, str(TOOLS / "set_version.py"), "--check"],
+        cwd=ROOT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if guard.returncode != 0:
+        print(
+            "\n✗ 版本号校验未通过，已中止构建。\n"
+            "  修复：python tools/set_version.py <版本> --write\n"
+            "  （提醒：installer-app 的三处最容易漏，它决定更新程序界面与注册表登记的版本）"
+        )
+        sys.exit(guard.returncode)
 
     run(["npm", "run", "build"], ROOT, "主项目前端构建", env=channel_env)
     run(

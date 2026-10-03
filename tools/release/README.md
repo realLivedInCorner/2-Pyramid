@@ -9,11 +9,22 @@
    *本版若无新依赖、无新增联网行为，也要在提交信息或 CHANGELOG 里写明"已复核，无变化"。*
 2. **CHANGELOG** —— `[Unreleased]` 整理为 `[x.y.z] - 日期（BUILD nnnnn）`；BUILD 号 = 当前 `BUILD` 文件值 + 1。
 3. **README** —— 版本徽章、功能章节、已知限制是否与现状一致。
-4. **版本号七处统一** —— 主程序：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`tools/msix/package-identity.json`（`x.y.z.0`）；
-   **安装器**：`installer-app/package.json`、`installer-app/src-tauri/Cargo.toml`、`installer-app/src-tauri/tauri.conf.json`。
-   > ⚠️ 安装器这三处极易漏：更新程序界面的「更新程序 · vX」、覆盖更新的「更新到 X」、以及**控制面板登记的已安装版本**全都取自
-   > `installer-app` 的 `CARGO_PKG_VERSION`。漏改会表现为「2.7.0 的安装包显示成 2.6.0」（主程序 payload 其实是新的，但界面与登记版本是旧的）。
-   > 自查：`(Get-Item release\2-Pyramid-Installer-x.y.z.exe).VersionInfo` 的 `FileVersion` 必须等于本版版本号。
+4. **版本号一键设置 + 守门** —— 用脚本改，别手改（散落在 10 处，手工必漏）：
+
+   ```bash
+   python tools/set_version.py 2.8.0 --changelog   # 干跑：列出每处将如何变化（--write 才写入）
+   python tools/set_version.py 2.8.0 --write --changelog
+   python tools/set_version.py --check             # 校验一致性；不一致退出码 1
+   ```
+
+   覆盖范围：主程序 `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`、
+   **安装器 `installer-app/package.json` / `installer-app/src-tauri/tauri.conf.json` / `installer-app/src-tauri/Cargo.toml`**、
+   `tools/msix/package-identity.json`（`x.y.z.0`）、`README.md` 版本徽章、两个 `Cargo.lock` 的 crate 版本；
+   `--changelog` 会把 `[Unreleased]` 改为 `[x.y.z] - 日期（BUILD 下一个值）`。
+
+   > ⚠️ **installer-app 那三处最容易漏**：更新程序界面的「更新程序 · vX」、覆盖更新的「更新到 X」、以及**控制面板登记的已安装版本**都取自
+   > `installer-app` 的 `CARGO_PKG_VERSION`。2026-10-03 发布 2.7.0 时正因漏改它，出现了「2.7.0 的安装包显示成 2.6.0」。
+   > **`tools/build_release.py` 已内置 `--check` 守门**：任一处不一致会直接中止构建，不会产出错版安装包。
 5. 先提交上述改动，**再**构建（构建会自增 `BUILD` 并修改 `Cargo.lock`，随后单独提交）。
 
 ## 二、构建与校验
