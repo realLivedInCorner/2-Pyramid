@@ -84,6 +84,7 @@ use self::commands::{
     ForayState,
 };
 
+pub mod arom;
 mod commands;
 mod converters;
 mod foray;
