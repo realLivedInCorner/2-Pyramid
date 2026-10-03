@@ -73,3 +73,8 @@ __pycache__/
 msix-build/
 msix-check/
 installer-app/src-tauri/payload.zip
+
+# 拖放脚本的本地输入/产物（不要提交）
+tools/*.zip
+tools/*.mcpack
+tools/2pyr-report-*.json

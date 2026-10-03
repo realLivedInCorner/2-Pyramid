@@ -52,8 +52,11 @@ struct PackReport {
     timing: Option<ConversionTiming>,
     /// 转换前的结构分析（分层/区间/折叠目录/多根）。
     structure: Option<PackAnalysis>,
-    /// 逐任务耗时（降序，最多 12 条）。
+    /// 逐任务耗时（按耗时降序，**完整列表**，便于分析长尾）。
     task_profile: Vec<TaskProfileEntry>,
+    /// 任务画像条目数与耗时合计（秒），用于判断"长尾"占比。
+    task_count: usize,
+    task_sum_s: f32,
 }
 
 /// 整份报告。
@@ -197,10 +200,11 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                 let profile: Vec<TaskProfileEntry> = timing
                     .task_profile
                     .iter()
-                    .take(12)
                     .cloned()
                     .map(TaskProfileEntry::from)
                     .collect();
+                let task_count = profile.len();
+                let task_sum_s: f32 = profile.iter().map(|t| t.seconds).sum();
                 println!(
                     "    ✓ 纯转换 {:.2}s / 总时间 {:.2}s（IO {:.2}s）",
                     timing.pure_s,
@@ -223,6 +227,10 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                     );
                 }
                 println!("    ✓ 输出：{}", output);
+                println!(
+                    "    · 任务画像：{} 个任务，合计 {:.2}s（引擎纯转换 {:.2}s）",
+                    task_count, task_sum_s, timing.pure_s
+                );
                 packs.push(PackReport {
                     input: pack.to_string_lossy().to_string(),
                     output: Some(output),
@@ -233,6 +241,8 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                     timing: Some(timing),
                     structure,
                     task_profile: profile,
+                    task_count,
+                    task_sum_s,
                 });
             }
             Err(e) => {
@@ -248,6 +258,8 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                     timing: None,
                     structure,
                     task_profile: profile,
+                    task_count: 0,
+                    task_sum_s: 0.0,
                 });
             }
         }
