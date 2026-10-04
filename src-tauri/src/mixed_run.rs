@@ -2173,6 +2173,62 @@ mod tests {
         assert_equivalent(&off, &on);
     }
 
+    /// **真实包上的绝对产物契约**（默认忽略，§9.91）。
+    ///
+    /// **为什么必须有这个用例**：其余真实包用例都是「legacy vs mixed」的**相对**对照——
+    /// 如果某个改动让**两条路径一起**少产出文件，它们仍然彼此相等、全部报绿。
+    /// §9.91 实测到过这个盲区：把 `cut_gui` 移出计划后产物从 **4018 文件 / 19294735 字节**
+    /// 掉到 **4015 / 19293011**（少 3 个文件、1724 字节），而**全部 18 个忽略用例依然通过**。
+    ///
+    /// 因此这里把**绝对值**钉住（文件数 / 字节数）。这些数字是「TapL 16x + 目标 97」这一
+    /// 固定输入的**已确认基线**；它们变化时应当**先解释清楚为什么**，再更新本用例。
+    #[test]
+    #[ignore]
+    fn real_pack_absolute_output_is_pinned() {
+        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
+            println!("AROM_REAL_PACK 未设置，跳过");
+            return;
+        };
+        let input = PathBuf::from(&src);
+        assert!(input.is_file(), "不是文件：{}", input.display());
+        let target: u32 = std::env::var("AROM_TARGET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(97);
+        let source = {
+            let pack = Pack::open_zip(&input, &SafeLimits::preserving_current(), None)
+                .expect("open for source format");
+            pack.view()
+                .mcmeta()
+                .ok()
+                .and_then(|m| m.effective_format())
+                .unwrap_or(34)
+        };
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let (_mixed, report) = mixed_output(&input, tmp.path(), target, source);
+        let stats = &report.stats;
+
+        println!(
+            "绝对产物：files={} bytes={}（输入 {} → 目标 {}）",
+            stats.files, stats.bytes, source, target
+        );
+
+        // **已确认基线**（TapL 16x → 97）。改动此处前必须先解释产物为何变化。
+        assert_eq!(
+            stats.files, 4018,
+            "产物文件数偏离已确认基线 4018（实际 {}）——\n\
+             这通常是「某个任务不再被执行」或「某个产物不再生成」，\n\
+             而相对对照（legacy vs mixed）**不会**发现这类问题（见本用例文档注释）。",
+            stats.files
+        );
+        assert_eq!(
+            stats.bytes, 19294735,
+            "产物字节数偏离已确认基线 19294735（实际 {}）",
+            stats.bytes
+        );
+    }
+
     /// 真实包上的三种配置对照（默认忽略）：
     /// `AROM_REAL_PACK=<包> [AROM_TARGET=97] cargo test --lib native_switch -- --ignored --nocapture`
     #[test]
