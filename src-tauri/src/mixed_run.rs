@@ -236,9 +236,21 @@ where
         .filter(|name| native_for(name, &opts.native).is_some())
         // 前阶段只放 **Eraser 级**原生任务：只有它们的位置与生产一致（§9.42 实测：
         // 拆旧批次会改变语义，因此非 Eraser 级改放「旧批次之后」的后阶段）。
+        // **放置规则（§9.48 修正）**：原生任务放在「相对旧批次阶段窗口」的哪一侧——
+        // 阶段**早于**旧批次里最小阶段 → 前阶段（早于旧批次，输入尚未被更高阶段消费）；
+        // 否则 → 后阶段。旧批次不可拆分（§9.42），因此「同阶段混合」仍需整阶段迁移。
         .filter(|name| {
-            crate::hurray::scheduler::TaskTier::Eraser
-                == scheduler.task_tier(name).unwrap_or(crate::hurray::scheduler::TaskTier::Eraser)
+            use crate::hurray::scheduler::TaskTier;
+            let native_stage = scheduler.task_tier(name).unwrap_or(TaskTier::Eraser);
+            let min_legacy = plan
+                .iter()
+                .filter(|n| native_for(n, &opts.native).is_none())
+                .filter_map(|n| scheduler.task_tier(n))
+                .min();
+            match min_legacy {
+                Some(m) => native_stage < m,
+                None => true,
+            }
         })
         .cloned()
         .collect();
