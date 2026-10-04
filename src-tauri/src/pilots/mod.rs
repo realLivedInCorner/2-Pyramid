@@ -716,6 +716,10 @@ mod tests {
         add("assets/minecraft/textures/item/keep_me.png", png((8, 8)));
         add("assets/minecraft/textures/blocks/planks_oak.png", png((16, 16)));
         add("assets/minecraft/textures/block/keep_me_too.png", png((8, 8)));
+        // 现代名的「目标名已存在」情形（真实包就是这样：`blocks/` 里全是现代名，
+        // 重命名表的**目标**名因此天然已存在）——最小复现用。
+        add("assets/minecraft/textures/blocks/dark_oak_planks.png", png((16, 16)));
+        add("assets/minecraft/textures/blocks/farmland.png", png((16, 16)));
         add(
             "assets/minecraft/textures/blocks/redstone_dust_cross.png",
             png((16, 16)),
@@ -956,6 +960,17 @@ mod tests {
             .expect("json");
         assert_eq!(meta["animation"]["frametime"], serde_json::json!(2));
         assert_eq!(meta["animation"]["interpolate"], serde_json::json!(true));
+
+        // 现代名 + 目标名已存在：不得被删掉（真实包形态的最小复现点）
+        assert!(
+            view.resolve("assets/minecraft/textures/block/dark_oak_planks.png")
+                .is_some(),
+            "已存在的目标名必须保留：dark_oak_planks"
+        );
+        assert!(
+            view.resolve("assets/minecraft/textures/block/farmland.png").is_some(),
+            "已存在的目标名必须保留：farmland"
+        );
     }
 
     #[test]
