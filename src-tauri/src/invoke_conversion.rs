@@ -34,7 +34,7 @@ use crate::converters::textures::snow_bucket;
 use crate::converters::textures::tipped_arrows;
 
 // Surgeon 层 —— fix_* / overlay_icons / cut_gui
-use crate::converters::ui::cut_gui;
+// §9.101：`cut_gui` 的闭包体已换成 `crate::pilots::surgeon_cut_gui`，旧模块不再被本文件引用。
 use crate::converters::ui::horse_v2;
 use crate::converters::ui::brewing_stand;
 use crate::converters::ui::clock_compass;
@@ -523,7 +523,17 @@ pub fn register_legacy_tasks(
     });
 
     scheduler.register_task("cut_gui", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
-        cut_gui::cut_gui(ctx)
+        // **§9.101：闭包体换成原生实现**（`pilots::surgeon_cut_gui`）。
+        //
+        // 这里只换实现、**不动位置**——仍由 `run_named` 在计划的 `(15,18)` 调用。
+        // §9.100 的实测教训：`cut_gui` 一旦被挪出旧批次（哪怕只是挪到批次末尾）产物就会少
+        // 3 个 sprite（`sprites/container/slot/{horse_armor,llama_armor,saddle}.png`），
+        // 因为它的输入 `gui/container/*.png` 在那些时刻的状态不同（§9.50 的同一规律）。
+        //
+        // 旧闭包体是 `cut_gui::cut_gui(ctx)`——一个 14 行的薄包装，内容与
+        // `surgeon_cut_gui::run_in_workdir` 逐句相同（含 `TexturePool` / `ResolutionTransducer`
+        // 的构造与 `commit_all`），因此**行为等价**；由 `native_switch` 的相对闸门把关。
+        crate::pilots::surgeon_cut_gui::run_in_workdir(ctx, std::path::Path::new(ctx.temp_dir()))
             .map_err(|e| e.to_string())
     });
 

@@ -8337,6 +8337,10 @@ pub mod surgeon_cut_gui {
     use super::*;
     use std::path::Path;
 
+    /// `decl()` 目前**没有调用者**——`cut_gui` 由调度器在旧批次内执行（闭包体已是本模块的
+    /// `run_in_workdir`），不经过 A-ROM 派发表，故声明暂时用不上；保留它是为了将来真正
+    /// 本地化到 `Tx` 形态时可直接接入（那时它就有调用者了）。
+    #[allow(dead_code)]
     pub fn decl() -> TaskDecl {
         // 阶段与活注册表一致：`invoke_conversion.rs` 把 `cut_gui` 登记为
         // `TaskType::Hybrid` / `TaskTier::Surgeon`。
@@ -8349,9 +8353,10 @@ pub mod surgeon_cut_gui {
 
     /// **workdir 形态**：与旧 `cut_gui`（`converters/ui/cut_gui.rs`，函数体 14 行）逐句对应。
     ///
-    /// 返回**本次登记的延迟删除路径**——延迟删除由调用方（驱动）负责在收尾时机应用，
-    /// 与旧实现的 `defer_remove_file` **同一时机**。
-    pub fn run_in_workdir(workdir: &Path) -> Result<Vec<String>, String> {
+    /// **用调用方的 `ctx`**（而不是自己新建一个）：`GuiSurgeon` 会用 `ctx.defer_remove_file`
+    /// 登记 20 个 atlas 文件，必须登记到**调用方那个 context** 上，收尾的 `execute_cleanup()`
+    /// 才会在**同一时机**删除它们——与旧实现完全一致。
+    pub fn run_in_workdir(ctx: &crate::hurray::context::HurrayContext, workdir: &Path) -> Result<(), String> {
         crate::log_info!("2-Pyramid: starting cut_gui (GuiSurgeon pipeline)...");
 
         let mut pool = crate::hurray::texture::TexturePool::new();
@@ -8360,19 +8365,12 @@ pub mod surgeon_cut_gui {
             .detect_resolution(workdir)
             .map_err(|e| e.to_string())?;
 
-        // 与旧实现同一构造顺序：context 由 workdir 建，`defer_remove_file` 登记进它的 cleanup 列表。
-        let ctx = crate::hurray::context::HurrayContext::new(
-            workdir.to_str().unwrap_or_default(),
-        );
         crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
-            &ctx,
+            ctx,
             &mut pool,
             &resolution,
         )?;
         pool.commit_all().map_err(|e| e.to_string())?;
-
-        // 取走本任务登记的延迟删除（由驱动计入 `Outcome.deferred_removals` 并在收尾应用）。
-        let deferred = ctx.take_cleanup_paths();
-        Ok(deferred)
+        Ok(())
     }
 }
