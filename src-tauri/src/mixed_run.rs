@@ -439,9 +439,14 @@ where
 /// | `generate_potion_lingering` | **后** | 同一次实测（`lingering_potion.png` OnlyInB） |
 /// | `rename_blocks_items` | **后** | 它对旧批次改过的 426 个路径做**后置**改名，提前会改变旧任务读到的文件名 |
 /// | `generate_smithing_ui` | **前** | 计划顺序是 `generate_smithing_ui` → Surgeon 的 `fix_smithing2_villager2_ui`，后者会**重新派生并覆盖** `container/smithing.png`；放后阶段等于被它覆盖回去，`cut_gui` 切出的 4 个 sprite 随之分叉 |
+/// | `generate_{copper,netherite}_armor_models` | **前** | 旧任务 `fix_armor_models`（Surgeon）会把 `models/armor/{copper,netherite}_layer_*.png` **改名搬走**到 `entity/equipment/humanoid(_leggings)/`；放后阶段时源已被搬走 → 整任务跳过 → 新路径下 4 个文件消失（OnlyInA） |
 ///
 /// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
-const EARLY_NATIVES: [&str; 1] = ["generate_smithing_ui"];
+const EARLY_NATIVES: [&str; 3] = [
+    "generate_smithing_ui",
+    "generate_copper_armor_models",
+    "generate_netherite_armor_models",
+];
 
 /// 原生任务相对**整批旧任务**的落点：之前还是之后。///
 /// 旧批次不可拆分（§9.42），因此每个原生任务只有这两个位置可选；选哪一侧由
@@ -575,6 +580,9 @@ fn native_for(
         }
         if let Some((decl, run)) = crate::pilots::arch_gen2::lookup(name) {
             return Some(("arch_gen2", decl, run));
+        }
+        if let Some((decl, run)) = crate::pilots::arch_gen_metal::lookup(name) {
+            return Some(("arch_gen_metal", decl, run));
         }
     }
     if !switches.textures {
