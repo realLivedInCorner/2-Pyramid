@@ -224,7 +224,14 @@ where
         .plan(opts.source_version, opts.target_version)
         .map_err(|e| AromError::internal(format!("scheduler plan: {e}")))?;
 
-    let ctx = HurrayContext::new(workdir.to_str().unwrap_or_default());
+    // §9.93（M3）：包名与旧管线**同源**——`invoke_conversion_ex` 也是取
+    // `target_path.file_stem()`（`target_path` 即输入包）。这样 Bedrock 任务在两条路径上
+    // 看到同一个包名，产出的 `.mcpack` 文件名一致。
+    let pack_name = input
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("resource_pack");
+    let ctx = HurrayContext::with_pack_name(workdir.to_str().unwrap_or_default(), pack_name);
     let mut pool = TexturePool::new();
     let mut report = MixedRunReport {
         materialized_files: baseline.file_count(),

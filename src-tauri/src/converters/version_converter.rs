@@ -550,8 +550,8 @@ fn run_bedrock_edge_task(
     crate::converters::bedrock::register_tasks(&mut scheduler);
 
     let work_dir_str = work_dir.to_str().unwrap_or("");
-    let context = HurrayContext::new(work_dir_str);
-    context.set_data("pack_name", pack_name);
+    // §9.93（M3）：包名走只读构造期字段。
+    let context = HurrayContext::with_pack_name(work_dir_str, pack_name);
     let mut texture_pool = TexturePool::new();
     scheduler
         .execute_version_conversion(
@@ -559,6 +559,7 @@ fn run_bedrock_edge_task(
             &mut texture_pool,
             source_version,
             target_version,
+            pack_name,
         )
         .map_err(|e| format!("bedrock edge task failed: {}", e))?;
     context

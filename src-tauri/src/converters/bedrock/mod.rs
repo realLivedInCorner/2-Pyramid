@@ -44,10 +44,9 @@ pub fn register_tasks(scheduler: &mut Scheduler) {
         TaskTier::Surgeon,
         |ctx| {
             let temp = Path::new(ctx.temp_dir());
-            let pack_name = ctx
-                .get_data("pack_name")
-                .unwrap_or_else(|| "resource_pack".to_string());
-            convert_java_to_bedrock(temp, &pack_name).map_err(|e| e)
+            // §9.93（M3）：包名改为**只读构造期字段**，不再经 `shared_data`。
+            let pack_name = ctx.pack_name();
+            convert_java_to_bedrock(temp, pack_name).map_err(|e| e)
         },
     );
     scheduler.register_task(

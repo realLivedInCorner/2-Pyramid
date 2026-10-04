@@ -270,6 +270,7 @@ impl Scheduler {
         texture_pool: &mut TexturePool,
         source_version: u32,
         target_version: u32,
+        pack_name: &str,
     ) -> EngineResult<()> {
         log_info!(
             "start version conversion: {} -> {}",
@@ -289,8 +290,9 @@ impl Scheduler {
             .collect();
 
         let total_tasks = filtered_tasks.len();
-        let pack_name = context.get_data("pack_name").unwrap_or_default();
-        let progress = Arc::new(ProgressTracker::new(total_tasks, pack_name));
+        // §9.93（M3）：`pack_name` 改为**显式参数**，不再走 `HurrayContext::shared_data`。
+        // 它只是一个**进度显示用**的标签（`ProgressTracker::new`），没有任何任务读它。
+        let progress = Arc::new(ProgressTracker::new(total_tasks, pack_name.to_string()));
         // 用引用执行，避免再 clone 一整份 Task 列表
         self.execute_tasks(&filtered_tasks, context, texture_pool, Some(progress))?;
         texture_pool.clear_unused();

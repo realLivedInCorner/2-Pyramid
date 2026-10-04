@@ -39,13 +39,21 @@ fn is_modern_shader_api(pack_format: u32) -> bool {
 }
 
 /// 挂到调度器的入口：按目标 pack_format 适配 shaders/。
+///
+/// **§9.93（M3）起不再是生产路径**：生产由原生 `pilots::shader_adapt::run_from_pack` 执行
+/// （`cut_gui` 之外唯一还在的旧路径）。目标格式**从包自身读**（`pack.mcmeta`），
+/// 与原生实现同源；原先经 `ctx.get_data("target_pack_format")` 的可变侧信道已删除。
 pub fn adapt_java_shaders(ctx: &HurrayContext) -> Result<(), String> {
     let root = Path::new(ctx.temp_dir());
-    let target = ctx
-        .get_data("target_pack_format")
-        .and_then(|s| s.parse::<u32>().ok())
-        .unwrap_or(88);
+    let target = read_pack_format(root).unwrap_or(88);
     adapt_java_shaders_at(root, target)
+}
+
+/// 从 `pack.mcmeta` 读 `pack_format`（与原生实现同源的兜底）。
+fn read_pack_format(root: &Path) -> Option<u32> {
+    let text = fs::read_to_string(root.join("pack.mcmeta")).ok()?;
+    let v: serde_json::Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+    v.get("pack")?.get("pack_format")?.as_u64().map(|n| n as u32)
 }
 
 /// 对工作目录中的 `assets/minecraft/shaders` 做目标版本适配。

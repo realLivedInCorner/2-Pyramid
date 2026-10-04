@@ -61,20 +61,36 @@ impl CleanupList {
 /// Shared runtime context for conversion tasks.
 pub struct HurrayContext {
     temp_dir: PathBuf,
-    shared_data: RwLock<HashMap<String, String>>,
+    /// 输出包名（**只读**）。
+    ///
+    /// §9.93（M3）：它原本经 `shared_data` 这个「任务间可变共享表」传递，但**从未被任何任务改写**——
+    /// 只有一个写入点（转换入口）与一个读取点（Bedrock 的 `convert_java_to_bedrock`，
+    /// 用于决定输出的 `.mcpack` 文件名）。既是只读，就应当是**构造期字段**而不是可变侧信道。
+    pack_name: String,
     /// Arc 共享贴图：并行读取只 clone 指针，不复制整图。
     texture_cache: RwLock<HashMap<PathBuf, Arc<RgbaImage>>>,
     cleanup: RwLock<CleanupList>,
 }
 
 impl HurrayContext {
-    pub fn new(temp_dir: &str) -> Self {
+    /// 带包名构造（转换入口用）。
+    pub fn with_pack_name(temp_dir: &str, pack_name: &str) -> Self {
         Self {
             temp_dir: PathBuf::from(temp_dir),
-            shared_data: RwLock::new(HashMap::new()),
+            pack_name: pack_name.to_string(),
             texture_cache: RwLock::new(HashMap::new()),
             cleanup: RwLock::new(CleanupList::new()),
         }
+    }
+
+    /// 不带包名的构造（测试与不关心包名的调用点）。包名取旧实现的兜底值 `"resource_pack"`。
+    pub fn new(temp_dir: &str) -> Self {
+        Self::with_pack_name(temp_dir, "resource_pack")
+    }
+
+    /// 输出包名（只读）。
+    pub fn pack_name(&self) -> &str {
+        &self.pack_name
     }
 
     /// Register a file for deferred deletion. The file will only be removed
@@ -104,15 +120,10 @@ impl HurrayContext {
         &self.temp_dir
     }
 
-    pub fn set_data(&self, key: &str, value: &str) {
-        let mut data = Self::write_unpoisoned(&self.shared_data, "context.shared_data");
-        data.insert(key.to_string(), value.to_string());
-    }
-
-    pub fn get_data(&self, key: &str) -> Option<String> {
-        let data = Self::read_unpoisoned(&self.shared_data, "context.shared_data");
-        data.get(key).cloned()
-    }
+    // §9.93（M3）：`set_data` / `get_data` / `shared_data` **已删除**。
+    // 它原本只承载两个键：`pack_name`（纯进度显示标签 → 已改为显式传参给调度器）
+    // 与 `target_pack_format`（旧 `adapt_java_shaders` 读它 → 原生实现改为直接读
+    // `pack.mcmeta`，见 §9.85）。二者都不再需要"任务间共享可变状态"这一机制。
 
     pub fn cache_texture(&self, path: &Path, texture: RgbaImage) {
         let mut cache = Self::write_unpoisoned(&self.texture_cache, "context.texture_cache");

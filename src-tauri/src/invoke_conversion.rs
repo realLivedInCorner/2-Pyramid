@@ -148,16 +148,21 @@ pub fn invoke_conversion_ex(
         log_warn!("work_dir contains invalid UTF-8, using lossy representation");
         ""
     });
-    let context = HurrayContext::new(work_dir_str);
     let pack_name = target_path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("pack");
-    context.set_data("pack_name", pack_name);
-    // 着色器适配需要知道目标 pack_format（1.20→26.x 等）
-    context.set_data("target_pack_format", &target_version.to_string());
+    // §9.93（M3）：包名走**只读构造期字段**（不再经 `shared_data`）；
+    // `target_pack_format` 也不再写入——原生 `adapt_java_shaders` 直接读 `pack.mcmeta`（§9.85）。
+    let context = HurrayContext::with_pack_name(work_dir_str, pack_name);
 
-    scheduler.execute_version_conversion(&context, &mut texture_pool, source_version, target_version)?;
+    scheduler.execute_version_conversion(
+        &context,
+        &mut texture_pool,
+        source_version,
+        target_version,
+        pack_name,
+    )?;
 
     // 注册表之外的直接步骤（GuiSurgeon）：Java 1.21+ sprite UI。
     run_direct_steps(&context, &mut texture_pool, work_dir, target_version, run_gui_surgeon)?;
