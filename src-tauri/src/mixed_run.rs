@@ -1064,6 +1064,91 @@ mod tests {
         assert!(report.stats.files > 0, "{report:?}");
     }
 
+    /// **放置规则的回归测试**：这条规则是本项目最贵的教训沉淀（§9.42/§9.48/§9.50/§9.52），
+    /// 却一直没有单测护着——只有真实包闸门兜底（跑一次 40 秒）。这里用**真实计划**把它钉住。
+    ///
+    /// 断言三件事：
+    /// 1. `EARLY_NATIVES` 里的任务确实被判为 `Early`（**名单不是装饰**）；
+    /// 2. 阶段早于旧批次最小阶段的任务也判为 `Early`（阶段判据仍在生效）；
+    /// 3. 其余任务判为 `Late`——特别是 `fix_clock_compass` 与 `generate_boat`：
+    ///    它们都曾被误判为"该提前"（§9.59 的 100 项差异、§9.53 的 8 项 OnlyInB），
+    ///    所以这里**显式钉住它们是 `Late`**，将来谁想"顺手提前"会当场红。
+    ///
+    /// **同时记录一处已知松紧度**：`rename_blocks_items` 的阶段与旧批次最小阶段**相同**
+    /// （都是 Eraser），因此阶段判据把它算作 `Early`——而实测（§9.53）要求它**留在后阶段**
+    /// （它必须读到旧批次改名后的**最终**名字）。当前靠「它不在 `EARLY_NATIVES` 里」兜住，
+    /// 所以这里**不断言**它，而是断言「它不在提前名单里」，把这个缺口显式记录下来。
+    #[test]
+    fn native_placement_rule_is_pinned_by_the_real_plan() {
+        use crate::hurray::scheduler::Scheduler;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture.zip");
+        fixture(&input);
+
+        let mut scheduler = Scheduler::new();
+        crate::invoke_conversion::register_legacy_tasks(
+            &mut scheduler, &input, 97, 1, true, false, true,
+        );
+        let plan = scheduler.plan(1, 97).expect("plan");
+
+        // 只在本夹具能覆盖到这些任务时才断言（夹具的任务集合可能随版本映射变化）
+        let placements = native_placements(&plan, &NativeSwitches::all(), &scheduler);
+        if placements.is_empty() {
+            println!("夹具计划里没有已派发的原生任务，跳过");
+            return;
+        }
+
+        for name in EARLY_NATIVES {
+            if let Some(side) = placements.get(name) {
+                assert_eq!(
+                    *side,
+                    Side::Early,
+                    "`{name}` 在 EARLY_NATIVES 里，必须判为 Early"
+                );
+            }
+        }
+        for name in ["fix_clock_compass", "generate_boat"] {
+            if let Some(side) = placements.get(name) {
+                assert_eq!(
+                    *side,
+                    Side::Late,
+                    "`{name}` 必须判为 Late（提前会让真实包分叉，见 §9.53/§9.59）"
+                );
+            }
+        }
+        // 已知缺口（§9.68）：`rename_blocks_items` 与旧批次最小阶段同级，阶段判据算它 Early，
+        // 而实测要求它 Late。当前**只靠它不在提前名单里**兜住——把它写成断言，防止有人
+        // 顺手把它加进名单。
+        assert!(
+            !EARLY_NATIVES.contains(&"rename_blocks_items"),
+            "`rename_blocks_items` 实测必须留在后阶段（§9.53），不得加入 EARLY_NATIVES"
+        );
+
+        // 阶段判据：凡「严格早于旧批次最小阶段」的已派发原生任务都必须是 Early
+        let min_legacy = plan
+            .iter()
+            .filter(|n| native_for(n, &NativeSwitches::all()).is_none())
+            .filter_map(|n| scheduler.task_tier(n))
+            .min();
+        if let Some(min_legacy) = min_legacy {
+            for name in &plan {
+                if native_for(name, &NativeSwitches::all()).is_none() {
+                    continue;
+                }
+                if let Some(tier) = scheduler.task_tier(name) {
+                    if tier < min_legacy {
+                        assert_eq!(
+                            placements.get(name),
+                            Some(&Side::Early),
+                            "`{name}` 阶段早于旧批次最小阶段，必须判为 Early"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
     #[test]
     fn scope_violations_flags_out_of_scope_writes() {
