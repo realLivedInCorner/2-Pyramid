@@ -164,11 +164,11 @@ pub mod rename_blocks {
     use crate::converters::color::utils::{hsv_to_rgba, rgb_to_hsv};
     use image::{Rgba, RgbaImage};
 
-    pub const TEXTURES: &str = "assets/minecraft/textures";
-    const ITEMS: &str = "assets/minecraft/textures/items";
-    const ITEM: &str = "assets/minecraft/textures/item";
-    const BLOCKS: &str = "assets/minecraft/textures/blocks";
-    const BLOCK: &str = "assets/minecraft/textures/block";
+    pub(super) const TEXTURES: &str = "assets/minecraft/textures";
+    pub(super) const ITEMS: &str = "assets/minecraft/textures/items";
+    pub(super) const ITEM: &str = "assets/minecraft/textures/item";
+    pub(super) const BLOCKS: &str = "assets/minecraft/textures/blocks";
+    pub(super) const BLOCK: &str = "assets/minecraft/textures/block";
 
     pub fn decl() -> TaskDecl {
         TaskDecl::new("rename_blocks_items", Tier::Eraser)
@@ -190,7 +190,7 @@ pub mod rename_blocks {
     /// 两种情况都用「逐文件读→写→删源」，**刻意不产生改名规则**：规则与 tombstone 在同层
     /// 求值时互相干扰（已实测两处），而混合运行驱动还要把规则镜像回 workdir（尚未支持）。
     /// 代价是这些文件失去「原始压缩字节透传」，但序列化策略一致，产物字节不受影响。
-    fn merge_or_rename_dir(tx: &mut Tx<'_>, from: &str, to: &str) -> Result<bool, AromError> {
+    pub(super) fn merge_or_rename_dir(tx: &mut Tx<'_>, from: &str, to: &str) -> Result<bool, AromError> {
         if !tx.has_prefix(from)? {
             return Ok(false);
         }
@@ -222,7 +222,7 @@ pub mod rename_blocks {
     }
 
     /// 旧 `rename_with_mcmeta`：png 改名 + 顺带搬同名 `.png.mcmeta`。
-    fn rename_with_mcmeta(
+    pub(super) fn rename_with_mcmeta(
         tx: &mut Tx<'_>,
         dir: &str,
         old: &str,
@@ -691,11 +691,50 @@ pub mod reverse_trivial {
             "reverse_fix_horse_ui" => Some((horse::decl(), horse::run)),
             "reverse_overlay_icons" => Some((overlay_icons::decl(), overlay_icons::run)),
             "reverse_fix_ui_sub_hand" => Some((sub_hand::decl(), sub_hand::run)),
-            // 删除类暂不派发：需先迁移同阶段的 `reverse_rename_blocks_items`（见 §9.22）
-            // 删除类暂不派发：需先迁移同阶段的 `reverse_rename_blocks_items`（见 §9.22）
-            // 删除类暂不派发：需先迁移同阶段的 `reverse_rename_blocks_items`（见 §9.22）
+            // 删除类暂不派发：旧实现的删除**延迟到最末**（`defer_remove_*`），立即删除会让后续改名找不到源（§9.23）
+            // 删除类暂不派发：旧实现的删除**延迟到最末**（`defer_remove_*`），立即删除会让后续改名找不到源（§9.23）
+            // 删除类暂不派发：旧实现的删除**延迟到最末**（`defer_remove_*`），立即删除会让后续改名找不到源（§9.23）
             _ => None,
         }
+    }
+}
+
+/// 旧 `reverse_rename_blocks_items`（`converters/reverse/rename_blocks.rs`）。
+///
+/// 与正向的差异（逐条对应旧实现）：
+/// 1. 目录改名的**方向相反**且**不做合并**——只有目标目录不存在时才整体改名；
+/// 2. 一张**只作用于 `items/`** 的 128 对反向表（脚本抽取），全部走同一套 `rename_with_mcmeta`；
+/// 3. **不调用** `process_blocks::rename_and_process_blocks`（正向才调）。
+pub mod rename_blocks_reverse {
+    use super::rename_blocks::{BLOCK, BLOCKS, ITEM, ITEMS, TEXTURES};
+    use super::rename_blocks_tables::REVERSE_PAIRS;
+    use super::*;
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("reverse_rename_blocks_items", Tier::Eraser)
+            .reads(ScopeSet::prefix(TEXTURES))
+            .writes(ScopeSet::prefix(TEXTURES))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        let mut outcome = Outcome::default();
+        if tx.has_prefix(ITEM)? && !tx.has_prefix(ITEMS)? {
+            super::rename_blocks::merge_or_rename_dir(tx, ITEM, ITEMS)?;
+            outcome.changed += 1;
+            outcome.notes.push("item -> items".into());
+        }
+        if tx.has_prefix(BLOCK)? && !tx.has_prefix(BLOCKS)? {
+            super::rename_blocks::merge_or_rename_dir(tx, BLOCK, BLOCKS)?;
+            outcome.changed += 1;
+            outcome.notes.push("block -> blocks".into());
+        }
+        for (old, new) in REVERSE_PAIRS {
+            if super::rename_blocks::rename_with_mcmeta(tx, ITEMS, old, new)? {
+                outcome.changed += 1;
+            }
+        }
+        Ok(outcome)
     }
 }
 
