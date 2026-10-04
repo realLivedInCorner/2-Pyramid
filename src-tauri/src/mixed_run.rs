@@ -76,6 +76,8 @@ pub struct MixedRunOptions {
     /// 原生任务写出声明范围即报错（D12 契约）。关掉则只记录在
     /// [`MixedRunReport::undeclared`] 里，便于诊断。
     pub strict_scopes: bool,
+    /// 实验模式：旧任务逐个执行（每个之后收层）。用于验证「同阶段内交错是否等价」。
+    pub legacy_one_by_one: bool,
 }
 
 impl Default for MixedRunOptions {
@@ -91,6 +93,7 @@ impl Default for MixedRunOptions {
             adapt_shaders: true,
             native: NativeSwitches::none(),
             strict_scopes: true,
+            legacy_one_by_one: false,
         }
     }
 }
@@ -260,17 +263,35 @@ where
         .cloned()
         .collect();
     report.legacy_tasks = legacy_names.len();
-    scheduler
-        .run_named(&legacy_names, &ctx, &mut pool)
-        .map_err(|e| AromError::internal(format!("legacy tasks: {e}")))?;
 
-    let harvested = harvest(&pack, workdir, &baseline, None)?;
-    report.harvested_changes += harvested.changed();
-    report.added += harvested.added.len();
-    report.modified += harvested.modified.len();
-    report.removed += harvested.removed.len();
-    sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
-    pack.commit(harvested.layer);
+    if opts.legacy_one_by_one {
+        // 实验模式：逐个任务执行并在每个之后收层——用来回答「同阶段内交错是否等价」。
+        // 生产默认不走这条（§9.10 曾实测它与一次性批量不等价，本模式的结论见 §9.18）。
+        for name in &legacy_names {
+            scheduler
+                .run_named(std::slice::from_ref(name), &ctx, &mut pool)
+                .map_err(|e| AromError::internal(format!("legacy task `{name}`: {e}")))?;
+            let one = harvest(&pack, workdir, &baseline, None)?;
+            report.harvested_changes += one.changed();
+            report.added += one.added.len();
+            report.modified += one.modified.len();
+            report.removed += one.removed.len();
+            sync_baseline_with_layer(&pack, &one.layer, &mut baseline)?;
+            pack.commit(one.layer);
+        }
+    } else {
+        scheduler
+            .run_named(&legacy_names, &ctx, &mut pool)
+            .map_err(|e| AromError::internal(format!("legacy tasks: {e}")))?;
+
+        let harvested = harvest(&pack, workdir, &baseline, None)?;
+        report.harvested_changes += harvested.changed();
+        report.added += harvested.added.len();
+        report.modified += harvested.modified.len();
+        report.removed += harvested.removed.len();
+        sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
+        pack.commit(harvested.layer);
+    }
 
     // 注册表之外的直接步骤（GuiSurgeon sprite 手术）——生产管线在任务之后、
     // 清理之前执行它；漏掉它会整片丢失 sprite 产物（本步实测：真实包少了 3861 个文件）。
@@ -800,6 +821,7 @@ mod tests {
         target: u32,
         source: u32,
         native: NativeSwitches,
+        legacy_one_by_one: bool,
         tag: &str,
     ) -> (PathBuf, MixedRunReport) {
         let work = tmp.join(format!("v2_work_{tag}"));
@@ -808,6 +830,7 @@ mod tests {
             source_version: source,
             target_version: target,
             native,
+            legacy_one_by_one,
             ..MixedRunOptions::default()
         };
         let report = run_mixed(input, &work, &out, &opts, |dir| {
@@ -832,9 +855,9 @@ mod tests {
         // 1 → 97 会经过 (5,6)/(7,8) 两段，因此能选中已迁移的 Eraser 任务
         let legacy = legacy_output(&input, tmp.path(), 97, 1);
         let (off, off_report) =
-            mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::none(), "off");
+            mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::none(), false, "off");
         let (on, on_report) =
-            mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::all(), "on");
+            mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::all(), false, "on");
 
         assert_eq!(off_report.native_tasks, 0, "开关关闭时不得有原生任务");
         assert_eq!(off_report.legacy_tasks, off_report.plan_len, "关闭时应全走适配层");
@@ -883,12 +906,23 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let legacy = legacy_output(&input, tmp.path(), target, source);
         let (off, off_report) =
-            mixed_v2_output(&input, tmp.path(), target, source, NativeSwitches::none(), "off");
+            mixed_v2_output(&input, tmp.path(), target, source, NativeSwitches::none(), false, "off");
         let (on, on_report) =
-            mixed_v2_output(&input, tmp.path(), target, source, NativeSwitches::all(), "on");
+            mixed_v2_output(&input, tmp.path(), target, source, NativeSwitches::all(), false, "on");
+        // 实验模式：旧任务逐个执行并在每个之后收层——用来判定「同阶段内交错」是否等价。
+        let (one_by_one, obb_report) = mixed_v2_output(
+            &input,
+            tmp.path(),
+            target,
+            source,
+            NativeSwitches::all(),
+            true,
+            "one_by_one",
+        );
 
-        println!("off = {off_report:?}");
-        println!("on  = {on_report:?}");
+        println!("off        = {off_report:?}");
+        println!("on         = {on_report:?}");
+        println!("one_by_one = {obb_report:?}");
         assert_eq!(off_report.native_tasks, 0);
         assert_eq!(
             on_report.native_tasks + on_report.legacy_tasks,
@@ -898,6 +932,8 @@ mod tests {
         assert_equivalent(&legacy, &off);
         assert_equivalent(&legacy, &on);
         assert_equivalent(&off, &on);
+        // **刻意不断言** one_by_one 与生产的等价性：实测它不等价（§9.18），这里保留运行与
+        // 打印，作为「同阶段内交错仍不可用」的可复现证据。
     }
 
     /// 真实包上的等价性（默认忽略）：
