@@ -5,10 +5,16 @@ use std::path::{Component, Path, PathBuf};
 
 use zip::write::FileOptions;
 
-// Prevent ZIP bomb: max total uncompressed size = 500 MB
-const ZIP_BOMB_LIMIT: u64 = 500 * 1024 * 1024;
-const ZIP_MAX_ENTRIES: usize = 100_000;
-const ZIP_MAX_DEPTH: usize = 64;
+// 解压限额的**单一来源**是 A-ROM 的 L0（`arom::limits::SafeLimits`，D24 已裁决）。
+// 取值 = 两套旧限额的宽松者 + 新限制默认关闭：
+//   总解压 1 GiB（旧常量 500 MB，本次**放宽**——这是裁决「取宽松者」的直接结果：
+//   任何今天能转的包都不会被拒，但 500 MB–1 GiB 之间的包从此可以转）、
+//   条目 100 000、深度 64（与旧常量一致）；单文件与压缩比在宽松档下不判定。
+fn limits() -> &'static crate::arom::limits::SafeLimits {
+    static LIMITS: std::sync::OnceLock<crate::arom::limits::SafeLimits> =
+        std::sync::OnceLock::new();
+    LIMITS.get_or_init(crate::arom::limits::SafeLimits::preserving_current)
+}
 
 /// Sanitize a zip entry name into a path under `dest_dir`.
 /// Rejects absolute paths, drive prefixes, and `..` traversal (Zip Slip).
@@ -43,7 +49,7 @@ fn safe_out_path(dest_dir: &Path, raw_name: &str) -> Result<PathBuf, String> {
     if parts.is_empty() {
         return Err(format!("zip empty path rejected: {raw_name}"));
     }
-    if parts.len() > ZIP_MAX_DEPTH {
+    if parts.len() > limits().max_depth {
         return Err(format!("zip path too deep: {raw_name}"));
     }
 
@@ -327,11 +333,11 @@ pub fn extract_zip_to_dir(zip_path: &Path, dest_dir: &Path) -> Result<(), String
     let mut archive = zip::ZipArchive::new(std::io::BufReader::with_capacity(1024 * 1024, file))
         .map_err(|e| format!("failed to read zip archive {}: {}", zip_path.display(), e))?;
 
-    if archive.len() > ZIP_MAX_ENTRIES {
+    if archive.len() > limits().max_entries {
         return Err(format!(
             "zip has too many entries: {} > {}",
             archive.len(),
-            ZIP_MAX_ENTRIES
+            limits().max_entries
         ));
     }
 
@@ -425,10 +431,10 @@ pub fn extract_zip_to_dir(zip_path: &Path, dest_dir: &Path) -> Result<(), String
                 .read_to_end(&mut buf)
                 .map_err(|e| format!("failed to extract {}: {}", out_path.display(), e))?;
             total_written = total_written.saturating_add(buf.len() as u64);
-            if total_written > ZIP_BOMB_LIMIT {
+            if total_written > limits().max_total_bytes {
                 return Err(format!(
                     "Extracted file too large (>{:.0}MB), possible ZIP bomb. Extraction aborted.",
-                    ZIP_BOMB_LIMIT as f64 / 1024.0 / 1024.0
+                    limits().max_total_bytes as f64 / 1024.0 / 1024.0
                 ));
             }
             if tx.send((out_path, buf)).is_err() {
@@ -445,10 +451,10 @@ pub fn extract_zip_to_dir(zip_path: &Path, dest_dir: &Path) -> Result<(), String
                 .flush()
                 .map_err(|e| format!("failed to flush extracted file {}: {}", out_path.display(), e))?;
             total_written = total_written.saturating_add(written);
-            if total_written > ZIP_BOMB_LIMIT {
+            if total_written > limits().max_total_bytes {
                 return Err(format!(
                     "Extracted file too large (>{:.0}MB), possible ZIP bomb. Extraction aborted.",
-                    ZIP_BOMB_LIMIT as f64 / 1024.0 / 1024.0
+                    limits().max_total_bytes as f64 / 1024.0 / 1024.0
                 ));
             }
         }
