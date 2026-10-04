@@ -231,30 +231,23 @@ where
     // 为什么不做「逐任务交错」：实测证明按名字逐个跑旧闭包与生产**不等价**
     // （真实包上 105 个文件差异——`TexturePool` 的提交时机、延迟清理与阶段内并行分组
     // 相互耦合）。一次性批量执行旧任务则与生产逐字一致，因此把风险关在这一侧。
-    let eraser_natives: Vec<String> = plan
+    //
+    // **放置规则（§9.52 再次修正）**：旧批次不可拆分（§9.42），因此每个原生任务只能在
+    // 「整批旧任务之前」或「之后」二选一。选哪一侧**由依赖关系决定**，而不是由阶段名比较
+    // 决定（§9.49 的阶段比较在 `generate_smithing_ui` 上给了错答案：它的阶段 Architect
+    // 高于旧批次里的 Eraser，于是被放到旧批次之后，结果**晚于**计划中消费它输出的
+    // Surgeon 旧任务，顺序被反转）。判据：
+    //
+    // > 与某原生任务**有重叠**的旧任务，若在计划里排在它**之后**，该原生任务必须放前阶段
+    // > （否则那一步会读到原生改动后的内容）；若排在它**之前**，则必须放后阶段
+    // > （它自己必须读到旧任务的改动）。两侧都要求时属**歧义**，放后阶段并记录待裁决。
+    let native_placements = native_placements(&plan, &opts.native, &scheduler);
+    let early_natives: Vec<String> = plan
         .iter()
-        .filter(|name| native_for(name, &opts.native).is_some())
-        // 前阶段只放 **Eraser 级**原生任务：只有它们的位置与生产一致（§9.42 实测：
-        // 拆旧批次会改变语义，因此非 Eraser 级改放「旧批次之后」的后阶段）。
-        // **放置规则（§9.48 修正）**：原生任务放在「相对旧批次阶段窗口」的哪一侧——
-        // 阶段**早于**旧批次里最小阶段 → 前阶段（早于旧批次，输入尚未被更高阶段消费）；
-        // 否则 → 后阶段。旧批次不可拆分（§9.42），因此「同阶段混合」仍需整阶段迁移。
-        .filter(|name| {
-            use crate::hurray::scheduler::TaskTier;
-            let native_stage = scheduler.task_tier(name).unwrap_or(TaskTier::Eraser);
-            let min_legacy = plan
-                .iter()
-                .filter(|n| native_for(n, &opts.native).is_none())
-                .filter_map(|n| scheduler.task_tier(n))
-                .min();
-            match min_legacy {
-                Some(m) => native_stage < m,
-                None => true,
-            }
-        })
+        .filter(|name| matches!(native_placements.get(*name), Some(Side::Early)))
         .cloned()
         .collect();
-    for name in &eraser_natives {
+    for name in &early_natives {
         let (label, decl, run) = native_for(name, &opts.native).expect("checked above");
         let (outcome, layer) = {
             let mut tx = pack.tx(name);
@@ -292,6 +285,7 @@ where
             report.undeclared.extend(violations);
         }
         apply_layer_to_workdir(&pack, workdir, &layer)?;
+        check_layer_materialized(&pack, workdir, &layer, name)?;
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.native_tasks += 1;
@@ -341,12 +335,11 @@ where
         pack.commit(harvested.layer);
     }
 
-    // **后阶段**：非 Eraser 级原生任务放在旧批次之后、GuiSurgeon 之前。
-    // 依据（§9.42 实测）：旧批次不能被拆分（它只有一次提交 + 一次清理）；而 Eraser 级
-    // 原生任务若晚于旧批次又会改变互删顺序。于是：Eraser 级走前阶段、其余走这里，
-    // 两段各自都保持「原生在旧批次的一侧」，不拆旧批次。
+    // **后阶段**：放依赖关系要求「晚于旧批次」的原生任务，位置在旧批次之后、GuiSurgeon 之前。
+    // 依据（§9.42 实测）：旧批次不能被拆分（它只有一次提交 + 一次清理）；而「必须早于全部
+    // 旧任务」的（见前阶段的判据）走前阶段，两段各自都保持「原生在旧批次的一侧」。
     for name in &native_names {
-        if eraser_natives.contains(name) {
+        if matches!(native_placements.get(name), Some(Side::Early)) {
             continue;
         }
         let (label, decl, run) = native_for(name, &opts.native).expect("dispatched above");
@@ -362,7 +355,12 @@ where
                 "native task `{label}` ({name}) wrote outside its declared scope: {violations:?}"
             )));
         }
+        // **必须**把层落到 workdir：GuiSurgeon / cut_gui 是「注册表之外的直接步骤」，
+        // 它们与旧批次一样**直接读写磁盘**。只把层提交进 Pack 会让这一步读到旧内容，
+        // 产物随之分叉（实测：`generate_smithing_ui` 的 4 个 sprite 就是这样丢的——
+        // 原生与旧 Architect 产物逐像素相同，是 Surgeon 的 `process_smithing2` 没生效，§9.52）。
         apply_layer_to_workdir(&pack, workdir, &layer)?;
+        check_layer_materialized(&pack, workdir, &layer, name)?;
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.deferred_removals.extend(outcome.deferred_removals);
@@ -427,6 +425,71 @@ where
         write_zip(&pack, &view, output, &opts.serialize)?
     };
     Ok(report)
+}
+
+/// **必须放在旧批次之前**的原生任务（显式名单，不许靠推断）。
+///
+/// 为什么需要名单而不是一条判据：旧批次不可拆分（§9.42），原生任务只能在「整批之前/之后」
+/// 二选一；而哪一侧正确取决于**它在计划里的槽位与后续旧任务的关系**，这一点无法只从阶段名
+/// 推出——同一阶段里两侧都有实例（实测，§9.52/§9.53）：
+///
+/// | 任务 | 正确侧 | 证据 |
+/// |---|---|---|
+/// | `generate_boat` | **后** | 提前则真实包立刻分叉：旧批次里的 `generate_boat` 随后在**已被改名**的 `boat.png` 上重跑，`acacia/birch/dark_oak/jungle_boat.png` 全部消失 |
+/// | `generate_potion_lingering` | **后** | 同一次实测（`lingering_potion.png` OnlyInB） |
+/// | `rename_blocks_items` | **后** | 它对旧批次改过的 426 个路径做**后置**改名，提前会改变旧任务读到的文件名 |
+/// | `generate_smithing_ui` | **前** | 计划顺序是 `generate_smithing_ui` → Surgeon 的 `fix_smithing2_villager2_ui`，后者会**重新派生并覆盖** `container/smithing.png`；放后阶段等于被它覆盖回去，`cut_gui` 切出的 4 个 sprite 随之分叉 |
+///
+/// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
+const EARLY_NATIVES: [&str; 1] = ["generate_smithing_ui"];
+
+/// 原生任务相对**整批旧任务**的落点：之前还是之后。///
+/// 旧批次不可拆分（§9.42），因此每个原生任务只有这两个位置可选；选哪一侧由
+/// **依赖相对次序**决定（详见 `native_placements`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Side {
+    Early,
+    Late,
+}
+
+/// 为每个**已派发**的原生任务决定落点（前阶段 / 后阶段）。
+///
+/// 判据（保留 §9.49 的阶段窗口，并补上显式名单）：
+///
+/// - 阶段**严格早于**旧批次里最小的阶段 → 前阶段（输入尚未被更高阶段的旧任务消费）；
+/// - 或者列在 [`EARLY_NATIVES`] 里（**实测证据**见该常量）→ 前阶段；
+/// - 其余 → 后阶段。
+///
+/// 注意「同级或更晚一律提前」这类更"整齐"的判据**已被实测否决**：`generate_boat` 与
+/// `rename_blocks_items` 一旦提前，真实包立刻分叉（§9.53 记录了 8 项 OnlyInB 的产物）。
+fn native_placements(
+    plan: &[String],
+    switches: &NativeSwitches,
+    scheduler: &crate::hurray::scheduler::Scheduler,
+) -> std::collections::HashMap<String, Side> {
+    let min_legacy = plan
+        .iter()
+        .filter(|name| native_for(name, switches).is_none())
+        .filter_map(|name| scheduler.task_tier(name))
+        .min();
+
+    let mut out = std::collections::HashMap::new();
+    for name in plan {
+        if native_for(name, switches).is_none() {
+            continue;
+        }
+        let by_tier = match (scheduler.task_tier(name), min_legacy) {
+            (Some(stage), Some(m)) => stage < m,
+            _ => false,
+        };
+        let side = if by_tier || EARLY_NATIVES.contains(&name.as_str()) {
+            Side::Early
+        } else {
+            Side::Late
+        };
+        out.insert(name.clone(), side);
+    }
+    out
 }
 
 /// 已迁移任务的派发表：**任务名 → (标签, 声明, 原生实现)**。开关关闭即返回 `None`（走旧路径）。
@@ -509,6 +572,9 @@ fn native_for(
         }
         if let Some((decl, run)) = crate::pilots::arch_gen::lookup(name) {
             return Some(("arch_gen", decl, run));
+        }
+        if let Some((decl, run)) = crate::pilots::arch_gen2::lookup(name) {
+            return Some(("arch_gen2", decl, run));
         }
     }
     if !switches.textures {
@@ -645,6 +711,46 @@ fn sync_baseline_with_layer(
 
 fn is_under(path: &str, prefix: &str) -> bool {
     path.len() > prefix.len() && path.starts_with(prefix) && path.as_bytes()[prefix.len()] == b'/'
+}
+
+/// 契约检查：原生层**写出的文件**必须已经在 `workdir` 里就位。
+///
+/// 为什么值得一次 stat：驱动让 A-ROM 层与旧实现**共用同一个 workdir**，而
+/// **直接步骤**（GuiSurgeon / cut_gui）与旧批次一样是直接读盘的。若某处漏了
+/// `apply_layer_to_workdir`，它们会读到**上一阶段**的内容，产物静默分叉——
+/// `generate_smithing_ui` 的 4 个 sprite 就是这样丢的（§9.52）。
+/// 这里比对磁盘文件大小与层里 blob 的大小：漏写会命中「文件不存在」，
+/// 写了旧内容多半命中「大小不符」，两者都直接**自报任务名与路径**。
+fn check_layer_materialized(
+    pack: &Pack,
+    workdir: &Path,
+    layer: &Layer,
+    name: &str,
+) -> Result<(), AromError> {
+    for (path, slot) in layer.writes() {
+        let Slot::Present(Body::Blob(id)) = slot else {
+            continue;
+        };
+        let want = pack.blobs().get(*id)?.len() as u64;
+        let full = workdir.join(path);
+        match std::fs::metadata(&full) {
+            Ok(meta) if meta.len() == want => {}
+            Ok(meta) => {
+                return Err(AromError::internal(format!(
+                    "native task `{name}`: workdir copy of `{path}` is stale \
+                     ({} bytes on disk, {want} bytes in the layer)",
+                    meta.len()
+                )));
+            }
+            Err(e) => {
+                return Err(AromError::internal(format!(
+                    "native task `{name}`: `{path}` is missing from the workdir after \
+                     apply_layer_to_workdir ({e})"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn parent_of(path: &str) -> Option<&str> {
