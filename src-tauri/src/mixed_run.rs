@@ -28,6 +28,7 @@ use std::path::Path;
 
 use crate::arom::pathview::{harvest, materialize};
 use crate::arom::serialize::{write_zip, SerializeOptions, SerializeStats};
+use crate::arom::task::TaskDecl;
 use crate::arom::{AromError, Body, Layer, Pack, SafeLimits, Slot};
 
 /// 逐模块迁移开关（**编译期**：默认全关，行为与旧管线逐字一致）。
@@ -67,6 +68,9 @@ pub struct MixedRunOptions {
     pub fix_alpha_layers: bool,
     pub adapt_shaders: bool,
     pub native: NativeSwitches,
+    /// 原生任务写出声明范围即报错（D12 契约）。关掉则只记录在
+    /// [`MixedRunReport::undeclared`] 里，便于诊断。
+    pub strict_scopes: bool,
 }
 
 impl Default for MixedRunOptions {
@@ -81,6 +85,7 @@ impl Default for MixedRunOptions {
             fix_alpha_layers: false,
             adapt_shaders: true,
             native: NativeSwitches::none(),
+            strict_scopes: true,
         }
     }
 }
@@ -217,13 +222,25 @@ where
         .cloned()
         .collect();
     for name in &native_names {
-        let (label, run) = native_for(name, &opts.native).expect("checked above");
+        let (label, decl, run) = native_for(name, &opts.native).expect("checked above");
         let layer = {
             let mut tx = pack.tx(name);
             run(&mut tx)
                 .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
             tx.into_layer()
         };
+        // 契约检查：原生任务只能写它声明过的路径
+        let violations = scope_violations(&decl, &layer);
+        if !violations.is_empty() {
+            if opts.strict_scopes {
+                return Err(AromError::internal(format!(
+                    "native task `{label}` ({name}) wrote outside its declared scope: {:?} (declared writes: {})",
+                    violations,
+                    decl.writes.describe()
+                )));
+            }
+            report.undeclared.extend(violations);
+        }
         apply_layer_to_workdir(&pack, workdir, &layer)?;
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
@@ -285,27 +302,63 @@ where
     Ok(report)
 }
 
-/// 已迁移任务的派发表：**任务名 → 原生实现**。开关关闭即返回 `None`（走旧路径）。
-fn native_for(name: &str, switches: &NativeSwitches) -> Option<(&'static str, crate::pilots::PilotFn)> {
+/// 已迁移任务的派发表：**任务名 → (标签, 声明, 原生实现)**。开关关闭即返回 `None`（走旧路径）。
+fn native_for(
+    name: &str,
+    switches: &NativeSwitches,
+) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
     if !switches.textures {
         return None;
     }
     match name {
-        // 只登记**活注册表里存在**的任务名；`convert_old_texture_paths` 不在活计划里
-        // （它只存在于已删除的死注册路径，见细则 §9.10），因此不派发。
-        "delete_font_folder" => Some(("drop_font", crate::pilots::drop_font::run)),
-        "delete_blockstates_models" => {
-            Some(("drop_blockstates", crate::pilots::drop_blockstates::run))
-        }
-        "delete_horse_folder" => Some(("drop_horse", crate::pilots::drop_horse::run)),
-        "delete_shaders_folder" => Some(("drop_shaders", crate::pilots::drop_shaders::run)),
-        "delete_enchanted_item_glint" => Some(("drop_glint", crate::pilots::drop_glint::run)),
-        "rename_mcpatcher_to_optifine" => {
-            Some(("mcpatcher_optifine", crate::pilots::mcpatcher_optifine::run))
-        }
-        "convert_animated_textures" => Some(("animated", crate::pilots::animated::run)),
+        // 只登记**活注册表里存在**的任务名；`convert_old_texture_paths` 与
+        // `convert_animated_textures` 不出现在任何版本映射段里（见细则 §9.12），
+        // 因此不派发。
+        "delete_font_folder" => Some((
+            "drop_font",
+            crate::pilots::drop_font::decl(),
+            crate::pilots::drop_font::run,
+        )),
+        "delete_blockstates_models" => Some((
+            "drop_blockstates",
+            crate::pilots::drop_blockstates::decl(),
+            crate::pilots::drop_blockstates::run,
+        )),
+        "delete_horse_folder" => Some((
+            "drop_horse",
+            crate::pilots::drop_horse::decl(),
+            crate::pilots::drop_horse::run,
+        )),
+        "delete_shaders_folder" => Some((
+            "drop_shaders",
+            crate::pilots::drop_shaders::decl(),
+            crate::pilots::drop_shaders::run,
+        )),
+        "delete_enchanted_item_glint" => Some((
+            "drop_glint",
+            crate::pilots::drop_glint::decl(),
+            crate::pilots::drop_glint::run,
+        )),
+        "rename_mcpatcher_to_optifine" => Some((
+            "mcpatcher_optifine",
+            crate::pilots::mcpatcher_optifine::decl(),
+            crate::pilots::mcpatcher_optifine::run,
+        )),
         _ => None,
     }
+}
+
+/// 原生任务的写入是否落在它**声明**的范围内（D12 契约的落地检查）。
+///
+/// 旧任务经适配层时范围是「整包」（未迁移者默认串行），而原生任务必须精确声明；
+/// 越界即契约违约，因此驱动默认直接报错（`MixedRunOptions::strict_scopes`）。
+pub fn scope_violations(decl: &TaskDecl, layer: &Layer) -> Vec<String> {
+    layer
+        .writes()
+        .keys()
+        .filter(|path| decl.check_write(path).is_err())
+        .cloned()
+        .collect()
 }
 
 /// 把一层写入落到 workdir，使目录镜像与 pack 保持一致。
@@ -531,6 +584,40 @@ mod tests {
         assert!(report.materialized_files >= 8, "{report:?}");
         assert!(report.materialized_dirs >= 5, "空目录也要落盘：{report:?}");
         assert!(report.stats.files > 0, "{report:?}");
+    }
+
+    /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
+    #[test]
+    fn scope_violations_flags_out_of_scope_writes() {
+        use crate::arom::task::{ScopeSet, Tier};
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture.zip");
+        fixture(&input);
+        let mut pack =
+            Pack::open_zip(&input, &SafeLimits::preserving_current(), None).expect("open");
+
+        let layer = {
+            let mut tx = pack.tx("probe");
+            tx.put("assets/minecraft/textures/bar/x.png", b"x".to_vec())
+                .expect("put");
+            tx.into_layer()
+        };
+
+        let narrow = TaskDecl::new("narrow", Tier::Eraser)
+            .writes(ScopeSet::prefix("assets/minecraft/textures/foo"));
+        assert_eq!(
+            scope_violations(&narrow, &layer),
+            vec!["assets/minecraft/textures/bar/x.png".to_string()],
+            "越界写入必须被报出"
+        );
+
+        let wide = TaskDecl::new("wide", Tier::Eraser)
+            .writes(ScopeSet::prefix("assets/minecraft/textures/bar"));
+        assert!(
+            scope_violations(&wide, &layer).is_empty(),
+            "范围内的写入不报"
+        );
     }
 
     #[test]
