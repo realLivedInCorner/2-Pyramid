@@ -836,6 +836,14 @@ fn native_for(
             crate::pilots::mcpatcher_optifine::decl(),
             crate::pilots::mcpatcher_optifine::run,
         )),
+        // `adapt_java_shaders`（§9.85）：**目标 pack_format 由任务自己从包里读**
+        // （`run_from_pack`），因此不需要改驱动签名——真实包里没有 `shaders/`，
+        // 生产路径上它是「源缺失 → 跳过」，与原实现一致。
+        "adapt_java_shaders" => Some((
+            "shader_adapt",
+            crate::pilots::shader_adapt::decl(),
+            crate::pilots::shader_adapt::run_from_pack,
+        )),
         _ => None,
     }
 }

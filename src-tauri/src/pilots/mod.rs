@@ -6740,8 +6740,8 @@ pub mod surgeon_machinery {
 /// `ensure_core_json`、`rewrite_json_matrix_types`、`strip_json_uniforms_for_ubo`、
 /// `adapt_post_paths`、`walk_dir` 的遍历骨架。**因此本模块暂不派发**（生产路径不变）。
 ///
-/// 未派发期间这些函数暂时**只被测试用到**，所以按本仓约定整块标 `#[cfg(test)]`——**派发时应移除该属性**。
-#[cfg(test)]
+/// **§9.85 起已派发**：生产入口是 [`shader_adapt::run_from_pack`]（驱动派发表已登记），
+/// 因此移植期用来压住死代码警告的 `#[cfg(test)]` **已移除**。
 pub mod shader_adapt {
     use super::*;
 
@@ -7063,6 +7063,28 @@ pub mod shader_adapt {
         Ok(())
     }
 
+    /// **派发入口**：目标 `pack_format` 由任务**自行从包里的 `pack.mcmeta` 读出**。
+    ///
+    /// 为什么这样做（§9.85）：旧实现从 `ctx.get_data("target_pack_format")` 取，而原生任务只拿得到
+    /// `&mut Tx`。两条可选路径：
+    /// ① 改驱动，把 `MixedRunOptions::target_version` 传进执行体——但那要为**一个任务**改动
+    ///    `native_for` 的返回类型与约 45 个 return 点（§9.84 两次脚本尝试都编译不过，已回退）；
+    /// ②**让任务自己读包**——它是自描述的，且与生产**同源**：
+    ///    生产里 `context.set_data("target_pack_format", target_version)`（`invoke_conversion.rs:158`），
+    ///    而驱动的收尾步骤把同一个 `target_version` 写进 `pack.mcmeta`（`write_pack_format`），
+    ///    所以从包里读出的值与传进来的那个是**同一个数**。
+    ///
+    /// 取不到 `pack.mcmeta` 或解析失败时按旧实现的缺省值 **88** 处理。
+    pub fn run_from_pack(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        let target = tx
+            .view()
+            .mcmeta()
+            .ok()
+            .and_then(|m| m.effective_format())
+            .unwrap_or(88);
+        run(tx, target)
+    }
+
     /// 总体编排（**与原实现逐项对照通过**，见 §9.83 的夹具快照对照）。
     ///
     /// 覆盖旧实现 `adapt_java_shaders_at` 的**全部步骤**：
@@ -7072,10 +7094,7 @@ pub mod shader_adapt {
     /// 2) core JSON 的**补齐**（`<63`）/ **mat 升级**（`≥7`）/ **剥 uniforms**（`≥63`）；
     /// 3) 源码遍历（导入指令 / globals 注入 / fog 标记，跳过 `include/`）。
     ///
-    /// **调用方仍需提供目标 pack_format**：旧实现从 `ctx.get_data("target_pack_format")` 取，
-    /// 而驱动的原生任务只拿得到 `&mut Tx`——因此**接入生产路径需要一次签名/接线改动**
-    /// （把这一个参数从编排层传进来）。这也正是本任务**尚未派发**的唯一原因；
-    /// 真实包里没有 `shaders/`，派发与否在生产路径上都是「跳过」，**无法用闸门区分**。
+    /// **目标 pack_format 由任务自行从包里读出**（见 [`run_from_pack`]），无需驱动传参。
     pub fn run(tx: &mut Tx<'_>, target_pack_format: u32) -> Result<Outcome, AromError> {
         if !tx.has_prefix(SHADERS)? {
             return Ok(Outcome::default());
