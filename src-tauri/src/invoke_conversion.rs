@@ -159,16 +159,8 @@ pub fn invoke_conversion_ex(
 
     scheduler.execute_version_conversion(&context, &mut texture_pool, source_version, target_version)?;
 
-    // GuiSurgeon：Java 1.21+ sprite UI。Bedrock 中间态跳过（见 invoke_conversion_ex）。
-    if run_gui_surgeon && target_version >= 34 {
-        let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
-        let _ = resolution.detect_resolution(work_dir);
-        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
-            &context,
-            &mut texture_pool,
-            &resolution,
-        ).map_err(|e| format!("GuiSurgeon failed: {}", e))?;
-    }
+    // 注册表之外的直接步骤（GuiSurgeon）：Java 1.21+ sprite UI。
+    run_direct_steps(&context, &mut texture_pool, work_dir, target_version, run_gui_surgeon)?;
 
     // ── Execute all deferred file/directory cleanup at the very end ──
     // All cleanup operations (Eraser deletions, GuiSurgeon atlas cleanup,
@@ -202,6 +194,31 @@ mod tests {
         let result = invoke_conversion(temp_dir.path(), temp_dir.path(), 46, 1);
         assert!(result.is_ok());
     }
+}
+
+/// 注册表**之外**的直接步骤：GuiSurgeon（Java 1.21+ sprite UI 手术）。
+///
+/// 它必须紧跟在注册表任务之后、延迟清理之前执行；M2 的混合运行驱动按名字执行注册表任务，
+/// 因此把这段单独暴露出来，保证两条路径调用的是**同一份逻辑**。
+/// Bedrock 中间态跳过（`run_gui_surgeon=false`），目标 < 34 也跳过。
+pub fn run_direct_steps(
+    context: &HurrayContext,
+    texture_pool: &mut TexturePool,
+    work_dir: &Path,
+    target_version: u32,
+    run_gui_surgeon: bool,
+) -> Result<(), Box<dyn Error>> {
+    if run_gui_surgeon && target_version >= 34 {
+        let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
+        let _ = resolution.detect_resolution(work_dir);
+        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
+            context,
+            texture_pool,
+            &resolution,
+        )
+        .map_err(|e| format!("GuiSurgeon failed: {}", e))?;
+    }
+    Ok(())
 }
 
 /// 注册全部转换任务。

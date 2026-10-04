@@ -105,9 +105,12 @@ pub mod animated {
 
     pub fn decl() -> TaskDecl {
         let scope = ScopeSet::prefix(DIRS[0]).union(&ScopeSet::prefix(DIRS[1]));
-        TaskDecl::new("convert_animated_textures", Tier::Surgeon)
+        // 阶段与活注册表一致：`invoke_conversion.rs` 把 `convert_animated_textures`
+        // 登记为 `TaskType::Exclusive` / `TaskTier::Eraser`。
+        TaskDecl::new("convert_animated_textures", Tier::Eraser)
             .reads(scope.clone())
             .writes(scope)
+            .exclusive(true)
     }
 
     /// 由贴图尺寸推导帧数；语义与旧实现逐条一致（正方形 1 帧、条带取整除、否则跳过）。
