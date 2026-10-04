@@ -743,6 +743,8 @@ mod tests {
 
     fn assert_equivalent(legacy: &Path, mixed: &Path) -> crate::converters::pack_diff::PackDiffReport {
         let report = diff_containers(legacy, mixed).expect("diff");
+        // 让失败自报身份：路径即配置标签（legacy.zip / v2_on.zip / v2_one_by_one.zip …）
+        println!("compare a={} b={}", report.a, report.b);
         assert_eq!(report.blocking, 0, "内容差异：{:?}", report.diffs);
         assert_eq!(
             report.container_entry_set_blocking, 0,
