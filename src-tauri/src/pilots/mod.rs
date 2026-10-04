@@ -2971,6 +2971,7 @@ mod tests {
                 "assets/minecraft/textures/gui/title/minecraft.png",
                 "assets/minecraft/textures/gui/widgets.png",
                 "assets/minecraft/textures/gui/container/creative_inventory/tabs.png",
+                "assets/minecraft/textures/gui/icons.png",
             ] {
                 let mut img = RgbaImage::new(256, 256);
                 for y in 0..256u32 {
@@ -3033,6 +3034,7 @@ mod tests {
             n += crate::pilots::gui_surgeon_tx::process_title(&mut tx).expect("title");
             n += crate::pilots::gui_surgeon_tx::process_widgets(&mut tx).expect("widgets");
             n += crate::pilots::gui_surgeon_tx::process_tabs(&mut tx).expect("tabs");
+            n += crate::pilots::gui_surgeon_tx::process_icons(&mut tx).expect("icons");
             pack.commit(tx.into_layer());
             crate::arom::pathview::materialize(&pack.view(), &native_dir).expect("materialize");
             n
@@ -9155,6 +9157,91 @@ pub mod gui_surgeon_tx {
             "tab_bottom_selected_4.png", "tab_bottom_selected_5.png", "tab_bottom_selected_6.png",
             "tab_bottom_selected_7.png",
         ])?;
+
+        Ok(n)
+    }
+    /// 旧 `process_icons`：由 `gui/icons.png` 产出 HUD / icon / server_list 三组 sprite。
+    ///
+    /// **本函数在旧实现里是纯声明式的**——17 次 `save_slices` 调用，没有任何直接的裁剪/写入，
+    /// 因此移植是"逐条誊抄参数"，风险集中在**抄错数字或漏抄一条**。
+    /// 夹具对照会逐文件比对，且数量断言能抓出"整段漏抄"。
+    ///
+    /// 注意 `names` 里有一批 `wtf*.png`：那是旧实现里**刻意保留**的槽位名（对应 1.20 图集中
+    /// 1.21 已不用的小格），照抄——改名会改变产物。
+    pub fn process_icons(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let src = "assets/minecraft/textures/gui/icons.png";
+        let Ok(img) = tx.image(src) else {
+            crate::log_info!("icons.png not found, skip");
+            return Ok(0);
+        };
+        let img = &*img;
+        let mut n = 0usize;
+
+        n += save_slices(tx, img, (0, 0, 15, 15), SplitMode::None, (15, 15),
+            &["crosshair.png"], "hud")?;
+
+        n += save_slices(tx, img, (16, 0, 196, 9), SplitMode::Horizontal, (9, 9),
+            &["container.png", "container_blinking.png", "wtf.png", "wtf2.png",
+              "full.png", "half.png", "full_blinking.png", "half_blinking.png",
+              "poisoned_full.png", "poisoned_half.png", "poisoned_full_blinking.png",
+              "poisoned_half_blinking.png", "withered_full.png", "withered_half.png",
+              "withered_full_blinking.png", "withered_half_blinking.png",
+              "absorbing_full.png", "absorbing_half.png", "frozen_full.png",
+              "frozen_half.png"], "hud/heart")?;
+
+        n += save_slices(tx, img, (16, 9, 124, 18), SplitMode::Horizontal, (9, 9),
+            &["armor_empty.png", "armor_half.png", "armor_full.png", "wtf3.png"], "hud")?;
+
+        n += save_slices(tx, img, (52, 9, 124, 18), SplitMode::Horizontal, (9, 9),
+            &["vehicle_container.png", "wtf4.png", "wtf5.png", "wtf6.png",
+              "vehicle_full.png", "vehicle_half.png", "wtf7.png", "wtf8.png"], "hud/heart")?;
+
+        n += save_slices(tx, img, (16, 18, 52, 27), SplitMode::Horizontal, (9, 9),
+            &["air.png", "air_bursting.png", "wtf9.png", "wtf10.png"], "hud")?;
+
+        n += save_slices(tx, img, (16, 27, 142, 36), SplitMode::Horizontal, (9, 9),
+            &["food_empty.png", "wtf11.png", "wtf123.png", "wtf13.png", "food_full.png",
+              "food_half.png", "wtf14.png", "wtf15.png", "food_full_hunger.png",
+              "food_half_hunger.png", "wtf16.png", "wtf17.png", "wtf18.png",
+              "food_empty_hunger.png"], "hud")?;
+
+        n += save_slices(tx, img, (16, 45, 196, 54), SplitMode::Horizontal, (9, 9),
+            &["container_hardcore.png", "container_hardcore_blinking.png", "wtf19.png",
+              "wtf20.png", "hardcore_full.png", "hardcore_half.png",
+              "hardcore_full_blinking.png", "hardcore_half_blinking.png",
+              "poisoned_hardcore_full.png", "poisoned_hardcore_half.png",
+              "poisoned_hardcore_full_blinking.png", "poisoned_hardcore_half_blinking.png",
+              "withered_hardcore_full.png", "withered_hardcore_half.png",
+              "withered_hardcore_full_blinking.png", "withered_hardcore_half_blinking.png",
+              "absorbing_hardcore_full.png", "absorbing_hardcore_half.png",
+              "frozen_hardcore_full.png", "frozen_hardcore_half.png"], "hud/heart")?;
+
+        n += save_slices(tx, img, (0, 15, 10, 63), SplitMode::Vertical, (10, 8),
+            &["ping_5.png", "ping_4.png", "ping_3.png", "ping_2.png", "ping_1.png",
+              "ping_unknown.png"], "icon")?;
+
+        n += save_slices(tx, img, (0, 64, 182, 94), SplitMode::Vertical, (182, 5),
+            &["experience_bar_background.png", "experience_bar_progress.png",
+              "jump_bar_cooldown.png", "wtf21.png", "jump_bar_background.png",
+              "jump_bar_progress.png"], "hud")?;
+
+        n += save_slices(tx, img, (0, 94, 18, 112), SplitMode::None, (18, 18),
+            &["hotbar_attack_indicator_background.png"], "hud")?;
+        n += save_slices(tx, img, (18, 94, 36, 112), SplitMode::None, (18, 18),
+            &["hotbar_attack_indicator_progress.png"], "hud")?;
+        n += save_slices(tx, img, (36, 94, 52, 98), SplitMode::None, (16, 4),
+            &["crosshair_attack_indicator_background.png"], "hud")?;
+        n += save_slices(tx, img, (52, 94, 68, 98), SplitMode::None, (16, 4),
+            &["crosshair_attack_indicator_progress.png"], "hud")?;
+        n += save_slices(tx, img, (68, 94, 84, 110), SplitMode::None, (16, 16),
+            &["crosshair_attack_indicator_full.png"], "hud")?;
+
+        n += save_slices(tx, img, (0, 176, 10, 224), SplitMode::Vertical, (10, 8),
+            &["ping_5.png", "ping_4.png", "ping_3.png", "ping_2.png", "ping_1.png",
+              "unreachable.png"], "server_list")?;
+        n += save_slices(tx, img, (10, 176, 20, 216), SplitMode::Vertical, (10, 8),
+            &["pinging_5.png", "pinging_4.png", "pinging_3.png", "pinging_2.png",
+              "pinging_1.png"], "server_list")?;
 
         Ok(n)
     }
