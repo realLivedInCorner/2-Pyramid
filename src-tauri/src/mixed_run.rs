@@ -470,12 +470,13 @@ where
 /// | `fix_ui_sub_hand` / `fix_ui_creative` | **前** | 同为「原位改写 GUI 图」，且计划槽位在阶段 1–2（最前）；放前阶段与生产顺序一致（`fix_slider` 读 `widgets.png`，两者区域不重叠但顺序仍应正确） |
 ///
 /// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
-const EARLY_NATIVES: [&str; 9] = [
+const EARLY_NATIVES: [&str; 10] = [
     "generate_smithing_ui",
     "generate_copper_armor_models",
     "generate_netherite_armor_models",
     "generate_poplar_planks",
     "generate_tricky_trials_breeze",
+    "generate_shulker_box_ui",
     "fix_slider",
     "fix_horse_ui",
     "fix_ui_sub_hand",
@@ -495,20 +496,21 @@ enum Side {
 ///
 /// 判据（保留 §9.49 的阶段窗口，并补上显式名单）：
 ///
-/// - 阶段**严格早于**旧批次里最小的阶段 → 前阶段（输入尚未被更高阶段的旧任务消费）；
+/// 判据（**不依赖任何"最小阶段"基准**，因此不会随迁移进度漂移）：
+///
+/// - 阶段 **== Eraser** → 前阶段。删除/改名类在生产顺序里就排最前；把它们挪到后面会让
+///   早阶段生成的新格式产物**不再被删除**（§9.76 实测：产物多 57 个文件，读数第一处偏离
+///   就是 `pre:delete_blockstates_models` 从首位消失）；
 /// - 或者列在 [`EARLY_NATIVES`] 里（**实测证据**见该常量）→ 前阶段；
 /// - 其余 → 后阶段。
 ///
-/// **已实测的耦合（§9.73/§9.75，待与派发一起修）**：基准是「**剩余旧任务**里最小的阶段」，
-/// 于是**任何一次新派发都可能改变基准**，把无关任务挪到另一侧。真实包上派发
-/// `generate_shulker_box_ui`（当时唯一的 Architect 级旧任务）之后基准从 `Architect` 变成
-/// `Surgeon`，`generate_boat`、`generate_potion_lingering`、`generate_tipped_arrow_images`、
-/// `generate_furnace`… **全部被挪到前阶段**——§9.74 的逐步读数里能直接看到它们出现在 `pre:` 段。
-///
-/// **改成「整批计划里最小的阶段」可以消除这份漂移**（基准恒为计划里本就有的 `Eraser`），
-/// 单独改它时闸门也是**通过**的（§9.75 实测）；但派发 `generate_shulker_box_ui` 之后
-/// 真实包仍分叉（差异与派发前不同，涉及 `copper_bulb`/`poplar`/`breeze` 等），
-/// 两处因此**一起回退**、留待后续单独立项。修的时候请**成对验收**。
+/// **历史**：这条判据曾经写作「阶段**严格早于**旧批次里最小的阶段」。当时旧批次的基准是
+/// `Architect`，Eraser 级恰好满足，于是"碰巧"正确；但该基准**会随迁移进度漂移**——
+/// 真实包上派发 `generate_shulker_box_ui` 之后基准变成 `Surgeon`，`generate_boat` /
+/// `generate_potion_lingering` / `generate_tipped_arrow_images` / `generate_furnace`…
+/// 全部被挪到前阶段，立刻复现 §9.53 的 8 项 `OnlyInB`（§9.74 的逐步读数里直接可见）。
+/// 改成「整批计划的最小阶段」又让 Eraser 级**不再满足** `stage < min`（因为 `min` 就是
+/// `Eraser`），于是出现上面那条 57 个文件的偏差（§9.76）。两次实验合起来给出现在的形式。
 ///
 /// 注意「同级或更晚一律提前」这类更"整齐"的判据**已被实测否决**：`generate_boat` 与
 /// `rename_blocks_items` 一旦提前，真实包立刻分叉（§9.53 记录了 8 项 OnlyInB 的产物）。
@@ -517,22 +519,26 @@ fn native_placements(
     switches: &NativeSwitches,
     scheduler: &crate::hurray::scheduler::Scheduler,
 ) -> std::collections::HashMap<String, Side> {
-    let min_legacy = plan
-        .iter()
-        .filter(|name| native_for(name, switches).is_none())
-        .filter_map(|name| scheduler.task_tier(name))
-        .min();
-
+    // **Eraser 级原生任务必须最先跑**——它们是删除/改名类，生产顺序里就排在最前（阶段 1–12 之前）。
+    //
+    // 这一条**必须写成「阶段 == Eraser」而不是任何"最小阶段"比较**：§9.76 用逐步读数实测到，
+    // 一旦把 Eraser 级原生任务挪到后阶段，早阶段生成的新格式产物（`poplar_*`、铜灯泡族、
+    // `breeze_rod`…）就**不再被删除**，最终产物多出 57 个文件（`pre:` 读数的第一处偏离即
+    // `pre:delete_blockstates_models` 从首位消失）。
+    //
+    // 之前写成「阶段**严格早于**旧批次里最小的阶段」时，Eraser 级恰好满足（旧批次的基准是
+    // `Architect`），于是"碰巧"正确；而这个基准**会随迁移进度漂移**（§9.73/§9.75）。
+    // 现在把它写成**不依赖任何基准**的显式判据：Eraser → 前阶段。
     let mut out = std::collections::HashMap::new();
     for name in plan {
         if native_for(name, switches).is_none() {
             continue;
         }
-        let by_tier = match (scheduler.task_tier(name), min_legacy) {
-            (Some(stage), Some(m)) => stage < m,
-            _ => false,
-        };
-        let side = if by_tier || EARLY_NATIVES.contains(&name.as_str()) {
+        let is_eraser = matches!(
+            scheduler.task_tier(name),
+            Some(crate::hurray::scheduler::TaskTier::Eraser)
+        );
+        let side = if is_eraser || EARLY_NATIVES.contains(&name.as_str()) {
             Side::Early
         } else {
             Side::Late
@@ -777,6 +783,13 @@ fn native_for(
         }
         if let Some((decl, run)) = crate::pilots::surgeon_survival::lookup(name) {
             return Some(("surgeon_survival", decl, run));
+        }
+        if name == "generate_shulker_box_ui" {
+            return Some((
+                "shulker_box_gen",
+                crate::pilots::shulker_box_gen::decl(),
+                crate::pilots::shulker_box_gen::run,
+            ));
         }
     }
     if !switches.textures {
@@ -1198,15 +1211,14 @@ mod tests {
     ///
     /// 断言三件事：
     /// 1. `EARLY_NATIVES` 里的任务确实被判为 `Early`（**名单不是装饰**）；
-    /// 2. 阶段早于旧批次最小阶段的任务也判为 `Early`（阶段判据仍在生效）；
+    /// 2. **Eraser 级的每个已派发原生任务都判为 `Early`**——这是 §9.76 定稿的判据，
+    ///    且实测是**载荷**的：删到后阶段会让早阶段生成的产物不再被删除（多 57 个文件）；
     /// 3. 曾被误判的**必须留在 `Late`**：`fix_clock_compass`（§9.59 的 100 项差异）
     ///    与 `generate_boat`（§9.53 的 8 项 OnlyInB）——将来谁"顺手提前"会当场红。
     ///
-    /// **同时把阶段判据的当前边界写清楚**（实测，真实包）：
-    /// `min_legacy = Architect`（Eraser 旧任务已全部原生化），因此
-    /// **七个 Eraser 级原生任务**（`delete_*`、`process_chest_folder`、`rename_blocks_items`、
-    /// `rename_mcpatcher_to_optifine`）都由**阶段判据**判为 `Early`——这是正确的，
-    /// 真实包闸门也一直是在这个放置下通过的；而 `Architect` 及更晚的原生任务判为 `Late`。
+    /// **历史（§9.73/§9.75/§9.76）**：判据曾经是「阶段严格早于旧批次最小阶段」，而那个基准
+    /// 会随迁移进度漂移；改用「整批计划最小阶段」又让 Eraser 级不再满足 `stage < min`。
+    /// 两次实验合起来给出现在的显式形式：**Eraser → 前阶段，名单 → 前阶段，其余 → 后阶段**。
     #[test]
     fn native_placement_rule_is_pinned_by_the_real_plan() {
         use crate::hurray::scheduler::Scheduler;
@@ -1246,44 +1258,29 @@ mod tests {
                 );
             }
         }
-        // 阶段判据的真实边界（实测）：`min_legacy = Architect`，因此 Eraser 级原生任务
-        // 由判据判为 Early——包括 `rename_blocks_items`，它在真实包闸门里一直是 Early 且通过。
-        for name in [
-            "rename_blocks_items",
-            "delete_font_folder",
-            "process_chest_folder",
-        ] {
-            if let Some(side) = placements.get(name) {
+        // **阶段判据的真实边界**（§9.76 定稿）：判据**不再依赖任何"最小阶段"基准**，
+        // 而是直接的「阶段 == Eraser → 前阶段」。所以这里断言：凡是 Eraser 级的已派发原生任务
+        // 都必须判为 Early——§9.76 的实测表明这条是**载荷**的：把它们挪到后阶段，
+        // 早阶段生成的新格式产物就不再被删除，真实包产出会多 57 个文件。
+        let mut saw_eraser = false;
+        for name in &plan {
+            if native_for(name, &NativeSwitches::all()).is_none() {
+                continue;
+            }
+            let is_eraser = matches!(
+                scheduler.task_tier(name),
+                Some(crate::hurray::scheduler::TaskTier::Eraser)
+            );
+            if is_eraser {
+                saw_eraser = true;
                 assert_eq!(
-                    *side,
-                    Side::Early,
-                    "`{name}` 是 Eraser 级，阶段判据应判为 Early（真实包闸门即在此放置下通过）"
+                    placements.get(name),
+                    Some(&Side::Early),
+                    "`{name}` 是 Eraser 级，必须判为 Early（§9.76：删除类必须最先跑）"
                 );
             }
         }
-
-        // 阶段判据：凡「严格早于旧批次最小阶段」的已派发原生任务都必须是 Early
-        let min_legacy = plan
-            .iter()
-            .filter(|n| native_for(n, &NativeSwitches::all()).is_none())
-            .filter_map(|n| scheduler.task_tier(n))
-            .min();
-        if let Some(min_legacy) = min_legacy {
-            for name in &plan {
-                if native_for(name, &NativeSwitches::all()).is_none() {
-                    continue;
-                }
-                if let Some(tier) = scheduler.task_tier(name) {
-                    if tier < min_legacy {
-                        assert_eq!(
-                            placements.get(name),
-                            Some(&Side::Early),
-                            "`{name}` 阶段早于旧批次最小阶段，必须判为 Early"
-                        );
-                    }
-                }
-            }
-        }
+        assert!(saw_eraser, "计划里应当至少有一个 Eraser 级原生任务");
     }
 
     /// **逐步读数**（默认忽略，§9.73 的诊断工具）：
