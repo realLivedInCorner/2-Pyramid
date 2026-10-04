@@ -443,15 +443,17 @@ where
 /// | `generate_poplar_planks` | **前** | 它的「优先 jungle、缺失回退 oak」判据依赖**当时**磁盘上还有哪些源；放后阶段时更早的删除类旧任务已经把 jungle 源搬走 → 单个 `item/poplar_sign.png` 走了 oak 回退链 → 132/256 像素不同（实测） |
 /// | `generate_tricky_trials_breeze` | **前** | 它的状态图标源 `mob_effect/{speed,jump_boost,absorption}.png` **是旧任务 `fix_ui_survival` 造出来的**；放后阶段时这三个源"凭空出现" → 多生成 `mob_effect/wind_charged.png`（OnlyInB，实测） |
 /// | ~~`fix_clock_compass`~~ | **后**（实测后从名单撤回） | 旧实现读 `textures/items/{clock,compass}.png`，但计划里 `rename_blocks_items`（阶段 3–4）**已经把它们改名到 `item/`**——所以它在生产管线里是**空操作**。提前到前阶段会让"源又存在了"，于是真的拆出 `clock_00..63.png`（实测 100 项差异）→ **必须留在后面**才能复刻这个空操作 |
+/// | `fix_horse_ui` | **前** | 它**原位改写** `gui/container/horse.png`，而该图随后被 GUI 切片链消费成 `gui/sprites/container/slot/*`；放后阶段会让 `fix2_horse_ui` 用**旧图切出的槽位**覆盖正确产物（实测 `llama_armor.png` 88/324、`saddle.png` 118/324 像素不同） |
 ///
 /// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
-const EARLY_NATIVES: [&str; 6] = [
+const EARLY_NATIVES: [&str; 7] = [
     "generate_smithing_ui",
     "generate_copper_armor_models",
     "generate_netherite_armor_models",
     "generate_poplar_planks",
     "generate_tricky_trials_breeze",
     "fix_slider",
+    "fix_horse_ui",
 ];
 
 /// 原生任务相对**整批旧任务**的落点：之前还是之后。///
@@ -628,6 +630,9 @@ fn native_for(
         }
         if let Some((decl, run)) = crate::pilots::surgeon_mid::lookup(name) {
             return Some(("surgeon_mid", decl, run));
+        }
+        if let Some((decl, run)) = crate::pilots::surgeon_mid2::lookup(name) {
+            return Some(("surgeon_mid2", decl, run));
         }
     }
     if !switches.textures {
