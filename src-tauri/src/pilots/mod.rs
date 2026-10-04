@@ -2450,6 +2450,235 @@ mod tests {
         println!("outcomes = {outcomes:?}");
         println!("report = {}", report.summary());
     }
+
+    /// **夹具正题**（默认忽略）：四个任务的源在真实包里走的是「跳过」分支（§9.52/§9.56），
+    /// 所以真实包证明不了它们**算得对**。这里自造 1.13+ 路径的源（部分贴图直接取自真实包），
+    /// 对**同一份输入**分别跑旧转换器函数与原生实现，逐像素比对。
+    ///
+    /// 需要真实 `UImage`：解析不到就直接失败（**不许静默跳过**，否则这个用例会变成空跑）。
+    #[test]
+    #[ignore]
+    fn uimage_tasks_match_the_old_implementations_on_a_fixture() {
+        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
+            println!("AROM_REAL_PACK 未设置，跳过");
+            return;
+        };
+        let real = std::path::PathBuf::from(&src);
+        assert!(real.is_file(), "不是文件：{}", real.display());
+
+        // ① UImage 必须可用，否则这四个任务在两边都会跳过，用例失去意义
+        let uimage = crate::converters::get_uimage_path().expect("UImage 必须可解析");
+        for probe in [
+            "crossbow/crossbow_16.png",
+            "crossbow/crossbow_firework_16.png",
+            "tipped_arrow_head/tipped_arrow_head_16.png",
+            "powder_snow_bucket/powder_snow_bucket_16.png",
+            "water_bucket/cod_bucket_16.png",
+        ] {
+            assert!(
+                uimage.join(probe).is_file(),
+                "UImage 缺少 {probe}（{}）",
+                uimage.display()
+            );
+        }
+
+        // ② 夹具：源取自真实包（bow / bow_pulling_* / arrow / water_bucket / milk_bucket），
+        //    路径换成新格式；目标是 16x16，与上面探测的覆盖图同名尺寸对齐。
+        let item = "assets/minecraft/textures/item";
+        let items_legacy = "assets/minecraft/textures/items";
+        let sources: [(&str, &str); 8] = [
+            (
+                "assets/minecraft/textures/items/bow_standby.png",
+                &format!("{item}/bow.png"),
+            ),
+            (
+                "assets/minecraft/textures/items/bow_pulling_0.png",
+                &format!("{item}/bow_pulling_0.png"),
+            ),
+            (
+                "assets/minecraft/textures/items/bow_pulling_1.png",
+                &format!("{item}/bow_pulling_1.png"),
+            ),
+            (
+                "assets/minecraft/textures/items/bow_pulling_2.png",
+                &format!("{item}/bow_pulling_2.png"),
+            ),
+            ("assets/minecraft/textures/items/arrow.png", &format!("{items_legacy}/arrow.png")),
+            (
+                "assets/minecraft/textures/items/bucket_water.png",
+                &format!("{item}/water_bucket.png"),
+            ),
+            (
+                "assets/minecraft/textures/items/bucket_milk.png",
+                &format!("{item}/milk_bucket.png"),
+            ),
+            // 让 `snow_bucket` 的覆盖图分支也走到（不与 milk 同图，便于区分）
+            (
+                "assets/minecraft/textures/items/bucket_lava.png",
+                &format!("{item}/milk_bucket_overlay_probe.png"),
+            ),
+        ];
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let fixture = tmp.path().join("uimage_fixture.zip");
+        {
+            use std::io::Write as _;
+            let file = std::fs::File::create(&fixture).expect("create");
+            let mut zip = zip::ZipWriter::new(file);
+            let opts = zip::write::FileOptions::default();
+            let mut add = |name: &str, body: Vec<u8>| {
+                zip.start_file(name, opts).expect("start");
+                zip.write_all(&body).expect("write");
+            };
+            add("pack.mcmeta", br#"{"pack":{"pack_format":34}}"#.to_vec());
+            for (src_name, dst_name) in sources {
+                let bytes = read_zip_entry(&real, src_name)
+                    .unwrap_or_else(|| panic!("真实包里没有 {src_name}"));
+                add(dst_name, bytes);
+            }
+            zip.finish().expect("finish");
+        }
+
+        // ③ 旧侧：解压后直接调旧转换器函数
+        let legacy_dir = tmp.path().join("legacy");
+        std::fs::create_dir_all(&legacy_dir).expect("mkdir");
+        crate::converters::zip::extract_resource_pack(
+            fixture.to_str().expect("utf8"),
+            legacy_dir.to_str().expect("utf8"),
+        )
+        .expect("extract");
+
+        // ④ 原生侧：同一个 zip 建 Pack，跑完各任务后物化到目录
+        let native_dir = tmp.path().join("native");
+        std::fs::create_dir_all(&native_dir).expect("mkdir");
+        {
+            let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
+                .expect("open fixture");
+            for name in [
+                "generate_crossbow",
+                "generate_tipped_arrow_images",
+                "generate_snow_bucket",
+                "generate_fish_bucket",
+            ] {
+                let (_, _, run) = crate::mixed_run::native_for_probe(name)
+                    .unwrap_or_else(|| panic!("{name} 未在派发表里"));
+                let mut tx = pack.tx(name);
+                run(&mut tx).expect("native run");
+                pack.commit(tx.into_layer());
+            }
+            let view = pack.view();
+            crate::arom::pathview::materialize(&view, &native_dir).expect("materialize");
+        }
+
+        // ⑤ 跑旧函数并逐个输出对比
+        let cases: [(&str, fn(&std::path::Path) -> Result<(), String>, Vec<String>); 4] = [
+            (
+                "generate_crossbow",
+                crate::converters::textures::crossbow::generate_crossbow,
+                [
+                    "crossbow_standby",
+                    "crossbow_pulling_0",
+                    "crossbow_pulling_1",
+                    "crossbow_pulling_2",
+                    "crossbow_arrow",
+                    "crossbow_firework",
+                ]
+                .iter()
+                .map(|n| format!("{item}/{n}.png"))
+                .collect(),
+            ),
+            (
+                "generate_tipped_arrow_images",
+                crate::converters::textures::tipped_arrows::generate_tipped_arrow_images,
+                ["tipped_arrow_base", "tipped_arrow_head"]
+                    .iter()
+                    .map(|n| format!("{items_legacy}/{n}.png"))
+                    .collect(),
+            ),
+            (
+                "generate_snow_bucket",
+                crate::converters::textures::snow_bucket::generate_snow_bucket,
+                vec![format!("{item}/powder_snow_bucket.png")],
+            ),
+            (
+                "generate_fish_bucket",
+                crate::converters::textures::fish_bucket::generate_fish_bucket,
+                ["axolotl", "cod", "pufferfish", "salmon", "tropical_fish", "tadpole"]
+                    .iter()
+                    .map(|n| format!("{item}/{n}_bucket.png"))
+                    .collect(),
+            ),
+        ];
+
+        let mut problems: Vec<String> = Vec::new();
+        for (name, legacy_fn, outputs) in cases {
+            legacy_fn(&legacy_dir).unwrap_or_else(|e| panic!("{name} 旧实现失败：{e}"));
+            let mut compared = 0usize;
+            for rel in &outputs {
+                let a = std::fs::read(legacy_dir.join(rel));
+                let b = std::fs::read(native_dir.join(rel));
+                match (a, b) {
+                    (Ok(a), Ok(b)) => {
+                        let ia = image::load_from_memory(&a)
+                            .expect("decode legacy")
+                            .to_rgba8();
+                        let ib = image::load_from_memory(&b)
+                            .expect("decode native")
+                            .to_rgba8();
+                        if ia.dimensions() != ib.dimensions() {
+                            problems.push(format!(
+                                "{name}: {rel} 尺寸不同 {:?} vs {:?}",
+                                ia.dimensions(),
+                                ib.dimensions()
+                            ));
+                            continue;
+                        }
+                        let mut diff = 0usize;
+                        let mut worst = 0i32;
+                        for (pa, pb) in ia.pixels().zip(ib.pixels()) {
+                            if pa.0 != pb.0 {
+                                diff += 1;
+                                for c in 0..4 {
+                                    worst = worst.max((pa.0[c] as i32 - pb.0[c] as i32).abs());
+                                }
+                            }
+                        }
+                        if diff > 0 {
+                            problems.push(format!(
+                                "{name}: {rel} 像素不同 {diff}/{} 最大通道差 {worst}",
+                                ia.pixels().len()
+                            ));
+                        }
+                        compared += 1;
+                    }
+                    (Err(_), Err(_)) => {
+                        problems.push(format!("{name}: {rel} 两边都没生成"));
+                    }
+                    (a, b) => {
+                        problems.push(format!(
+                            "{name}: {rel} 一侧缺失（旧={} 原生={}）",
+                            a.is_ok(),
+                            b.is_ok()
+                        ));
+                    }
+                }
+            }
+            println!("{name}: 比对 {compared}/{} 个产物", outputs.len());
+        }
+
+        assert!(problems.is_empty(), "夹具正题差异：{problems:#?}");
+    }
+
+    /// 从 zip 里读一个条目的字节（读不到返回 None）。
+    fn read_zip_entry(zip_path: &std::path::Path, name: &str) -> Option<Vec<u8>> {
+        use std::io::Read as _;
+        let f = std::fs::File::open(zip_path).ok()?;
+        let mut archive = zip::ZipArchive::new(f).ok()?;
+        let mut file = archive.by_name(name).ok()?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).ok()?;
+        Some(buf)
+    }
 }
 
 /// §9.34 的实验（旧实现那一半）：单独串起两个任务，逐步打印目标文件是否存在。

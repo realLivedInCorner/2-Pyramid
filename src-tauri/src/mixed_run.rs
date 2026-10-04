@@ -501,6 +501,16 @@ fn native_placements(
     out
 }
 
+/// 给 `pilots` 的夹具正题用：按名字取**已启用全部开关**时的原生实现。
+///
+/// 夹具用例需要在不启动整条驱动的前提下直接跑单个原生任务（真实包覆盖不到那几个跳过分支）。
+#[cfg(test)]
+pub(crate) fn native_for_probe(
+    name: &str,
+) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
+    native_for(name, &NativeSwitches::all())
+}
+
 /// 已迁移任务的派发表：**任务名 → (标签, 声明, 原生实现)**。开关关闭即返回 `None`（走旧路径）。
 fn native_for(
     name: &str,
