@@ -464,7 +464,7 @@ pub mod chest {
     }
 
     /// 旧实现的缩放表：宽度 → 缩放倍数（不支持的尺寸跳过）。
-    fn scale_for_single(width: u32) -> Option<u32> {
+    pub(super) fn scale_for_single(width: u32) -> Option<u32> {
         match width {
             64 => Some(1),
             128 => Some(2),
@@ -555,6 +555,70 @@ pub mod chest {
             outcome.notes.push(format!("{name} -> {prefix}_left/_right"));
         }
 
+        Ok(outcome)
+    }
+}
+
+/// 旧 `reverse_process_chest_folder`（`converters/reverse/chest_folder.rs`）——**反向转换的第一个任务**。
+///
+/// 它是正向 `process_chest_folder` 的镜像版：同一张缩放表、同样 4 组「交换+镜像」与 8 组镜像，
+/// 但**不处理双胸**（反向只把单胸的变换倒回去）。纯函数同样直接复用：交换用反向模块自己的
+/// `swap_and_mirror`，镜像用正向模块的 `mirror_region`（两者语义逐字相同：先水平再垂直翻转后 overlay）。
+pub mod chest_reverse {
+    use super::*;
+
+    pub const CHEST: &str = "assets/minecraft/textures/entity/chest";
+    const SINGLE: [&str; 4] = ["ender.png", "normal.png", "trapped.png", "christmas.png"];
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("reverse_process_chest_folder", Tier::Eraser)
+            .reads(ScopeSet::prefix(CHEST))
+            .writes(ScopeSet::prefix(CHEST))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        
+
+        if !tx.has_prefix(CHEST)? {
+            return Ok(Outcome::default());
+        }
+        let mut outcome = Outcome::default();
+        for name in SINGLE {
+            let path = format!("{CHEST}/{name}");
+            if !tx.exists(&path) {
+                continue;
+            }
+            let mut img: RgbaImage = (*tx.image(&path)?).clone();
+            let Some(s) = super::chest::scale_for_single(img.width()) else {
+                outcome.skipped += 1;
+                continue;
+            };
+            let sb = |x1: u32, y1: u32, x2: u32, y2: u32| (x1 * s, y1 * s, x2 * s, y2 * s);
+            for (a, b) in [
+                (sb(14, 0, 28, 14), sb(28, 0, 42, 14)),
+                (sb(14, 14, 28, 19), sb(42, 14, 56, 19)),
+                (sb(14, 19, 28, 33), sb(28, 19, 42, 33)),
+                (sb(14, 33, 28, 43), sb(42, 33, 56, 43)),
+            ] {
+                crate::converters::reverse::chest_folder::swap_and_mirror(&mut img, a, b)
+                    .map_err(AromError::internal)?;
+            }
+            for b in [
+                sb(14, 0, 28, 14),
+                sb(28, 0, 42, 14),
+                sb(0, 14, 14, 19),
+                sb(28, 14, 42, 19),
+                sb(14, 19, 28, 33),
+                sb(28, 19, 42, 33),
+                sb(0, 33, 14, 43),
+                sb(28, 33, 42, 43),
+            ] {
+                crate::converters::ui::process_chest_folder::mirror_region(&mut img, b);
+            }
+            tx.put_image(&path, &img)?;
+            outcome.changed += 1;
+        }
         Ok(outcome)
     }
 }
@@ -1144,6 +1208,81 @@ mod tests {
         assert_eq!(outcome.skipped, 1, "32×32 不支持应跳过：{outcome:?}");
 
         let native_out = tmp.path().join("chest_native.zip");
+        {
+            let view = pack.view();
+            write_zip(&pack, &view, &native_out, &SerializeOptions::default()).expect("write");
+        }
+
+        let report = diff_containers(&legacy_out, &native_out).expect("diff");
+        assert_eq!(report.blocking, 0, "内容差异：{:?}", report.diffs);
+        assert_eq!(
+            report.container_entry_set_blocking, 0,
+            "条目集合差异：{:?}",
+            report.container
+        );
+        assert_eq!(
+            report.container_byte_only, 0,
+            "压缩方法/字节差异：{:?}",
+            report.container
+        );
+    }
+
+    /// 反向转换第一个任务的专项双轨对照：旧 `reverse_process_chest_folder` vs A-ROM 原生实现。
+    #[test]
+    fn reverse_chest_pilot_matches_the_old_implementation() {
+        use crate::converters::pack_diff::diff_containers;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let fixture = tmp.path().join("chest_rev.zip");
+        {
+            let file = std::fs::File::create(&fixture).expect("create");
+            let mut zip = zip::ZipWriter::new(file);
+            let opts = zip::write::FileOptions::default();
+            let mut add = |name: &str, body: Vec<u8>| {
+                zip.start_file(name, opts).expect("start");
+                zip.write_all(&body).expect("write");
+            };
+            add("pack.mcmeta", br#"{"pack":{"pack_format":34}}"#.to_vec());
+            add(
+                "assets/minecraft/textures/entity/chest/normal.png",
+                png((64, 64)),
+            );
+            add(
+                "assets/minecraft/textures/entity/chest/ender.png",
+                png((32, 32)),
+            );
+            zip.finish().expect("finish");
+        }
+
+        let work = tmp.path().join("chest_rev_legacy");
+        std::fs::create_dir_all(&work).expect("mkdir");
+        crate::converters::zip::extract_resource_pack(
+            fixture.to_str().expect("utf8"),
+            work.to_str().expect("utf8"),
+        )
+        .expect("extract");
+        crate::converters::reverse::chest_folder::reverse_process_chest_folder(&work)
+            .expect("legacy reverse");
+        let legacy_out = tmp.path().join("chest_rev_legacy.zip");
+        crate::converters::zip::repack_resource_pack(
+            work.to_str().expect("utf8"),
+            legacy_out.to_str().expect("utf8"),
+        )
+        .expect("repack");
+
+        let mut pack =
+            Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None).expect("open");
+        let outcome = {
+            let mut tx = pack.tx("reverse_process_chest_folder");
+            let outcome = chest_reverse::run(&mut tx).expect("pilot");
+            let layer = tx.into_layer();
+            pack.commit(layer);
+            outcome
+        };
+        assert_eq!(outcome.changed, 1, "只有 64×64 的 normal 应被处理：{outcome:?}");
+        assert_eq!(outcome.skipped, 1, "32×32 不支持应跳过：{outcome:?}");
+
+        let native_out = tmp.path().join("chest_rev_native.zip");
         {
             let view = pack.view();
             write_zip(&pack, &view, &native_out, &SerializeOptions::default()).expect("write");

@@ -5,7 +5,7 @@ use image::{imageops, RgbaImage};
 use crate::image_utils::paste_region;
 
 /// swap_and_mirror: swap two regions, then flip each LR+TB in place.
-fn swap_and_mirror(img: &mut RgbaImage, b1: (u32, u32, u32, u32), b2: (u32, u32, u32, u32)) -> Result<(), String> {
+pub(crate) fn swap_and_mirror(img: &mut RgbaImage, b1: (u32, u32, u32, u32), b2: (u32, u32, u32, u32)) -> Result<(), String> {
     let w1 = b1.2 - b1.0;
     let h1 = b1.3 - b1.1;
     let w2 = b2.2 - b2.0;

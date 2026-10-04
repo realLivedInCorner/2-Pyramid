@@ -42,6 +42,8 @@ pub struct NativeSwitches {
     pub textures: bool,
     /// ui 模块：已迁移的 `process_chest_folder`。
     pub ui: bool,
+    /// reverse 模块：已迁移的 `reverse_process_chest_folder`。
+    pub reverse: bool,
 }
 
 impl NativeSwitches {
@@ -55,6 +57,7 @@ impl NativeSwitches {
         Self {
             textures: true,
             ui: true,
+            reverse: true,
         }
     }
 }
@@ -333,6 +336,13 @@ fn native_for(
     name: &str,
     switches: &NativeSwitches,
 ) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
+    if switches.reverse && name == "reverse_process_chest_folder" {
+        return Some((
+            "chest_reverse",
+            crate::pilots::chest_reverse::decl(),
+            crate::pilots::chest_reverse::run,
+        ));
+    }
     if switches.ui && name == "process_chest_folder" {
         return Some((
             "chest",
