@@ -850,6 +850,13 @@ fn native_for(
             crate::pilots::surgeon_smithing2::decl(),
             crate::pilots::surgeon_smithing2::run,
         )),
+        // `convert_animated_textures`（§9.88）：动画 mcmeta 升级。
+        // 它此前**不在任何 plan 段**里（注册了却永不执行，见 §9.88），补段后本包会真的跑到它。
+        "convert_animated_textures" => Some((
+            "animated",
+            crate::pilots::animated::decl(),
+            crate::pilots::animated::run,
+        )),
         _ => None,
     }
 }

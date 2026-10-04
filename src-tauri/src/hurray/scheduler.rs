@@ -47,7 +47,7 @@ impl ConversionMaps {
         let mut forward = HashMap::new();
         let mut reverse = HashMap::new();
 
-        forward.insert((1, 2), vec!["delete_blockstates_models".to_string(), "generate_tipped_arrow_images".to_string(), "fix_ui_survival".to_string(), "fix_ui_creative".to_string(), "fix_ui_sub_hand".to_string(), "generate_boat".to_string(), "generate_potion_lingering".to_string(), "generate_shulker_box_ui".to_string(), "fix_brewing_stand_ui".to_string(), "fix_clock_compass".to_string(), "overlay_icons".to_string()]);
+        forward.insert((1, 2), vec!["convert_animated_textures".to_string(), "delete_blockstates_models".to_string(), "generate_tipped_arrow_images".to_string(), "fix_ui_survival".to_string(), "fix_ui_creative".to_string(), "fix_ui_sub_hand".to_string(), "generate_boat".to_string(), "generate_potion_lingering".to_string(), "generate_shulker_box_ui".to_string(), "fix_brewing_stand_ui".to_string(), "fix_clock_compass".to_string(), "overlay_icons".to_string()]);
         forward.insert((2, 3), vec!["generate_shulker_box_ui".to_string(), "delete_horse_folder".to_string(), "fix_horse_ui".to_string()]);
         forward.insert((3, 4), vec!["rename_blocks_items".to_string(), "fix_sign".to_string(), "fix_sign_entities".to_string(), "generate_furnace".to_string(), "fix_machinery_ui".to_string(), "fix_particles".to_string(), "generate_fish_bucket".to_string(), "generate_crossbow".to_string()]);
         forward.insert((4, 5), vec!["process_chest_folder".to_string(), "generate_netherite_block".to_string(), "generate_netherite_ingot".to_string(), "delete_enchanted_item_glint".to_string(), "generate_netherite_tools".to_string(), "generate_netherite_armor_models".to_string(), "generate_smithing_ui".to_string()]);
