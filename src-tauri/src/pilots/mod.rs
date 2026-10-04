@@ -2940,6 +2940,31 @@ mod tests {
                 zip.start_file(format!("{container}/{name}.png"), opts).expect("start");
                 zip.write_all(&buf).expect("write");
             }
+            // `save_slices` 的两个直接源图（不在 container/ 下，而在 gui/ 下）
+            for name in ["resource_packs", "server_selection"] {
+                let mut img = RgbaImage::new(256, 256);
+                for y in 0..256u32 {
+                    for x in 0..256u32 {
+                        img.put_pixel(
+                            x,
+                            y,
+                            image::Rgba([
+                                ((x * 5 + y) % 251) as u8,
+                                ((y * 3 + 11) % 251) as u8,
+                                ((x + y * 2) % 251) as u8,
+                                if (x * y) % 13 == 0 { 0 } else { 255 },
+                            ]),
+                        );
+                    }
+                }
+                let mut buf = Vec::new();
+                image::DynamicImage::ImageRgba8(img)
+                    .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                    .expect("encode");
+                zip.start_file(format!("assets/minecraft/textures/gui/{name}.png"), opts)
+                    .expect("start");
+                zip.write_all(&buf).expect("write");
+            }
             zip.finish().expect("finish");
         }
 
@@ -2971,12 +2996,15 @@ mod tests {
             let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
                 .expect("open fixture");
             let mut tx = pack.tx("gui_surgeon_tx");
-            let n = crate::pilots::gui_surgeon_tx::cut_sprite_map(&mut tx).expect("native cut");
+            let mut n = crate::pilots::gui_surgeon_tx::cut_sprite_map(&mut tx).expect("native cut");
+            // §9.105 阶段 2：`save_slices` 的两个直接调用者。
+            n += crate::pilots::gui_surgeon_tx::process_resource_packs(&mut tx).expect("resource_packs");
+            n += crate::pilots::gui_surgeon_tx::process_server_selection(&mut tx).expect("server_selection");
             pack.commit(tx.into_layer());
             crate::arom::pathview::materialize(&pack.view(), &native_dir).expect("materialize");
             n
         };
-        println!("原生主循环写出 {written} 个 sprite");
+        println!("原生已移植部分写出 {written} 个 sprite");
 
         // 非空转：必须真的写出一批（源图齐全时不至于是 0）
         assert!(written > 0, "原生侧没有写出任何 sprite —— 夹具或实现有问题");
@@ -8668,6 +8696,112 @@ pub mod gui_surgeon_tx {
         Ok(written)
     }
 
+    /// 旧 `SplitMode`（`save_slices` 的切分方式）。
+    #[derive(Clone, Copy)]
+    enum SplitMode {
+        None,
+        Horizontal,
+        Vertical,
+    }
+
+    /// 旧 `GuiSurgeon::sprite_dir`。
+    fn sprite_dir(subdir: &str) -> String {
+        format!("{SPRITES}/{subdir}")
+    }
+
+    /// 旧 `save_slices`：裁一块 → 按 `split` 切成 `names.len()` 片 → 逐片写 `sprites/<target_dir>/<name>`。
+    ///
+    /// 与旧实现的对应关系：`base_path` 参数**删除**（`x` 直接是包内相对路径）；
+    /// `pool` 换成 `tx`；旧签名里的 `_res` 本来就**未被使用**（旧代码就带下划线），故不保留。
+    /// `names` 里的元素**自带 `.png` 后缀**（与旧表一致）。
+    fn save_slices(
+        tx: &mut Tx<'_>,
+        img: &RgbaImage,
+        crop: (u32, u32, u32, u32),
+        split: SplitMode,
+        slice_size: (u32, u32),
+        names: &[&str],
+        target_dir: &str,
+    ) -> Result<usize, AromError> {
+        let scale = scale_from_image_base(img, 256);
+        let (x1, y1, x2, y2) = crop;
+        let (rx, ry, rw, rh) = scale_rect(scale, x1, y1, x2, y2);
+        let cropped = imageops::crop_imm(img, rx, ry, rw, rh).to_image();
+
+        let slice_w = scale_coordinate(scale, slice_size.0);
+        let slice_h = scale_coordinate(scale, slice_size.1);
+
+        let mut slices: Vec<RgbaImage> = Vec::new();
+        match split {
+            SplitMode::None => slices.push(cropped),
+            SplitMode::Horizontal => {
+                for i in 0..names.len() {
+                    let sx = i as u32 * slice_w;
+                    slices.push(imageops::crop_imm(&cropped, sx, 0, slice_w, slice_h).to_image());
+                }
+            }
+            SplitMode::Vertical => {
+                for i in 0..names.len() {
+                    let sy = i as u32 * slice_h;
+                    slices.push(imageops::crop_imm(&cropped, 0, sy, slice_w, slice_h).to_image());
+                }
+            }
+        }
+
+        let root = sprite_dir(target_dir);
+        let mut written = 0usize;
+        for (idx, name) in names.iter().enumerate() {
+            if let Some(slice) = slices.get(idx) {
+                tx.put_image(&format!("{root}/{name}"), slice)?;
+                written += 1;
+            }
+        }
+        Ok(written)
+    }
+
+    /// 旧 `process_resource_packs`。源图缺失 → 静默跳过（旧侧先 `exists()` 再 `load_texture`）。
+    pub fn process_resource_packs(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let src = "assets/minecraft/textures/gui/resource_packs.png";
+        let Ok(img) = tx.image(src) else {
+            crate::log_info!("resource_packs.png not found, skip");
+            return Ok(0);
+        };
+        let mut n = 0usize;
+        n += save_slices(
+            tx, &*img, (0, 0, 128, 32), SplitMode::Horizontal, (32, 32),
+            &["select.png", "unselect.png", "move_down.png", "move_up.png"],
+            "transferable_list",
+        )?;
+        n += save_slices(
+            tx, &*img, (0, 32, 128, 64), SplitMode::Horizontal, (32, 32),
+            &["select_highlighted.png", "unselect_highlighted.png",
+              "move_down_highlighted.png", "move_up_highlighted.png"],
+            "transferable_list",
+        )?;
+        Ok(n)
+    }
+
+    /// 旧 `process_server_selection`。源图缺失 → 静默跳过。
+    pub fn process_server_selection(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let src = "assets/minecraft/textures/gui/server_selection.png";
+        let Ok(img) = tx.image(src) else {
+            crate::log_info!("server_selection.png not found, skip");
+            return Ok(0);
+        };
+        let mut n = 0usize;
+        n += save_slices(
+            tx, &*img, (0, 0, 128, 32), SplitMode::Horizontal, (32, 32),
+            &["join.png", "emm.png", "move_down.png", "move_up.png"],
+            "server_list",
+        )?;
+        n += save_slices(
+            tx, &*img, (0, 32, 128, 64), SplitMode::Horizontal, (32, 32),
+            &["join_highlighted.png", "emmm.png",
+              "move_down_highlighted.png", "move_up_highlighted.png"],
+            "server_list",
+        )?;
+        Ok(n)
+    }
     /// `SPRITE_MAP` 的条目数（供测试断言"表没被漏抄"）。
     pub fn sprite_map_len() -> usize {
         SPRITE_MAP.len()
