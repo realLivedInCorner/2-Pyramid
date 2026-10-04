@@ -623,6 +623,82 @@ pub mod chest_reverse {
     }
 }
 
+/// 反向侧的**空操作**与**删单路径**两类任务，成批迁移。
+///
+/// - 空操作类：旧实现有明确文档说明「无法从产物反推原状」（`cut_gui` 抽走了图集、`horse_ui`
+///   与 `overlay_icons` 把外部贴图永久合成进去、`sub_hand` 同理），因此旧实现就是 `Ok(())`；
+///   原生实现同样什么都不做，声明里**读写都为空**（精确反映事实）。
+/// - 删单路径类：与正向的 `drop_*` 同构，直接复用 `remove_if_present`。
+pub mod reverse_trivial {
+    use super::*;
+
+    macro_rules! noop_pilot {
+        ($m:ident, $task:literal) => {
+            pub mod $m {
+                use super::*;
+                pub fn decl() -> TaskDecl {
+                    TaskDecl::new($task, Tier::Eraser).exclusive(true)
+                }
+                pub fn run(_tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    Ok(Outcome::default())
+                }
+            }
+        };
+    }
+
+    macro_rules! drop_pilot {
+        ($m:ident, $task:literal, $path:literal) => {
+            pub mod $m {
+                use super::*;
+                pub const TARGET: &str = $path;
+                pub fn decl() -> TaskDecl {
+                    TaskDecl::new($task, Tier::Eraser)
+                        .writes(ScopeSet::exact(TARGET))
+                        .exclusive(true)
+                }
+                pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    remove_if_present(tx, TARGET)
+                }
+            }
+        };
+    }
+
+    noop_pilot!(cut_gui, "reverse_cut_gui");
+    noop_pilot!(horse, "reverse_fix_horse_ui");
+    noop_pilot!(overlay_icons, "reverse_overlay_icons");
+    noop_pilot!(sub_hand, "reverse_fix_ui_sub_hand");
+
+    drop_pilot!(
+        snow_bucket,
+        "reverse_generate_snow_bucket",
+        "assets/minecraft/textures/item/powder_snow_bucket.png"
+    );
+    drop_pilot!(
+        smithing_ui,
+        "reverse_generate_smithing_ui",
+        "assets/minecraft/textures/gui/container/smithing.png"
+    );
+    drop_pilot!(
+        slider,
+        "reverse_fix_slider",
+        "assets/minecraft/textures/gui/slider.png"
+    );
+
+    /// 任务名 → (声明, 实现)。驱动按名字派发。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "reverse_cut_gui" => Some((cut_gui::decl(), cut_gui::run)),
+            "reverse_fix_horse_ui" => Some((horse::decl(), horse::run)),
+            "reverse_overlay_icons" => Some((overlay_icons::decl(), overlay_icons::run)),
+            "reverse_fix_ui_sub_hand" => Some((sub_hand::decl(), sub_hand::run)),
+            // 删除类暂不派发：需先迁移同阶段的 `reverse_rename_blocks_items`（见 §9.22）
+            // 删除类暂不派发：需先迁移同阶段的 `reverse_rename_blocks_items`（见 §9.22）
+            // 删除类暂不派发：需先迁移同阶段的 `reverse_rename_blocks_items`（见 §9.22）
+            _ => None,
+        }
+    }
+}
+
 /// 旧贴图路径复制（对应旧 `convert_old_texture_paths`）。
 pub mod old_paths {
     use super::*;

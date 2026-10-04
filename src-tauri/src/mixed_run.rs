@@ -336,12 +336,17 @@ fn native_for(
     name: &str,
     switches: &NativeSwitches,
 ) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
-    if switches.reverse && name == "reverse_process_chest_folder" {
-        return Some((
-            "chest_reverse",
-            crate::pilots::chest_reverse::decl(),
-            crate::pilots::chest_reverse::run,
-        ));
+    if switches.reverse {
+        if name == "reverse_process_chest_folder" {
+            return Some((
+                "chest_reverse",
+                crate::pilots::chest_reverse::decl(),
+                crate::pilots::chest_reverse::run,
+            ));
+        }
+        if let Some((decl, run)) = crate::pilots::reverse_trivial::lookup(name) {
+            return Some(("reverse_trivial", decl, run));
+        }
     }
     if switches.ui && name == "process_chest_folder" {
         return Some((
