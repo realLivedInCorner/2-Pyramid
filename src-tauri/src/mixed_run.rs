@@ -441,13 +441,15 @@ where
 /// | `generate_smithing_ui` | **前** | 计划顺序是 `generate_smithing_ui` → Surgeon 的 `fix_smithing2_villager2_ui`，后者会**重新派生并覆盖** `container/smithing.png`；放后阶段等于被它覆盖回去，`cut_gui` 切出的 4 个 sprite 随之分叉 |
 /// | `generate_{copper,netherite}_armor_models` | **前** | 旧任务 `fix_armor_models`（Surgeon）会把 `models/armor/{copper,netherite}_layer_*.png` **改名搬走**到 `entity/equipment/humanoid(_leggings)/`；放后阶段时源已被搬走 → 整任务跳过 → 新路径下 4 个文件消失（OnlyInA） |
 /// | `generate_poplar_planks` | **前** | 它的「优先 jungle、缺失回退 oak」判据依赖**当时**磁盘上还有哪些源；放后阶段时更早的删除类旧任务已经把 jungle 源搬走 → 单个 `item/poplar_sign.png` 走了 oak 回退链 → 132/256 像素不同（实测） |
+/// | `generate_tricky_trials_breeze` | **前** | 它的状态图标源 `mob_effect/{speed,jump_boost,absorption}.png` **是旧任务 `fix_ui_survival` 造出来的**；放后阶段时这三个源"凭空出现" → 多生成 `mob_effect/wind_charged.png`（OnlyInB，实测） |
 ///
 /// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
-const EARLY_NATIVES: [&str; 4] = [
+const EARLY_NATIVES: [&str; 5] = [
     "generate_smithing_ui",
     "generate_copper_armor_models",
     "generate_netherite_armor_models",
     "generate_poplar_planks",
+    "generate_tricky_trials_breeze",
 ];
 
 /// 原生任务相对**整批旧任务**的落点：之前还是之后。///
@@ -588,6 +590,12 @@ fn native_for(
         }
         if let Some((decl, run)) = crate::pilots::arch_gen_planks::lookup(name) {
             return Some(("arch_gen_planks", decl, run));
+        }
+        if let Some((decl, run)) = crate::pilots::arch_gen_breeze::lookup(name) {
+            return Some(("arch_gen_breeze", decl, run));
+        }
+        if let Some((decl, run)) = crate::pilots::arch_gen3::lookup(name) {
+            return Some(("arch_gen3", decl, run));
         }
     }
     if !switches.textures {

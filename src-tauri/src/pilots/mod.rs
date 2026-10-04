@@ -4047,3 +4047,722 @@ pub mod arch_gen_planks {
         }
     }
 }
+
+/// 前向 Architect 批次（续）：`generate_tricky_trials_breeze`（1.21 旋风系贴图）。
+///
+/// 逐条照抄 `converters/textures/breeze.rs` 的规则表与**三条容易漏的语义**：
+/// 1. **`recolor_skip_existing`**：源缺失 → 跳过；**目标已存在 → 跳过**（不覆盖玩家/原版自定义）；
+///    只从源**拷贝**再染色，附属 `{src}.png.mcmeta` 存在才一并拷贝；
+/// 2. **候选链是「第一个存在者胜」**：刷怪蛋、风充能图标、重核、flow 模板、不祥之瓶各有一条
+///    候选列表，命中即 `break`；
+/// 3. **不祥试炼钥匙的源是条件选择**：`trial_key.png` 存在就用它，否则用 `gold_ingot.png`。
+pub mod arch_gen_breeze {
+    use super::*;
+    use crate::converters::color::hue::{adjust_hue_brightness, force_hue_saturation};
+
+    const ITEM: &str = "assets/minecraft/textures/item/";
+    const BLOCK: &str = "assets/minecraft/textures/block/";
+    const MOB: &str = "assets/minecraft/textures/mob_effect/";
+    const ENTITY: &str = "assets/minecraft/textures/entity/";
+
+    /// 旧实现的两种染色（相对色相 / 钉色相）。
+    enum Tint {
+        Shift { h: f32, b: f32, s: f32 },
+        Force {
+            hue: f32,
+            sat: f32,
+            v_min: f32,
+            v_max: f32,
+        },
+    }
+
+    /// 旧 `recolor_skip_existing`：源缺失或目标已存在即跳过。
+    fn recolor_skip_existing(
+        tx: &mut Tx<'_>,
+        src: &str,
+        dst: &str,
+        tint: &Tint,
+    ) -> Result<bool, AromError> {
+        if !tx.exists(src) || tx.exists(dst) {
+            return Ok(false);
+        }
+        let img: RgbaImage = (*tx.image(src)?).clone();
+        let out = match tint {
+            Tint::Shift { h, b, s } => adjust_hue_brightness(img, *h, *b, *s),
+            Tint::Force {
+                hue,
+                sat,
+                v_min,
+                v_max,
+            } => force_hue_saturation(img, *hue, 6.0, *sat, *v_min, *v_max),
+        };
+        tx.put_image(dst, &out)?;
+        let meta = format!("{src}.mcmeta");
+        if tx.exists(&meta) {
+            let bytes = tx.read(&meta)?.unwrap_or_default();
+            tx.put(&format!("{dst}.mcmeta"), bytes)?;
+        }
+        Ok(true)
+    }
+
+    /// 候选链的「第一个存在者」。
+    fn first_existing<S: AsRef<str>>(tx: &Tx<'_>, candidates: &[S]) -> Option<String> {
+        candidates
+            .iter()
+            .find(|src| tx.exists(src.as_ref()))
+            .map(|src| src.as_ref().to_string())
+    }
+
+    /// 铜灯泡的色调分组（旧实现用 `contains` 判定，顺序即优先级：oxidized → weathered → exposed → 默认）
+    fn bulb_tint(dst: &str, lit: bool) -> Tint {
+        let four = |oxidized, weathered, exposed, plain| -> (f32, f32, f32, f32) {
+            if dst.contains("oxidized") {
+                oxidized
+            } else if dst.contains("weathered") {
+                weathered
+            } else if dst.contains("exposed") {
+                exposed
+            } else {
+                plain
+            }
+        };
+        let (hue, sat, v_min, v_max) = if lit {
+            four(
+                (145.0, 0.2, 0.45, 0.95),
+                (120.0, 0.25, 0.5, 0.95),
+                (35.0, 0.3, 0.55, 0.98),
+                (18.0, 0.38, 0.55, 0.98),
+            )
+        } else {
+            four(
+                (145.0, 0.22, 0.25, 0.55),
+                (120.0, 0.28, 0.3, 0.6),
+                (35.0, 0.32, 0.35, 0.65),
+                (18.0, 0.42, 0.35, 0.7),
+            )
+        };
+        Tint::Force {
+            hue,
+            sat,
+            v_min,
+            v_max,
+        }
+    }
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("generate_tricky_trials_breeze", Tier::Architect)
+            .reads(ScopeSet::prefix("assets/minecraft/textures"))
+            .writes(ScopeSet::prefix("assets/minecraft/textures"))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        let mut outcome = Outcome::default();
+        let emit = |ok: bool, outcome: &mut Outcome| {
+            if ok {
+                outcome.changed += 1;
+            }
+        };
+
+        // ── 第 1 批：好做 ──
+        emit(
+            recolor_skip_existing(
+                tx,
+                &format!("{ITEM}blaze_rod.png"),
+                &format!("{ITEM}breeze_rod.png"),
+                &Tint::Shift {
+                    h: 185.0,
+                    b: -22.0,
+                    s: -18.0,
+                },
+            )?,
+            &mut outcome,
+        );
+        emit(
+            recolor_skip_existing(
+                tx,
+                &format!("{ITEM}snowball.png"),
+                &format!("{ITEM}wind_charge.png"),
+                &Tint::Force {
+                    hue: 222.0,
+                    sat: 0.14,
+                    v_min: 0.55,
+                    v_max: 0.95,
+                },
+            )?,
+            &mut outcome,
+        );
+        emit(
+            recolor_skip_existing(
+                tx,
+                &format!("{ENTITY}snowball.png"),
+                &format!("{ENTITY}projectiles/wind_charge.png"),
+                &Tint::Force {
+                    hue: 222.0,
+                    sat: 0.14,
+                    v_min: 0.5,
+                    v_max: 0.95,
+                },
+            )?,
+            &mut outcome,
+        );
+        emit(
+            recolor_skip_existing(
+                tx,
+                &format!("{ITEM}gold_ingot.png"),
+                &format!("{ITEM}trial_key.png"),
+                &Tint::Force {
+                    hue: 22.0,
+                    sat: 0.38,
+                    v_min: 0.28,
+                    v_max: 0.62,
+                },
+            )?,
+            &mut outcome,
+        );
+
+        // 不祥试炼钥匙：源是**条件选择**（trial_key 优先，否则 gold_ingot）
+        let trial_key = format!("{ITEM}trial_key.png");
+        let ominous_src = if tx.exists(&trial_key) {
+            trial_key
+        } else {
+            format!("{ITEM}gold_ingot.png")
+        };
+        emit(
+            recolor_skip_existing(
+                tx,
+                &ominous_src,
+                &format!("{ITEM}ominous_trial_key.png"),
+                &Tint::Force {
+                    hue: 160.0,
+                    sat: 0.16,
+                    v_min: 0.18,
+                    v_max: 0.45,
+                },
+            )?,
+            &mut outcome,
+        );
+
+        // 旋风刷怪蛋：任意已有刷怪蛋 → 蓝灰（第一个存在者胜）
+        let eggs = ["chicken", "spider", "cow", "creeper"].map(|n| format!("{ITEM}{n}_spawn_egg.png"));
+        if let Some(src) = first_existing(tx, &eggs) {
+            emit(
+                recolor_skip_existing(
+                    tx,
+                    &src,
+                    &format!("{ITEM}breeze_spawn_egg.png"),
+                    &Tint::Force {
+                        hue: 230.0,
+                        sat: 0.28,
+                        v_min: 0.35,
+                        v_max: 0.75,
+                    },
+                )?,
+                &mut outcome,
+            );
+        }
+
+        // 风充能状态图标
+        let effects = ["speed", "jump_boost", "absorption"]
+            .map(|n| format!("{MOB}{n}.png"));
+        if let Some(src) = first_existing(tx, &effects) {
+            emit(
+                recolor_skip_existing(
+                    tx,
+                    &src,
+                    &format!("{MOB}wind_charged.png"),
+                    &Tint::Force {
+                        hue: 220.0,
+                        sat: 0.28,
+                        v_min: 0.45,
+                        v_max: 0.9,
+                    },
+                )?,
+                &mut outcome,
+            );
+        }
+
+        // 铜灯泡族：熄灭（12 个目标）
+        let lamp_off = [
+            format!("{BLOCK}redstone_lamp.png"),
+            format!("{BLOCK}redstone_lamp_off.png"),
+        ];
+        let copper_base = [
+            format!("{BLOCK}copper_block.png"),
+            format!("{BLOCK}cut_copper.png"),
+        ];
+        let off_src = first_existing(tx, &lamp_off).or_else(|| first_existing(tx, &copper_base));
+        if let Some(src) = off_src {
+            for dst in [
+                "copper_bulb.png",
+                "copper_bulb_powered.png",
+                "exposed_copper_bulb.png",
+                "exposed_copper_bulb_powered.png",
+                "weathered_copper_bulb.png",
+                "weathered_copper_bulb_powered.png",
+                "oxidized_copper_bulb.png",
+                "oxidized_copper_bulb_powered.png",
+                "waxed_copper_bulb.png",
+                "waxed_exposed_copper_bulb.png",
+                "waxed_weathered_copper_bulb.png",
+                "waxed_oxidized_copper_bulb.png",
+            ] {
+                let tint = bulb_tint(dst, false);
+                emit(
+                    recolor_skip_existing(tx, &src, &format!("{BLOCK}{dst}"), &tint)?,
+                    &mut outcome,
+                );
+            }
+        }
+
+        // 铜灯泡族：点亮（12 个目标）
+        let lamp_on = [
+            format!("{BLOCK}redstone_lamp_on.png"),
+            format!("{BLOCK}redstone_lamp.png"),
+        ];
+        if let Some(src) = first_existing(tx, &lamp_on) {
+            for dst in [
+                "copper_bulb_lit.png",
+                "copper_bulb_lit_powered.png",
+                "exposed_copper_bulb_lit.png",
+                "exposed_copper_bulb_lit_powered.png",
+                "weathered_copper_bulb_lit.png",
+                "weathered_copper_bulb_lit_powered.png",
+                "oxidized_copper_bulb_lit.png",
+                "oxidized_copper_bulb_lit_powered.png",
+                "waxed_copper_bulb_lit.png",
+                "waxed_exposed_copper_bulb_lit.png",
+                "waxed_weathered_copper_bulb_lit.png",
+                "waxed_oxidized_copper_bulb_lit.png",
+            ] {
+                let tint = bulb_tint(dst, true);
+                emit(
+                    recolor_skip_existing(tx, &src, &format!("{BLOCK}{dst}"), &tint)?,
+                    &mut outcome,
+                );
+            }
+        }
+
+        // ── 第 2 批：中等 ──
+        let heavy = [
+            format!("{BLOCK}iron_block.png"),
+            format!("{BLOCK}deepslate.png"),
+            format!("{BLOCK}polished_deepslate.png"),
+        ];
+        if let Some(src) = first_existing(tx, &heavy) {
+            emit(
+                recolor_skip_existing(
+                    tx,
+                    &src,
+                    &format!("{BLOCK}heavy_core.png"),
+                    &Tint::Force {
+                        hue: 220.0,
+                        sat: 0.1,
+                        v_min: 0.22,
+                        v_max: 0.48,
+                    },
+                )?,
+                &mut outcome,
+            );
+        }
+
+        // 旋风实体：烈焰人两张 → breeze 两张
+        for (src, dst) in [
+            (format!("{ENTITY}blaze.png"), format!("{ENTITY}breeze/breeze.png")),
+            (
+                format!("{ENTITY}blaze_blaze.png"),
+                format!("{ENTITY}breeze/breeze_eyes.png"),
+            ),
+        ] {
+            emit(
+                recolor_skip_existing(
+                    tx,
+                    &src,
+                    &dst,
+                    &Tint::Force {
+                        hue: 235.0,
+                        sat: 0.26,
+                        v_min: 0.35,
+                        v_max: 0.85,
+                    },
+                )?,
+                &mut outcome,
+            );
+        }
+
+        // flow 盔甲纹饰模板
+        let trims = [
+            "armor_trim_smithing_template",
+            "silence_armor_trim_smithing_template",
+            "bolt_armor_trim_smithing_template",
+            "dune_armor_trim_smithing_template",
+        ]
+        .map(|n| format!("{ITEM}{n}.png"));
+        if let Some(src) = first_existing(tx, &trims) {
+            emit(
+                recolor_skip_existing(
+                    tx,
+                    &src,
+                    &format!("{ITEM}flow_armor_trim_smithing_template.png"),
+                    &Tint::Force {
+                        hue: 225.0,
+                        sat: 0.3,
+                        v_min: 0.35,
+                        v_max: 0.8,
+                    },
+                )?,
+                &mut outcome,
+            );
+        }
+
+        // 不祥之瓶
+        let bottles = ["potion", "splash_potion", "awkward_potion"]
+            .map(|n| format!("{ITEM}{n}.png"));
+        if let Some(src) = first_existing(tx, &bottles) {
+            emit(
+                recolor_skip_existing(
+                    tx,
+                    &src,
+                    &format!("{ITEM}ominous_bottle.png"),
+                    &Tint::Force {
+                        hue: 280.0,
+                        sat: 0.22,
+                        v_min: 0.2,
+                        v_max: 0.5,
+                    },
+                )?,
+                &mut outcome,
+            );
+        }
+
+        Ok(outcome)
+    }
+
+    /// 任务名 → (声明, 实现)。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "generate_tricky_trials_breeze" => Some((decl(), run)),
+            _ => None,
+        }
+    }
+}
+
+/// 前向 Architect 批次（收尾）：依赖外部 `UImage` 覆盖图的最后三个任务。
+///
+/// 三个任务的旧实现**都是「取不到覆盖图就整任务跳过」**，而这正是本轮的关键：
+/// - `generate_crossbow`：**先要求 `UImage/crossbow/` 解析成功**（失败即整任务返回），
+///   且只在 `UImage/crossbow/crossbow_{bow 的宽度}.png` **存在**时才写 `crossbow_standby`；
+///   拉弓组只由 `bow_pulling_0` 的宽度决定基准图；
+/// - `generate_tipped_arrow_images`：源在**1.9 路径** `textures/items/arrow.png`；
+///   缺 `UImage/tipped_arrow_head/tipped_arrow_head_{size}.png` 即整任务跳过；
+///   裁头用 `zip` —— 即**任一图短了就在那里停**；
+/// - `generate_snow_bucket`：源 `item/milk_bucket.png`；覆盖图**可缺**（缺了就只留拷贝）。
+pub mod arch_gen3 {
+    use super::*;
+    use image::imageops;
+
+    /// 与 `arch_gen2` 同一个解析函数（含「找不到就在用户文档建默认目录」的副作用）。
+    fn uimage_dir() -> Option<std::path::PathBuf> {
+        match crate::converters::get_uimage_path() {
+            Ok(p) => Some(p),
+            Err(e) => {
+                crate::log_info!("UImage path not available: {}", e);
+                None
+            }
+        }
+    }
+
+    fn overlay_pair(base: &RgbaImage, overlay: &RgbaImage) -> RgbaImage {
+        let mut combined = base.clone();
+        imageops::overlay(&mut combined, overlay, 0, 0);
+        combined
+    }
+
+    /// 旧 `converters/textures/crossbow.rs`。
+    pub mod crossbow {
+        use super::*;
+
+        const ITEM: &str = "assets/minecraft/textures/item";
+
+        /// 旧实现的 (尺寸, 文件名) 映射；**顺序即语义**（按 bow 的宽度找基准图）
+        const SIZE_TO_NAME: [(u32, &str); 5] = [
+            (16, "crossbow_16.png"),
+            (32, "crossbow_32.png"),
+            (64, "crossbow_64.png"),
+            (128, "crossbow_128.png"),
+            (256, "crossbow_256.png"),
+        ];
+
+        /// 旧实现的拉弓配对表——注意 `bow_pulling_2` 出现两次，对应四个输出。
+        const BOW_PULLING: [&str; 4] = [
+            "bow_pulling_0.png",
+            "bow_pulling_1.png",
+            "bow_pulling_2.png",
+            "bow_pulling_2.png",
+        ];
+        const CROSSBOW_OUT: [&str; 4] = [
+            "crossbow_pulling_0.png",
+            "crossbow_pulling_1.png",
+            "crossbow_pulling_2.png",
+            "crossbow_arrow.png",
+        ];
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("generate_crossbow", Tier::Architect)
+                .reads(ScopeSet::prefix(ITEM))
+                .writes(ScopeSet::prefix(ITEM))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            // 旧实现：**先解析 UImage**，失败即整任务返回（连 bow 分支都不看）
+            let Some(dir) = uimage_dir() else {
+                crate::log_info!("UImage path not available, skip crossbow generation");
+                return Ok(Outcome::default());
+            };
+            let crossbow_dir = dir.join("crossbow");
+            let base_of = |width: u32| -> Option<std::path::PathBuf> {
+                SIZE_TO_NAME
+                    .iter()
+                    .find(|(size, _)| *size == width)
+                    .map(|(_, name)| crossbow_dir.join(name))
+            };
+
+            let mut outcome = Outcome::default();
+
+            let bow = format!("{ITEM}/bow.png");
+            if tx.exists(&bow) {
+                let bow_img: RgbaImage = (*tx.image(&bow)?).clone();
+                if let Some(base_path) = base_of(bow_img.width()) {
+                    if base_path.exists() {
+                        let base_img = image::open(&base_path)
+                            .map_err(|e| {
+                                AromError::io(format!(
+                                    "failed to open {}: {}",
+                                    base_path.display(),
+                                    e
+                                ))
+                            })?
+                            .to_rgba8();
+                        let standby = overlay_pair(&base_img, &bow_img);
+                        tx.put_image(&format!("{ITEM}/crossbow_standby.png"), &standby)?;
+                        outcome.changed += 1;
+                    }
+                }
+            }
+
+            let pulling0 = format!("{ITEM}/bow_pulling_0.png");
+            if tx.exists(&pulling0) {
+                let sample: RgbaImage = (*tx.image(&pulling0)?).clone();
+                if let Some(base_path) = base_of(sample.width()) {
+                    if base_path.exists() {
+                        let base_img = image::open(&base_path)
+                            .map_err(|e| {
+                                AromError::io(format!(
+                                    "failed to open {}: {}",
+                                    base_path.display(),
+                                    e
+                                ))
+                            })?
+                            .to_rgba8();
+                        for (bow_file, crossbow_file) in
+                            BOW_PULLING.iter().zip(CROSSBOW_OUT.iter())
+                        {
+                            let bow_path = format!("{ITEM}/{bow_file}");
+                            if !tx.exists(&bow_path) {
+                                continue;
+                            }
+                            let bow_img: RgbaImage = (*tx.image(&bow_path)?).clone();
+                            let output_path = format!("{ITEM}/{crossbow_file}");
+                            tx.put_image(&output_path, &overlay_pair(&base_img, &bow_img))?;
+                            outcome.changed += 1;
+
+                            if *crossbow_file == "crossbow_arrow.png" {
+                                // 旧实现：先把上一步写出的 crossbow_arrow **拷成**
+                                // crossbow_firework，再看 firework 覆盖图是否存在
+                                let firework_path = format!("{ITEM}/crossbow_firework.png");
+                                let arrow_img: RgbaImage = (*tx.image(&output_path)?).clone();
+                                let mut firework_img = arrow_img.clone();
+                                tx.put_image(&firework_path, &firework_img)?;
+                                let overlay_path = crossbow_dir.join(format!(
+                                    "crossbow_firework_{}.png",
+                                    sample.width()
+                                ));
+                                if overlay_path.exists() {
+                                    let mut overlay_img = image::open(&overlay_path)
+                                        .map_err(|e| {
+                                            AromError::io(format!(
+                                                "failed to open {}: {}",
+                                                overlay_path.display(),
+                                                e
+                                            ))
+                                        })?
+                                        .to_rgba8();
+                                    if overlay_img.dimensions() != firework_img.dimensions() {
+                                        overlay_img = imageops::resize(
+                                            &overlay_img,
+                                            firework_img.width(),
+                                            firework_img.height(),
+                                            imageops::FilterType::Triangle,
+                                        );
+                                    }
+                                    imageops::overlay(&mut firework_img, &overlay_img, 0, 0);
+                                    tx.put_image(&firework_path, &firework_img)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(outcome)
+        }
+    }
+
+    /// 旧 `converters/textures/tipped_arrows.rs`。
+    pub mod tipped_arrows {
+        use super::*;
+
+        /// 源是**1.9 路径**（旧实现写死 `textures/items`），照抄
+        const ITEMS_LEGACY: &str = "assets/minecraft/textures/items";
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("generate_tipped_arrow_images", Tier::Architect)
+                .reads(ScopeSet::prefix(ITEMS_LEGACY))
+                .writes(ScopeSet::prefix(ITEMS_LEGACY))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            let arrow = format!("{ITEMS_LEGACY}/arrow.png");
+            if !tx.exists(&arrow) {
+                crate::log_info!("arrow.png not found, skip tipped arrow generation");
+                return Ok(Outcome::default());
+            }
+            let base: RgbaImage = (*tx.image(&arrow)?).clone();
+            let size = base.width();
+
+            let Some(dir) = uimage_dir() else {
+                crate::log_info!("UImage path not available, skip tipped arrow generation");
+                return Ok(Outcome::default());
+            };
+            let head_path = dir
+                .join("tipped_arrow_head")
+                .join(format!("tipped_arrow_head_{}.png", size));
+            if !head_path.exists() {
+                crate::log_info!("tipped arrow head not found: {}", head_path.display());
+                return Ok(Outcome::default());
+            }
+            let head = image::open(&head_path)
+                .map_err(|e| {
+                    AromError::io(format!("failed to open {}: {}", head_path.display(), e))
+                })?
+                .to_rgba8();
+
+            // 旧实现：按**较短者**停止（`zip` 语义），把头部不透明处的底图 alpha 清掉
+            let mut base_out = base.clone();
+            let limit = (
+                base_out.width().min(head.width()),
+                base_out.height().min(head.height()),
+            );
+            for y in 0..limit.1 {
+                for x in 0..limit.0 {
+                    if head.get_pixel(x, y)[3] > 0 {
+                        base_out.get_pixel_mut(x, y)[3] = 0;
+                    }
+                }
+            }
+            tx.put_image(&format!("{ITEMS_LEGACY}/tipped_arrow_base.png"), &base_out)?;
+
+            // 头部贴图是**拷贝**（旧实现 `fs::copy`），等价为原字节写入
+            let head_bytes = std::fs::read(&head_path)
+                .map_err(|e| AromError::io(format!("read {}: {e}", head_path.display())))?;
+            tx.put(&format!("{ITEMS_LEGACY}/tipped_arrow_head.png"), head_bytes)?;
+
+            Ok(Outcome {
+                changed: 2,
+                notes: vec!["tipped_arrow_base.png + tipped_arrow_head.png".into()],
+                ..Outcome::default()
+            })
+        }
+    }
+
+    /// 旧 `converters/textures/snow_bucket.rs`。
+    pub mod snow_bucket {
+        use super::*;
+
+        const ITEMS: &str = "assets/minecraft/textures/item";
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("generate_snow_bucket", Tier::Architect)
+                .reads(ScopeSet::prefix(ITEMS))
+                .writes(ScopeSet::prefix(ITEMS))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            let milk = format!("{ITEMS}/milk_bucket.png");
+            if !tx.exists(&milk) {
+                return Ok(Outcome::default());
+            }
+            let base: RgbaImage = (*tx.image(&milk)?).clone();
+            let (width, height) = base.dimensions();
+            if width != height || width == 0 {
+                return Ok(Outcome::default());
+            }
+
+            let powder = format!("{ITEMS}/powder_snow_bucket.png");
+            // 旧实现先 fs::copy，再（可选）叠加覆盖图
+            let mut bucket = base.clone();
+            tx.put_image(&powder, &bucket)?;
+
+            match uimage_dir() {
+                Some(dir) => {
+                    let overlay_path = dir
+                        .join("powder_snow_bucket")
+                        .join(format!("powder_snow_bucket_{}.png", width));
+                    if overlay_path.exists() {
+                        let mut overlay = image::open(&overlay_path)
+                            .map_err(|e| {
+                                AromError::io(format!(
+                                    "failed to open {}: {}",
+                                    overlay_path.display(),
+                                    e
+                                ))
+                            })?
+                            .to_rgba8();
+                        if overlay.dimensions() != bucket.dimensions() {
+                            overlay = imageops::resize(
+                                &overlay,
+                                bucket.width(),
+                                bucket.height(),
+                                imageops::FilterType::Triangle,
+                            );
+                        }
+                        imageops::overlay(&mut bucket, &overlay, 0, 0);
+                        tx.put_image(&powder, &bucket)?;
+                    }
+                }
+                None => crate::log_info!("UImage path not available, skip snow bucket overlay"),
+            }
+
+            Ok(Outcome {
+                changed: 1,
+                notes: vec!["milk_bucket.png -> powder_snow_bucket.png".into()],
+                ..Outcome::default()
+            })
+        }
+    }
+
+    /// 任务名 → (声明, 实现)。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "generate_crossbow" => Some((crossbow::decl(), crossbow::run)),
+            "generate_tipped_arrow_images" => {
+                Some((tipped_arrows::decl(), tipped_arrows::run))
+            }
+            "generate_snow_bucket" => Some((snow_bucket::decl(), snow_bucket::run)),
+            _ => None,
+        }
+    }
+}
