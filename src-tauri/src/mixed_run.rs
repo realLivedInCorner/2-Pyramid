@@ -231,12 +231,18 @@ where
     // 为什么不做「逐任务交错」：实测证明按名字逐个跑旧闭包与生产**不等价**
     // （真实包上 105 个文件差异——`TexturePool` 的提交时机、延迟清理与阶段内并行分组
     // 相互耦合）。一次性批量执行旧任务则与生产逐字一致，因此把风险关在这一侧。
-    let native_names: Vec<String> = plan
+    let eraser_natives: Vec<String> = plan
         .iter()
         .filter(|name| native_for(name, &opts.native).is_some())
+        // 前阶段只放 **Eraser 级**原生任务：只有它们的位置与生产一致（§9.42 实测：
+        // 拆旧批次会改变语义，因此非 Eraser 级改放「旧批次之后」的后阶段）。
+        .filter(|name| {
+            crate::hurray::scheduler::TaskTier::Eraser
+                == scheduler.task_tier(name).unwrap_or(crate::hurray::scheduler::TaskTier::Eraser)
+        })
         .cloned()
         .collect();
-    for name in &native_names {
+    for name in &eraser_natives {
         let (label, decl, run) = native_for(name, &opts.native).expect("checked above");
         let (outcome, layer) = {
             let mut tx = pack.tx(name);
@@ -282,6 +288,11 @@ where
     }
 
     // ② 旧任务：**一次性**批量执行（与 `execute_version_conversion` 完全同构）
+    let native_names: Vec<String> = plan
+        .iter()
+        .filter(|name| native_for(name, &opts.native).is_some())
+        .cloned()
+        .collect();
     let legacy_names: Vec<String> = plan
         .iter()
         .filter(|name| !native_names.contains(name))
@@ -314,6 +325,39 @@ where
         report.added += harvested.added.len();
         report.modified += harvested.modified.len();
         report.removed += harvested.removed.len();
+        sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
+        pack.commit(harvested.layer);
+    }
+
+    // **后阶段**：非 Eraser 级原生任务放在旧批次之后、GuiSurgeon 之前。
+    // 依据（§9.42 实测）：旧批次不能被拆分（它只有一次提交 + 一次清理）；而 Eraser 级
+    // 原生任务若晚于旧批次又会改变互删顺序。于是：Eraser 级走前阶段、其余走这里，
+    // 两段各自都保持「原生在旧批次的一侧」，不拆旧批次。
+    for name in &native_names {
+        if eraser_natives.contains(name) {
+            continue;
+        }
+        let (label, decl, run) = native_for(name, &opts.native).expect("dispatched above");
+        let (outcome, layer) = {
+            let mut tx = pack.tx(name);
+            let outcome = run(&mut tx)
+                .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
+            (outcome, tx.into_layer())
+        };
+        let violations = scope_violations(&decl, &layer);
+        if !violations.is_empty() && opts.strict_scopes {
+            return Err(AromError::internal(format!(
+                "native task `{label}` ({name}) wrote outside its declared scope: {violations:?}"
+            )));
+        }
+        apply_layer_to_workdir(&pack, workdir, &layer)?;
+        sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
+        pack.commit(layer);
+        report.deferred_removals.extend(outcome.deferred_removals);
+    }
+    {
+        let harvested = harvest(&pack, workdir, &baseline, None)?;
+        report.harvested_changes += harvested.changed();
         sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
         pack.commit(harvested.layer);
     }
@@ -395,6 +439,13 @@ fn native_for(
                 "rename_blocks_reverse",
                 crate::pilots::rename_blocks_reverse::decl(),
                 crate::pilots::rename_blocks_reverse::run,
+            ));
+        }
+        if name == "reverse_fix_armor_models" {
+            return Some((
+                "reverse_armor",
+                crate::pilots::reverse_armor::decl(),
+                crate::pilots::reverse_armor::run,
             ));
         }
         if name == "reverse_fix_ui_survival" {

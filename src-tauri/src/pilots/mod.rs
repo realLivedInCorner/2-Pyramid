@@ -2958,3 +2958,71 @@ pub mod reverse_survival {
         })
     }
 }
+/// 反向 `reverse_fix_armor_models`：把 `entity/equipment/humanoid(_leggings)/*.png` 改名回
+/// `models/armor/*_layer_{1,2}.png`（8+8 条，**覆盖**语义，与旧实现逐条对应）。
+///
+/// 阶段是 **Surgeon**（活注册表：`TaskType::Hybrid` / `TaskTier::Surgeon`）——§9.40 的教训：
+/// 声明错阶段会让它被放到 Eraser 段之前，从而被清理点的延迟删除一并带走。
+/// 它与仍为旧实现的 `adapt_java_shaders`（同属 Surgeon）在驱动里位置相同，
+/// 但两者作用路径不相交（armor 贴图 vs shaders）；安全性由反向整包对照实测。
+pub mod reverse_armor {
+    use super::*;
+
+    const HUMAN: &str = "assets/minecraft/textures/entity/equipment/humanoid";
+    const LEGGINGS: &str = "assets/minecraft/textures/entity/equipment/humanoid_leggings";
+    const ARMOR: &str = "assets/minecraft/textures/models/armor";
+
+    const LAYER1: [(&str, &str); 8] = [
+        ("chainmail.png", "chainmail_layer_1.png"),
+        ("diamond.png", "diamond_layer_1.png"),
+        ("iron.png", "iron_layer_1.png"),
+        ("gold.png", "gold_layer_1.png"),
+        ("leather.png", "leather_layer_1.png"),
+        ("leather_overlay.png", "leather_layer_1_overlay.png"),
+        ("netherite.png", "netherite_layer_1.png"),
+        ("copper.png", "copper_layer_1.png"),
+    ];
+    const LAYER2: [(&str, &str); 8] = [
+        ("chainmail.png", "chainmail_layer_2.png"),
+        ("diamond.png", "diamond_layer_2.png"),
+        ("iron.png", "iron_layer_2.png"),
+        ("gold.png", "gold_layer_2.png"),
+        ("leather.png", "leather_layer_2.png"),
+        ("leather_overlay.png", "leather_layer_2_overlay.png"),
+        ("netherite.png", "netherite_layer_2.png"),
+        ("copper.png", "copper_layer_2.png"),
+    ];
+
+    /// 旧实现逐条 `fs::rename`：**无守卫、覆盖**。
+    fn move_file(tx: &mut Tx<'_>, from: &str, to: &str) -> Result<bool, AromError> {
+        if !tx.exists(from) {
+            return Ok(false);
+        }
+        let bytes = tx.read(from)?.unwrap_or_default();
+        tx.put(to, bytes)?;
+        tx.remove(from)?;
+        Ok(true)
+    }
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("reverse_fix_armor_models", Tier::Surgeon)
+            .reads(ScopeSet::prefix("assets/minecraft/textures"))
+            .writes(ScopeSet::prefix("assets/minecraft/textures"))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        let mut outcome = Outcome::default();
+        for (src, dest) in LAYER1 {
+            if move_file(tx, &format!("{HUMAN}/{src}"), &format!("{ARMOR}/{dest}"))? {
+                outcome.changed += 1;
+            }
+        }
+        for (src, dest) in LAYER2 {
+            if move_file(tx, &format!("{LEGGINGS}/{src}"), &format!("{ARMOR}/{dest}"))? {
+                outcome.changed += 1;
+            }
+        }
+        Ok(outcome)
+    }
+}
