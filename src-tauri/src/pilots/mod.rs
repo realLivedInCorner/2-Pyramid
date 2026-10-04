@@ -7080,6 +7080,111 @@ pub mod shader_adapt {
         }
         gone
     }
+
+    /// 旧 `rewrite_json_matrix_types` 的核心文本变换：`"type": "mat2"|"mat3"` → `"type": "mat4"`。
+    ///
+    /// 逐条照抄：只匹配**带空格的**字面量形式（§9.78 实测到过——写成无空格的 `"mat3"` 不会命中），
+    /// 返回 `(新文本, 是否改变)`。
+    pub fn rewrite_json_matrix_types_text(raw: &str) -> (String, bool) {
+        let mut out = raw.to_string();
+        let mut changed = false;
+        for from in ["\"type\": \"mat2\"", "\"type\": \"mat3\""] {
+            if out.contains(from) {
+                out = out.replace(from, "\"type\": \"mat4\"");
+                changed = true;
+            }
+        }
+        (out, changed)
+    }
+
+    /// 旧 `ensure_core_json` 的 JSON 体（成对 vsh+fsh 且缺 JSON 时补的最小定义）。
+    pub fn minimal_core_json(stem: &str) -> String {
+        format!(
+            "{{\n  \"vertex\": \"{}\",\n  \"fragment\": \"{}\"\n}}\n",
+            stem, stem
+        )
+    }
+
+    /// 旧 `strip_json_uniforms_for_ubo` 的判定：该 JSON 是否含 `"uniforms"`。
+    pub fn json_has_uniforms(raw: &str) -> bool {
+        raw.contains("\"uniforms\"")
+    }
+
+    /// 旧 `remove_json_key`：从 JSON 对象文本中删除顶层 `"key": …`（粗粒度，够用即可）。
+    pub fn remove_json_key(src: &str, key: &str) -> String {
+        let pattern = format!("\"{}\"", key);
+        let Some(start) = src.find(&pattern) else {
+            return src.to_string();
+        };
+        let after_key = &src[start + pattern.len()..];
+        let Some(colon_rel) = after_key.find(':') else {
+            return src.to_string();
+        };
+        let value_start = start + pattern.len() + colon_rel + 1;
+        let bytes = src.as_bytes();
+        let mut i = value_start;
+        while i < bytes.len() && (bytes[i] as char).is_whitespace() {
+            i += 1;
+        }
+        if i >= bytes.len() {
+            return src.to_string();
+        }
+        let value_end = match bytes[i] {
+            b'{' | b'[' => {
+                let mut depth = 0usize;
+                let mut j = i;
+                while j < bytes.len() {
+                    match bytes[j] {
+                        b'{' | b'[' => depth += 1,
+                        b'}' | b']' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                j += 1;
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    j += 1;
+                }
+                j
+            }
+            b'"' => {
+                let mut j = i + 1;
+                while j < bytes.len() {
+                    if bytes[j] == b'"' && bytes[j - 1] != b'\\' {
+                        j += 1;
+                        break;
+                    }
+                    j += 1;
+                }
+                j
+            }
+            _ => {
+                let mut j = i;
+                while j < bytes.len() && bytes[j] != b',' && bytes[j] != b'}' && bytes[j] != b'\n' {
+                    j += 1;
+                }
+                j
+            }
+        };
+        let mut end = value_end;
+        while end < bytes.len() && (bytes[end] as char).is_whitespace() {
+            end += 1;
+        }
+        if end < bytes.len() && bytes[end] == b',' {
+            end += 1;
+        } else {
+            let mut k = start;
+            while k > 0 && (bytes[k - 1] as char).is_whitespace() {
+                k -= 1;
+            }
+            if k > 0 && bytes[k - 1] == b',' {
+                return format!("{}{}", &src[..k - 1], &src[end..]);
+            }
+        }
+        format!("{}{}", &src[..start], &src[end..])
+    }
 }
 /// **Surgeon 组（续）**：`fix_ui_survival` —— 生存背包界面的四步修复。
 ///

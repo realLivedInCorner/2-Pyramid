@@ -1036,6 +1036,29 @@ pub(crate) mod legacy_text_ops {
     pub(crate) fn shared_vertex_stems() -> &'static [&'static str] {
         super::SHARED_VERTEX_STEMS
     }
+    /// 旧 `remove_json_key`（纯文本，可逐例对照）。
+    pub(crate) fn remove_json_key(src: &str, key: &str) -> String {
+        super::remove_json_key(src, key)
+    }
+    /// 旧 `rewrite_json_matrix_types` 的核心替换（抽出来便于逐例对照）。
+    pub(crate) fn rewrite_json_matrix_types_text(raw: &str) -> (String, bool) {
+        let mut out = raw.to_string();
+        let mut changed = false;
+        for from in ["\"type\": \"mat2\"", "\"type\": \"mat3\""] {
+            if out.contains(from) {
+                out = out.replace(from, "\"type\": \"mat4\"");
+                changed = true;
+            }
+        }
+        (out, changed)
+    }
+    /// 旧 `ensure_core_json` 的 JSON 体格式。
+    pub(crate) fn minimal_core_json(stem: &str) -> String {
+        format!(
+            "{{\n  \"vertex\": \"{}\",\n  \"fragment\": \"{}\"\n}}\n",
+            stem, stem
+        )
+    }
 }
 
 pub fn register_scheduler_task(scheduler: &mut crate::hurray::scheduler::Scheduler) {

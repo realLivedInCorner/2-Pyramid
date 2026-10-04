@@ -1645,6 +1645,65 @@ mod tests {
         assert!(problems.is_empty(), "表格对照差异：{problems:#?}");
     }
 
+    /// **`shader_adapt` 的 JSON 文本对照**（默认忽略，§9.81）。
+    ///
+    /// 三个纯文本变换（`rewrite_json_matrix_types_text` / `remove_json_key` /
+    /// `minimal_core_json`）在各式 JSON 写法上逐例与旧实现比对。
+    /// `remove_json_key` 是**粗粒度**实现（按括号深度找值尾、吃掉后随逗号或删前导逗号），
+    /// 边界多，因此语料刻意覆盖：值在中间/末尾、后随空白、无逗号、嵌套对象/数组、
+    /// 字符串值、布尔/数字值、键不存在、只有键没有冒号。
+    #[test]
+    #[ignore]
+    fn shader_adapt_json_ops_match_the_legacy_implementation() {
+        use crate::converters::shaders::java::legacy_text_ops as legacy;
+        use crate::pilots::shader_adapt as native;
+
+        let corpus: [&str; 14] = [
+            "{\n \"uniforms\": [{\"name\":\"A\",\"type\": \"mat3\"}],\n \"blend\": {}\n}\n",
+            "{\n  \"uniforms\": [],\n  \"vertex\": \"v\"\n}\n",
+            "{\n  \"vertex\": \"v\",\n  \"uniforms\": [],\n  \"fragment\": \"f\"\n}\n",
+            "{\n  \"uniforms\": []\n}\n",
+            "{\n  \"uniforms\": {\"a\": 1}\n}\n",
+            "{\n  \"uniforms\": \"str\"\n}\n",
+            "{\n  \"uniforms\": true\n}\n",
+            "{\n  \"uniforms\": 12\n}\n",
+            "{\n  \"a\": 1,\n  \"uniforms\": []\n}\n",
+            "{\n  \"uniforms\"\n}\n",
+            "{\n  \"other\": []\n}\n",
+            "{ \"uniforms\": [ { \"nested\": [1,2] } ], \"x\": 1 }\n",
+            "{\n \"uniforms\": [{\"name\":\"A\",\"type\":\"mat3\"}]\n}\n",
+            "{\n \"uniforms\": [{\"name\":\"A\",\"type\": \"mat2\"}],\n \"defines\": {\"B\":\"1\"}\n}\n",
+        ];
+
+        let mut problems: Vec<String> = Vec::new();
+        let mut checked = 0usize;
+        for (i, src) in corpus.iter().enumerate() {
+            let a = legacy::remove_json_key(src, "uniforms");
+            let b = native::remove_json_key(src, "uniforms");
+            if a != b {
+                problems.push(format!("corpus[{i}] remove_json_key 不同：旧={a:?} 原生={b:?}"));
+            }
+            let a = legacy::rewrite_json_matrix_types_text(src);
+            let b = native::rewrite_json_matrix_types_text(src);
+            if a != b {
+                problems.push(format!("corpus[{i}] mat 改写不同：旧={a:?} 原生={b:?}"));
+            }
+            checked += 2;
+        }
+        for stem in ["rendertype_entity", "screenquad", "x"] {
+            if legacy::minimal_core_json(stem) != native::minimal_core_json(stem) {
+                problems.push(format!("minimal_core_json({stem}) 不同"));
+            }
+            checked += 1;
+        }
+        // 键不存在时必须是原样返回
+        let src = "{\n \"vertex\": \"v\"\n}\n";
+        assert_eq!(native::remove_json_key(src, "uniforms"), src, "无该键应原样返回");
+
+        println!("shader_adapt JSON 对照：{checked} 项");
+        assert!(problems.is_empty(), "JSON 对照差异：{problems:#?}");
+    }
+
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
     #[test]
     fn scope_violations_flags_out_of_scope_writes() {
