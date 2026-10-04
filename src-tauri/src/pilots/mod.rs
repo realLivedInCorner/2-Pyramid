@@ -8349,9 +8349,9 @@ pub mod surgeon_cut_gui {
 
     /// **workdir 形态**：与旧 `cut_gui`（`converters/ui/cut_gui.rs`，函数体 14 行）逐句对应。
     ///
-    /// 返回 `(changed, 本次登记的延迟删除路径)`——延迟删除由调用方（驱动）负责在收尾时机应用，
+    /// 返回**本次登记的延迟删除路径**——延迟删除由调用方（驱动）负责在收尾时机应用，
     /// 与旧实现的 `defer_remove_file` **同一时机**。
-    pub fn run_in_workdir(workdir: &Path) -> Result<(usize, Vec<String>), String> {
+    pub fn run_in_workdir(workdir: &Path) -> Result<Vec<String>, String> {
         crate::log_info!("2-Pyramid: starting cut_gui (GuiSurgeon pipeline)...");
 
         let mut pool = crate::hurray::texture::TexturePool::new();
@@ -8373,6 +8373,6 @@ pub mod surgeon_cut_gui {
 
         // 取走本任务登记的延迟删除（由驱动计入 `Outcome.deferred_removals` 并在收尾应用）。
         let deferred = ctx.take_cleanup_paths();
-        Ok((deferred.len(), deferred))
+        Ok(deferred)
     }
 }
