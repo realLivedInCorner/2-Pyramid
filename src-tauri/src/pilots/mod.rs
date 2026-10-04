@@ -776,6 +776,110 @@ pub mod reverse_trivial {
         }
     }
 
+    /// 带 `.png.mcmeta` 附属的延迟删除（planks 家族的旧实现：本体与附属各删一次）。
+    macro_rules! defer_with_meta_pilot {
+        ($m:ident, $task:literal, [$($p:literal),*]) => {
+            pub mod $m {
+                use super::*;
+                pub const TARGETS: [&str; 0 $(+ { let _ = $p; 1 })*] = [$($p),*];
+                pub fn decl() -> TaskDecl {
+                    let mut scope = ScopeSet::none();
+                    $( scope = scope.union(&ScopeSet::exact($p)); )*
+                    TaskDecl::new($task, Tier::Eraser).writes(scope).exclusive(true)
+                }
+                pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    let mut outcome = Outcome::default();
+                    for base in TARGETS {
+                        outcome
+                            .deferred_removals
+                            .extend(defer_remove_if_present(tx, base)?.deferred_removals);
+                        let meta = format!("{base}.mcmeta");
+                        outcome
+                            .deferred_removals
+                            .extend(defer_remove_if_present(tx, &meta)?.deferred_removals);
+                    }
+                    Ok(outcome)
+                }
+            }
+        };
+    }
+
+    defer_list_pilot!(
+        furnace,
+        "reverse_generate_furnace",
+        [
+            "assets/minecraft/textures/gui/container/blast_furnace.png",
+            "assets/minecraft/textures/gui/container/smoker.png"
+        ]
+    );
+
+    defer_list_pilot!(
+        potion_lingering,
+        "reverse_generate_potion_lingering",
+        [
+            "assets/minecraft/textures/items/lingering_potion.png",
+            "assets/minecraft/textures/items/lingering_potion.png.mcmeta",
+            "assets/minecraft/textures/items/potion_bottle_lingering.png",
+            "assets/minecraft/textures/items/potion_bottle_lingering.png.mcmeta"
+        ]
+    );
+
+    defer_with_meta_pilot!(
+        redwood_planks,
+        "reverse_generate_redwood_cherry_bamboo_planks",
+        [
+            "assets/minecraft/textures/block/mangrove_planks.png",
+            "assets/minecraft/textures/block/cherry_planks.png",
+            "assets/minecraft/textures/block/bamboo_planks.png",
+            "assets/minecraft/textures/block/mangrove_log.png",
+            "assets/minecraft/textures/block/mangrove_log_top.png",
+            "assets/minecraft/textures/block/cherry_log.png",
+            "assets/minecraft/textures/block/cherry_log_top.png",
+            "assets/minecraft/textures/block/bamboo_block.png",
+            "assets/minecraft/textures/block/bamboo_block_top.png",
+            "assets/minecraft/textures/block/bamboo_mosaic.png"
+        ]
+    );
+
+    defer_with_meta_pilot!(
+        pale_planks,
+        "reverse_generate_pale_planks",
+        [
+            "assets/minecraft/textures/block/pale_oak_planks.png",
+            "assets/minecraft/textures/block/pale_oak_log.png",
+            "assets/minecraft/textures/block/pale_oak_log_top.png"
+        ]
+    );
+
+    defer_with_meta_pilot!(
+        poplar_planks,
+        "reverse_generate_poplar_planks",
+        [
+            "assets/minecraft/textures/block/poplar_planks.png",
+            "assets/minecraft/textures/block/poplar_log.png",
+            "assets/minecraft/textures/block/poplar_log_top.png",
+            "assets/minecraft/textures/block/stripped_poplar_log.png",
+            "assets/minecraft/textures/block/stripped_poplar_log_top.png",
+            "assets/minecraft/textures/block/poplar_door_top.png",
+            "assets/minecraft/textures/block/poplar_door_bottom.png",
+            "assets/minecraft/textures/block/poplar_trapdoor.png",
+            "assets/minecraft/textures/block/poplar_shelf.png",
+            "assets/minecraft/textures/block/poplar_sapling.png",
+            "assets/minecraft/textures/block/poplar_sign.png",
+            "assets/minecraft/textures/block/poplar_hanging_sign.png",
+            "assets/minecraft/textures/block/red_poplar_leaves.png",
+            "assets/minecraft/textures/block/orange_poplar_leaves.png",
+            "assets/minecraft/textures/block/yellow_poplar_leaves.png",
+            "assets/minecraft/textures/item/poplar_sign.png",
+            "assets/minecraft/textures/item/poplar_hanging_sign.png",
+            "assets/minecraft/textures/item/poplar_door.png",
+            "assets/minecraft/textures/item/poplar_boat.png",
+            "assets/minecraft/textures/item/poplar_chest_boat.png",
+            "assets/minecraft/textures/entity/boat/poplar.png",
+            "assets/minecraft/textures/entity/chest_boat/poplar.png"
+        ]
+    );
+
     /// 任务名 → (声明, 实现)。驱动按名字派发。
     pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
         match name {
@@ -935,11 +1039,122 @@ pub mod reverse_defer {
         }
     }
 
+    /// 带 `.png.mcmeta` 附属的延迟删除（planks 家族的旧实现：本体与附属各删一次）。
+    macro_rules! defer_with_meta_pilot {
+        ($m:ident, $task:literal, [$($p:literal),*]) => {
+            pub mod $m {
+                use super::*;
+                pub const TARGETS: [&str; 0 $(+ { let _ = $p; 1 })*] = [$($p),*];
+                pub fn decl() -> TaskDecl {
+                    let mut scope = ScopeSet::none();
+                    $( scope = scope.union(&ScopeSet::exact($p)); )*
+                    TaskDecl::new($task, Tier::Eraser).writes(scope).exclusive(true)
+                }
+                pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    let mut outcome = Outcome::default();
+                    for base in TARGETS {
+                        outcome
+                            .deferred_removals
+                            .extend(defer_remove_if_present(tx, base)?.deferred_removals);
+                        let meta = format!("{base}.mcmeta");
+                        outcome
+                            .deferred_removals
+                            .extend(defer_remove_if_present(tx, &meta)?.deferred_removals);
+                    }
+                    Ok(outcome)
+                }
+            }
+        };
+    }
+
+    defer_list_pilot!(
+        furnace,
+        "reverse_generate_furnace",
+        [
+            "assets/minecraft/textures/gui/container/blast_furnace.png",
+            "assets/minecraft/textures/gui/container/smoker.png"
+        ]
+    );
+
+    defer_list_pilot!(
+        potion_lingering,
+        "reverse_generate_potion_lingering",
+        [
+            "assets/minecraft/textures/items/lingering_potion.png",
+            "assets/minecraft/textures/items/lingering_potion.png.mcmeta",
+            "assets/minecraft/textures/items/potion_bottle_lingering.png",
+            "assets/minecraft/textures/items/potion_bottle_lingering.png.mcmeta"
+        ]
+    );
+
+    defer_with_meta_pilot!(
+        redwood_planks,
+        "reverse_generate_redwood_cherry_bamboo_planks",
+        [
+            "assets/minecraft/textures/block/mangrove_planks.png",
+            "assets/minecraft/textures/block/cherry_planks.png",
+            "assets/minecraft/textures/block/bamboo_planks.png",
+            "assets/minecraft/textures/block/mangrove_log.png",
+            "assets/minecraft/textures/block/mangrove_log_top.png",
+            "assets/minecraft/textures/block/cherry_log.png",
+            "assets/minecraft/textures/block/cherry_log_top.png",
+            "assets/minecraft/textures/block/bamboo_block.png",
+            "assets/minecraft/textures/block/bamboo_block_top.png",
+            "assets/minecraft/textures/block/bamboo_mosaic.png"
+        ]
+    );
+
+    defer_with_meta_pilot!(
+        pale_planks,
+        "reverse_generate_pale_planks",
+        [
+            "assets/minecraft/textures/block/pale_oak_planks.png",
+            "assets/minecraft/textures/block/pale_oak_log.png",
+            "assets/minecraft/textures/block/pale_oak_log_top.png"
+        ]
+    );
+
+    defer_with_meta_pilot!(
+        poplar_planks,
+        "reverse_generate_poplar_planks",
+        [
+            "assets/minecraft/textures/block/poplar_planks.png",
+            "assets/minecraft/textures/block/poplar_log.png",
+            "assets/minecraft/textures/block/poplar_log_top.png",
+            "assets/minecraft/textures/block/stripped_poplar_log.png",
+            "assets/minecraft/textures/block/stripped_poplar_log_top.png",
+            "assets/minecraft/textures/block/poplar_door_top.png",
+            "assets/minecraft/textures/block/poplar_door_bottom.png",
+            "assets/minecraft/textures/block/poplar_trapdoor.png",
+            "assets/minecraft/textures/block/poplar_shelf.png",
+            "assets/minecraft/textures/block/poplar_sapling.png",
+            "assets/minecraft/textures/block/poplar_sign.png",
+            "assets/minecraft/textures/block/poplar_hanging_sign.png",
+            "assets/minecraft/textures/block/red_poplar_leaves.png",
+            "assets/minecraft/textures/block/orange_poplar_leaves.png",
+            "assets/minecraft/textures/block/yellow_poplar_leaves.png",
+            "assets/minecraft/textures/item/poplar_sign.png",
+            "assets/minecraft/textures/item/poplar_hanging_sign.png",
+            "assets/minecraft/textures/item/poplar_door.png",
+            "assets/minecraft/textures/item/poplar_boat.png",
+            "assets/minecraft/textures/item/poplar_chest_boat.png",
+            "assets/minecraft/textures/entity/boat/poplar.png",
+            "assets/minecraft/textures/entity/chest_boat/poplar.png"
+        ]
+    );
+
     /// 任务名 → (声明, 实现)。
     pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
         match name {
             "reverse_generate_shulker_box_ui" => Some((shulker_box::decl(), shulker_box::run)),
             "reverse_fix_sign_entities" => Some((sign_entities::decl(), sign_entities::run)),
+            "reverse_generate_furnace" => Some((furnace::decl(), furnace::run)),
+            "reverse_generate_potion_lingering" => Some((potion_lingering::decl(), potion_lingering::run)),
+            "reverse_generate_redwood_cherry_bamboo_planks" => {
+                Some((redwood_planks::decl(), redwood_planks::run))
+            }
+            "reverse_generate_pale_planks" => Some((pale_planks::decl(), pale_planks::run)),
+            "reverse_generate_poplar_planks" => Some((poplar_planks::decl(), poplar_planks::run)),
             "reverse_generate_tipped_arrow_images" => {Some((tipped_arrows::decl(), tipped_arrows::run))}
             "reverse_generate_boat" => Some((boat::decl(), boat::run)),
             "reverse_fix_smithing2_villager2_ui" => {
