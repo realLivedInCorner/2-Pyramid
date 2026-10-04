@@ -2965,6 +2965,33 @@ mod tests {
                     .expect("start");
                 zip.write_all(&buf).expect("write");
             }
+            // `process_slider` 的源（`gui/slider.png`）与 `process_title` 的源（`gui/title/minecraft.png`）
+            for rel in [
+                "assets/minecraft/textures/gui/slider.png",
+                "assets/minecraft/textures/gui/title/minecraft.png",
+            ] {
+                let mut img = RgbaImage::new(256, 256);
+                for y in 0..256u32 {
+                    for x in 0..256u32 {
+                        img.put_pixel(
+                            x,
+                            y,
+                            image::Rgba([
+                                ((x * 7 + y * 2) % 251) as u8,
+                                ((y * 5 + 3) % 251) as u8,
+                                ((x * 2 + y * 9) % 251) as u8,
+                                if (x + y * 3) % 17 == 0 { 0 } else { 255 },
+                            ]),
+                        );
+                    }
+                }
+                let mut buf = Vec::new();
+                image::DynamicImage::ImageRgba8(img)
+                    .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                    .expect("encode");
+                zip.start_file(rel, opts).expect("start");
+                zip.write_all(&buf).expect("write");
+            }
             zip.finish().expect("finish");
         }
 
@@ -3000,6 +3027,8 @@ mod tests {
             // §9.105 阶段 2：`save_slices` 的两个直接调用者。
             n += crate::pilots::gui_surgeon_tx::process_resource_packs(&mut tx).expect("resource_packs");
             n += crate::pilots::gui_surgeon_tx::process_server_selection(&mut tx).expect("server_selection");
+            n += crate::pilots::gui_surgeon_tx::process_slider(&mut tx).expect("slider");
+            n += crate::pilots::gui_surgeon_tx::process_title(&mut tx).expect("title");
             pack.commit(tx.into_layer());
             crate::arom::pathview::materialize(&pack.view(), &native_dir).expect("materialize");
             n
@@ -3009,10 +3038,13 @@ mod tests {
         // 非空转：必须真的写出一批（源图齐全时不至于是 0）
         assert!(written > 0, "原生侧没有写出任何 sprite —— 夹具或实现有问题");
 
-        // 逐条比对：原生写出的每个 sprite，都必须与旧侧**逐字节相同**
+        // 逐条比对：原生**写出的每个路径**都必须与旧侧同路径文件逐像素相同。
+        //
+        // 比对范围 = `sprites/` 整棵子树 **+ `process_title` 会就地回写的源文件**
+        // （`gui/title/minecraft.png`）。后者不在 `sprites/` 下，因此必须单独列出——
+        // 否则会出现「写出 96、比对 95」，而那 1 个差异恰恰是最需要验证的（就地写语义）。
+        let mut targets: Vec<std::path::PathBuf> = Vec::new();
         let sprites_root = native_dir.join("assets/minecraft/textures/gui/sprites");
-        let mut checked = 0usize;
-        let mut problems: Vec<String> = Vec::new();
         let mut stack = vec![sprites_root.clone()];
         while let Some(dir) = stack.pop() {
             let Ok(rd) = std::fs::read_dir(&dir) else { continue };
@@ -3020,35 +3052,42 @@ mod tests {
                 let p = e.path();
                 if p.is_dir() {
                     stack.push(p);
-                    continue;
+                } else {
+                    targets.push(p);
                 }
-                let rel = p.strip_prefix(&native_dir).expect("rel").to_string_lossy().replace('\\', "/");
-                let lp = legacy_dir.join(&rel);
-                if !lp.exists() {
-                    problems.push(format!("{rel}: 原生有、旧侧没有"));
-                    continue;
-                }
-                let a = std::fs::read(&lp).expect("read legacy");
-                let b = std::fs::read(&p).expect("read native");
-                if a != b {
-                    // 逐像素给出差异量级（PNG 字节可能因编码不同而不同，故再看像素）
-                    let ia = image::load_from_memory(&a).map(|i| i.to_rgba8());
-                    let ib = image::load_from_memory(&b).map(|i| i.to_rgba8());
-                    match (ia, ib) {
-                        (Ok(ia), Ok(ib)) if ia.dimensions() == ib.dimensions() => {
-                            let diff = ia.pixels().zip(ib.pixels()).filter(|(x, y)| x.0 != y.0).count();
-                            if diff > 0 {
-                                problems.push(format!("{rel}: 像素不同 {diff} 个"));
-                            }
-                        }
-                        _ => problems.push(format!("{rel}: 尺寸不同或解码失败")),
-                    }
-                }
-                checked += 1;
             }
         }
-        println!("逐条比对 {checked} 个 sprite");
-        assert!(problems.is_empty(), "主循环与旧实现不一致：{problems:#?}");
+        targets.push(native_dir.join("assets/minecraft/textures/gui/title/minecraft.png"));
+
+        let mut checked = 0usize;
+        let mut problems: Vec<String> = Vec::new();
+        for p in &targets {
+            let rel = p.strip_prefix(&native_dir).expect("rel").to_string_lossy().replace('\\', "/");
+            let lp = legacy_dir.join(&rel);
+            if !lp.exists() {
+                problems.push(format!("{rel}: 原生有、旧侧没有"));
+                continue;
+            }
+            let a = std::fs::read(&lp).expect("read legacy");
+            let b = std::fs::read(p).expect("read native");
+            if a != b {
+                // 逐像素给出差异量级（PNG 字节可能因编码不同而不同，故再看像素）
+                let ia = image::load_from_memory(&a).map(|i| i.to_rgba8());
+                let ib = image::load_from_memory(&b).map(|i| i.to_rgba8());
+                match (ia, ib) {
+                    (Ok(ia), Ok(ib)) if ia.dimensions() == ib.dimensions() => {
+                        let diff = ia.pixels().zip(ib.pixels()).filter(|(x, y)| x.0 != y.0).count();
+                        if diff > 0 {
+                            problems.push(format!("{rel}: 像素不同 {diff} 个"));
+                        }
+                    }
+                    _ => problems.push(format!("{rel}: 尺寸不同或解码失败")),
+                }
+            }
+            checked += 1;
+        }
+        println!("逐条比对 {checked} 个路径（含就地回写的源文件）");
+        assert!(problems.is_empty(), "已移植部分与旧实现不一致：{problems:#?}");
         assert_eq!(checked, written, "比对数量应与写出数量一致");
     }
 
@@ -8800,6 +8839,115 @@ pub mod gui_surgeon_tx {
               "move_down_highlighted.png", "move_up_highlighted.png"],
             "server_list",
         )?;
+        Ok(n)
+    }
+    /// 旧 `process_slider`：由 `gui/slider.png`（vanilla 基准 200 宽）产出 3 个 widget sprite。
+    ///
+    /// 注意 `scale_from_image`（基准 **256**）与 slider 自身的 200 宽基准**不是一回事**——
+    /// 与旧实现一致，照抄。
+    pub fn process_slider(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let src = "assets/minecraft/textures/gui/slider.png";
+        let Ok(img) = tx.image(src) else {
+            crate::log_info!("slider.png not found, skip");
+            return Ok(0);
+        };
+        let scale = scale_from_image_base(&img, 256);
+        let mut n = 0usize;
+
+        // 滑块主体
+        let (x1, y1, w, h) = scale_rect(scale, 0, 0, 200, 20);
+        let slider = imageops::crop_imm(&*img, x1, y1, w, h).to_image();
+        tx.put_image("assets/minecraft/textures/gui/sprites/widget/slider.png", &slider)?;
+        n += 1;
+
+        // 手柄 = 左片(0,40)-(4,60) 与 右片(196,40)-(200,60) 横向拼接
+        let (lx, ly, lw, lh) = scale_rect(scale, 0, 40, 4, 60);
+        let (rx, ry, rw, rh) = scale_rect(scale, 196, 40, 200, 60);
+        let left = imageops::crop_imm(&*img, lx, ly, lw, lh).to_image();
+        let right = imageops::crop_imm(&*img, rx, ry, rw, rh).to_image();
+        let mut handle = RgbaImage::new(left.width() + right.width(), left.height());
+        for y in 0..left.height() {
+            for x in 0..left.width() {
+                handle.put_pixel(x, y, *left.get_pixel(x, y));
+            }
+            for x in 0..right.width() {
+                handle.put_pixel(x + left.width(), y, *right.get_pixel(x, y));
+            }
+        }
+        tx.put_image(
+            "assets/minecraft/textures/gui/sprites/widget/slider_handle.png",
+            &handle,
+        )?;
+        n += 1;
+
+        // 高亮手柄 = 同样的拼法，取 y=60..80 那一行
+        let (hx, hy, hw, hh) = scale_rect(scale, 0, 60, 4, 80);
+        let (hrx, hry, hrw, hrh) = scale_rect(scale, 196, 60, 200, 80);
+        let hl = imageops::crop_imm(&*img, hx, hy, hw, hh).to_image();
+        let hr = imageops::crop_imm(&*img, hrx, hry, hrw, hrh).to_image();
+        let mut h_handle = RgbaImage::new(hl.width() + hr.width(), hl.height());
+        for y in 0..hl.height() {
+            for x in 0..hl.width() {
+                h_handle.put_pixel(x, y, *hl.get_pixel(x, y));
+            }
+            for x in 0..hr.width() {
+                h_handle.put_pixel(x + hl.width(), y, *hr.get_pixel(x, y));
+            }
+        }
+        tx.put_image(
+            "assets/minecraft/textures/gui/sprites/widget/slider_handle_highlighted.png",
+            &h_handle,
+        )?;
+        n += 1;
+
+        Ok(n)
+    }
+
+    /// 旧 `process_title`：由 `gui/title/minecraft.png` 产出 `sprites/title/{realms,minecraft}.png`，
+    /// **并且把拼接结果回写到源文件 `gui/title/minecraft.png` 本身**。
+    ///
+    /// 那处"回写源文件"是旧实现的**刻意行为**（1.21 的 title 用法变了），照抄——
+    /// 在 `Tx` 形态下它表现为"同一路径既读又写"，层会以最后一次写为准。
+    pub fn process_title(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let src = "assets/minecraft/textures/gui/title/minecraft.png";
+        let Ok(img) = tx.image(src) else {
+            crate::log_info!("title/minecraft.png not found, skip");
+            return Ok(0);
+        };
+        let scale = scale_from_image_base(&img, 256);
+        let mut n = 0usize;
+
+        // realms：直接裁一块
+        let (rx, ry, rw, rh) = scale_rect(scale, 0, 94, 200, 194);
+        let realms = imageops::crop_imm(&*img, rx, ry, rw, rh).to_image();
+        tx.put_image("assets/minecraft/textures/gui/sprites/title/realms.png", &realms)?;
+        n += 1;
+
+        // 两片横向拼接，再补一段透明底
+        let (x1, y1, w1, h1) = scale_rect(scale, 0, 0, 155, 44);
+        let part1 = imageops::crop_imm(&*img, x1, y1, w1, h1).to_image();
+        let (x2, y2, w2, h2) = scale_rect(scale, 0, 45, 119, 89);
+        let part2 = imageops::crop_imm(&*img, x2, y2, w2, h2).to_image();
+
+        let concat_w = part1.width() + part2.width();
+        let concat_h = part1.height().max(part2.height());
+        let mut concatenated = RgbaImage::new(concat_w, concat_h);
+        imageops::overlay(&mut concatenated, &part1, 0, 0);
+        imageops::overlay(&mut concatenated, &part2, part1.width() as i64, 0);
+
+        let tw = scale_coordinate(scale, 274);
+        let th = scale_coordinate(scale, 25);
+        let final_w = tw.max(concatenated.width());
+        let final_h = concatenated.height() + th;
+        let mut final_img = RgbaImage::new(final_w, final_h);
+        imageops::overlay(&mut final_img, &concatenated, 0, 0);
+
+        tx.put_image("assets/minecraft/textures/gui/sprites/title/minecraft.png", &final_img)?;
+        n += 1;
+        // 旧实现：把同一张图**回写源文件**
+        tx.put_image(src, &final_img)?;
+        n += 1;
+
         Ok(n)
     }
     /// `SPRITE_MAP` 的条目数（供测试断言"表没被漏抄"）。
