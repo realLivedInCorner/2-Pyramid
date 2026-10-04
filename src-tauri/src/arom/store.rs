@@ -89,7 +89,9 @@ pub struct BaseEntry {
     pub shadowed: bool,
 }
 
-/// 不可变基座：一次转换的「源包视图」。
+/// 不可变基座：一次转换的「源包视图」。`SYNTHETIC_SRC_IDX` 标记「没有源条目」的合成目录。
+pub const SYNTHETIC_SRC_IDX: u32 = u32::MAX;
+
 pub struct BasePack {
     entries: Vec<BaseEntry>,
     index: BTreeMap<PathId, EntryId>,
@@ -136,6 +138,50 @@ impl BasePack {
                 shadowed: false,
             });
             source_order.push(id);
+        }
+
+        // 输入里由文件**隐含**的祖先目录显式化。
+        //
+        // 现状管线把源包解压到磁盘（为每个文件建父目录），打包时目录遍历会把那些目录
+        // 也写成条目——也就是说「文件被删掉后，它的空父目录仍然留在产物里」。
+        // 视图必须复刻这一点，否则「删文件」会顺带剪掉父目录，产物条目集合与现状不一致
+        // （M2 实测：夹具里 `textures/entity` 与 `textures/misc` 各差一个目录条目）。
+        //
+        // 不加入 `source_order`：它们不是源条目，只是基座视图的一部分。
+        let implied_paths: Vec<String> = {
+            let mut implied: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+            for entry in &entries {
+                let mut cursor = entry.parent;
+                while let Some(pid) = cursor {
+                    if !index.contains_key(&pid) {
+                        if let Ok(p) = paths.get(pid) {
+                            implied.insert(p.to_string());
+                        }
+                    }
+                    cursor = paths
+                        .get(pid)
+                        .ok()
+                        .and_then(parent_of)
+                        .and_then(|p| paths.id_of(p));
+                }
+            }
+            implied.into_iter().collect()
+        };
+        for path_str in implied_paths {
+            let name_str = basename_of(&path_str).to_string();
+            let parent = parent_of(&path_str).and_then(|p| paths.id_of(p));
+            let path = paths.intern(&path_str);
+            let id = EntryId(entries.len() as u32);
+            index.insert(path, id);
+            entries.push(BaseEntry {
+                path,
+                parent,
+                name: paths.intern(&name_str),
+                len: 0,
+                src_idx: SYNTHETIC_SRC_IDX,
+                is_dir: true,
+                shadowed: false,
+            });
         }
 
         Ok(Self {
@@ -346,19 +392,21 @@ mod tests {
         ]);
         let pack = BasePack::build(&src).expect("build");
 
-        assert_eq!(pack.unique_len(), 3);
+        // 显式条目 + 由 `assets/b.txt` 隐含而显式化的 `assets` 目录
+        assert_eq!(pack.unique_len(), 4);
         assert_eq!(pack.file_count(), 3);
-        assert_eq!(pack.dir_count(), 0);
+        assert_eq!(pack.dir_count(), 1, "隐含祖先目录被显式化");
         assert!(pack.resolve("assets/b.txt").is_some());
+        assert!(pack.resolve("assets").is_some(), "隐含目录成为条目");
         assert!(pack.resolve("nope.txt").is_none());
 
         let order: Vec<&str> = pack
             .source_order()
             .map(|(_, e)| pack.path_str(e.path).expect("path"))
             .collect();
-        assert_eq!(order, vec!["z.txt", "assets/b.txt", "a.txt"], "源顺序契约");
+        assert_eq!(order, vec!["z.txt", "assets/b.txt", "a.txt"], "源顺序契约只含源条目");
 
-        // 祖先被驻留，即使它不是（也不可能是）显式条目
+        // 祖先被驻留
         assert_eq!(pack.paths().id_of("assets").map(|id| pack.path_str(id).expect("p")), Some("assets"));
     }
 
@@ -380,28 +428,33 @@ mod tests {
         );
     }
 
+    /// 输入里由文件隐含的祖先目录必须**成为条目**：现状管线解压时创建它们、
+    /// 打包时把它们写成条目，所以「删掉文件」不应连带剪掉父目录。
     #[test]
-    fn missing_ancestors_are_synthesized() {
+    fn missing_ancestors_are_made_explicit() {
         let src = mem(vec![("a/b/c/d.txt", b"d".to_vec())]);
         let pack = BasePack::build(&src).expect("build");
 
-        let synth: Vec<&str> = pack
-            .synthesized_dirs()
-            .iter()
-            .map(|id| pack.path_str(*id).expect("path"))
-            .collect();
-        assert_eq!(synth, vec!["a", "a/b", "a/b/c"], "文件隐含的祖先目录");
-        assert_eq!(pack.dir_count(), 0, "合成的目录不是（源里的）显式条目");
+        for path in ["a", "a/b", "a/b/c"] {
+            let id = pack.resolve(path).unwrap_or_else(|| panic!("{path} 应成为条目"));
+            assert!(pack.is_dir(id).expect("is_dir"), "{path} 应是目录");
+        }
+        assert_eq!(pack.dir_count(), 3, "三个隐含祖先目录都成为条目");
+        assert_eq!(pack.file_count(), 1);
+        assert!(
+            pack.synthesized_dirs().is_empty(),
+            "已显式化，无需再合成"
+        );
+        assert_eq!(
+            pack.source_order().count(),
+            1,
+            "合成目录不进入源顺序"
+        );
 
-        // 显式目录存在时，不应重复合成
+        // 显式目录存在时，不重复插入
         let src = mem(vec![("a/b/c/d.txt", b"d".to_vec()), ("a/b/", Vec::new())]);
         let pack = BasePack::build(&src).expect("build");
-        let synth: Vec<&str> = pack
-            .synthesized_dirs()
-            .iter()
-            .map(|id| pack.path_str(*id).expect("path"))
-            .collect();
-        assert_eq!(synth, vec!["a", "a/b/c"], "显式目录 a/b 不参与合成");
+        assert_eq!(pack.dir_count(), 3, "a、a/b、a/b/c 各一个条目");
     }
 
     #[test]

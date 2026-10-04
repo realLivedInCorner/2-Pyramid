@@ -53,6 +53,96 @@ pub mod drop_font {
     }
 }
 
+/// 「存在就整段删除」类任务的共同实现。
+///
+/// 旧实现一律是 `path.exists()` + `defer_remove_file/dir`；这里用 `has_prefix`，
+/// 以覆盖「目录只由文件隐含、没有显式条目」的情况（理由同 `drop_font`）。
+fn remove_if_present(tx: &mut Tx<'_>, path: &str) -> Result<Outcome, AromError> {
+    if !tx.has_prefix(path)? {
+        return Ok(Outcome::default());
+    }
+    tx.remove(path)?;
+    Ok(Outcome {
+        changed: 1,
+        notes: vec![format!("removed {path}")],
+        ..Outcome::default()
+    })
+}
+
+/// 旧 `delete_horse_folder`（`converters/textures/drop_horse.rs`）。
+pub mod drop_horse {
+    use super::*;
+
+    pub const TARGET: &str = "assets/minecraft/textures/entity/horse";
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("delete_horse_folder", Tier::Eraser)
+            .writes(ScopeSet::prefix(TARGET))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        remove_if_present(tx, TARGET)
+    }
+}
+
+/// 旧 `delete_shaders_folder`（`converters/textures/drop_shaders.rs`）。
+pub mod drop_shaders {
+    use super::*;
+
+    pub const TARGET: &str = "assets/minecraft/shaders";
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("delete_shaders_folder", Tier::Eraser)
+            .writes(ScopeSet::prefix(TARGET))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        remove_if_present(tx, TARGET)
+    }
+}
+
+/// 旧 `delete_enchanted_item_glint`（`converters/textures/drop_enchanted_glint.rs`）——删单个文件。
+pub mod drop_glint {
+    use super::*;
+
+    pub const TARGET: &str = "assets/minecraft/textures/misc/enchanted_item_glint.png";
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("delete_enchanted_item_glint", Tier::Eraser)
+            .writes(ScopeSet::exact(TARGET))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        remove_if_present(tx, TARGET)
+    }
+}
+
+/// 旧 `delete_blockstates_models`（`converters/textures/drop_blockstates_models.rs`）——一次删两个目录。
+pub mod drop_blockstates {
+    use super::*;
+
+    pub const TARGETS: [&str; 2] = ["assets/minecraft/blockstates", "assets/minecraft/models"];
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("delete_blockstates_models", Tier::Eraser)
+            .writes(ScopeSet::prefix(TARGETS[0]).union(&ScopeSet::prefix(TARGETS[1])))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        let mut outcome = Outcome::default();
+        for target in TARGETS {
+            let one = remove_if_present(tx, target)?;
+            outcome.changed += one.changed;
+            outcome.notes.extend(one.notes);
+        }
+        Ok(outcome)
+    }
+}
+
 /// 旧贴图路径复制（对应旧 `convert_old_texture_paths`）。
 pub mod old_paths {
     use super::*;
@@ -231,6 +321,18 @@ pub type PilotFn = fn(&mut Tx<'_>) -> Result<Outcome, AromError>;
 pub fn all() -> Vec<(&'static str, TaskDecl, PilotFn)> {
     vec![
         ("drop_font", drop_font::decl(), drop_font::run as PilotFn),
+        (
+            "drop_blockstates",
+            drop_blockstates::decl(),
+            drop_blockstates::run as PilotFn,
+        ),
+        ("drop_horse", drop_horse::decl(), drop_horse::run as PilotFn),
+        (
+            "drop_shaders",
+            drop_shaders::decl(),
+            drop_shaders::run as PilotFn,
+        ),
+        ("drop_glint", drop_glint::decl(), drop_glint::run as PilotFn),
         ("old_paths", old_paths::decl(), old_paths::run as PilotFn),
         (
             "mcpatcher_optifine",
@@ -278,6 +380,18 @@ mod tests {
         // 试点 1：整棵子树
         add("assets/minecraft/font/default.json", b"{}".to_vec());
         add("assets/minecraft/font/extra/deep.json", b"{}".to_vec());
+        // 试点 1b–1e：另外四种「存在即删」（两目录 / 目录 / 目录 / 单文件）
+        add("assets/minecraft/blockstates/oak.json", b"{}".to_vec());
+        add("assets/minecraft/models/item/x.json", b"{}".to_vec());
+        add(
+            "assets/minecraft/textures/entity/horse/horse_brown.png",
+            png((16, 16)),
+        );
+        add("assets/minecraft/shaders/core/x.fsh", b"void main(){}".to_vec());
+        add(
+            "assets/minecraft/textures/misc/enchanted_item_glint.png",
+            png((16, 16)),
+        );
         // 试点 2：旧贴图路径
         add("assets/minecraft/terrain.png", png((16, 16)));
         add("assets/minecraft/gui/items.png", png((16, 32)));
@@ -306,7 +420,10 @@ mod tests {
     }
 
     fn old_path_output(fixture: &Path, tmp: &Path) -> PathBuf {
-        use crate::converters::textures::{animated, drop_font, old_paths};
+        use crate::converters::textures::{
+            animated, drop_blockstates_models, drop_enchanted_glint, drop_font, drop_horse,
+            drop_shaders, old_paths,
+        };
         use crate::hurray::context::HurrayContext;
 
         let work = tmp.join("work");
@@ -317,8 +434,12 @@ mod tests {
         )
         .expect("extract");
 
-        // Eraser 阶段
+        // Eraser 阶段（与活注册表同序：四个删除任务 → 字体 → 改名；延迟清理一次执行）
         let ctx = HurrayContext::new(work.to_str().expect("utf8"));
+        drop_blockstates_models::delete_blockstates_models(&ctx).expect("drop blockstates");
+        drop_horse::delete_horse_folder(&ctx).expect("drop horse");
+        drop_shaders::delete_shaders_folder(&ctx).expect("drop shaders");
+        drop_enchanted_glint::delete_enchanted_item_glint(&ctx).expect("drop glint");
         drop_font::delete_font_folder(&ctx).expect("delete_font_folder");
         ctx.execute_cleanup().expect("cleanup");
         old_paths::convert_old_texture_paths(&work).expect("old paths");
@@ -383,11 +504,17 @@ mod tests {
         let (new, outcomes) = new_path_output(&fixture, tmp.path());
 
         assert_equivalent(&old, &new);
+        // all() 的顺序：drop_font, drop_blockstates, drop_horse, drop_shaders, drop_glint,
+        //                old_paths, mcpatcher_optifine, animated
         assert_eq!(outcomes[0].changed, 1, "font 目录应被删除：{outcomes:?}");
-        assert_eq!(outcomes[1].changed, 2, "两张旧贴图应被复制：{outcomes:?}");
-        assert_eq!(outcomes[2].changed, 1, "mcpatcher 应被改名：{outcomes:?}");
-        assert_eq!(outcomes[3].changed, 1, "只有 water 需要升级：{outcomes:?}");
-        assert_eq!(outcomes[3].skipped, 2, "已升级 / 非动画各跳过一条：{outcomes:?}");
+        assert_eq!(outcomes[1].changed, 2, "blockstates 与 models 各删一个：{outcomes:?}");
+        assert_eq!(outcomes[2].changed, 1, "horse 目录应被删除：{outcomes:?}");
+        assert_eq!(outcomes[3].changed, 1, "shaders 目录应被删除：{outcomes:?}");
+        assert_eq!(outcomes[4].changed, 1, "glint 单文件应被删除：{outcomes:?}");
+        assert_eq!(outcomes[5].changed, 2, "两张旧贴图应被复制：{outcomes:?}");
+        assert_eq!(outcomes[6].changed, 1, "mcpatcher 应被改名：{outcomes:?}");
+        assert_eq!(outcomes[7].changed, 1, "只有 water 需要升级：{outcomes:?}");
+        assert_eq!(outcomes[7].skipped, 2, "已升级 / 非动画各跳过一条：{outcomes:?}");
     }
 
     #[test]
@@ -401,6 +528,21 @@ mod tests {
         let view = pack.view();
 
         assert!(view.resolve("assets/minecraft/font").is_none(), "font 子树已删");
+        assert!(
+            view.resolve("assets/minecraft/blockstates").is_none(),
+            "blockstates 子树已删"
+        );
+        assert!(view.resolve("assets/minecraft/models").is_none(), "models 子树已删");
+        assert!(
+            view.resolve("assets/minecraft/textures/entity/horse").is_none(),
+            "horse 子树已删"
+        );
+        assert!(view.resolve("assets/minecraft/shaders").is_none(), "shaders 子树已删");
+        assert!(
+            view.resolve("assets/minecraft/textures/misc/enchanted_item_glint.png")
+                .is_none(),
+            "glint 文件已删"
+        );
         assert!(view.resolve("assets/minecraft/block.png").is_some(), "复制产物存在");
         assert!(view.resolve("assets/minecraft/terrain.png").is_some(), "Copy 不动源文件");
         assert!(view.resolve("assets/minecraft/item.png").is_some());

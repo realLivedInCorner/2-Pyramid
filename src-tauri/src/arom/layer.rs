@@ -908,8 +908,12 @@ mod tests {
         assert!(view.resolve("x/assets/sub/b.txt").is_some(), "子树跟着走");
         assert!(view.resolve("assets/a.txt").is_none(), "Move：原路径消失");
 
+        // 「改名不新增条目」：与同一棵未改名的树逐条目相同
+        // （条目集合里除了文件与显式目录，还包含由文件隐含而显式化的祖先目录）
         let count = view.entries().expect("entries").len();
-        assert_eq!(count, 4, "3 个文件 + 显式 assets 目录，改名不新增条目");
+        let plain = tree();
+        let same = plain.view().entries().expect("entries").len();
+        assert_eq!(count, same, "改名不新增条目");
     }
 
     #[test]

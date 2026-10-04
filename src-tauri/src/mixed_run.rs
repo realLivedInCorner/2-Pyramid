@@ -294,6 +294,12 @@ fn native_for(name: &str, switches: &NativeSwitches) -> Option<(&'static str, cr
         // 只登记**活注册表里存在**的任务名；`convert_old_texture_paths` 不在活计划里
         // （它只存在于已删除的死注册路径，见细则 §9.10），因此不派发。
         "delete_font_folder" => Some(("drop_font", crate::pilots::drop_font::run)),
+        "delete_blockstates_models" => {
+            Some(("drop_blockstates", crate::pilots::drop_blockstates::run))
+        }
+        "delete_horse_folder" => Some(("drop_horse", crate::pilots::drop_horse::run)),
+        "delete_shaders_folder" => Some(("drop_shaders", crate::pilots::drop_shaders::run)),
+        "delete_enchanted_item_glint" => Some(("drop_glint", crate::pilots::drop_glint::run)),
         "rename_mcpatcher_to_optifine" => {
             Some(("mcpatcher_optifine", crate::pilots::mcpatcher_optifine::run))
         }
