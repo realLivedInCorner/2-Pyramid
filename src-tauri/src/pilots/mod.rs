@@ -703,6 +703,79 @@ pub mod reverse_trivial {
         "assets/minecraft/textures/gui/slider.png"
     );
 
+    macro_rules! defer_list_pilot {
+        ($m:ident, $task:literal, [$($p:literal),*]) => {
+            pub mod $m {
+                use super::*;
+                pub const TARGETS: [&str; 0 $(+ { let _ = $p; 1 })*] = [$($p),*];
+                pub fn decl() -> TaskDecl {
+                    let mut scope = ScopeSet::none();
+                    $( scope = scope.union(&ScopeSet::exact($p)); )*
+                    TaskDecl::new($task, Tier::Eraser).writes(scope).exclusive(true)
+                }
+                pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    let mut outcome = Outcome::default();
+                    for path in TARGETS {
+                        outcome
+                            .deferred_removals
+                            .extend(defer_remove_if_present(tx, path)?.deferred_removals);
+                    }
+                    Ok(outcome)
+                }
+            }
+        };
+    }
+
+    defer_list_pilot!(
+        tipped_arrows,
+        "reverse_generate_tipped_arrow_images",
+        [
+            "assets/minecraft/textures/items/tipped_arrow_base.png",
+            "assets/minecraft/textures/items/tipped_arrow_head.png"
+        ]
+    );
+
+    /// 旧 `reverse_generate_boat`：延迟删 5 个船变体 + **有守卫**的立即改名（`boat.png` 不存在才改）。
+    pub mod boat {
+        use super::*;
+
+        const ITEMS: &str = "assets/minecraft/textures/items";
+        const VARIANTS: [&str; 5] = [
+            "oak_boat.png",
+            "birch_boat.png",
+            "acacia_boat.png",
+            "dark_oak_boat.png",
+            "jungle_boat.png",
+        ];
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("reverse_generate_boat", Tier::Eraser)
+                .reads(ScopeSet::prefix(ITEMS))
+                .writes(ScopeSet::prefix(ITEMS))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            let mut outcome = Outcome::default();
+            for name in VARIANTS {
+                outcome
+                    .deferred_removals
+                    .extend(defer_remove_if_present(tx, &format!("{ITEMS}/{name}"))?.deferred_removals);
+            }
+            let spruce = format!("{ITEMS}/spruce_boat.png");
+            let boat = format!("{ITEMS}/boat.png");
+            // 旧实现带守卫：目标已存在就不改名（不覆盖）
+            if tx.exists(&spruce) && !tx.exists(&boat) {
+                let bytes = tx.read(&spruce)?.unwrap_or_default();
+                tx.put(&boat, bytes)?;
+                tx.remove(&spruce)?;
+                outcome.changed += 1;
+                outcome.notes.push("spruce_boat -> boat".into());
+            }
+            Ok(outcome)
+        }
+    }
+
     /// 任务名 → (声明, 实现)。驱动按名字派发。
     pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
         match name {
@@ -789,11 +862,86 @@ pub mod reverse_defer {
         }
     }
 
+    macro_rules! defer_list_pilot {
+        ($m:ident, $task:literal, [$($p:literal),*]) => {
+            pub mod $m {
+                use super::*;
+                pub const TARGETS: [&str; 0 $(+ { let _ = $p; 1 })*] = [$($p),*];
+                pub fn decl() -> TaskDecl {
+                    let mut scope = ScopeSet::none();
+                    $( scope = scope.union(&ScopeSet::exact($p)); )*
+                    TaskDecl::new($task, Tier::Eraser).writes(scope).exclusive(true)
+                }
+                pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    let mut outcome = Outcome::default();
+                    for path in TARGETS {
+                        outcome
+                            .deferred_removals
+                            .extend(defer_remove_if_present(tx, path)?.deferred_removals);
+                    }
+                    Ok(outcome)
+                }
+            }
+        };
+    }
+
+    defer_list_pilot!(
+        tipped_arrows,
+        "reverse_generate_tipped_arrow_images",
+        [
+            "assets/minecraft/textures/items/tipped_arrow_base.png",
+            "assets/minecraft/textures/items/tipped_arrow_head.png"
+        ]
+    );
+
+    /// 旧 `reverse_generate_boat`：延迟删 5 个船变体 + **有守卫**的立即改名（`boat.png` 不存在才改）。
+    pub mod boat {
+        use super::*;
+
+        const ITEMS: &str = "assets/minecraft/textures/items";
+        const VARIANTS: [&str; 5] = [
+            "oak_boat.png",
+            "birch_boat.png",
+            "acacia_boat.png",
+            "dark_oak_boat.png",
+            "jungle_boat.png",
+        ];
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("reverse_generate_boat", Tier::Eraser)
+                .reads(ScopeSet::prefix(ITEMS))
+                .writes(ScopeSet::prefix(ITEMS))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            let mut outcome = Outcome::default();
+            for name in VARIANTS {
+                outcome
+                    .deferred_removals
+                    .extend(defer_remove_if_present(tx, &format!("{ITEMS}/{name}"))?.deferred_removals);
+            }
+            let spruce = format!("{ITEMS}/spruce_boat.png");
+            let boat = format!("{ITEMS}/boat.png");
+            // 旧实现带守卫：目标已存在就不改名（不覆盖）
+            if tx.exists(&spruce) && !tx.exists(&boat) {
+                let bytes = tx.read(&spruce)?.unwrap_or_default();
+                tx.put(&boat, bytes)?;
+                tx.remove(&spruce)?;
+                outcome.changed += 1;
+                outcome.notes.push("spruce_boat -> boat".into());
+            }
+            Ok(outcome)
+        }
+    }
+
     /// 任务名 → (声明, 实现)。
     pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
         match name {
             "reverse_generate_shulker_box_ui" => Some((shulker_box::decl(), shulker_box::run)),
             "reverse_fix_sign_entities" => Some((sign_entities::decl(), sign_entities::run)),
+            "reverse_generate_tipped_arrow_images" => {Some((tipped_arrows::decl(), tipped_arrows::run))}
+            "reverse_generate_boat" => Some((boat::decl(), boat::run)),
             "reverse_fix_smithing2_villager2_ui" => {
                 Some((smithing_villager::decl(), smithing_villager::run))
             }
