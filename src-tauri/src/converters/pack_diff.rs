@@ -18,7 +18,12 @@
 //!   * `dirOnlyInA` / `dirOnlyInB`  —— 目录条目单边存在 → **两种模式都失败**
 //!     （内容级比对跳过目录，这是唯一能发现它的地方）；
 //!   * `METHOD-DIFF` / `COMPRESSED-BYTES-DIFF` —— 压缩方法或压缩结果不同 → 仅 `--strict` 失败；
-//!   * `MTIME-DIFF` / `MODE-DIFF`   —— 时间戳 / unix 权限位不同 → 仅 `--strict` 失败；
+//!   * `MODE-DIFF`   —— unix 权限位不同 → 仅 `--strict` 失败；
+//!   * `MTIME-DIFF`  —— 时间戳不同 → **只报告、不判失败**。原因：本仓两条管线都用
+//!     `FileOptions::default()`，而它在 `time` feature 下取**当前时间**
+//!     （`OffsetDateTime::now_utc()`，DOS 精度 2 秒）——「盖上运行时刻」本身就是现状策略，
+//!     两次独立运行的时间戳必然不同。若把它算作回归信号，任何跨运行对照都会随机变红
+//!     （实测：真实包 3723 条目里 428 条落在不同 2 秒桶）；
 //!   * `order-only`                 —— 条目顺序不同 → **不判失败**，仅信息项。
 //!
 //! CLI：`2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <file>]`
@@ -100,12 +105,13 @@ impl ContainerDiffKind {
     }
 
     /// 只影响容器字节、不影响内容的差异：仅 `--strict` 判失败。
+    ///
+    /// **不含 `MtimeDiff`**：现状两边都盖「当前时间」，时间戳差异无法区分回归与运行时刻。
     pub fn is_byte_only(self) -> bool {
         matches!(
             self,
             ContainerDiffKind::MethodDiff
                 | ContainerDiffKind::CompressedBytesDiff
-                | ContainerDiffKind::MtimeDiff
                 | ContainerDiffKind::ModeDiff
         )
     }
@@ -143,7 +149,8 @@ pub struct ContainerDiff {
 /// 容器级比对结果。
 ///
 /// * `entry_set_blocking` —— 目录条目单边存在：两种模式都失败；
-/// * `byte_only`          —— 方法/压缩字节/时间戳/权限：仅 `--strict` 失败；
+/// * `byte_only`          —— 方法/压缩字节/权限：仅 `--strict` 失败；
+/// * `mtime_only`         —— 时间戳差异：**只报告不判失败**（现状两边都盖运行时刻）；
 /// * `order_changed`      —— 条目顺序变化：仅信息项（顺序不是现状承诺）。
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -154,6 +161,7 @@ pub struct ContainerSummary {
     pub dirs_b: usize,
     pub entry_set_blocking: usize,
     pub byte_only: usize,
+    pub mtime_only: usize,
     pub order_changed: bool,
     pub diffs: Vec<ContainerDiff>,
     /// 未做容器级比对时的原因（例如一侧是目录）。
@@ -219,6 +227,7 @@ pub fn diff_container_meta(a: &ContainerMeta, b: &ContainerMeta) -> ContainerSum
     let mut diffs: Vec<ContainerDiff> = Vec::new();
     let mut entry_set_blocking = 0usize;
     let mut byte_only = 0usize;
+    let mut mtime_only = 0usize;
 
     // 1) 目录条目单边存在 —— 内容级比对跳过目录，只有这里能发现
     for (path, ea) in &map_a {
@@ -275,12 +284,12 @@ pub fn diff_container_meta(a: &ContainerMeta, b: &ContainerMeta) -> ContainerSum
                 path: (*path).to_string(),
                 kind: ContainerDiffKind::MtimeDiff,
                 detail: Some(format!(
-                    "时间戳不同：A {} / B {}",
+                    "时间戳不同：A {} / B {}（两边都盖运行时刻，不判失败）",
                     ea.mtime.as_deref().unwrap_or("-"),
                     eb.mtime.as_deref().unwrap_or("-")
                 )),
             });
-            byte_only += 1;
+            mtime_only += 1;
         }
         if ea.unix_mode != eb.unix_mode {
             diffs.push(ContainerDiff {
@@ -319,6 +328,7 @@ pub fn diff_container_meta(a: &ContainerMeta, b: &ContainerMeta) -> ContainerSum
         dirs_b: b.entries.iter().filter(|e| e.is_dir).count(),
         entry_set_blocking,
         byte_only,
+        mtime_only,
         order_changed,
         diffs,
         note: None,
@@ -363,8 +373,10 @@ pub struct PackDiffReport {
     pub container: Option<ContainerSummary>,
     /// 目录条目单边存在 —— 两种模式都判失败。
     pub container_entry_set_blocking: usize,
-    /// 方法/压缩字节/时间戳/权限差异 —— 仅 `--strict` 判失败。
+    /// 方法/压缩字节/权限差异 —— 仅 `--strict` 判失败。
     pub container_byte_only: usize,
+    /// 时间戳差异 —— 只报告不判失败（两边都盖运行时刻）。
+    pub container_mtime_only: usize,
     /// 条目顺序是否变化（信息项，不判失败）。
     pub container_order_changed: bool,
 }
@@ -375,16 +387,16 @@ impl PackDiffReport {
         match &self.container {
             None => String::new(),
             Some(c) => format!(
-                " | container: entries A={} B={} (dirs A={} B={}), entry-set={}, byte-only={}, order-changed={}",
-                c.entries_a, c.entries_b, c.dirs_a, c.dirs_b, c.entry_set_blocking, c.byte_only, c.order_changed
+                " | container: entries A={} B={} (dirs A={} B={}), entry-set={}, byte-only={}, mtime-only={}, order-changed={}",
+                c.entries_a, c.entries_b, c.dirs_a, c.dirs_b, c.entry_set_blocking, c.byte_only, c.mtime_only, c.order_changed
             ),
         }
     }
 
-    /// `--strict` 通过时，区分「逐字节一致」与「顺序不同，因此不构成逐字节一致」。
+    /// `--strict` 通过时，区分「逐字节一致」与「存在运行时刻/顺序差异，因此不构成逐字节一致」。
     pub fn strict_pass_label(&self) -> &'static str {
-        if self.container_order_changed {
-            "PASS（内容与容器属性一致；条目顺序不同 → 不构成逐字节一致）"
+        if self.container_order_changed || self.container_mtime_only > 0 {
+            "PASS（内容与容器属性一致；时间戳/条目顺序存在运行时刻差异 → 不构成逐字节一致）"
         } else {
             "PASS（字节级完全一致）"
         }
@@ -503,6 +515,7 @@ pub fn diff_containers(a: &Path, b: &Path) -> Result<PackDiffReport, String> {
     let container = build_container_summary(a, b);
     let container_entry_set_blocking = container.entry_set_blocking;
     let container_byte_only = container.byte_only;
+    let container_mtime_only = container.mtime_only;
     let container_order_changed = container.order_changed;
 
     Ok(PackDiffReport {
@@ -516,6 +529,7 @@ pub fn diff_containers(a: &Path, b: &Path) -> Result<PackDiffReport, String> {
         container: Some(container),
         container_entry_set_blocking,
         container_byte_only,
+        container_mtime_only,
         container_order_changed,
     })
 }
@@ -889,7 +903,11 @@ mod tests {
 
         let s = diff_container_meta(&a, &b);
         assert_eq!(s.entry_set_blocking, 1, "empty/ 只在 A → 目录条目单边存在");
-        assert_eq!(s.byte_only, 4, "压缩字节/方法/时间戳/权限各一条");
+        assert_eq!(s.byte_only, 3, "压缩字节/方法/权限各一条");
+        assert_eq!(
+            s.mtime_only, 1,
+            "时间戳单独计数：两边都盖运行时刻，不判失败"
+        );
         assert!(!s.order_changed, "条目集合不同时不做顺序判定");
         let kinds: Vec<ContainerDiffKind> = s.diffs.iter().map(|d| d.kind).collect();
         for k in [
@@ -985,7 +1003,32 @@ mod tests {
     }
 
     #[test]
-    fn container_mtime_and_mode_diffs_fail_strict_only() {
+    fn container_mode_diff_fails_strict_only() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let a = dir.path().join("a.zip");
+        let b = dir.path().join("b.zip");
+        let dt = zip::DateTime::from_date_and_time(2020, 1, 1, 0, 0, 0).expect("dt");
+
+        let mut spec_a = zfile("t.txt", b"same");
+        spec_a.mode = Some(0o644);
+        spec_a.mtime = Some(dt);
+        let mut spec_b = zfile("t.txt", b"same");
+        spec_b.mode = Some(0o600);
+        spec_b.mtime = Some(dt);
+        write_zip_specs(&a, &[spec_a]);
+        write_zip_specs(&b, &[spec_b]);
+
+        let report = diff_containers(&a, &b).expect("diff");
+        assert_eq!(report.blocking, 0, "内容字节相同");
+        assert_eq!(report.container_byte_only, 1, "权限位一条");
+        assert!(report.passed(false));
+        assert!(!report.passed(true), "权限位不同 → 严格模式失败");
+    }
+
+    /// 时间戳**只报告不判失败**：两边都用 `FileOptions::default()`，
+    /// 而它取的是运行时刻（`OffsetDateTime::now_utc()`），跨运行必然不同。
+    #[test]
+    fn container_mtime_diff_is_reported_but_not_blocking() {
         let dir = tempfile::tempdir().expect("tempdir");
         let a = dir.path().join("a.zip");
         let b = dir.path().join("b.zip");
@@ -993,19 +1036,22 @@ mod tests {
         let dt_b = zip::DateTime::from_date_and_time(2021, 6, 6, 6, 6, 6).expect("dt");
 
         let mut spec_a = zfile("t.txt", b"same");
-        spec_a.mode = Some(0o644);
         spec_a.mtime = Some(dt_a);
         let mut spec_b = zfile("t.txt", b"same");
-        spec_b.mode = Some(0o600);
         spec_b.mtime = Some(dt_b);
         write_zip_specs(&a, &[spec_a]);
         write_zip_specs(&b, &[spec_b]);
 
         let report = diff_containers(&a, &b).expect("diff");
-        assert_eq!(report.blocking, 0, "内容字节相同");
-        assert_eq!(report.container_byte_only, 2, "时间戳 + 权限位各一条");
-        assert!(report.passed(false));
-        assert!(!report.passed(true));
+        assert_eq!(report.blocking, 0);
+        assert_eq!(report.container_byte_only, 0, "时间戳不算 byte-only");
+        assert_eq!(report.container_mtime_only, 1, "但要被报出来");
+        assert!(report.passed(true), "时间戳差异不得判失败");
+        assert!(
+            report.strict_pass_label().contains("时间戳"),
+            "严格通过的措辞必须说明差异来源：{}",
+            report.strict_pass_label()
+        );
         let kinds: Vec<ContainerDiffKind> = report
             .container
             .as_ref()
@@ -1015,7 +1061,6 @@ mod tests {
             .map(|d| d.kind)
             .collect();
         assert!(kinds.contains(&ContainerDiffKind::MtimeDiff), "{:?}", kinds);
-        assert!(kinds.contains(&ContainerDiffKind::ModeDiff), "{:?}", kinds);
     }
 
     #[test]

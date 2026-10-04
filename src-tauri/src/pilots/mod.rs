@@ -40,11 +40,8 @@ pub mod drop_font {
 
     pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
         // 注意：容器里**可能没有**这个目录的显式条目（目录由文件隐含）。
-        // 旧实现查的是解压后的文件系统（目录必然存在），所以这里要同时看
-        // 「显式目录条目」与「前缀下是否有条目」，否则会漏删。
-        let has_entry = tx.exists(TARGET);
-        let has_children = !tx.list(TARGET)?.is_empty();
-        if !has_entry && !has_children {
+        // 旧实现查的是解压后的文件系统（目录必然存在），所以这里用 `has_prefix`。
+        if !tx.has_prefix(TARGET)? {
             return Ok(Outcome::default());
         }
         tx.remove(TARGET)?;
@@ -190,6 +187,41 @@ pub mod animated {
     }
 }
 
+/// 目录整体改名（对应旧 `rename_mcpatcher_to_optifine`）：用前缀规则，不物化子条目。
+pub mod mcpatcher_optifine {
+    use super::*;
+
+    pub const FROM: &str = "assets/minecraft/mcpatcher";
+    pub const TO: &str = "assets/minecraft/optifine";
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("rename_mcpatcher_to_optifine", Tier::Eraser)
+            .reads(ScopeSet::prefix(FROM))
+            .writes(ScopeSet::prefix(TO))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        // 与旧实现一致：源不存在 → 跳过；目标已存在 → 跳过（不合并）
+        if !tx.has_prefix(FROM)? {
+            return Ok(Outcome::default());
+        }
+        if tx.has_prefix(TO)? {
+            return Ok(Outcome {
+                skipped: 1,
+                notes: vec![format!("{TO} already exists, skip rename")],
+                ..Outcome::default()
+            });
+        }
+        tx.rename_dir(FROM, TO)?;
+        Ok(Outcome {
+            changed: 1,
+            notes: vec![format!("{FROM} -> {TO}")],
+            ..Outcome::default()
+        })
+    }
+}
+
 /// 全部试点：`(名称, 声明, 执行体)`，按阶段顺序排列（与旧管线一致）。
 pub type PilotFn = fn(&mut Tx<'_>) -> Result<Outcome, AromError>;
 
@@ -197,6 +229,11 @@ pub fn all() -> Vec<(&'static str, TaskDecl, PilotFn)> {
     vec![
         ("drop_font", drop_font::decl(), drop_font::run as PilotFn),
         ("old_paths", old_paths::decl(), old_paths::run as PilotFn),
+        (
+            "mcpatcher_optifine",
+            mcpatcher_optifine::decl(),
+            mcpatcher_optifine::run as PilotFn,
+        ),
         ("animated", animated::decl(), animated::run as PilotFn),
     ]
 }
@@ -241,6 +278,9 @@ mod tests {
         // 试点 2：旧贴图路径
         add("assets/minecraft/terrain.png", png((16, 16)));
         add("assets/minecraft/gui/items.png", png((16, 32)));
+        // 试点 3：目录改名
+        add("assets/minecraft/mcpatcher/cit/a.properties", b"a=1".to_vec());
+        add("assets/minecraft/mcpatcher/cit/deep/b.properties", b"b=2".to_vec());
         // 试点 3：动画 mcmeta
         add("assets/minecraft/textures/item/water.png", png((32, 64)));
         add(
@@ -279,6 +319,8 @@ mod tests {
         drop_font::delete_font_folder(&ctx).expect("delete_font_folder");
         ctx.execute_cleanup().expect("cleanup");
         old_paths::convert_old_texture_paths(&work).expect("old paths");
+        crate::converters::textures::mcpatcher_to_optifine::rename_mcpatcher_to_optifine(&work)
+            .expect("rename mcpatcher");
 
         // Surgeon 阶段
         animated::convert_animated_textures(&work).expect("animated");
@@ -340,8 +382,9 @@ mod tests {
         assert_equivalent(&old, &new);
         assert_eq!(outcomes[0].changed, 1, "font 目录应被删除：{outcomes:?}");
         assert_eq!(outcomes[1].changed, 2, "两张旧贴图应被复制：{outcomes:?}");
-        assert_eq!(outcomes[2].changed, 1, "只有 water 需要升级：{outcomes:?}");
-        assert_eq!(outcomes[2].skipped, 2, "已升级 / 非动画各跳过一条：{outcomes:?}");
+        assert_eq!(outcomes[2].changed, 1, "mcpatcher 应被改名：{outcomes:?}");
+        assert_eq!(outcomes[3].changed, 1, "只有 water 需要升级：{outcomes:?}");
+        assert_eq!(outcomes[3].skipped, 2, "已升级 / 非动画各跳过一条：{outcomes:?}");
     }
 
     #[test]
@@ -358,6 +401,14 @@ mod tests {
         assert!(view.resolve("assets/minecraft/block.png").is_some(), "复制产物存在");
         assert!(view.resolve("assets/minecraft/terrain.png").is_some(), "Copy 不动源文件");
         assert!(view.resolve("assets/minecraft/item.png").is_some());
+        assert!(
+            view.resolve("assets/minecraft/mcpatcher").is_none(),
+            "Move：源目录消失"
+        );
+        assert!(
+            view.resolve("assets/minecraft/optifine/cit/deep/b.properties").is_some(),
+            "改名后子树跟着走"
+        );
 
         let meta: serde_json::Value = view
             .json("assets/minecraft/textures/item/water.png.mcmeta")

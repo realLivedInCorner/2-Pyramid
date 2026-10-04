@@ -637,6 +637,17 @@ impl<'a> Tx<'a> {
         self.view().resolve(path).is_some()
     }
 
+    /// 「这个前缀里有东西吗」——显式条目**或**任意子条目。
+    ///
+    /// 容器里常常没有目录的显式条目（目录由文件隐含），因此判断「目录是否存在」
+    /// 不能只看 `exists`；旧任务在磁盘上看到的目录永远是存在的。
+    pub fn has_prefix(&self, prefix: &str) -> Result<bool, AromError> {
+        if self.exists(prefix) {
+            return Ok(true);
+        }
+        Ok(!self.list(prefix)?.is_empty())
+    }
+
     /// 列出前缀下的条目（owned）。
     pub fn list(&self, prefix: &str) -> Result<Vec<Resolved>, AromError> {
         let prefix = prefix.trim_end_matches('/').to_string();
@@ -706,7 +717,8 @@ impl<'a> Tx<'a> {
     fn add_prefix_rule(&mut self, from: &str, to: &str, mode: RenameMode) -> Result<(), AromError> {
         let from = normalize(from);
         let to = normalize(to);
-        if self.view().resolve(&from).is_none() {
+        // 目录可能只由子条目隐含存在（容器里没有显式目录条目）→ 用 has_prefix 判定
+        if !self.has_prefix(&from)? {
             return Err(AromError::path(format!("rename source not found: {from}")));
         }
         self.layer.add_rename(PrefixRule { from, to, mode })
