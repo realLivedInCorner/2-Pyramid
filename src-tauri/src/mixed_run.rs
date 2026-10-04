@@ -1505,6 +1505,87 @@ mod tests {
         }
     }
 
+    /// **`shader_adapt` 的逐函数对照**（默认忽略，§9.79）。
+    ///
+    /// 移植 `adapt_java_shaders` 时，最便宜也最硬的验证不是"跑一遍看差异"，
+    /// 而是**逐函数在同一语料上比对**：本用例把四种真实写法的导入行/入口文件喂给
+    /// 「原生移植版」与「旧实现」，逐字节比较输出与计数。
+    ///
+    /// 语料覆盖：`#moj_import <a/b.glsl>`、带 `include/` 前缀、带命名空间、引号形式、
+    /// 无路径（不可解析）、CRLF、无结尾换行、以及 `ScreenSize`/`GameTime`/`globals.glsl` 的判定。
+    #[test]
+    #[ignore]
+    fn shader_adapt_text_ops_match_the_legacy_implementation() {
+        use crate::converters::shaders::java::legacy_text_ops as legacy;
+        use crate::pilots::shader_adapt as native;
+
+        let corpus: [&str; 12] = [
+            "#moj_import <fog.glsl>\nvoid main(){}\n",
+            "#moj_import <minecraft:fog.glsl>\n",
+            "#moj_import <include/fog.glsl>\n",
+            "#moj_import <ns:include/fog.glsl>\n",
+            "#moj_import \"fog.glsl\"\n",
+            "#moj_import \"/leading/fog.glsl\"\n",
+            "#moj_import\n",
+            "#moj_import   \n",
+            "// no import here\n",
+            "#moj_import <fog.glsl>\r\nvoid main(){}\r\n",
+            "// no trailing newline at all",
+            "vec2 ScreenSize; float GameTime;\n#include <globals.glsl>\n",
+        ];
+
+        let mut problems: Vec<String> = Vec::new();
+        let mut checked = 0usize;
+        for (i, src) in corpus.iter().enumerate() {
+            let (ln, lc) = legacy::convert_moj_import_to_include(src);
+            let (nn, nc) = native::convert_moj_import_to_include(src);
+            if ln != nn || lc != nc {
+                problems.push(format!(
+                    "corpus[{i}] convert_moj_import_to_include 不同：legacy=({ln:?},{lc}) native=({nn:?},{nc})"
+                ));
+            }
+            let (ln, lc) = legacy::namespace_moj_imports(src);
+            let (nn, nc) = native::namespace_moj_imports(src);
+            if ln != nn || lc != nc {
+                problems.push(format!(
+                    "corpus[{i}] namespace_moj_imports 不同：legacy=({ln:?},{lc}) native=({nn:?},{nc})"
+                ));
+            }
+            if legacy::needs_globals_import(src) != native::needs_globals_import(src) {
+                problems.push(format!("corpus[{i}] needs_globals_import 不同"));
+            }
+            if legacy::has_globals_import(src) != native::has_globals_import(src) {
+                problems.push(format!("corpus[{i}] has_globals_import 不同"));
+            }
+            checked += 4;
+        }
+
+        // `rewrite_import_path` 单独列举（含非法输入）
+        for rest in [
+            "<a/b.glsl>",
+            "<include/a.glsl>",
+            "<ns:a.glsl>",
+            "<ns:include/a.glsl>",
+            "\"a.glsl\"",
+            "\"/a.glsl\"",
+            "a.glsl",
+            "<>",
+            "\"\"",
+        ] {
+            if legacy::rewrite_import_path(rest) != native::rewrite_import_path(rest) {
+                problems.push(format!(
+                    "rewrite_import_path({rest:?}) 不同：legacy={:?} native={:?}",
+                    legacy::rewrite_import_path(rest),
+                    native::rewrite_import_path(rest)
+                ));
+            }
+            checked += 1;
+        }
+
+        println!("shader_adapt 逐函数对照：{checked} 项");
+        assert!(problems.is_empty(), "逐函数对照差异：{problems:#?}");
+    }
+
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
     #[test]
     fn scope_violations_flags_out_of_scope_writes() {

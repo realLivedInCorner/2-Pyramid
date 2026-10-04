@@ -986,6 +986,33 @@ fn remove_dir_quiet(p: &Path) {
     }
 }
 
+/// **给 `pilots::shader_adapt` 的逐函数对照用**（§9.79）：把四个**纯文本**改写函数
+/// 暴露给 crate 内部，使原生移植版能与旧实现**在同一语料上逐函数比对**。
+/// 只读、不改语义，也不参与生产路径。
+#[allow(dead_code)]
+pub(crate) mod legacy_text_ops {
+    /// 旧 `convert_moj_import_to_include`。
+    pub(crate) fn convert_moj_import_to_include(src: &str) -> (String, usize) {
+        super::convert_moj_import_to_include(src)
+    }
+    /// 旧 `namespace_moj_imports`。
+    pub(crate) fn namespace_moj_imports(src: &str) -> (String, usize) {
+        super::namespace_moj_imports(src)
+    }
+    /// 旧 `rewrite_import_path`。
+    pub(crate) fn rewrite_import_path(rest: &str) -> Option<String> {
+        super::rewrite_import_path(rest)
+    }
+    /// 旧 `needs_globals_import`。
+    pub(crate) fn needs_globals_import(src: &str) -> bool {
+        super::needs_globals_import(src)
+    }
+    /// 旧 `has_globals_import`。
+    pub(crate) fn has_globals_import(src: &str) -> bool {
+        super::has_globals_import(src)
+    }
+}
+
 pub fn register_scheduler_task(scheduler: &mut crate::hurray::scheduler::Scheduler) {
     scheduler.register_task(
         "adapt_java_shaders",

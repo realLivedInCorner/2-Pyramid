@@ -6721,6 +6721,117 @@ pub mod surgeon_machinery {
     }
 }
 
+/// **Surgeon 收尾项：`adapt_java_shaders`（第一步：纯文本改写）**。
+///
+/// 背景（§9.77/§9.78）：真实包里没有 `shaders/`，该任务在第一个判断就返回——
+/// **真实包闸门对它给的是假绿灯**，因此迁移必须靠夹具正题（第 12 个忽略用例已钉住三个分支的基线）。
+///
+/// 本模块是**分步移植的第一步**：只做**纯文本**翻译，不碰文件系统的删改与表格逻辑。
+/// 函数与旧实现一一对应，符号名保持一致便于对照：
+///
+/// | 本模块 | 旧实现 `converters/shaders/java.rs` |
+/// |---|---|
+/// | [`convert_moj_import_to_include`] | `fn convert_moj_import_to_include` |
+/// | [`rewrite_import_path`] | `fn rewrite_import_path` |
+/// | [`namespace_moj_imports`] | `fn namespace_moj_imports` |
+/// | [`needs_globals_import`] / [`has_globals_import`] / [`inject_globals_import`] | 同名 |
+///
+/// **尚未移植**（下一步）：表驱动的 `prune_and_rename_core`（4 张表 + 2 个 allowlist）、
+/// `ensure_core_json`、`rewrite_json_matrix_types`、`strip_json_uniforms_for_ubo`、
+/// `adapt_post_paths`、`walk_dir` 的遍历骨架。**因此本模块暂不派发**（生产路径不变）。
+///
+/// 未派发期间这些函数暂时"只被测试用到"，故整块允许 `dead_code`——**派发后应移除此属性**。
+#[allow(dead_code)]
+pub mod shader_adapt {
+    /// 旧 `rewrite_import_path`：`<a/b.glsl>` → `<a:b.glsl>`；`"x.glsl"` 保持引号形式。
+    pub fn rewrite_import_path(rest: &str) -> Option<String> {
+        let quoted = if rest.starts_with('<') && rest.ends_with('>') {
+            false
+        } else if rest.starts_with('"') && rest.ends_with('"') {
+            true
+        } else {
+            return None;
+        };
+        let inner = rest[1..rest.len() - 1].trim().trim_start_matches('/');
+        if quoted {
+            return Some(format!("\"{}\"", inner));
+        }
+        if let Some((ns, path)) = inner.split_once(':') {
+            let path = path.strip_prefix("include/").unwrap_or(path);
+            return Some(format!("<{}:{}>", ns, path));
+        }
+        let path = inner.strip_prefix("include/").unwrap_or(inner);
+        Some(format!("<{}>", path))
+    }
+
+    /// 旧 `convert_moj_import_to_include`（26.3+：`#moj_import` → `#include`）。
+    ///
+    /// 注意旧实现用 `lines()` 重组、**每行都补 `\n`**，因此会顺手把 CRLF 归一为 LF
+    /// 并给末行补上换行——移植时照抄这一点（否则产物字节会不同）。
+    pub fn convert_moj_import_to_include(src: &str) -> (String, usize) {
+        let mut n = 0usize;
+        let mut out = String::with_capacity(src.len());
+        for line in src.lines() {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("#moj_import") {
+                let rest = rest.trim();
+                let converted = rewrite_import_path(rest);
+                if let Some(new_rest) = converted {
+                    out.push_str(&format!("#include {}\n", new_rest));
+                    n += 1;
+                    continue;
+                }
+                out.push_str(&format!("#include {}\n", rest));
+                n += 1;
+                continue;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        (out, n)
+    }
+
+    /// 旧 `namespace_moj_imports`（1.21.4+：给无命名空间的 import 补 `minecraft:`）。
+    pub fn namespace_moj_imports(src: &str) -> (String, usize) {
+        let mut n = 0usize;
+        let mut out = String::with_capacity(src.len());
+        for line in src.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("#moj_import") {
+                if let Some(rest) = trimmed.strip_prefix("#moj_import") {
+                    let rest = rest.trim();
+                    if (rest.starts_with('<') && rest.ends_with('>') && !rest.contains(':'))
+                        || (rest.starts_with('"') && rest.ends_with('"') && !rest.contains(':'))
+                    {
+                        let inner: &str = &rest[1..rest.len() - 1];
+                        let inner = inner.trim_start_matches('/');
+                        if inner.starts_with("include/") || inner.contains(':') {
+                            out.push_str(line);
+                            out.push('\n');
+                            continue;
+                        }
+                        out.push_str(&format!("#moj_import <minecraft:{}>\n", inner));
+                        n += 1;
+                        continue;
+                    }
+                }
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        (out, n)
+    }
+
+    /// 旧 `needs_globals_import`：源码是否用到 `ScreenSize` / `GameTime`。
+    pub fn needs_globals_import(src: &str) -> bool {
+        src.contains("ScreenSize") || src.contains("GameTime")
+    }
+
+    /// 旧 `has_globals_import`：是否已经 import 过 globals。
+    pub fn has_globals_import(src: &str) -> bool {
+        src.contains("globals.glsl")
+    }
+}
 /// **Surgeon 组（续）**：`fix_ui_survival` —— 生存背包界面的四步修复。
 ///
 /// 逐条照抄 `converters/ui/survival.rs`：
