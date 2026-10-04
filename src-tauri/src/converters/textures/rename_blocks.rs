@@ -262,17 +262,6 @@ pub fn rename_blocks_items(resource_pack_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "rename_blocks_items",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Eraser,
-        |context| {
-            rename_blocks_items(context.temp_dir()).map_err(|e| e.to_string())
-        },
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -73,12 +73,3 @@ pub fn generate_smithing_ui(resource_pack_path: &Path) -> Result<(), String> {
 
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_smithing_ui",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_smithing_ui(context.temp_dir()),
-    );
-}

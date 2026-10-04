@@ -64,12 +64,3 @@ pub fn generate_tipped_arrow_images(resource_pack_path: &Path) -> Result<(), Str
     Ok(())
 }
 
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_tipped_arrow_images",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| generate_tipped_arrow_images(context.temp_dir()),
-    );
-}
-

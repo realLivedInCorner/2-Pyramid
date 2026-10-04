@@ -1,4 +1,3 @@
-use std::path::Path;
 
 use crate::hurray::context::HurrayContext;
 
@@ -19,13 +18,4 @@ pub fn delete_blockstates_models(ctx: &HurrayContext) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "delete_blockstates_models",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Eraser,
-        |context| delete_blockstates_models(context),
-    );
 }

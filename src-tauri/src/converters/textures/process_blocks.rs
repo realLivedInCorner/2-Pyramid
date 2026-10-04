@@ -452,12 +452,3 @@ pub fn rename_and_process_blocks(blocks_path: &Path, reverse: bool) -> Result<()
 
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "rename_and_process_blocks",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| rename_and_process_blocks(context.temp_dir(), false),
-    );
-}

@@ -162,24 +162,3 @@ pub fn generate_poplar_planks(resource_pack_path: &Path) -> Result<(), String> {
 
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_redwood_cherry_bamboo_planks",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_redwood_cherry_bamboo_planks(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_pale_planks",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_pale_planks(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_poplar_planks",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_poplar_planks(context.temp_dir()),
-    );
-}

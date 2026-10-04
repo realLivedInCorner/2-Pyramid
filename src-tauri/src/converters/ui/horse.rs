@@ -2,7 +2,6 @@ use std::path::Path;
 
 use image::imageops::{crop_imm, overlay};
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Scale factor lookup from image dimensions.
 /// Matches Python: both width and height must be equal.
@@ -79,18 +78,6 @@ pub fn fix_horse_ui(path: &Path) -> Result<(), String> {
 
     crate::log_info!("horse UI fixed: {}", horse_path.display());
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_horse_ui",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| {
-            let path = context.temp_dir();
-            fix_horse_ui(path)
-        },
-    );
 }
 
 #[cfg(test)]

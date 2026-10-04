@@ -4,7 +4,6 @@ use std::path::Path;
 use image::imageops;
 
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 fn fix_brewing_stand_ui_impl(ctx: &HurrayContext) -> Result<(), String> {
@@ -92,15 +91,6 @@ fn fix_brewing_stand_ui_impl(ctx: &HurrayContext) -> Result<(), String> {
 pub fn fix_brewing_stand_ui(path: &Path) -> io::Result<()> {
     let context = crate::hurray::context::HurrayContext::new(&path.to_string_lossy());
     fix_brewing_stand_ui_impl(&context).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_brewing_stand_ui",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| fix_brewing_stand_ui_impl(context),
-    );
 }
 
 #[cfg(test)]

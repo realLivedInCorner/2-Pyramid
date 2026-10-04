@@ -15,8 +15,8 @@
 //! L0 Sources    ZipSource（句柄常开，可取原始压缩字节） · BlobSource · DirSource
 //! ```
 //!
-//! **当前进度：Step 1（L0）**。L0 之外尚未落地，调用点也尚未替换——本模块此刻
-//! 不被任何既有管线使用，因此可以整体删除而不影响现状。
+//! **当前进度：M1（Step 7）进行中**——L0–L3 已在 M0 落地（Step 0–6，见 `astray-arom-model.md` §9），
+//! 现补任务契约与冲突感知调度；调用点仍未替换，因此本模块可以整体删除而不影响现状。
 
 pub mod error;
 pub mod layer;
@@ -25,6 +25,7 @@ pub mod serialize;
 pub mod source;
 pub mod store;
 pub mod structure;
+pub mod task;
 pub mod view;
 
 pub use error::AromError;
@@ -41,4 +42,5 @@ pub use store::{BaseEntry, BasePack, EntryId, PathId, PathInterner};
 pub use structure::{
     format_write_rule, FoldedDir, OverlayLayer, PackRoot, PackStructure,
 };
+pub use task::{conflict_reason, plan, Plan, ScopeSet, TaskDecl, Tier, Wave};
 pub use view::{PackMeta, ViewCache};

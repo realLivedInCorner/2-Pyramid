@@ -134,18 +134,6 @@ fn copy_and_paste_region(
     }
 }
 
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_tabs",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| {
-            let temp_dir = context.temp_dir();
-            fix_tabs(temp_dir)
-        },
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

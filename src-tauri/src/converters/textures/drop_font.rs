@@ -1,4 +1,3 @@
-use std::path::Path;
 
 use crate::hurray::context::HurrayContext;
 
@@ -9,13 +8,4 @@ pub fn delete_font_folder(ctx: &HurrayContext) -> Result<(), String> {
         ctx.defer_remove_dir(&font_path);
     }
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "delete_font_folder",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Eraser,
-        |context| delete_font_folder(context),
-    );
 }

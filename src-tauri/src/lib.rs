@@ -88,6 +88,7 @@ pub mod arom;
 mod commands;
 mod converters;
 mod foray;
+pub mod pilots;
 mod image_utils;
 mod color_utils;
 mod invoke_conversion;

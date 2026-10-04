@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Move and rename armor model files from the old directory structure to the new one.
 ///
@@ -71,18 +70,6 @@ pub fn fix_armor_models(path: &Path) -> Result<(), String> {
 
     crate::log_info!("armor model move/rename completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_armor_models",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| {
-            let path = context.temp_dir();
-            fix_armor_models(path).map_err(|e| e.to_string())
-        },
-    );
 }
 
 #[cfg(test)]

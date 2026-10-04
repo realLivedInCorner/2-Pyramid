@@ -57,12 +57,3 @@ pub fn generate_snow_bucket(resource_pack_path: &Path) -> Result<(), String> {
 
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_snow_bucket",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_snow_bucket(context.temp_dir()),
-    );
-}

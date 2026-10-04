@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 use image::imageops;
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Split particles.png (16x16 grid) into individual named tile images.
 /// Saved to particle/ and entity/ directories.
@@ -118,15 +117,6 @@ pub fn fix_particles(path: &Path) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_particles",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        |context| fix_particles(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

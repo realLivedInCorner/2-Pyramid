@@ -19,12 +19,3 @@ pub fn generate_furnace(resource_pack_path: &Path) -> Result<(), String> {
     crate::log_info!("generated blast_furnace.png and smoker.png");
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_furnace",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_furnace(context.temp_dir()),
-    );
-}

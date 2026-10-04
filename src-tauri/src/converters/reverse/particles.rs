@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 /// Reconstruct a 16x16 particle atlas from individual tile images.
@@ -117,15 +116,6 @@ pub fn reverse_fix_particles(ctx: &HurrayContext) -> Result<(), String> {
     crate::log_info!("reconstructed particles.png ({}x{})", merged_w, merged_h);
     crate::log_info!("reverse_fix_particles completed (source tile cleanup deferred)");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_fix_particles",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| reverse_fix_particles(context),
-    );
 }
 
 #[cfg(test)]

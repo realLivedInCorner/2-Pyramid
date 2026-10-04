@@ -1,6 +1,4 @@
 use crate::hurray::context::HurrayContext;
-use crate::hurray::engine::HurrayEngine;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::{log_info, log_warn};
 
 /// Consolidated cleanup operations from legacy delete_* scripts.
@@ -38,13 +36,4 @@ impl LegacyEraser {
         Ok(())
     }
 
-    pub fn register(engine: &mut HurrayEngine) {
-        log_warn!("registering legacy eraser bundle into tier Eraser");
-        engine.register_task(
-            "legacy_eraser_cleanup",
-            TaskType::Exclusive,
-            TaskTier::Eraser,
-            Self::run_cleanup,
-        );
-    }
 }

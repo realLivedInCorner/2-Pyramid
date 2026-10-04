@@ -122,12 +122,3 @@ pub fn generate_crossbow(resource_pack_path: &Path) -> Result<(), String> {
     crate::log_info!("generated crossbow textures");
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_crossbow",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_crossbow(context.temp_dir()),
-    );
-}

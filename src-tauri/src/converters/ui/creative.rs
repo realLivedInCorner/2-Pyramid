@@ -4,7 +4,6 @@ use image::Rgba;
 
 use crate::converters::scale_factor::determine_scale_factor;
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 pub fn fix_ui_creative(context: &HurrayContext) -> Result<(), String> {
     let temp_dir = context.temp_dir().to_string_lossy().to_string();
@@ -123,15 +122,6 @@ fn extract_region(
     }
 
     region
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_ui_creative",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        fix_ui_creative,
-    );
 }
 
 #[cfg(test)]

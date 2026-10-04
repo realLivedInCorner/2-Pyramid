@@ -207,30 +207,3 @@ pub fn generate_copper_armor_models(resource_pack_path: &Path) -> Result<(), Str
 
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_copper_ingot",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_copper_ingot(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_copper_block",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_copper_block(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_copper_tools",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_copper_tools(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_copper_armor_models",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_copper_armor_models(context.temp_dir()),
-    );
-}

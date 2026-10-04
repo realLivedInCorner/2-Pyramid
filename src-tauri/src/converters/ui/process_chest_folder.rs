@@ -2,7 +2,6 @@ use std::path::Path;
 
 use image::{imageops, RgbaImage};
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 // ---------- helpers ----------
@@ -210,15 +209,6 @@ pub fn process_chest_folder(path: &Path) -> Result<(), String> {
 
     crate::log_info!("process_chest_folder completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "process_chest_folder",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        |context| process_chest_folder(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

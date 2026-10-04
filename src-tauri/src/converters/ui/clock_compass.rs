@@ -4,7 +4,6 @@ use std::path::Path;
 use image::imageops;
 
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Split a vertical strip image into `retain_num` evenly distributed frames.
 /// Saves frames as `{prefix}_{j:02d}.png` in `output_dir`, then deletes the
@@ -98,15 +97,6 @@ pub fn fix_clock_compass(ctx: &HurrayContext) -> Result<(), String> {
 
     crate::log_info!("clock/compass pass finished");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_clock_compass",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| fix_clock_compass(context),
-    );
 }
 
 #[cfg(test)]

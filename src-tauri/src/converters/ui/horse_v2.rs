@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Copy horse-related slot sprites from the horse folder to the slot folder
 /// with proper renaming.
@@ -40,18 +39,6 @@ pub fn fix2_horse_ui(path: &Path) -> Result<(), String> {
 
     crate::log_info!("fix2_horse_ui completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix2_horse_ui",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| {
-            let path = context.temp_dir();
-            fix2_horse_ui(path)
-        },
-    );
 }
 
 #[cfg(test)]

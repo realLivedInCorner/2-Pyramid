@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
@@ -78,23 +78,4 @@ fn write_json_file(path: &PathBuf, content: &Value) -> io::Result<()> {
 
 pub fn fix_complex_states(_assets_path: &Path) -> io::Result<()> {
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "blockstate_adapter",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| {
-            let temp_dir = context.temp_dir();
-            let assets_path = temp_dir.join("assets");
-
-            generate_blockstates(&assets_path)
-                .map_err(|e| format!("generate blockstates failed: {}", e))?;
-            fix_complex_states(&assets_path)
-                .map_err(|e| format!("fix complex states failed: {}", e))?;
-
-            Ok(())
-        },
-    );
 }

@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::path::Path;
 
 pub fn process_anims_folder(resource_pack_path: &Path) -> Result<(), String> {
@@ -25,16 +25,4 @@ pub fn process_anims_folder(resource_pack_path: &Path) -> Result<(), String> {
 
     crate::log_info!("anims folder processed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "process_anims_folder",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| {
-            let resource_pack_path = context.temp_dir();
-            process_anims_folder(resource_pack_path)
-        },
-    );
 }

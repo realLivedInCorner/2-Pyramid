@@ -191,15 +191,6 @@ pub fn reverse_rename_blocks_items(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_rename_blocks_items",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| reverse_rename_blocks_items(context.temp_dir()),
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

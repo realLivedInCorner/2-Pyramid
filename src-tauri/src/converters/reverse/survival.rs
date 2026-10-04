@@ -2,7 +2,6 @@ use std::path::Path;
 
 use image::{imageops, RgbaImage};
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 pub fn reverse_fix_ui_survival(path: &Path) -> Result<(), String> {
@@ -108,15 +107,6 @@ pub fn reverse_fix_ui_survival(path: &Path) -> Result<(), String> {
 
     crate::log_info!("reverse_fix_ui_survival completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_fix_ui_survival",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| reverse_fix_ui_survival(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

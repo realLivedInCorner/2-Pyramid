@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Reverse the armor models fix: move files from humanoid/ and humanoid_leggings/
 /// back to models/armor/ with the original layer_1/layer_2 naming.
@@ -59,15 +58,6 @@ pub fn reverse_fix_armor_models(path: &Path) -> Result<(), String> {
 
     crate::log_info!("reverse_fix_armor_models completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_fix_armor_models",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| reverse_fix_armor_models(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

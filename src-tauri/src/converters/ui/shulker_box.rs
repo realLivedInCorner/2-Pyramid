@@ -74,12 +74,3 @@ pub fn generate_shulker_box_ui(resource_pack_path: &Path) -> Result<(), String> 
     crate::log_info!("generated shulker_box.png");
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_shulker_box_ui",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_shulker_box_ui(context.temp_dir()),
-    );
-}

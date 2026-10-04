@@ -212,7 +212,6 @@ impl<'a> PackView<'a> {
 mod tests {
     use super::*;
     use crate::arom::layer::Pack;
-    use crate::arom::limits::SafeLimits;
     use crate::arom::source::MemSource;
 
     fn pack_with_mcmeta(json: &str, extra: Vec<(&str, Vec<u8>)>) -> Pack {
@@ -264,7 +263,8 @@ mod tests {
             br#"{"pack":{"pack_format":97,"description":"new"}}"#.to_vec(),
         )
         .expect("put");
-        tx.commit().expect("commit");
+        let layer = tx.into_layer();
+        pack.commit(layer);
 
         let meta = pack.view().mcmeta().expect("mcmeta");
         assert_eq!(meta.description, "new", "写入必须让缓存失效");
@@ -324,7 +324,8 @@ mod tests {
         let mut tx = pack.tx("test");
         let new_img = image::RgbaImage::from_pixel(2, 2, image::Rgba([9, 9, 9, 255]));
         tx.put_image("t.png", &new_img).expect("put_image");
-        tx.commit().expect("commit");
+        let layer = tx.into_layer();
+        pack.commit(layer);
 
         let img = pack.view().image("t.png").expect("image");
         assert_eq!((img.width(), img.height()), (2, 2), "缓存必须失效");

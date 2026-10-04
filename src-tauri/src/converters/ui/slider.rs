@@ -1,4 +1,4 @@
-﻿use std::path::Path;
+use std::path::Path;
 
 use image::Rgba;
 
@@ -83,16 +83,4 @@ fn copy_and_paste_region(
             }
         }
     }
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_slider",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| {
-            let temp_dir = context.temp_dir();
-            fix_slider(temp_dir)
-        },
-    );
 }

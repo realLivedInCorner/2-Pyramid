@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::path::Path;
 
 use walkdir::WalkDir;
@@ -84,20 +84,6 @@ fn update_sound_json(temp_dir: &str) -> Result<(), String> {
 
     crate::log_info!("sounds.json found, update is currently a no-op");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "convert_sound_files",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| {
-            let temp_dir_str = context.temp_dir().to_string_lossy().to_string();
-            convert_sound_files(&temp_dir_str)?;
-            update_sound_json(&temp_dir_str)?;
-            Ok(())
-        },
-    );
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::path::Path;
 
 pub fn convert_old_texture_paths(resource_pack_path: &Path) -> Result<(), String> {
@@ -29,16 +29,4 @@ pub fn convert_old_texture_paths(resource_pack_path: &Path) -> Result<(), String
 
     crate::log_info!("old texture path conversion completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "convert_old_texture_paths",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Eraser,
-        |context| {
-            let resource_pack_path = context.temp_dir();
-            convert_old_texture_paths(resource_pack_path)
-        },
-    );
 }

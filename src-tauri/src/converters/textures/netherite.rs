@@ -135,30 +135,3 @@ pub fn generate_netherite_armor_models(resource_pack_path: &Path) -> Result<(), 
 
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_netherite_block",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_netherite_block(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_netherite_ingot",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_netherite_ingot(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_netherite_tools",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_netherite_tools(context.temp_dir()),
-    );
-    engine.register_task(
-        "generate_netherite_armor_models",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_netherite_armor_models(context.temp_dir()),
-    );
-}

@@ -3,7 +3,6 @@ use std::path::Path;
 
 use image::{imageops, RgbaImage};
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 // ---------- Smithing2 part ----------
@@ -209,15 +208,6 @@ pub fn fix_smithing2_villager2_ui(path: &Path) -> Result<(), String> {
 
     crate::log_info!("fix_smithing2_villager2_ui completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_smithing2_villager2_ui",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        |context| fix_smithing2_villager2_ui(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

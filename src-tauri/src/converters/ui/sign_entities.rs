@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 
 use crate::converters::color::hue::adjust_hue_brightness;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Generate 11 wood-variant sign entity textures from the base sign.png using
 /// hue/brightness/saturation adjustment, then delete the original.
@@ -63,15 +62,6 @@ pub fn fix_sign_entities(path: &Path) -> Result<(), String> {
 
     crate::log_info!("fix_sign_entities completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_sign_entities",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        |context| fix_sign_entities(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

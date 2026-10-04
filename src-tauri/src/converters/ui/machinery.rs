@@ -3,7 +3,6 @@ use std::path::Path;
 
 use image::{imageops, RgbaImage};
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 /// Open shulker_box.png, determine scale, fill cover_box, paste region at
@@ -238,15 +237,6 @@ pub fn fix_machinery_ui(path: &Path) -> Result<(), String> {
 
     crate::log_info!("fix_machinery_ui completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_machinery_ui",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        |context| fix_machinery_ui(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

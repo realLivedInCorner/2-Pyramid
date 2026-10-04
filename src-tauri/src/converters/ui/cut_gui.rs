@@ -1,7 +1,6 @@
 use crate::converters::ui::gui_surgeon::GuiSurgeon;
 use crate::hurray::context::HurrayContext;
 use crate::hurray::resolution::ResolutionTransducer;
-use crate::hurray::scheduler::{TaskType, TaskTier};
 use crate::hurray::texture::TexturePool;
 
 /// Cut GUI sprites using GuiSurgeon
@@ -24,24 +23,6 @@ pub fn cut_gui(context: &HurrayContext) -> Result<(), String> {
     pool.commit_all().map_err(|e| e.to_string())?;
 
     Ok(())
-}
-
-/// Register cut_gui task to the engine
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "cut_gui",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| {
-            cut_gui(context)
-        }
-    );
-}
-
-/// Register cut_gui task with full dependencies
-pub fn register_task_with_deps(engine: &mut crate::hurray::engine::HurrayEngine) {
-    // 这个函数将在scheduler支持传递更多参数时使用
-    // 目前保留为未来扩展
 }
 
 #[cfg(test)]

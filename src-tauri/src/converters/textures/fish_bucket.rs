@@ -64,12 +64,3 @@ pub fn generate_fish_bucket(resource_pack_path: &Path) -> Result<(), String> {
     crate::log_info!("generated fish buckets");
     Ok(())
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_fish_bucket",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_fish_bucket(context.temp_dir()),
-    );
-}

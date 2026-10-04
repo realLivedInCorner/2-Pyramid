@@ -383,7 +383,8 @@ mod tests {
             let mut tx = pack.tx("test");
             tx.put("a.txt", b"new content".to_vec()).expect("put");
             tx.mkdir("created/empty").expect("mkdir");
-            tx.commit().expect("commit");
+            let layer = tx.into_layer();
+            pack.commit(layer);
         }
 
         let out = tmp.path().join("out.zip");
@@ -462,7 +463,8 @@ mod tests {
         {
             let mut tx = pack.tx("test");
             tx.alias("a.txt", "b.txt").expect("alias");
-            tx.commit().expect("commit");
+            let layer = tx.into_layer();
+            pack.commit(layer);
         }
 
         let out = tmp.path().join("out.zip");

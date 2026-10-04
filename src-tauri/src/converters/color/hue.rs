@@ -99,18 +99,4 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
     (((r + m) * 255.0) as u8, ((g + m) * 255.0) as u8, ((b + m) * 255.0) as u8)
 }
 
-/// 注册色相亮度调整任务
-///
-/// # 参数
-/// - `engine`: Hurray 引擎
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "adjust_hue_brightness", crate::hurray::scheduler::TaskType::Parallel, crate::hurray::scheduler::TaskTier::Surgeon, |_context| {
-            // adjust_hue_brightness 是一个工具函数，不需要直接注册为任务
-            // 它会被其他模块在内部调用
-            Ok(())
-        }
-    );
-}
-
 

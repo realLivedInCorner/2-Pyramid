@@ -561,10 +561,6 @@ pub fn repack_resource_pack(source_dir: &str, target_zip: &str) -> Result<(), St
     Ok(())
 }
 
-pub fn register_task(_engine: &mut crate::hurray::engine::HurrayEngine) {
-    // ZIP utilities are orchestrated directly by version_converter.
-}
-
 fn compression_method_for_path(name: &str) -> zip::CompressionMethod {
     let lower = name.to_ascii_lowercase();
     let stored_exts = [

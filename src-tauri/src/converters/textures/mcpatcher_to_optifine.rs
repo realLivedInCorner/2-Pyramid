@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::path::Path;
 
 pub fn rename_mcpatcher_to_optifine(resource_pack_path: &Path) -> Result<(), String> {
@@ -26,13 +26,4 @@ pub fn rename_mcpatcher_to_optifine(resource_pack_path: &Path) -> Result<(), Str
 
     crate::log_info!("renamed mcpatcher to optifine");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "rename_mcpatcher_to_optifine",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Eraser,
-        |context| rename_mcpatcher_to_optifine(context.temp_dir()),
-    );
 }

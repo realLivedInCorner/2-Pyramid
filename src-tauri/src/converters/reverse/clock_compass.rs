@@ -3,7 +3,6 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 /// Vertically merge a list of image file paths into a single output image,
@@ -105,15 +104,6 @@ pub fn reverse_fix_clock_compass(ctx: &HurrayContext) -> Result<(), String> {
 
     crate::log_info!("reverse_fix_clock_compass completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_fix_clock_compass",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| reverse_fix_clock_compass(context),
-    );
 }
 
 #[cfg(test)]

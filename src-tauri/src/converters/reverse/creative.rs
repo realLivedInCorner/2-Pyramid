@@ -2,7 +2,6 @@ use std::path::Path;
 
 use image::imageops;
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 /// Reverse the creative UI fix on `tab_inventory.png`.
@@ -60,15 +59,6 @@ pub fn reverse_fix_ui_creative(path: &Path) -> Result<(), String> {
 
     crate::log_info!("reverse_fix_ui_creative completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_fix_ui_creative",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| reverse_fix_ui_creative(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

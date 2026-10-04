@@ -1,7 +1,6 @@
 use image::RgbaImage;
 
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskTier, TaskType};
 
 /// Overlay `icons_{size}.png` from UImage/icons/ onto `icons.png`.
 pub fn overlay_icons(ctx: &HurrayContext) -> Result<(), String> {
@@ -92,15 +91,6 @@ fn alpha_paste(base: &mut RgbaImage, overlay: &RgbaImage, dest_x: u32, dest_y: u
             }
         }
     }
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "overlay_icons",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| overlay_icons(context),
-    );
 }
 
 #[cfg(test)]

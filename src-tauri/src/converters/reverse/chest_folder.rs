@@ -2,7 +2,6 @@ use std::path::Path;
 
 use image::{imageops, RgbaImage};
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
 use crate::image_utils::paste_region;
 
 /// swap_and_mirror: swap two regions, then flip each LR+TB in place.
@@ -91,15 +90,6 @@ pub fn reverse_process_chest_folder(path: &Path) -> Result<(), String> {
 
     crate::log_info!("reverse_process_chest_folder completed");
     Ok(())
-}
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "reverse_process_chest_folder",
-        TaskType::Hybrid,
-        TaskTier::Surgeon,
-        |context| reverse_process_chest_folder(context.temp_dir()),
-    );
 }
 
 #[cfg(test)]

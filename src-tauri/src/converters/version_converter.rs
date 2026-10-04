@@ -838,10 +838,6 @@ pub fn process_zip_timed(
     Ok((output_path.to_string_lossy().to_string(), timing))
 }
 
-pub fn register_task(_engine: &mut crate::hurray::engine::HurrayEngine) {
-    // Not a standalone task: this module orchestrates end-to-end ZIP conversion.
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

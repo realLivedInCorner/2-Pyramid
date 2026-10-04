@@ -197,15 +197,6 @@ pub fn register_scheduler_task(scheduler: &mut crate::hurray::scheduler::Schedul
     );
 }
 
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_alpha_layers_in_textures",
-        crate::hurray::scheduler::TaskType::Exclusive,
-        crate::hurray::scheduler::TaskTier::Surgeon,
-        |context| fix_alpha_layers_in_textures(context.temp_dir()),
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

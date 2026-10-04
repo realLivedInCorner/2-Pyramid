@@ -14,7 +14,6 @@ use std::fs;
 
 use crate::converters::color::hue::adjust_hue_brightness;
 use crate::hurray::context::HurrayContext;
-use crate::hurray::scheduler::{TaskType, TaskTier};
 
 /// Repairs sign textures.
 ///
@@ -84,16 +83,6 @@ pub fn fix_sign(context: &HurrayContext) -> Result<(), String> {
 
     crate::log_info!("已修复告示牌纹理");
     Ok(())
-}
-
-/// Register the sign-fix task with the engine.
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "fix_sign",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        fix_sign,
-    );
 }
 
 #[cfg(test)]

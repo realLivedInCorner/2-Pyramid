@@ -238,10 +238,14 @@ pub enum ConflictPolicy {
 }
 
 /// 一个受管资源包：不可变基座 + 已提交的层 + 字节仓库 + 类型化视图缓存。
+///
+/// `blobs` 与 `cache` 在 `Mutex` 后面：这样 `Tx` 只借用 `&Pack`，
+/// **同一波次里的多个任务可以各自持有事务并发写入**（层本身互不相交，
+/// 冲突由 [`Pack::commit_batch`] 在合并时检测）。
 pub struct Pack {
     base: BasePack,
     source: Box<dyn Source>,
-    blobs: BlobStore,
+    blobs: Mutex<BlobStore>,
     layers: Vec<Layer>,
     version: u64,
     cache: Mutex<super::view::ViewCache>,
@@ -253,7 +257,7 @@ impl Pack {
         Ok(Self {
             base,
             source,
-            blobs: BlobStore::new(blob_limit),
+            blobs: Mutex::new(BlobStore::new(blob_limit)),
             layers: Vec::new(),
             version: 0,
             cache: Mutex::new(super::view::ViewCache::default()),
@@ -273,8 +277,9 @@ impl Pack {
         self.source.as_ref()
     }
 
-    pub fn blobs(&self) -> &BlobStore {
-        &self.blobs
+    /// 字节仓库。锁只在取/放单个 blob 期间持有，不跨读取。
+    pub fn blobs(&self) -> std::sync::MutexGuard<'_, BlobStore> {
+        self.blobs.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     pub fn layers(&self) -> &[Layer] {
@@ -325,7 +330,7 @@ impl Pack {
     pub fn read_body(&self, body: &Body) -> Result<Vec<u8>, AromError> {
         match body {
             Body::Base { src_idx } => self.source.read(*src_idx),
-            Body::Blob(id) => Ok(self.blobs.get(*id)?.as_ref().clone()),
+            Body::Blob(id) => Ok(self.blobs().get(*id)?.as_ref().clone()),
             Body::Alias(target) => {
                 let resolved = self.view().resolve(target).ok_or_else(|| {
                     AromError::internal(format!("alias target not found: {target}"))
@@ -340,7 +345,7 @@ impl Pack {
     }
 
     fn blob_len(&self, id: BlobId) -> Result<u64, AromError> {
-        Ok(self.blobs.get(id)?.len() as u64)
+        Ok(self.blobs().get(id)?.len() as u64)
     }
 
     /// 视图缓存读取（版本变化即整体作废）。
@@ -437,8 +442,9 @@ impl Pack {
         })
     }
 
-    /// 开始一个事务（未迁移的任务通过 `PathView` 使用同一入口）。
-    pub fn tx(&mut self, origin: &str) -> Tx<'_> {
+    /// 开始一个事务。只借用 `&self`：**多个任务可以同时持事务并发写**，
+    /// 各自的层互不相交，冲突在 [`Pack::commit_batch`] 合并时检测。
+    pub fn tx(&self, origin: &str) -> Tx<'_> {
         Tx {
             pack: self,
             layer: Layer::new(),
@@ -596,7 +602,7 @@ impl<'a> PackView<'a> {
 
 /// 事务：读走视图（含自己的在途写入），写只落到自己的层。
 pub struct Tx<'a> {
-    pack: &'a mut Pack,
+    pack: &'a Pack,
     layer: Layer,
     origin: String,
 }
@@ -625,8 +631,36 @@ impl<'a> Tx<'a> {
         self.view().read(path)
     }
 
+    // ── 只读访问器：一律返回 owned 数据，因此「先读后写」不会与 `&mut self` 冲突 ──
+
+    pub fn exists(&self, path: &str) -> bool {
+        self.view().resolve(path).is_some()
+    }
+
+    /// 列出前缀下的条目（owned）。
+    pub fn list(&self, prefix: &str) -> Result<Vec<Resolved>, AromError> {
+        let prefix = prefix.trim_end_matches('/').to_string();
+        let entries = self.view().entries()?;
+        Ok(entries
+            .into_iter()
+            .filter(|r| is_under(&r.path, &prefix))
+            .collect())
+    }
+
+    pub fn text(&self, path: &str) -> Result<String, AromError> {
+        self.view().text(path)
+    }
+
+    pub fn json(&self, path: &str) -> Result<serde_json::Value, AromError> {
+        self.view().json(path)
+    }
+
+    pub fn image(&self, path: &str) -> Result<Arc<RgbaImage>, AromError> {
+        self.view().image(path)
+    }
+
     pub fn put(&mut self, path: &str, bytes: Vec<u8>) -> Result<(), AromError> {
-        let id = self.pack.blobs.put(bytes)?;
+        let id = self.pack.blobs().put(bytes)?;
         self.layer.set(path, Slot::Present(Body::Blob(id)));
         Ok(())
     }
@@ -684,15 +718,17 @@ impl<'a> Tx<'a> {
         Ok(())
     }
 
-    /// 取出层（供批量提交与冲突检测），不提交。
+    /// 取出层；交给 [`Pack::commit`] 或 [`Pack::commit_batch`] 合并。
+    ///
+    /// 事务只持有 `&Pack`（这样同一波次的任务可以**并发**持事务），因此提交必须由
+    /// `Pack` 侧发起：
+    ///
+    /// ```text
+    /// let layer = tx.into_layer();
+    /// pack.commit(layer);
+    /// ```
     pub fn into_layer(self) -> Layer {
         self.layer
-    }
-
-    /// 提交并把层交给 `Pack`。消费事务，避免提交后继续写入。
-    pub fn commit(self) -> Result<(), AromError> {
-        self.pack.commit(self.layer);
-        Ok(())
     }
 
     /// 丢弃（回滚）：层被 drop，包保持原状。
@@ -807,7 +843,10 @@ mod tests {
             tx.read("assets/a.txt").expect("read").expect("some"),
             b"changed"
         );
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
 
         assert_eq!(
             pack.view().read("assets/a.txt").expect("read").expect("some"),
@@ -821,7 +860,10 @@ mod tests {
         let mut pack = tree();
         let mut tx = pack.tx("eraser");
         tx.remove("assets").expect("remove");
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
 
         let view = pack.view();
         assert!(view.resolve("assets/a.txt").is_none(), "子树一并隐藏");
@@ -838,7 +880,10 @@ mod tests {
         let mut pack = tree();
         let mut tx = pack.tx("bedrock");
         tx.rename_dir("assets", "x/assets").expect("rename");
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
 
         assert!(
             pack.layers()[0].writes().is_empty(),
@@ -860,7 +905,10 @@ mod tests {
         let mut pack = tree();
         let mut tx = pack.tx("backup");
         tx.copy_dir("assets", "backup").expect("copy");
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
 
         let view = pack.view();
         assert!(view.resolve("assets/a.txt").is_some(), "Copy：原路径保留");
@@ -877,7 +925,10 @@ mod tests {
         let mut pack = tree();
         let mut tx = pack.tx("alias");
         tx.alias("assets/a.txt", "copy.txt").expect("alias");
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
 
         assert_eq!(pack.blobs().len(), 0, "别名不产生新字节");
         assert_eq!(pack.blobs().bytes(), 0);
@@ -962,7 +1013,10 @@ mod tests {
         let mut pack = tree();
         let mut tx = pack.tx("t1");
         tx.mkdir("new/empty").expect("mkdir");
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
 
         let view = pack.view();
         let dir = view.resolve("new/empty").expect("resolved");
@@ -970,7 +1024,10 @@ mod tests {
 
         let mut tx = pack.tx("t2");
         tx.put("new/empty", b"now a file".to_vec()).expect("put");
-        tx.commit().expect("commit");
+        {
+            let layer = tx.into_layer();
+            pack.commit(layer);
+        }
         let file = pack.view().resolve("new/empty").expect("resolved");
         assert!(!file.is_dir, "后写入的文件覆盖目录语义");
         assert_eq!(file.len, 10, "`now a file` 共 10 字节");

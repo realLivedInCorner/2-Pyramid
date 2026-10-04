@@ -241,20 +241,6 @@ fn determine_scale_factor(width: u32, height: u32) -> Result<f32, String> {
     }
 }
 
-/// 注册生存模式背包界面修复任务
-///
-/// # 参数
-/// - `engine`: Hurray 引擎
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    use crate::hurray::scheduler::{TaskType, TaskTier};
-    engine.register_task(
-        "fix_ui_survival",
-        TaskType::Exclusive,
-        TaskTier::Surgeon,
-        fix_ui_survival
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

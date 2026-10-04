@@ -76,12 +76,3 @@ fn apply_top_third_transparency_region(img: &mut RgbaImage, width: u32, y_offset
         }
     }
 }
-
-pub fn register_task(engine: &mut crate::hurray::engine::HurrayEngine) {
-    engine.register_task(
-        "generate_potion_lingering",
-        crate::hurray::scheduler::TaskType::Parallel,
-        crate::hurray::scheduler::TaskTier::Architect,
-        |context| generate_potion_lingering(context.temp_dir()),
-    );
-}
