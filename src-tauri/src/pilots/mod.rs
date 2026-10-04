@@ -6740,8 +6740,8 @@ pub mod surgeon_machinery {
 /// `ensure_core_json`、`rewrite_json_matrix_types`、`strip_json_uniforms_for_ubo`、
 /// `adapt_post_paths`、`walk_dir` 的遍历骨架。**因此本模块暂不派发**（生产路径不变）。
 ///
-/// 未派发期间这些函数暂时"只被测试用到"，故整块允许 `dead_code`——**派发后应移除此属性**。
-#[allow(dead_code)]
+/// 未派发期间这些函数暂时**只被测试用到**，所以按本仓约定整块标 `#[cfg(test)]`——**派发时应移除该属性**。
+#[cfg(test)]
 pub mod shader_adapt {
     /// 旧 `rewrite_import_path`：`<a/b.glsl>` → `<a:b.glsl>`；`"x.glsl"` 保持引号形式。
     pub fn rewrite_import_path(rest: &str) -> Option<String> {
@@ -6830,6 +6830,255 @@ pub mod shader_adapt {
     /// 旧 `has_globals_import`：是否已经 import 过 globals。
     pub fn has_globals_import(src: &str) -> bool {
         src.contains("globals.glsl")
+    }
+
+    // ───────────────────────── 表格（移植自 `converters/shaders/java.rs`）─────────────────────────
+    //
+    // 这些表是**纯数据**，但逐字错误会静默改变删/改名行为，所以移植时一并抄全，
+    // 并用「表对照」测试（§9.80）在多个 target 上与旧实现比对（排序后逐项相等）。
+
+    /// pack_format 里程碑（与旧实现同名同值）。
+    pub const FMT_MODERN_JSON: u32 = 7;
+    pub const FMT_FOG_DISTANCE: u32 = 32;
+    pub const FMT_IMPORT_NS: u32 = 46;
+    pub const FMT_GLOBALS_INCLUDE: u32 = 63;
+    pub const FMT_ENTITY_BLOCK: u32 = 84;
+    pub const FMT_INCLUDE_DIRECTIVE: u32 = 97;
+
+    /// 共享顶点程序（不得按 stem 补 JSON；可能无同名 json）。
+    pub const SHARED_VERTEX_STEMS: &[&str] = &["screenquad", "animate_sprite"];
+
+    /// 旧 `modern_core_allowlist`：目标版本仍存在的核心程序 stem。
+    pub fn modern_core_allowlist(target: u32) -> Vec<&'static str> {
+        let mut set: Vec<&'static str> = vec![
+            "animate_sprite_blit",
+            "animate_sprite_interpolate",
+            "blit_depth",
+            "blit_screen",
+            "block",
+            "debug_point",
+            "entity",
+            "glint",
+            "gui",
+            "item",
+            "lightmap",
+            "oit_composite",
+            "panorama",
+            "particle",
+            "position",
+            "position_color",
+            "position_tex",
+            "position_tex_color",
+            "rendertype_beacon_beam",
+            "rendertype_crumbling",
+            "rendertype_end_portal",
+            "rendertype_entity_shadow",
+            "rendertype_leash",
+            "rendertype_lightning",
+            "rendertype_lines",
+            "rendertype_outline",
+            "rendertype_text",
+            "rendertype_text_intensity",
+            "rendertype_text_see_through",
+            "rendertype_text_intensity_see_through",
+            "rendertype_water_mask",
+            "sky",
+            "stars",
+            "terrain",
+            "text",
+        ];
+        set.extend_from_slice(SHARED_VERTEX_STEMS);
+        if target >= FMT_ENTITY_BLOCK {
+            set.push("block");
+        }
+        if target >= FMT_INCLUDE_DIRECTIVE {
+            set.push("clouds");
+            set.push("world_border");
+        } else {
+            set.push("rendertype_clouds");
+            set.push("rendertype_world_border");
+            set.push("rendertype_text_background");
+            set.push("rendertype_text_background_see_through");
+        }
+        set.sort_unstable();
+        set
+    }
+
+    /// 旧 `legacy_core_allowlist`：旧版目标仍存在的核心名。
+    pub fn legacy_core_allowlist() -> Vec<&'static str> {
+        let mut set: Vec<&'static str> = vec![
+            "blit_screen",
+            "position",
+            "position_color",
+            "position_tex",
+            "position_tex_color",
+            "position_color_tex",
+            "position_texture",
+            "particle",
+            "rendertype_armor_entity_glint",
+            "rendertype_armor_entity_glint_direct",
+            "rendertype_beacon_beam",
+            "rendertype_block",
+            "rendertype_breeze_spikes",
+            "rendertype_breeze_wind",
+            "rendertype_clouds",
+            "rendertype_crumbling",
+            "rendertype_cutout",
+            "rendertype_cutout_mipped",
+            "rendertype_cutout_mipped_aliased",
+            "rendertype_end_portal",
+            "rendertype_end_gateway",
+            "rendertype_entity",
+            "rendertype_entity_alpha",
+            "rendertype_entity_cutout",
+            "rendertype_entity_cutout_no_cull",
+            "rendertype_entity_cutout_no_cull_z_offset",
+            "rendertype_entity_decal",
+            "rendertype_entity_glint",
+            "rendertype_entity_glint_direct",
+            "rendertype_entity_no_outline",
+            "rendertype_entity_shadow",
+            "rendertype_entity_smooth_cutout",
+            "rendertype_entity_solid",
+            "rendertype_entity_translucent",
+            "rendertype_entity_translucent_cull",
+            "rendertype_entity_translucent_emissive",
+            "rendertype_entity_translucent_no_outline",
+            "rendertype_energy_swirl",
+            "rendertype_glint",
+            "rendertype_glint_direct",
+            "rendertype_glint_translucent",
+            "rendertype_gui",
+            "rendertype_gui_ghost_recipe_overlay",
+            "rendertype_gui_overlay",
+            "rendertype_gui_text_highlight",
+            "rendertype_item",
+            "rendertype_item_entity_translucent_cull",
+            "rendertype_leash",
+            "rendertype_lightning",
+            "rendertype_lines",
+            "rendertype_outline",
+            "rendertype_solid",
+            "rendertype_text",
+            "rendertype_text_background",
+            "rendertype_text_background_see_through",
+            "rendertype_text_intensity",
+            "rendertype_text_intensity_see_through",
+            "rendertype_text_see_through",
+            "rendertype_translucent",
+            "rendertype_translucent_moving_block",
+            "rendertype_translucent_no_crumbling",
+            "rendertype_tripwire",
+            "rendertype_water_mask",
+            "rendertype_world_border",
+            "rendertype_phantom",
+            "rendertype_dragon_explosion_alpha",
+            "rendertype_chain",
+            "screenquad",
+            "animate_sprite",
+            "lightmap",
+            "gui",
+            "sky",
+            "stars",
+            "terrain",
+            "entity",
+            "text",
+            "item",
+            "glint",
+            "clouds",
+            "world_border",
+            "block",
+            "panorama",
+            "oit_composite",
+            "animate_sprite_blit",
+            "animate_sprite_interpolate",
+            "blit_depth",
+            "debug_point",
+        ];
+        set.sort_unstable();
+        set
+    }
+
+    /// 旧 `core_rename_table`：旧名 → 新名（仅 ≥63 之后应用合并改名）。
+    pub fn core_rename_table(target: u32) -> Vec<(&'static str, &'static str)> {
+        if target < FMT_GLOBALS_INCLUDE {
+            return Vec::new();
+        }
+        let mut map: Vec<(&'static str, &'static str)> = vec![
+            ("rendertype_solid", "terrain"),
+            ("rendertype_cutout", "terrain"),
+            ("rendertype_cutout_mipped", "terrain"),
+            ("rendertype_cutout_mipped_aliased", "terrain"),
+            ("rendertype_translucent", "terrain"),
+            ("rendertype_translucent_no_crumbling", "terrain"),
+            ("rendertype_tripwire", "terrain"),
+            ("rendertype_entity_solid", "entity"),
+            ("rendertype_entity_cutout", "entity"),
+            ("rendertype_entity_cutout_no_cull", "entity"),
+            ("rendertype_entity_cutout_no_cull_z_offset", "entity"),
+            ("rendertype_entity_translucent", "entity"),
+            ("rendertype_entity_translucent_cull", "entity"),
+            ("rendertype_entity_translucent_emissive", "entity"),
+            ("rendertype_entity_translucent_no_outline", "entity"),
+            ("rendertype_entity_no_outline", "entity"),
+            ("rendertype_entity_smooth_cutout", "entity"),
+            ("rendertype_energy_swirl", "entity"),
+            ("rendertype_breeze_spikes", "entity"),
+            ("rendertype_breeze_wind", "entity"),
+            ("rendertype_chain", "entity"),
+            ("rendertype_armor_entity_glint", "glint"),
+            ("rendertype_armor_entity_glint_direct", "glint"),
+            ("rendertype_entity_glint", "glint"),
+            ("rendertype_entity_glint_direct", "glint"),
+            ("rendertype_glint", "glint"),
+            ("rendertype_glint_direct", "glint"),
+            ("rendertype_glint_translucent", "glint"),
+            ("position_texture", "position_tex"),
+            ("position_color_tex", "position_tex_color"),
+            ("position_color_tex_lightmap", "position_tex_color"),
+            ("rendertype_gui", "gui"),
+            ("rendertype_gui_overlay", "position_tex_color"),
+            ("rendertype_gui_text_highlight", "gui"),
+            ("rendertype_gui_ghost_recipe_overlay", "gui"),
+            ("rendertype_text", "text"),
+            ("rendertype_text_intensity", "text"),
+            ("rendertype_text_see_through", "text"),
+            ("rendertype_text_intensity_see_through", "text"),
+            ("text_see_through", "text"),
+        ];
+        if target >= FMT_ENTITY_BLOCK {
+            map.push(("rendertype_entity_alpha", "entity"));
+            map.push(("rendertype_entity_decal", "entity"));
+            map.push(("rendertype_item_entity_translucent_cull", "entity"));
+            map.push(("rendertype_translucent_moving_block", "block"));
+        }
+        if target >= FMT_INCLUDE_DIRECTIVE {
+            map.push(("rendertype_clouds", "clouds"));
+            map.push(("rendertype_world_border", "world_border"));
+        }
+        map
+    }
+
+    /// 旧 `core_removed_stems`：目标版本下应直接删除的 stem。
+    pub fn core_removed_stems(target: u32) -> Vec<&'static str> {
+        let mut gone = vec![
+            "position_color_normal",
+            "position_tex_lightmap_color",
+            "position_color_lightmap",
+            "rendertype_end_gateway",
+            "rendertype_dragon_explosion_alpha",
+            "rendertype_phantom",
+            "rendertype_water_mask_offset",
+            "position_tex_lightmap",
+            "position_color_tex_lightmap_color",
+        ];
+        if target >= FMT_INCLUDE_DIRECTIVE {
+            gone.push("text_background");
+            gone.push("text_background_see_through");
+            gone.push("rendertype_text_background");
+            gone.push("rendertype_text_background_see_through");
+        }
+        gone
     }
 }
 /// **Surgeon 组（续）**：`fix_ui_survival` —— 生存背包界面的四步修复。

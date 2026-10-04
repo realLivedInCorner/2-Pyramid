@@ -989,7 +989,7 @@ fn remove_dir_quiet(p: &Path) {
 /// **给 `pilots::shader_adapt` 的逐函数对照用**（§9.79）：把四个**纯文本**改写函数
 /// 暴露给 crate 内部，使原生移植版能与旧实现**在同一语料上逐函数比对**。
 /// 只读、不改语义，也不参与生产路径。
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) mod legacy_text_ops {
     /// 旧 `convert_moj_import_to_include`。
     pub(crate) fn convert_moj_import_to_include(src: &str) -> (String, usize) {
@@ -1010,6 +1010,31 @@ pub(crate) mod legacy_text_ops {
     /// 旧 `has_globals_import`。
     pub(crate) fn has_globals_import(src: &str) -> bool {
         super::has_globals_import(src)
+    }
+
+    /// 旧 `modern_core_allowlist`（排序后返回，便于与移植版逐项比对）。
+    pub(crate) fn modern_core_allowlist(target: u32) -> Vec<&'static str> {
+        let mut v: Vec<&'static str> = super::modern_core_allowlist(target).into_iter().collect();
+        v.sort_unstable();
+        v
+    }
+    /// 旧 `legacy_core_allowlist`（排序后返回）。
+    pub(crate) fn legacy_core_allowlist() -> Vec<&'static str> {
+        let mut v: Vec<&'static str> = super::legacy_core_allowlist().into_iter().collect();
+        v.sort_unstable();
+        v
+    }
+    /// 旧 `core_rename_table`。
+    pub(crate) fn core_rename_table(target: u32) -> Vec<(&'static str, &'static str)> {
+        super::core_rename_table(target)
+    }
+    /// 旧 `core_removed_stems`。
+    pub(crate) fn core_removed_stems(target: u32) -> Vec<&'static str> {
+        super::core_removed_stems(target)
+    }
+    /// 旧 `SHARED_VERTEX_STEMS`。
+    pub(crate) fn shared_vertex_stems() -> &'static [&'static str] {
+        super::SHARED_VERTEX_STEMS
     }
 }
 

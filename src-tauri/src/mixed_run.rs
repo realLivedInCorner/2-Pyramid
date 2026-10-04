@@ -1586,6 +1586,65 @@ mod tests {
         assert!(problems.is_empty(), "逐函数对照差异：{problems:#?}");
     }
 
+    /// **`shader_adapt` 的表格对照**（默认忽略，§9.80）。
+    ///
+    /// 移植的四张表是**纯数据**，但一个字符之差就会静默改变「删哪些 / 改成什么名」——
+    /// 因此这里在**多个 target** 上把「原生表」与「旧表」排序后逐项比对
+    /// （包括里程碑边界 7/32/46/63/84/97 的两侧）。
+    #[test]
+    #[ignore]
+    fn shader_adapt_tables_match_the_legacy_implementation() {
+        use crate::converters::shaders::java::legacy_text_ops as legacy;
+        use crate::pilots::shader_adapt as native;
+
+        let mut problems: Vec<String> = Vec::new();
+        let mut checked = 0usize;
+        // 覆盖各里程碑的两侧 + 常规值
+        for target in [
+            1u32, 6, 7, 8, 31, 32, 33, 45, 46, 47, 62, 63, 64, 83, 84, 85, 96, 97, 98, 120,
+        ] {
+            let a = legacy::modern_core_allowlist(target);
+            let b = native::modern_core_allowlist(target);
+            // 旧实现用 `HashSet`（天然去重），移植版用 `Vec` 并会重复 push（如 `block`）——
+            // 因此这里比较的是**去重后的集合**（同一集合即语义相同；§9.80 实测到过这个差异）
+            let a_set: std::collections::BTreeSet<&str> = a.iter().copied().collect();
+            let b_set: std::collections::BTreeSet<&str> = b.iter().copied().collect();
+            if a_set != b_set {
+                let only_legacy: Vec<&&str> = a_set.difference(&b_set).collect();
+                let only_native: Vec<&&str> = b_set.difference(&a_set).collect();
+                problems.push(format!(
+                    "target={target}: modern_core_allowlist 不同（旧独有 {only_legacy:?} / 原生独有 {only_native:?}）"
+                ));
+            }
+            let a = legacy::core_rename_table(target);
+            let b = native::core_rename_table(target);
+            if a != b {
+                problems.push(format!(
+                    "target={target}: core_rename_table 不同（旧 {} 项 / 原生 {} 项）",
+                    a.len(),
+                    b.len()
+                ));
+            }
+            let a = legacy::core_removed_stems(target);
+            let b = native::core_removed_stems(target);
+            if a != b {
+                problems.push(format!("target={target}: core_removed_stems 不同"));
+            }
+            checked += 3;
+        }
+        // 与 target 无关的两张表
+        if legacy::legacy_core_allowlist() != native::legacy_core_allowlist() {
+            problems.push("legacy_core_allowlist 不同".to_string());
+        }
+        if legacy::shared_vertex_stems() != native::SHARED_VERTEX_STEMS {
+            problems.push("SHARED_VERTEX_STEMS 不同".to_string());
+        }
+        checked += 2;
+
+        println!("shader_adapt 表格对照：{checked} 项");
+        assert!(problems.is_empty(), "表格对照差异：{problems:#?}");
+    }
+
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
     #[test]
     fn scope_violations_flags_out_of_scope_writes() {
