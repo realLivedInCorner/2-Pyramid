@@ -508,6 +508,16 @@ fn native_placements(
 pub(crate) fn native_for_probe(
     name: &str,
 ) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
+    // `generate_shulker_box_ui` 的实现在闭包里**但不在派发表里**（§9.51：它的正确位置在
+    // Architect 旧任务之后、Surgeon 旧任务之前，那个位置要等 Surgeon 原生化后才存在）。
+    // 夹具正题可以直接验证它的算法，因此这里额外暴露；生产路径不受影响。
+    if name == "generate_shulker_box_ui" {
+        return Some((
+            "shulker_box_gen",
+            crate::pilots::shulker_box_gen::decl(),
+            crate::pilots::shulker_box_gen::run,
+        ));
+    }
     native_for(name, &NativeSwitches::all())
 }
 

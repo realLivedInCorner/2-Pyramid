@@ -2486,7 +2486,7 @@ mod tests {
         //    路径换成新格式；目标是 16x16，与上面探测的覆盖图同名尺寸对齐。
         let item = "assets/minecraft/textures/item";
         let items_legacy = "assets/minecraft/textures/items";
-        let sources: [(&str, &str); 8] = [
+        let sources: [(&str, &str); 9] = [
             (
                 "assets/minecraft/textures/items/bow_standby.png",
                 &format!("{item}/bow.png"),
@@ -2516,6 +2516,11 @@ mod tests {
             (
                 "assets/minecraft/textures/items/bucket_lava.png",
                 &format!("{item}/milk_bucket_overlay_probe.png"),
+            ),
+            // `shulker_box_ui` 的输入：真实包里有 1.9 路径的 `gui/container/generic_54.png`
+            (
+                "assets/minecraft/textures/gui/container/generic_54.png",
+                "assets/minecraft/textures/gui/container/generic_54.png",
             ),
         ];
 
@@ -2559,6 +2564,7 @@ mod tests {
                 "generate_tipped_arrow_images",
                 "generate_snow_bucket",
                 "generate_fish_bucket",
+                "generate_shulker_box_ui",
             ] {
                 let (_, _, run) = crate::mixed_run::native_for_probe(name)
                     .unwrap_or_else(|| panic!("{name} 未在派发表里"));
@@ -2571,7 +2577,7 @@ mod tests {
         }
 
         // ⑤ 跑旧函数并逐个输出对比
-        let cases: [(&str, fn(&std::path::Path) -> Result<(), String>, Vec<String>); 4] = [
+        let cases: [(&str, fn(&std::path::Path) -> Result<(), String>, Vec<String>); 5] = [
             (
                 "generate_crossbow",
                 crate::converters::textures::crossbow::generate_crossbow,
@@ -2607,6 +2613,13 @@ mod tests {
                     .iter()
                     .map(|n| format!("{item}/{n}_bucket.png"))
                     .collect(),
+            ),
+            (
+                "generate_shulker_box_ui",
+                crate::converters::ui::shulker_box::generate_shulker_box_ui,
+                vec![format!(
+                    "assets/minecraft/textures/gui/container/shulker_box.png"
+                )],
             ),
         ];
 
@@ -3614,6 +3627,98 @@ pub mod arch_gen2 {
             "generate_fish_bucket" => Some((fish_bucket::decl(), fish_bucket::run)),
             _ => None,
         }
+    }
+}
+
+/// `generate_shulker_box_ui`：由 `gui/container/generic_54.png` 派生 `shulker_box.png`。
+///
+/// 语义逐条照抄（**已完成，但暂不派发**——见 §9.51/§9.52）：
+/// 1. `determine_scale_factor`：在 {1,2,4,8} 里取 `candidate*256` 与 `max(w,h)` **最接近**者
+///    （`exact` 标志在旧实现里**没被使用**，因此这里也不需要）；
+/// 2. 清空 `x ∈ [0, 176s)`、`y ∈ [71s, 127s)`（越界处按 `x<width && y<height` 跳过）；
+/// 3. 把 `y ∈ [127s, 222s)` 整体**上移 56s**（`saturating_sub`），并把原区间清空——
+///    **所有读取都来自原图**（旧实现读 `img` 写 `new_img`），因此源区与目标区重叠时不会自我覆盖。
+///
+/// **为什么暂不派发**：它的输入 `generic_54.png` 被**更高阶段**（Surgeon 的 GUI 切片链）的旧任务消费，
+/// 而它的输出又要在那之前就位——即它需要「Architect 旧任务之后、Surgeon 旧任务之前」这个**中间位置**。
+/// 旧批次不可拆分（§9.42），所以这个位置在 Surgeon 也原生化之前并不存在（§9.51）。
+/// 实现与语义已就绪，等 Surgeon 就绪后随该阶段一起验收派发。
+pub mod shulker_box_gen {
+    use super::*;
+
+    const CONTAINER: &str = "assets/minecraft/textures/gui/container";
+    const GENERIC: &str = "assets/minecraft/textures/gui/container/generic_54.png";
+
+    /// 旧 `determine_scale_factor`：返回最接近 `max(w,h)` 的 256 的倍数。
+    fn determine_scale_factor(width: u32, height: u32) -> u32 {
+        let candidates = [1u32, 2, 4, 8];
+        let image_size = width.max(height);
+        let mut best = candidates[0];
+        let mut best_delta = (candidates[0] * 256).abs_diff(image_size);
+        for &candidate in &candidates[1..] {
+            let delta = (candidate * 256).abs_diff(image_size);
+            if delta < best_delta {
+                best = candidate;
+                best_delta = delta;
+            }
+        }
+        best
+    }
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("generate_shulker_box_ui", Tier::Architect)
+            .reads(ScopeSet::prefix(CONTAINER))
+            .writes(ScopeSet::prefix(CONTAINER))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        if !tx.exists(GENERIC) {
+            return Ok(Outcome::default());
+        }
+        let img: RgbaImage = (*tx.image(GENERIC)?).clone();
+        let (width, height) = img.dimensions();
+        if width == 0 || height == 0 {
+            return Ok(Outcome::default());
+        }
+
+        let s = determine_scale_factor(width, height);
+        let mut new_img = img.clone();
+
+        let x_max = 176 * s;
+        let clear_start = 71 * s;
+        let clear_end = 127 * s;
+        for x in 0..x_max {
+            for y in clear_start..clear_end {
+                if x < width && y < height {
+                    new_img.put_pixel(x, y, image::Rgba([0, 0, 0, 0]));
+                }
+            }
+        }
+
+        let move_start = 127 * s;
+        let move_end = 222 * s;
+        let move_delta = 56 * s;
+        for x in 0..x_max {
+            for y in move_start..move_end {
+                if x < width && y < height {
+                    let new_y = y.saturating_sub(move_delta);
+                    if new_y < height {
+                        let pixel = img.get_pixel(x, y);
+                        new_img.put_pixel(x, new_y, *pixel);
+                    }
+                    new_img.put_pixel(x, y, image::Rgba([0, 0, 0, 0]));
+                }
+            }
+        }
+
+        tx.mkdir(CONTAINER)?;
+        tx.put_image(&format!("{CONTAINER}/shulker_box.png"), &new_img)?;
+        Ok(Outcome {
+            changed: 1,
+            notes: vec!["generic_54.png -> shulker_box.png".into()],
+            ..Outcome::default()
+        })
     }
 }
 
