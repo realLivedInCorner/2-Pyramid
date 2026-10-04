@@ -359,9 +359,22 @@ mod tests {
         write_zip(&pack, &view, &a, &SerializeOptions::default()).expect("a");
         write_zip(&pack, &view, &b, &SerializeOptions::default()).expect("b");
 
-        let ha = std::fs::read(&a).expect("read a");
-        let hb = std::fs::read(&b).expect("read b");
-        assert_eq!(ha, hb, "同输入必须产出逐字节相同的容器");
+        // 注意：**不能**断言整个容器逐字节相同——序列化与旧管线一样，时间戳取的是
+        // 「运行时刻」（`FileOptions::default()` → `OffsetDateTime::now_utc()`，DOS 2 秒精度），
+        // 两次独立运行必然可能不同（详见细则 §9.6 F 与闸门的 `container_mtime_only`）。
+        // 确定性应当断言在「内容 + 条目集合 + 压缩方法 / 压缩字节」上。
+        let report = crate::converters::pack_diff::diff_containers(&a, &b).expect("diff");
+        assert_eq!(report.blocking, 0, "同输入的内容必须相同：{:?}", report.diffs);
+        assert_eq!(
+            report.container_entry_set_blocking, 0,
+            "同输入的条目集合必须相同：{:?}",
+            report.container
+        );
+        assert_eq!(
+            report.container_byte_only, 0,
+            "同输入的压缩方法/压缩字节必须相同：{:?}",
+            report.container
+        );
     }
 
     #[test]

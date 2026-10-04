@@ -369,7 +369,13 @@ pub fn scope_violations(decl: &TaskDecl, layer: &Layer) -> Vec<String> {
 }
 
 /// 把一层写入落到 workdir，使目录镜像与 pack 保持一致。
-fn apply_layer_to_workdir(pack: &Pack, workdir: &Path, layer: &Layer) -> Result<(), AromError> {
+pub(crate) fn apply_layer_to_workdir(
+    pack: &Pack,
+    workdir: &Path,
+    layer: &Layer,
+) -> Result<(), AromError> {
+    // 顺序与 `entries()` 一致：先套用本层改名规则，再套用本层写入
+    apply_renames_to_workdir(workdir, layer)?;
     for (path, slot) in layer.writes() {
         let full = workdir.join(path);
         match slot {
@@ -446,6 +452,86 @@ fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     format!("{:x}", hasher.finalize())
+}
+
+
+/// 把一层的**改名规则**落到 workdir（Move = 磁盘移动，Copy = 复制）。
+///
+/// 逐条规则处理：`from` 是文件时按单条移动（旧实现里文件级改名很常见，早先这里漏了分支、
+/// 直接 `read_dir` 会 panic）；是目录时先深后浅移动，最后清掉空的源目录。
+fn apply_renames_to_workdir(workdir: &Path, layer: &Layer) -> Result<(), AromError> {
+    use crate::arom::RenameMode;
+
+    for rule in layer.renames() {
+        let from = workdir.join(&rule.from);
+        if !from.exists() {
+            continue;
+        }
+        if from.is_file() {
+            move_or_copy(&from, &workdir.join(&rule.to), rule.mode)?;
+            continue;
+        }
+
+        let mut items: Vec<std::path::PathBuf> = Vec::new();
+        collect_paths(&from, &mut items)?;
+        items.sort_by_key(|p| std::cmp::Reverse(p.components().count()));
+        for path in items {
+            let rest = path
+                .strip_prefix(&from)
+                .map_err(|e| AromError::io(format!("strip {}: {e}", path.display())))?;
+            move_or_copy(&path, &workdir.join(&rule.to).join(rest), rule.mode)?;
+        }
+        if rule.mode == RenameMode::Move && from.exists() {
+            std::fs::remove_dir_all(&from)
+                .map_err(|e| AromError::io(format!("rmdir {}: {e}", from.display())))?;
+        }
+    }
+    Ok(())
+}
+
+fn move_or_copy(
+    from: &Path,
+    to: &Path,
+    mode: crate::arom::RenameMode,
+) -> Result<(), AromError> {
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AromError::io(format!("mkdir {}: {e}", parent.display())))?;
+    }
+    if mode == crate::arom::RenameMode::Move {
+        if to.exists() {
+            remove_path(to)?;
+        }
+        std::fs::rename(from, to)
+            .map_err(|e| AromError::io(format!("rename {}: {e}", from.display())))?;
+    } else {
+        std::fs::copy(from, to)
+            .map_err(|e| AromError::io(format!("copy {}: {e}", from.display())))?;
+    }
+    Ok(())
+}
+
+fn collect_paths(dir: &Path, out: &mut Vec<std::path::PathBuf>) -> Result<(), AromError> {
+    let entries =
+        std::fs::read_dir(dir).map_err(|e| AromError::io(format!("read {}: {e}", dir.display())))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| AromError::io(format!("dir entry: {e}")))?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_paths(&path, out)?;
+        }
+        out.push(path);
+    }
+    Ok(())
+}
+
+fn remove_path(path: &Path) -> Result<(), AromError> {
+    if path.is_dir() {
+        std::fs::remove_dir_all(path)
+    } else {
+        std::fs::remove_file(path)
+    }
+    .map_err(|e| AromError::io(format!("rm {}: {e}", path.display())))
 }
 
 /// 工作目录必须是空目录：残留文件会被 `harvest` 误判成「任务新增」。
@@ -628,6 +714,55 @@ mod tests {
     }
 
     #[test]
+    /// 层里的**改名规则**必须镜像到 workdir：目录级与文件级各一条
+    /// （后者早先会因对文件调用 `read_dir` 而 panic）。
+    #[test]
+    fn layer_renames_are_mirrored_into_the_work_dir() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture.zip");
+        fixture(&input);
+        let mut pack =
+            Pack::open_zip(&input, &SafeLimits::preserving_current(), None).expect("open");
+        let work = tmp.path().join("work");
+        materialize(&pack.view(), &work).expect("materialize");
+
+        let layer = {
+            let mut tx = pack.tx("mirror-probe");
+            tx.rename_dir(
+                "assets/minecraft/textures/item",
+                "assets/minecraft/textures/moved",
+            )
+            .expect("dir rename");
+            tx.rename_dir(
+                "assets/minecraft/lang/zh_cn.json",
+                "assets/minecraft/lang/zh.json",
+            )
+            .expect("file rename");
+            tx.put("assets/minecraft/new.txt", b"x".to_vec())
+                .expect("put");
+            tx.into_layer()
+        };
+        apply_layer_to_workdir(&pack, &work, &layer).expect("mirror");
+
+        assert!(
+            work.join("assets/minecraft/textures/moved/water.png").exists(),
+            "目录规则要落到磁盘"
+        );
+        assert!(
+            !work.join("assets/minecraft/textures/item").exists(),
+            "源目录应消失"
+        );
+        assert!(
+            work.join("assets/minecraft/lang/zh.json").exists(),
+            "文件级规则要落到磁盘"
+        );
+        assert!(
+            !work.join("assets/minecraft/lang/zh_cn.json").exists(),
+            "文件级规则的源应消失"
+        );
+        assert!(work.join("assets/minecraft/new.txt").exists(), "写入照旧");
+    }
+
     fn work_dir_must_be_empty() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let input = tmp.path().join("fixture.zip");
