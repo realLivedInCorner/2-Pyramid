@@ -339,6 +339,8 @@ fn native_for(
             crate::pilots::drop_glint::decl(),
             crate::pilots::drop_glint::run,
         )),
+        // `rename_blocks_items` 的试点已实现，但真实包上仍与旧实现有差异（见细则 §9.13），
+        // 因此**暂不派发**：它留在 `pilots::all()` 里由夹具双轨覆盖。
         "rename_mcpatcher_to_optifine" => Some((
             "mcpatcher_optifine",
             crate::pilots::mcpatcher_optifine::decl(),

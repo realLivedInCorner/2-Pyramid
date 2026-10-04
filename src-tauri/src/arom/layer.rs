@@ -491,16 +491,38 @@ impl<'a> PackView<'a> {
         let path = normalize(path);
         let mut cursor = path.clone();
         for layer in self.layers_top_down() {
+            // 先判「已被改名走」：本层若用 Move 规则把该路径搬走，那么即便本层曾在原路径
+            // 写过东西（先写后改名），原路径也不再存在。Copy 规则不影响（`hides_path` 只看 Move）。
+            if layer.hides_path(&cursor) {
+                return None;
+            }
             match layer.lookup(&cursor) {
                 Some(Slot::Present(body)) => {
                     return self.pack.describe(&path, &body).ok();
                 }
                 Some(Slot::Tombstone) => return None,
                 None => {
-                    if layer.hides_path(&cursor) {
-                        return None;
+                    // 本层的改名规则可能把查询指到**本层自己的写入**（先写后改名）：
+                    // 映射后要在同一层里再查一次，否则会一路落到更旧的层与基座而查不到。
+                    //
+                    // 注意这里**不能**再问 `hides_path`：映射回的路径本来就落在规则的
+                    // `from` 之下（那正是「被改名走了」的意思），再判一次会把刚查到的写入否掉。
+                    let mut mapped = layer.map_back(&cursor);
+                    let mut hops = 0;
+                    while mapped != cursor && hops < 8 {
+                        match layer.lookup(&mapped) {
+                            Some(Slot::Present(body)) => {
+                                return self.pack.describe(&path, &body).ok();
+                            }
+                            Some(Slot::Tombstone) => return None,
+                            None => {}
+                        }
+                        let next = layer.map_back(&mapped);
+                        cursor = mapped;
+                        mapped = next;
+                        hops += 1;
                     }
-                    cursor = layer.map_back(&cursor);
+                    cursor = mapped;
                 }
             }
         }
@@ -561,12 +583,23 @@ impl<'a> PackView<'a> {
             for (path, slot) in layer.writes() {
                 match slot {
                     Slot::Tombstone => {
-                        map.remove(path);
-                        map.retain(|p, _| !is_under(p, path));
+                        for mapped in layer.map_forward_all(path) {
+                            map.remove(&mapped);
+                            map.retain(|p, _| !is_under(p, &mapped));
+                        }
                     }
                     Slot::Present(body) => {
-                        let res = self.pack.describe(path, body)?;
-                        map.insert(path.clone(), res);
+                        // 「先写后改名」：同一层里写入的路径也要按本层的改名规则落到最终命名空间，
+                        // 否则写入会留在原名下（Move 时原名必须消失；Copy 规则会给出两条路径）。
+                        let mapped_paths = layer.map_forward_all(path);
+                        let moved = !mapped_paths.iter().any(|p| p == path);
+                        for mapped in &mapped_paths {
+                            let res = self.pack.describe(mapped, body)?;
+                            map.insert(mapped.clone(), res);
+                        }
+                        if moved {
+                            map.remove(path);
+                        }
                     }
                 }
             }
