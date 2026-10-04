@@ -116,6 +116,28 @@ impl HurrayContext {
         old.execute()
     }
 
+    /// **取出并清空**延迟删除清单（§9.99）。
+    ///
+    /// 给「workdir 形态的调停者」用：它代替旧的适配层调用某个任务，需要把该任务**登记的**
+    /// 延迟删除**转交**给驱动（经 `Outcome.deferred_removals`）以便在收尾时机统一应用；
+    /// 取出后立刻从本清单移除，避免与 `execute_cleanup()` **重复处理**。
+    ///
+    /// 返回工作目录下的**相对路径**（与 `Outcome.deferred_removals` 的约定一致）；
+    /// 若登记的路径不在 `temp_dir` 之下，则原样返回其字符串形式。
+    pub fn take_cleanup_paths(&self) -> Vec<String> {
+        let mut cleanup = Self::write_unpoisoned(&self.cleanup, "context.cleanup");
+        let old = std::mem::replace(&mut *cleanup, CleanupList::new());
+        let mut out: Vec<String> = Vec::new();
+        for p in old.files.iter().chain(old.dirs.iter()) {
+            let rel = p
+                .strip_prefix(&self.temp_dir)
+                .map(|r| r.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_else(|_| p.to_string_lossy().replace('\\', "/"));
+            out.push(rel);
+        }
+        out
+    }
+
     pub fn temp_dir(&self) -> &Path {
         &self.temp_dir
     }

@@ -8317,3 +8317,62 @@ pub mod surgeon_smithing2 {
         Ok(outcome)
     }
 }
+/// **M2 收尾：`cut_gui` 的 workdir 形态入口**（§9.99）。
+///
+/// `cut_gui` 是**唯一一个「位置敏感 + 必须直接读盘」**的转换任务：它在计划里的位置是
+/// `(15,18)`（夹在旧批次中间），而 `GuiSurgeon` 按设计**直接读写工作目录**。
+///
+/// `Tx` 形态（`PilotFn = fn(&mut Tx)`）给不了它工作目录——`Tx::origin()` 是**标签**不是路径，
+/// 公开方法里也没有任何文件系统路径。因此本模块提供**另一个形态**：由驱动在
+/// **旧批次循环的同一位置**调用它，workdir 由驱动传入（驱动本来就有）。
+///
+/// **边界（如实说明）**：这里**没有**把 `GuiSurgeon` 的 1100+ 行本地化到 `Tx`，
+/// 只是把「调用点」从旧适配层搬到了原生模块。代价是它仍直接读写磁盘；
+/// 收益是 `cut_gui` 的**计划槽位先原生化**（计入原生任务），且**接口不变**——
+/// 将来把本函数内部换成逐函数移植（§9.96 的替换表）即可，无需再改驱动。
+///
+/// **分辨率**：旧 `cut_gui` 调 `detect_resolution` 后**忽略其返回值**（`GuiSurgeon` 不读它），
+/// 因此探测结果对产物无影响；此处照样探测，保持与旧实现同样的日志与副作用。
+pub mod surgeon_cut_gui {
+    use super::*;
+    use std::path::Path;
+
+    pub fn decl() -> TaskDecl {
+        // 阶段与活注册表一致：`invoke_conversion.rs` 把 `cut_gui` 登记为
+        // `TaskType::Hybrid` / `TaskTier::Surgeon`。
+        // 范围覆盖 gui 子树（读 `container/*.png`、写 `sprites/**`）。
+        TaskDecl::new("cut_gui", Tier::Surgeon)
+            .reads(ScopeSet::prefix("assets/minecraft/textures/gui"))
+            .writes(ScopeSet::prefix("assets/minecraft/textures/gui"))
+            .exclusive(true)
+    }
+
+    /// **workdir 形态**：与旧 `cut_gui`（`converters/ui/cut_gui.rs`，函数体 14 行）逐句对应。
+    ///
+    /// 返回 `(changed, 本次登记的延迟删除路径)`——延迟删除由调用方（驱动）负责在收尾时机应用，
+    /// 与旧实现的 `defer_remove_file` **同一时机**。
+    pub fn run_in_workdir(workdir: &Path) -> Result<(usize, Vec<String>), String> {
+        crate::log_info!("2-Pyramid: starting cut_gui (GuiSurgeon pipeline)...");
+
+        let mut pool = crate::hurray::texture::TexturePool::new();
+        let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
+        resolution
+            .detect_resolution(workdir)
+            .map_err(|e| e.to_string())?;
+
+        // 与旧实现同一构造顺序：context 由 workdir 建，`defer_remove_file` 登记进它的 cleanup 列表。
+        let ctx = crate::hurray::context::HurrayContext::new(
+            workdir.to_str().unwrap_or_default(),
+        );
+        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
+            &ctx,
+            &mut pool,
+            &resolution,
+        )?;
+        pool.commit_all().map_err(|e| e.to_string())?;
+
+        // 取走本任务登记的延迟删除（由驱动计入 `Outcome.deferred_removals` 并在收尾应用）。
+        let deferred = ctx.take_cleanup_paths();
+        Ok((deferred.len(), deferred))
+    }
+}
