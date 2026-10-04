@@ -19,9 +19,26 @@
 //! 不被任何既有管线使用，因此可以整体删除而不影响现状。
 
 pub mod error;
+pub mod layer;
 pub mod limits;
+pub mod serialize;
 pub mod source;
+pub mod store;
+pub mod structure;
+pub mod view;
 
 pub use error::AromError;
+pub use layer::{
+    BlobId, BlobStore, Body, ConflictPolicy, Layer, Pack, PackView, PrefixRule, RenameMode,
+    Resolved, Slot, Tx,
+};
 pub use limits::SafeLimits;
+pub use serialize::{
+    method_for_path, write_zip, write_zip_atomic, OrderPolicy, SerializeOptions, SerializeStats,
+};
 pub use source::{MemSource, Source, SourceEntry, SourceMeta, ZipSource};
+pub use store::{BaseEntry, BasePack, EntryId, PathId, PathInterner};
+pub use structure::{
+    format_write_rule, FoldedDir, OverlayLayer, PackRoot, PackStructure,
+};
+pub use view::{PackMeta, ViewCache};
