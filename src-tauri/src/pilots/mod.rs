@@ -718,6 +718,90 @@ pub mod reverse_trivial {
     }
 }
 
+/// 反向「延迟删除」批次的第二批（复用 §9.24 的延迟删除机制）。
+///
+/// 三个任务都只有字面路径、无循环：
+/// - `reverse_generate_shulker_box_ui`：延迟删一个 gui 文件；
+/// - `reverse_fix_sign_entities`：延迟删一整棵 `entity/signs` 子树；
+/// - `reverse_fix_smithing2_villager2_ui`：**立即**把 `villager_backup.png` 改名回 `villager.png`
+///   （旧实现是 `fs::rename`，不是延迟），再延迟删 `smithing.png`。
+pub mod reverse_defer {
+    use super::*;
+
+    macro_rules! defer_pilot {
+        ($m:ident, $task:literal, $path:literal) => {
+            pub mod $m {
+                use super::*;
+                pub const TARGET: &str = $path;
+                pub fn decl() -> TaskDecl {
+                    TaskDecl::new($task, Tier::Eraser)
+                        .writes(ScopeSet::exact(TARGET))
+                        .exclusive(true)
+                }
+                pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+                    defer_remove_if_present(tx, TARGET)
+                }
+            }
+        };
+    }
+
+    defer_pilot!(
+        shulker_box,
+        "reverse_generate_shulker_box_ui",
+        "assets/minecraft/textures/gui/container/shulker_box.png"
+    );
+    defer_pilot!(
+        sign_entities,
+        "reverse_fix_sign_entities",
+        "assets/minecraft/textures/entity/signs"
+    );
+
+    pub mod smithing_villager {
+        use super::*;
+
+        const GUI: &str = "assets/minecraft/textures/gui/container";
+        const SMITHING: &str = "assets/minecraft/textures/gui/container/smithing.png";
+        const BACKUP: &str = "assets/minecraft/textures/gui/container/villager_backup.png";
+        const VILLAGER: &str = "assets/minecraft/textures/gui/container/villager.png";
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("reverse_fix_smithing2_villager2_ui", Tier::Eraser)
+                .reads(ScopeSet::prefix(GUI))
+                .writes(ScopeSet::prefix(GUI))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            let mut outcome = Outcome::default();
+            // 立即恢复（旧实现是 fs::rename，非延迟）
+            if tx.exists(BACKUP) {
+                let bytes = tx.read(BACKUP)?.unwrap_or_default();
+                tx.put(VILLAGER, bytes)?;
+                tx.remove(BACKUP)?;
+                outcome.changed += 1;
+                outcome.notes.push("villager_backup -> villager".into());
+            }
+            // 延迟删除生成的 smithing.png
+            outcome
+                .deferred_removals
+                .extend(defer_remove_if_present(tx, SMITHING)?.deferred_removals);
+            Ok(outcome)
+        }
+    }
+
+    /// 任务名 → (声明, 实现)。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "reverse_generate_shulker_box_ui" => Some((shulker_box::decl(), shulker_box::run)),
+            "reverse_fix_sign_entities" => Some((sign_entities::decl(), sign_entities::run)),
+            "reverse_fix_smithing2_villager2_ui" => {
+                Some((smithing_villager::decl(), smithing_villager::run))
+            }
+            _ => None,
+        }
+    }
+}
+
 /// 旧 `reverse_rename_blocks_items`（`converters/reverse/rename_blocks.rs`）。
 ///
 /// 与正向的差异（逐条对应旧实现）：
