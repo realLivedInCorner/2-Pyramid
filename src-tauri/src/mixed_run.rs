@@ -946,6 +946,74 @@ mod tests {
         // 打印，作为「同阶段内交错仍不可用」的可复现证据。
     }
 
+    /// **反向**整包对照（默认忽略）：拿正向产物当反向输入——正向输出正是反向转换的输入形态
+    /// （现代命名 `item/`、`block/`），而基准包本身是旧命名，反向任务在它身上大多会跳过。
+    ///
+    /// `AROM_REAL_PACK=<包> cargo test --lib reverse_whole_pack -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn reverse_whole_pack_matches_the_old_pipeline() {
+        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
+            println!("AROM_REAL_PACK 未设置，跳过");
+            return;
+        };
+        let input = PathBuf::from(&src);
+        assert!(input.is_file(), "不是文件：{}", input.display());
+        let forward_target: u32 = std::env::var("AROM_TARGET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(97);
+        let source = {
+            let pack = Pack::open_zip(&input, &SafeLimits::preserving_current(), None)
+                .expect("open for source format");
+            pack.view()
+                .mcmeta()
+                .ok()
+                .and_then(|m| m.effective_format())
+                .unwrap_or(1)
+        };
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        // 第一步：正向转换（全适配层，等价性已由另一个用例覆盖），产物作为反向输入
+        let (forward_out, forward_report) = mixed_v2_output(
+            &input,
+            tmp.path(),
+            forward_target,
+            source,
+            NativeSwitches::none(),
+            false,
+            "fwd",
+        );
+        println!("forward = {forward_report:?}");
+
+        // 第二步：反向 97 → 1，三种配置对照
+        let legacy = legacy_output(&forward_out, tmp.path(), source, forward_target);
+        let (off, off_report) = mixed_v2_output(
+            &forward_out,
+            tmp.path(),
+            source,
+            forward_target,
+            NativeSwitches::none(),
+            false,
+            "rev_off",
+        );
+        let (on, on_report) = mixed_v2_output(
+            &forward_out,
+            tmp.path(),
+            source,
+            forward_target,
+            NativeSwitches::all(),
+            false,
+            "rev_on",
+        );
+        println!("rev off = {off_report:?}");
+        println!("rev on  = {on_report:?}");
+
+        assert_equivalent(&legacy, &off);
+        assert_equivalent(&legacy, &on);
+        assert_equivalent(&off, &on);
+    }
+
     /// 真实包上的等价性（默认忽略）：
     /// `AROM_REAL_PACK=<包> [AROM_TARGET=97] cargo test --lib mixed_run -- --ignored --nocapture`
     #[test]
