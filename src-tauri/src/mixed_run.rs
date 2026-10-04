@@ -378,6 +378,9 @@ fn native_for(
                 crate::pilots::rename_blocks_reverse::run,
             ));
         }
+        if let Some((decl, run)) = crate::pilots::reverse_defer_ui::lookup(name) {
+            return Some(("reverse_defer_ui", decl, run));
+        }
         if let Some((decl, run)) = crate::pilots::reverse_defer_metal::lookup(name) {
             return Some(("reverse_defer_metal", decl, run));
         }
