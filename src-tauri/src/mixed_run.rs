@@ -488,6 +488,13 @@ fn native_for(
         ));
     }
     if switches.textures {
+        if name == "generate_potion_lingering" {
+            return Some((
+                "potion_lingering_gen",
+                crate::pilots::potion_lingering_gen::decl(),
+                crate::pilots::potion_lingering_gen::run,
+            ));
+        }
         if let Some((decl, run)) = crate::pilots::arch_gen::lookup(name) {
             return Some(("arch_gen", decl, run));
         }
