@@ -2970,6 +2970,7 @@ mod tests {
                 "assets/minecraft/textures/gui/slider.png",
                 "assets/minecraft/textures/gui/title/minecraft.png",
                 "assets/minecraft/textures/gui/widgets.png",
+                "assets/minecraft/textures/gui/container/creative_inventory/tabs.png",
             ] {
                 let mut img = RgbaImage::new(256, 256);
                 for y in 0..256u32 {
@@ -3031,6 +3032,7 @@ mod tests {
             n += crate::pilots::gui_surgeon_tx::process_slider(&mut tx).expect("slider");
             n += crate::pilots::gui_surgeon_tx::process_title(&mut tx).expect("title");
             n += crate::pilots::gui_surgeon_tx::process_widgets(&mut tx).expect("widgets");
+            n += crate::pilots::gui_surgeon_tx::process_tabs(&mut tx).expect("tabs");
             pack.commit(tx.into_layer());
             crate::arom::pathview::materialize(&pack.view(), &native_dir).expect("materialize");
             n
@@ -9071,6 +9073,88 @@ pub mod gui_surgeon_tx {
                 }
             }
         }
+
+        Ok(n)
+    }
+    /// 旧 `process_tabs`：由 `gui/container/creative_inventory/tabs.png` 产出 4 行 × 7 个 tab sprite。
+    ///
+    /// **照抄未改的三处语义**：
+    /// 1. **只接受 256/512/1024/2048 的精确方形**，其它尺寸整体跳过（`(w.max(h), w == h)` 匹配）；
+    /// 2. **始终裁 168 宽（6 个 tab），第 7 个复制第 6 个**——旧注释明确写了不去探测 168–196，
+    ///    因为 1.8 图集该区域可能有残留像素会导致误裁；
+    /// 3. 每片的 `slice_height == ch`（即"切片高"与"行高"同值），故竖直方向上正好切满。
+    pub fn process_tabs(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let src = "assets/minecraft/textures/gui/container/creative_inventory/tabs.png";
+        let Ok(img) = tx.image(src) else {
+            crate::log_info!("tabs.png not found, skip");
+            return Ok(0);
+        };
+
+        let (w, h) = img.dimensions();
+        let scale = match (w.max(h), w == h) {
+            (256, true) => 1u32,
+            (512, true) => 2,
+            (1024, true) => 4,
+            (2048, true) => 8,
+            _ => {
+                crate::log_info!("unsupported tabs.png size {}x{}, skip", w, h);
+                return Ok(0);
+            }
+        };
+
+        const OUT: &str = "assets/minecraft/textures/gui/sprites/container/creative_inventory";
+        let mut n = 0usize;
+
+        // 一行 = 裁 (0, cy*scale) 起 168*scale × ch*scale，再横切 6 片，最后复制第 6 片为第 7 片。
+        let mut store_tabs =
+            |tx: &mut Tx<'_>, cy: u32, ch: u32, names: [&str; 7]| -> Result<usize, AromError> {
+                let cropped = imageops::crop_imm(
+                    &*img,
+                    0,
+                    cy * scale,
+                    168 * scale,
+                    ch * scale,
+                )
+                .to_image();
+                let slice_w = 28 * scale;
+                let slice_h = ch * scale; // 旧的 slice_h 参数与 ch 同值，故此处等价
+
+                let mut last: Option<RgbaImage> = None;
+                let mut k = 0usize;
+                for i in 0..6u32 {
+                    let tab = imageops::crop_imm(&cropped, i * slice_w, 0, slice_w, slice_h).to_image();
+                    tx.put_image(&format!("{OUT}/{}", names[i as usize]), &tab)?;
+                    last = Some(tab);
+                    k += 1;
+                }
+                if let Some(tab7) = last {
+                    tx.put_image(&format!("{OUT}/{}", names[6]), &tab7)?;
+                    k += 1;
+                }
+                Ok(k)
+            };
+
+        // y 区间与旧实现逐条一致
+        n += store_tabs(tx, 2, 30, [
+            "tab_top_unselected_1.png", "tab_top_unselected_2.png", "tab_top_unselected_3.png",
+            "tab_top_unselected_4.png", "tab_top_unselected_5.png", "tab_top_unselected_6.png",
+            "tab_top_unselected_7.png",
+        ])?;
+        n += store_tabs(tx, 32, 32, [
+            "tab_top_selected_1.png", "tab_top_selected_2.png", "tab_top_selected_3.png",
+            "tab_top_selected_4.png", "tab_top_selected_5.png", "tab_top_selected_6.png",
+            "tab_top_selected_7.png",
+        ])?;
+        n += store_tabs(tx, 64, 30, [
+            "tab_bottom_unselected_1.png", "tab_bottom_unselected_2.png", "tab_bottom_unselected_3.png",
+            "tab_bottom_unselected_4.png", "tab_bottom_unselected_5.png", "tab_bottom_unselected_6.png",
+            "tab_bottom_unselected_7.png",
+        ])?;
+        n += store_tabs(tx, 96, 32, [
+            "tab_bottom_selected_1.png", "tab_bottom_selected_2.png", "tab_bottom_selected_3.png",
+            "tab_bottom_selected_4.png", "tab_bottom_selected_5.png", "tab_bottom_selected_6.png",
+            "tab_bottom_selected_7.png",
+        ])?;
 
         Ok(n)
     }
