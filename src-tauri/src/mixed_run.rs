@@ -328,6 +328,14 @@ where
         .cloned()
         .collect();
     report.legacy_tasks = legacy_names.len();
+    // §9.102：`cut_gui` 的实现**已经是原生模块**（§9.101 起，由注册闭包直接调用
+    // `surgeon_cut_gui::run_in_workdir`），只是在**配置层面**走适配层而不是 Tx 形态——
+    // 它必须留在旧批次的 `(15,18)` 位置（§9.100 实测：挪出去就少 3 个 sprite）。
+    // 因此报告的「适配层」计数里**应把它减掉**，否则读数会把一件已完成的事显示成未完成。
+    let cut_gui_in_batch = legacy_names.iter().any(|n| n == CUT_GUI);
+    if cut_gui_in_batch {
+        report.legacy_tasks -= 1;
+    }
 
     trace_step("before-legacy", &mut trace);
     if opts.legacy_one_by_one || opts.step_trace {
@@ -395,6 +403,12 @@ where
         report.native_tasks += 1;
         report.native_names.push(name.clone());
         trace_step(&format!("post:{name}"), &mut trace);
+    }
+    // §9.102：`cut_gui` 的实现是原生模块（§9.101），但配置上留在旧批次内，
+    // 因此前面两个 Tx 阶段块都不会把它计入——这里补记，使报告与「实现来源」一致。
+    if cut_gui_in_batch {
+        report.native_tasks += 1;
+        report.native_names.push(CUT_GUI.to_string());
     }
     {
         let harvested = harvest(&pack, workdir, &baseline, None)?;
@@ -477,6 +491,16 @@ where
 /// | `fix_ui_sub_hand` / `fix_ui_creative` | **前** | 同为「原位改写 GUI 图」，且计划槽位在阶段 1–2（最前）；放前阶段与生产顺序一致（`fix_slider` 读 `widgets.png`，两者区域不重叠但顺序仍应正确） |
 ///
 /// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
+/// §9.101/§9.102：`cut_gui` 的名字。
+///
+/// 它的**实现是原生模块**（`pilots::surgeon_cut_gui`，由注册闭包直接调用），但**配置上**
+/// 仍留在旧批次的 `(15,18)` 位置——§9.100 实测：把它挪出批次就少 3 个 sprite
+/// （`sprites/container/slot/{horse_armor,llama_armor,saddle}.png`），
+/// 因为它的输入 `gui/container/*.png` 在那些时刻状态不同（§9.50 的同一规律）。
+///
+/// 因此它既不属于 Tx 形态的两个阶段块，也不应算作「未迁移」——报告里单独处理。
+const CUT_GUI: &str = "cut_gui";
+
 const EARLY_NATIVES: [&str; 10] = [
     "generate_smithing_ui",
     "generate_copper_armor_models",
@@ -2162,8 +2186,19 @@ mod tests {
         let (on, on_report) =
             mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::all(), false, "on");
 
-        assert_eq!(off_report.native_tasks, 0, "开关关闭时不得有原生任务");
-        assert_eq!(off_report.legacy_tasks, off_report.plan_len, "关闭时应全走适配层");
+        // §9.102：`cut_gui` 的实现**无条件**是原生模块（§9.101，由注册闭包直接调用），
+        // 不受 `NativeSwitches` 影响；而本夹具（1→97）的计划里**确实含** `cut_gui`，
+        // 因此「开关全关」时原生数为 **1**（就是它）、适配层为 `plan_len - 1`。
+        assert_eq!(
+            off_report.native_tasks, 1,
+            "开关全关时唯一仍走原生实现的应当是 cut_gui，实际：{:?}",
+            off_report.native_names
+        );
+        assert_eq!(
+            off_report.legacy_tasks,
+            off_report.plan_len - 1,
+            "关闭时除 cut_gui 外应全走适配层"
+        );
         assert_eq!(
             on_report.native_tasks + on_report.legacy_tasks,
             on_report.plan_len,
@@ -2282,7 +2317,15 @@ mod tests {
         println!("off        = {off_report:?}");
         println!("on         = {on_report:?}");
         println!("one_by_one = {obb_report:?}");
-        assert_eq!(off_report.native_tasks, 0);
+        // §9.102：`cut_gui` 的实现**无条件**是原生模块（§9.101，由注册闭包直接调用），
+        // 不受 `NativeSwitches` 影响。因此「开关全关」时原生数**不是 0 而是 1**（就是它）。
+        // 这条断言同时钉住两件事：①开关关不掉的只有它；②它的名字确实进了 native_names。
+        assert_eq!(
+            off_report.native_tasks, 1,
+            "开关全关时唯一仍走原生实现的应当是 cut_gui，实际：{:?}",
+            off_report.native_names
+        );
+        assert_eq!(off_report.native_names, vec![CUT_GUI.to_string()]);
         assert_eq!(
             on_report.native_tasks + on_report.legacy_tasks,
             on_report.plan_len
