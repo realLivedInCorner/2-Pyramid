@@ -338,7 +338,11 @@ fn pack_format_major_minor(target: u32) -> (u32, u32) {
     }
 }
 
-fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), String> {
+/// 收尾改写 `pack.mcmeta` 的版本字段（≥69 只写 `min_format`/`max_format`，且只改 `pack` 对象内部）。
+///
+/// M2 起由 [`crate::mixed_run`] 在 A-ROM 接管序列化后调用，因此放开可见性
+/// （仅扩大可见范围，行为不变）。
+pub fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), String> {
     let content = if pack_meta_path.exists() {
         read_text_with_fallback(pack_meta_path)?
     } else {
