@@ -3044,6 +3044,16 @@ mod tests {
         // 非空转：必须真的写出一批（源图齐全时不至于是 0）
         assert!(written > 0, "原生侧没有写出任何 sprite —— 夹具或实现有问题");
 
+        // **清理清单的两条硬约束**（§9.96/§9.111）：
+        // ① 20 项；② **绝不含 `container/inventory.png`**——1.21 客户端仍需它渲染背包背景，
+        //    删掉会让生存/创造背包 GUI 消失（旧注释专门写了这段）。
+        let cl = crate::pilots::gui_surgeon_tx::cleanup_list();
+        assert_eq!(cl.len(), 20, "清理清单应为 20 项");
+        assert!(
+            !cl.iter().any(|p| p.ends_with("container/inventory.png")),
+            "清理清单**不得**包含 container/inventory.png（会让背包 GUI 消失）"
+        );
+
         // 逐条比对：原生**写出的每个路径**都必须与旧侧同路径文件逐像素相同。
         //
         // 比对范围 = `sprites/` 整棵子树 **+ `process_title` 会就地回写的源文件**
@@ -3103,6 +3113,38 @@ mod tests {
             "比对数量与写出数量差距过大：checked={checked} written={written}（预期只差少量幂等重复写）"
         );
         assert!(checked > 100, "比对的文件太少（{checked}），疑似大片未写出");
+
+        // **§9.111：顶层 `run` 的资源守恒自检**。
+        //
+        // `run` = 8 个步骤 + 把清理清单里**此刻仍存在**的文件登记为延迟删除。
+        // 夹具里那些文件都在，故 `run` 之后：
+        //   写操作数 = written + 清理项数（`Tx` 里删除算写：`Slot::Tombstone`）
+        //   文件数   = 上面比对的 `checked`（删除不产生文件）
+        // 这条自检能在**不依赖旧实现**的前提下抓住"run 漏调了某一步或漏登记了删除"。
+        {
+            let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
+                .expect("open fixture");
+            let outcome = {
+                let mut tx = pack.tx("gui_surgeon_tx_run");
+                let o = crate::pilots::gui_surgeon_tx::run(&mut tx).expect("native run");
+                pack.commit(tx.into_layer());
+                o
+            };
+            println!(
+                "顶层 run：changed={} deferred_removals={}",
+                outcome.changed,
+                outcome.deferred_removals.len()
+            );
+            assert_eq!(
+                outcome.changed, written,
+                "run 的写操作数应与逐步调用之和一致（漏调了某一步？）"
+            );
+            assert_eq!(
+                outcome.deferred_removals.len(),
+                20,
+                "夹具里清理清单的 20 个文件都在，应全部登记为延迟删除"
+            );
+        }
     }
 
     /// 从 zip 里读一个条目的字节（读不到返回 None）。
@@ -9244,6 +9286,65 @@ pub mod gui_surgeon_tx {
               "pinging_1.png"], "server_list")?;
 
         Ok(n)
+    }
+    /// **`GuiSurgeon` 的完整 `Tx` 形态入口**（§9.111）。
+    ///
+    /// 顺序与旧 `execute_transformation` **完全一致**：主循环 → 7 个 `process_*` → 登记延迟删除。
+    /// （旧实现在 `commit_all()` 之后才登记删除，此处等价：`Tx` 形态下删除**必须延迟**，
+    /// 早删会让更晚的任务看不到文件——§9.23 的坑。）
+    ///
+    /// **清理清单逐条照抄，尤其两点**：
+    /// 1. **不含 `container/inventory.png`**——1.21 客户端仍需要它渲染生存/创造背包背景，
+    ///    删掉会让背包 GUI 消失（旧注释专门写了这段，§9.96 也记过）；
+    /// 2. 用 `tx.has_prefix` 判断"此刻是否存在"（对应旧实现的 `path.exists()`）。
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        let mut outcome = Outcome::default();
+
+        outcome.changed += cut_sprite_map(tx)?;
+        outcome.changed += process_slider(tx)?;
+        outcome.changed += process_icons(tx)?;
+        outcome.changed += process_widgets(tx)?;
+        outcome.changed += process_tabs(tx)?;
+        outcome.changed += process_resource_packs(tx)?;
+        outcome.changed += process_server_selection(tx)?;
+        outcome.changed += process_title(tx)?;
+
+        // 旧 atlas 文件在 1.21+ 已不再使用；**延迟**到收尾时机统一删除。
+        for path in cleanup_list().iter().copied() {
+            if tx.has_prefix(path)? {
+                outcome.deferred_removals.push(path.to_string());
+                outcome.notes.push(format!("defer removal of {path}"));
+            }
+        }
+
+        Ok(outcome)
+    }
+
+    /// 清理清单（20 项，供测试断言"清单没被漏抄/没混入 inventory.png"）。
+    pub fn cleanup_list() -> &'static [&'static str] {
+        const CLEANUP: [&str; 20] = [
+            "assets/minecraft/textures/gui/container/anvil.png",
+            "assets/minecraft/textures/gui/container/beacon.png",
+            "assets/minecraft/textures/gui/container/furnace.png",
+            "assets/minecraft/textures/gui/container/blast_furnace.png",
+            "assets/minecraft/textures/gui/container/smoker.png",
+            "assets/minecraft/textures/gui/container/brewing_stand.png",
+            "assets/minecraft/textures/gui/container/horse.png",
+            "assets/minecraft/textures/gui/container/enchanting_table.png",
+            "assets/minecraft/textures/gui/container/stonecutter.png",
+            "assets/minecraft/textures/gui/container/loom.png",
+            "assets/minecraft/textures/gui/container/smithing.png",
+            "assets/minecraft/textures/gui/container/villager2.png",
+            "assets/minecraft/textures/gui/container/cartography_table.png",
+            "assets/minecraft/textures/gui/container/grindstone.png",
+            "assets/minecraft/textures/gui/icons.png",
+            "assets/minecraft/textures/gui/widgets.png",
+            "assets/minecraft/textures/gui/slider.png",
+            "assets/minecraft/textures/gui/container/creative_inventory/tabs.png",
+            "assets/minecraft/textures/gui/resource_packs.png",
+            "assets/minecraft/textures/gui/server_selection.png",
+        ];
+        &CLEANUP
     }
     /// `SPRITE_MAP` 的条目数（供测试断言"表没被漏抄"）。
     pub fn sprite_map_len() -> usize {
