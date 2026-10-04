@@ -895,6 +895,35 @@ pub mod reverse_trivial {
     }
 }
 
+/// 旧 `reverse_rename_mcpatcher_to_optifine`（`converters/reverse/mcpatcher_to_optifine.rs`）：
+/// 把 `optifine/` 改回 `mcpatcher/`，**仅当目标不存在**（旧实现带守卫，不合并）。
+pub mod mcpatcher_optifine_reverse {
+    use super::rename_blocks::merge_or_rename_dir;
+    use super::*;
+
+    const OPTIFINE: &str = "assets/minecraft/optifine";
+    const MCPATCHER: &str = "assets/minecraft/mcpatcher";
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("reverse_rename_mcpatcher_to_optifine", Tier::Eraser)
+            .reads(ScopeSet::prefix("assets/minecraft"))
+            .writes(ScopeSet::prefix("assets/minecraft"))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        if !tx.has_prefix(OPTIFINE)? || tx.has_prefix(MCPATCHER)? {
+            return Ok(Outcome::default());
+        }
+        merge_or_rename_dir(tx, OPTIFINE, MCPATCHER)?;
+        Ok(Outcome {
+            changed: 1,
+            notes: vec![format!("{OPTIFINE} -> {MCPATCHER}")],
+            ..Outcome::default()
+        })
+    }
+}
+
 /// 反向「延迟删除」批次的第二批（复用 §9.24 的延迟删除机制）。
 ///
 /// 三个任务都只有字面路径、无循环：

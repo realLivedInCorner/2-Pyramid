@@ -364,6 +364,13 @@ fn native_for(
                 crate::pilots::chest_reverse::run,
             ));
         }
+        if name == "reverse_rename_mcpatcher_to_optifine" {
+            return Some((
+                "mcpatcher_optifine_reverse",
+                crate::pilots::mcpatcher_optifine_reverse::decl(),
+                crate::pilots::mcpatcher_optifine_reverse::run,
+            ));
+        }
         if name == "reverse_rename_blocks_items" {
             return Some((
                 "rename_blocks_reverse",
