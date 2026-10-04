@@ -341,6 +341,11 @@ fn native_for(
         )),
         // `rename_blocks_items` 的试点已实现，但真实包上仍与旧实现有差异（见细则 §9.13），
         // 因此**暂不派发**：它留在 `pilots::all()` 里由夹具双轨覆盖。
+        "rename_blocks_items" => Some((
+            "rename_blocks",
+            crate::pilots::rename_blocks::decl(),
+            crate::pilots::rename_blocks::run,
+        )),
         "rename_mcpatcher_to_optifine" => Some((
             "mcpatcher_optifine",
             crate::pilots::mcpatcher_optifine::decl(),

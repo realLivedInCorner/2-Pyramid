@@ -186,20 +186,14 @@ pub mod rename_blocks {
     }
 
     /// 旧 `merge_or_rename_dir`：目录合并或改名；返回是否有改动。
+    ///
+    /// 两种情况都用「逐文件读→写→删源」，**刻意不产生改名规则**：规则与 tombstone 在同层
+    /// 求值时互相干扰（已实测两处），而混合运行驱动还要把规则镜像回 workdir（尚未支持）。
+    /// 代价是这些文件失去「原始压缩字节透传」，但序列化策略一致，产物字节不受影响。
     fn merge_or_rename_dir(tx: &mut Tx<'_>, from: &str, to: &str) -> Result<bool, AromError> {
         if !tx.has_prefix(from)? {
             return Ok(false);
         }
-        if !tx.has_prefix(to)? {
-            tx.rename_dir(from, to)?;
-            return Ok(true);
-        }
-        // 两侧都存在：逐文件移动（源覆盖目标），最后删掉源目录。
-        //
-        // 注意这里**不能**用「逐文件改名规则 + 源目录 tombstone」：tombstone 覆盖整棵子树，
-        // 会把已经改名出去的子文件一起隐藏（真实包上 `blocks/` 与 `block/` 并存时，
-        // 整个 `block/` 会凭空消失）。改为「读出内容写到目标 + 整段删除源目录」，
-        // 语义与旧实现逐条对应：同名源覆盖目标、目标独有者保留、源目录最终消失。
         let files: Vec<String> = tx
             .list(from)?
             .into_iter()
@@ -207,15 +201,24 @@ pub mod rename_blocks {
             .map(|res| res.path)
             .collect();
         for path in files {
-            let target = format!("{to}/{}", child_of(from, &path));
-            let bytes = tx.read(&path)?.unwrap_or_default();
-            if tx.exists(&target) {
-                tx.remove(&target)?;
-            }
-            tx.put(&target, bytes)?;
+            move_path(tx, &path, &format!("{to}/{}", child_of(from, &path)))?;
         }
+        // 源目录（此时已空）整段删除；目标侧已有的、源里没有的文件保持不动
         tx.remove(from)?;
         Ok(true)
+    }
+
+    /// 「把 `from` 移到 `to`」：读源内容写到目标（覆盖已存在者），再删掉源。
+    ///
+    /// 旧实现是「先删目标、再 `fs::rename`」。这里**不能**照抄成「tombstone + 改名规则」：
+    /// tombstone 的优先级高于同层规则，会把规则的目标路径一起否掉——真实包上恰好有
+    /// 9 个「源名与目标名同时存在」的贴图，它们的**目标名会凭空消失**。改用读→写→删，
+    /// 与磁盘语义逐条对应，且不依赖规则与 tombstone 的求值顺序。
+    fn move_path(tx: &mut Tx<'_>, from: &str, to: &str) -> Result<(), AromError> {
+        let bytes = tx.read(from)?.unwrap_or_default();
+        tx.put(to, bytes)?;
+        tx.remove(from)?;
+        Ok(())
     }
 
     /// 旧 `rename_with_mcmeta`：png 改名 + 顺带搬同名 `.png.mcmeta`。
@@ -230,18 +233,11 @@ pub mod rename_blocks {
         if old_path == new_path || !tx.exists(&old_path) {
             return Ok(false);
         }
-        if tx.exists(&new_path) {
-            tx.remove(&new_path)?;
-        }
-        tx.rename_dir(&old_path, &new_path)?;
+        move_path(tx, &old_path, &new_path)?;
 
         let old_meta = format!("{old_path}.mcmeta");
         if tx.exists(&old_meta) {
-            let new_meta = format!("{new_path}.mcmeta");
-            if tx.exists(&new_meta) {
-                tx.remove(&new_meta)?;
-            }
-            tx.rename_dir(&old_meta, &new_meta)?;
+            move_path(tx, &old_meta, &format!("{new_path}.mcmeta"))?;
         }
         Ok(true)
     }
@@ -258,25 +254,18 @@ pub mod rename_blocks {
             if !tx.exists(&old_path) {
                 continue;
             }
-            if tx.exists(&new_path) {
-                tx.remove(&new_path)?;
-            }
-            tx.rename_dir(&old_path, &new_path)?;
+            move_path(tx, &old_path, &new_path)?;
 
             let old_meta = format!("{old_path}.mcmeta");
             if tx.exists(&old_meta) {
-                let new_meta = format!("{new_path}.mcmeta");
-                if tx.exists(&new_meta) {
-                    tx.remove(&new_meta)?;
-                }
-                tx.rename_dir(&old_meta, &new_meta)?;
+                move_path(tx, &old_meta, &format!("{new_path}.mcmeta"))?;
             }
         }
         for (old, new) in pairs {
             let old_meta = format!("{dir}/{old}.mcmeta");
             let new_meta = format!("{dir}/{new}.mcmeta");
             if tx.exists(&old_meta) && !tx.exists(&new_meta) {
-                tx.rename_dir(&old_meta, &new_meta)?;
+                move_path(tx, &old_meta, &new_meta)?;
             }
         }
         Ok(())
@@ -758,7 +747,7 @@ mod tests {
     /// `rename_blocks`：本轮定位到两个原因——① 驱动把层写回 workdir 时**没有应用改名规则**
     /// （旧任务于是在 `items/`/`blocks/` 旧布局上工作）；② 补上之后试点本身在真实包上仍有分歧
     /// （`dark_oak_planks.png` / `farmland.png`）。因此它仍不派发、也不参与真实包对照，详见细则 §9.14。
-    const REAL_PACK_SKIP: [&str; 1] = ["rename_blocks"];
+    const REAL_PACK_SKIP: [&str; 0] = [];
 
     fn old_path_output(fixture: &Path, tmp: &Path, skip: &[&str]) -> PathBuf {
         use crate::converters::textures::{
