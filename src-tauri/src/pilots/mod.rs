@@ -751,9 +751,9 @@ mod tests {
 
     /// 真实包上**暂不参与**双轨对照的迁移试点（附原因）。
     ///
-    /// `rename_blocks`：夹具上逐项一致（含「合并」分支与图像派生），但真实包上仍差
-    /// 116（一侧独有）/105（另一侧独有）个文件，根因尚未定位，因此它**不在生产派发表里**、
-    /// 也不参与真实包对照。详见细则 §9.13。
+    /// `rename_blocks`：本轮定位到两个原因——① 驱动把层写回 workdir 时**没有应用改名规则**
+    /// （旧任务于是在 `items/`/`blocks/` 旧布局上工作）；② 补上之后试点本身在真实包上仍有分歧
+    /// （`dark_oak_planks.png` / `farmland.png`）。因此它仍不派发、也不参与真实包对照，详见细则 §9.14。
     const REAL_PACK_SKIP: [&str; 1] = ["rename_blocks"];
 
     fn old_path_output(fixture: &Path, tmp: &Path, skip: &[&str]) -> PathBuf {
