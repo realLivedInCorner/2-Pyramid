@@ -3026,3 +3026,48 @@ pub mod reverse_armor {
         Ok(outcome)
     }
 }
+/// 前向 Architect 批次（真生成逻辑，不能表驱动）——逐个移植。
+///
+/// `generate_furnace`：把 `gui/container/furnace.png` **复制**成 `blast_furnace.png` 与
+/// `smoker.png`（旧实现是两次 `fs::copy`：源保留、目标若存在则覆盖）。
+pub mod arch_gen {
+    use super::*;
+
+    const GUI: &str = "assets/minecraft/textures/gui/container";
+    const FURNACE: &str = "assets/minecraft/textures/gui/container/furnace.png";
+    const BLAST: &str = "assets/minecraft/textures/gui/container/blast_furnace.png";
+    const SMOKER: &str = "assets/minecraft/textures/gui/container/smoker.png";
+
+    pub mod furnace {
+        use super::*;
+
+        pub fn decl() -> TaskDecl {
+            // 阶段与活注册表一致：Architect（生成类任务）
+            TaskDecl::new("generate_furnace", Tier::Architect)
+                .writes(ScopeSet::prefix(GUI))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            if !tx.exists(FURNACE) {
+                return Ok(Outcome::default());
+            }
+            let bytes = tx.read(FURNACE)?.unwrap_or_default();
+            tx.put(BLAST, bytes.clone())?;
+            tx.put(SMOKER, bytes)?;
+            Ok(Outcome {
+                changed: 2,
+                notes: vec!["furnace.png -> blast_furnace.png / smoker.png".into()],
+                ..Outcome::default()
+            })
+        }
+    }
+
+    /// 任务名 → (声明, 实现)。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "generate_furnace" => Some((furnace::decl(), furnace::run)),
+            _ => None,
+        }
+    }
+}

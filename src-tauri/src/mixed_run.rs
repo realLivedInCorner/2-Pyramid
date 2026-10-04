@@ -354,6 +354,9 @@ where
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.deferred_removals.extend(outcome.deferred_removals);
+        // 后阶段的原生任务同样计入（否则报告与断言都会少算）
+        report.native_tasks += 1;
+        report.native_names.push(name.clone());
     }
     {
         let harvested = harvest(&pack, workdir, &baseline, None)?;
@@ -483,6 +486,11 @@ fn native_for(
             crate::pilots::chest::decl(),
             crate::pilots::chest::run,
         ));
+    }
+    if switches.textures {
+        if let Some((decl, run)) = crate::pilots::arch_gen::lookup(name) {
+            return Some(("arch_gen", decl, run));
+        }
     }
     if !switches.textures {
         return None;
