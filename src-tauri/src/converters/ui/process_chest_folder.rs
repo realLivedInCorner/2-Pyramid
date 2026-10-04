@@ -7,7 +7,7 @@ use crate::image_utils::paste_region;
 // ---------- helpers ----------
 
 /// Swap two regions, then flip each horizontally+vertically in place.
-fn swap_and_mirror(img: &mut RgbaImage, b1: (u32, u32, u32, u32), b2: (u32, u32, u32, u32)) -> Result<(), String> {
+pub(crate) fn swap_and_mirror(img: &mut RgbaImage, b1: (u32, u32, u32, u32), b2: (u32, u32, u32, u32)) -> Result<(), String> {
     let w1 = b1.2 - b1.0;
     let h1 = b1.3 - b1.1;
     let w2 = b2.2 - b2.0;
@@ -27,7 +27,7 @@ fn swap_and_mirror(img: &mut RgbaImage, b1: (u32, u32, u32, u32), b2: (u32, u32,
 }
 
 /// Flip a region horizontally+vertically in place.
-fn mirror_region(img: &mut RgbaImage, b: (u32, u32, u32, u32)) {
+pub(crate) fn mirror_region(img: &mut RgbaImage, b: (u32, u32, u32, u32)) {
     let w = b.2 - b.0;
     let h = b.3 - b.1;
     let r = imageops::crop_imm(img, b.0, b.1, w, h).to_image();
@@ -36,17 +36,17 @@ fn mirror_region(img: &mut RgbaImage, b: (u32, u32, u32, u32)) {
 }
 
 /// Flip a region vertically.
-fn vflip_region(r: &RgbaImage) -> RgbaImage {
+pub(crate) fn vflip_region(r: &RgbaImage) -> RgbaImage {
     image::imageops::flip_vertical(r)
 }
 
 /// Flip a region horizontally+vertically.
-fn hvflip_region(r: &RgbaImage) -> RgbaImage {
+pub(crate) fn hvflip_region(r: &RgbaImage) -> RgbaImage {
     image::imageops::flip_horizontal(&image::imageops::flip_vertical(r))
 }
 
 /// Generate left and right chest images from a double chest texture.
-fn generate_double_chest_images(
+pub(crate) fn generate_double_chest_images(
     left: &mut RgbaImage,
     right: &mut RgbaImage,
     img: &RgbaImage,

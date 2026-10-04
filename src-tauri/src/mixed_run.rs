@@ -40,6 +40,8 @@ pub struct NativeSwitches {
     /// textures 模块：已迁移的三个活任务（`delete_font_folder` /
     /// `rename_mcpatcher_to_optifine` / `convert_animated_textures`）。
     pub textures: bool,
+    /// ui 模块：已迁移的 `process_chest_folder`。
+    pub ui: bool,
 }
 
 impl NativeSwitches {
@@ -50,7 +52,10 @@ impl NativeSwitches {
 
     /// 全部已迁移任务。
     pub fn all() -> Self {
-        Self { textures: true }
+        Self {
+            textures: true,
+            ui: true,
+        }
     }
 }
 
@@ -307,6 +312,13 @@ fn native_for(
     name: &str,
     switches: &NativeSwitches,
 ) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
+    if switches.ui && name == "process_chest_folder" {
+        return Some((
+            "chest",
+            crate::pilots::chest::decl(),
+            crate::pilots::chest::run,
+        ));
+    }
     if !switches.textures {
         return None;
     }
