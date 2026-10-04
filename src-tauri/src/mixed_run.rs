@@ -1070,14 +1070,14 @@ mod tests {
     /// 断言三件事：
     /// 1. `EARLY_NATIVES` 里的任务确实被判为 `Early`（**名单不是装饰**）；
     /// 2. 阶段早于旧批次最小阶段的任务也判为 `Early`（阶段判据仍在生效）；
-    /// 3. 其余任务判为 `Late`——特别是 `fix_clock_compass` 与 `generate_boat`：
-    ///    它们都曾被误判为"该提前"（§9.59 的 100 项差异、§9.53 的 8 项 OnlyInB），
-    ///    所以这里**显式钉住它们是 `Late`**，将来谁想"顺手提前"会当场红。
+    /// 3. 曾被误判的**必须留在 `Late`**：`fix_clock_compass`（§9.59 的 100 项差异）
+    ///    与 `generate_boat`（§9.53 的 8 项 OnlyInB）——将来谁"顺手提前"会当场红。
     ///
-    /// **同时记录一处已知松紧度**：`rename_blocks_items` 的阶段与旧批次最小阶段**相同**
-    /// （都是 Eraser），因此阶段判据把它算作 `Early`——而实测（§9.53）要求它**留在后阶段**
-    /// （它必须读到旧批次改名后的**最终**名字）。当前靠「它不在 `EARLY_NATIVES` 里」兜住，
-    /// 所以这里**不断言**它，而是断言「它不在提前名单里」，把这个缺口显式记录下来。
+    /// **同时把阶段判据的当前边界写清楚**（实测，真实包）：
+    /// `min_legacy = Architect`（Eraser 旧任务已全部原生化），因此
+    /// **七个 Eraser 级原生任务**（`delete_*`、`process_chest_folder`、`rename_blocks_items`、
+    /// `rename_mcpatcher_to_optifine`）都由**阶段判据**判为 `Early`——这是正确的，
+    /// 真实包闸门也一直是在这个放置下通过的；而 `Architect` 及更晚的原生任务判为 `Late`。
     #[test]
     fn native_placement_rule_is_pinned_by_the_real_plan() {
         use crate::hurray::scheduler::Scheduler;
@@ -1117,13 +1117,21 @@ mod tests {
                 );
             }
         }
-        // 已知缺口（§9.68）：`rename_blocks_items` 与旧批次最小阶段同级，阶段判据算它 Early，
-        // 而实测要求它 Late。当前**只靠它不在提前名单里**兜住——把它写成断言，防止有人
-        // 顺手把它加进名单。
-        assert!(
-            !EARLY_NATIVES.contains(&"rename_blocks_items"),
-            "`rename_blocks_items` 实测必须留在后阶段（§9.53），不得加入 EARLY_NATIVES"
-        );
+        // 阶段判据的真实边界（实测）：`min_legacy = Architect`，因此 Eraser 级原生任务
+        // 由判据判为 Early——包括 `rename_blocks_items`，它在真实包闸门里一直是 Early 且通过。
+        for name in [
+            "rename_blocks_items",
+            "delete_font_folder",
+            "process_chest_folder",
+        ] {
+            if let Some(side) = placements.get(name) {
+                assert_eq!(
+                    *side,
+                    Side::Early,
+                    "`{name}` 是 Eraser 级，阶段判据应判为 Early（真实包闸门即在此放置下通过）"
+                );
+            }
+        }
 
         // 阶段判据：凡「严格早于旧批次最小阶段」的已派发原生任务都必须是 Early
         let min_legacy = plan
