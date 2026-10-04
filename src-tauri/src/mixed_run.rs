@@ -378,6 +378,13 @@ fn native_for(
                 crate::pilots::rename_blocks_reverse::run,
             ));
         }
+        if name == "reverse_fix_ui_survival" {
+            return Some((
+                "reverse_survival",
+                crate::pilots::reverse_survival::decl(),
+                crate::pilots::reverse_survival::run,
+            ));
+        }
         if let Some((decl, run)) = crate::pilots::reverse_compose::lookup(name) {
             return Some(("reverse_compose", decl, run));
         }
