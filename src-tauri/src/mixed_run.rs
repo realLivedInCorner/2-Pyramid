@@ -81,6 +81,9 @@ pub struct MixedRunOptions {
     pub strict_scopes: bool,
     /// 实验模式：旧任务逐个执行（每个之后收层）。用于验证「同阶段内交错是否等价」。
     pub legacy_one_by_one: bool,
+    /// **逐步读数**（诊断）：每一步之后记录 workdir 的指纹，写入
+    /// [`MixedRunReport::step_trace`]。默认关闭（对产物无影响）。
+    pub step_trace: bool,
 }
 
 impl Default for MixedRunOptions {
@@ -97,6 +100,7 @@ impl Default for MixedRunOptions {
             native: NativeSwitches::none(),
             strict_scopes: true,
             legacy_one_by_one: false,
+            step_trace: false,
         }
     }
 }
@@ -123,6 +127,9 @@ pub struct MixedRunReport {
     pub deferred_removals: Vec<String>,
     /// 声明阶段与活注册表不一致的原生任务（见 §9.40：阶段决定相对位置）。
     pub tier_mismatches: Vec<String>,
+    /// **逐步读数**（诊断，`step_trace` 打开时才填充）：`(标签, 文件数, 总字节, 名字指纹)`。
+    /// 用来回答「分叉是哪一步先发生的」（§9.73）。
+    pub step_trace: Vec<(String, usize, u64, u64)>,
     pub stats: SerializeStats,
 }
 
@@ -225,6 +232,14 @@ where
         plan_len: plan.len(),
         ..MixedRunReport::default()
     };
+    // **逐步读数**（诊断，§9.73）：局部累积，末尾一次性写入报告（避免借用冲突）
+    let mut trace: Vec<(String, usize, u64, u64)> = Vec::new();
+    let trace_step = |label: &str, trace: &mut Vec<(String, usize, u64, u64)>| {
+        if opts.step_trace {
+            let (files, bytes, hash) = digest_workdir(workdir);
+            trace.push((label.to_string(), files, bytes, hash));
+        }
+    };
 
     // ① 原生前阶段：只放「按语义就该最先跑」的任务（当前批次都是 Eraser 阶段的删除/改名）。
     //
@@ -291,6 +306,7 @@ where
         report.native_tasks += 1;
         report.deferred_removals.extend(outcome.deferred_removals.iter().cloned());
         report.native_names.push(name.clone());
+        trace_step(&format!("pre:{name}"), &mut trace);
     }
 
     // ② 旧任务：**一次性**批量执行（与 `execute_version_conversion` 完全同构）
@@ -306,9 +322,11 @@ where
         .collect();
     report.legacy_tasks = legacy_names.len();
 
-    if opts.legacy_one_by_one {
-        // 实验模式：逐个任务执行并在每个之后收层——用来回答「同阶段内交错是否等价」。
-        // 生产默认不走这条（§9.10 曾实测它与一次性批量不等价，本模式的结论见 §9.18）。
+    trace_step("before-legacy", &mut trace);
+    if opts.legacy_one_by_one || opts.step_trace {
+        // `legacy_one_by_one`：实验模式，逐个任务执行并在每个之后收层（§9.18 的结论即出自它）。
+        // `step_trace`：**诊断模式**也走这条，只为拿到「旧批次里是**哪一步**先偏离」的读数——
+        // 它不改变产物（收层粒度比生产细，但产物由最终 harvest 决定）。
         for name in &legacy_names {
             scheduler
                 .run_named(std::slice::from_ref(name), &ctx, &mut pool)
@@ -320,6 +338,7 @@ where
             report.removed += one.removed.len();
             sync_baseline_with_layer(&pack, &one.layer, &mut baseline)?;
             pack.commit(one.layer);
+            trace_step(&format!("legacy:{name}"), &mut trace);
         }
     } else {
         scheduler
@@ -334,6 +353,7 @@ where
         sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
         pack.commit(harvested.layer);
     }
+    trace_step("after-legacy", &mut trace);
 
     // **后阶段**：放依赖关系要求「晚于旧批次」的原生任务，位置在旧批次之后、GuiSurgeon 之前。
     // 依据（§9.42 实测）：旧批次不能被拆分（它只有一次提交 + 一次清理）；而「必须早于全部
@@ -367,6 +387,7 @@ where
         // 后阶段的原生任务同样计入（否则报告与断言都会少算）
         report.native_tasks += 1;
         report.native_names.push(name.clone());
+        trace_step(&format!("post:{name}"), &mut trace);
     }
     {
         let harvested = harvest(&pack, workdir, &baseline, None)?;
@@ -385,6 +406,7 @@ where
         opts.run_gui_surgeon,
     )
     .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
+    trace_step("after-direct-steps", &mut trace);
 
     // 旧任务的删除是**延迟清理**（`defer_remove_dir` 等），生产管线在
     // `invoke_conversion_ex` 末尾统一执行；驱动必须做同样的事，否则删不掉的目录
@@ -420,6 +442,7 @@ where
     report.undeclared = harvested.undeclared.clone();
     pack.commit(harvested.layer);
 
+    report.step_trace = trace;
     report.stats = {
         let view = pack.view();
         write_zip(&pack, &view, output, &opts.serialize)?
@@ -534,6 +557,90 @@ pub(crate) fn native_for_probe(
         ));
     }
     native_for(name, &NativeSwitches::all())
+}
+
+/// **逐步读数**（诊断用，§9.73 的建议）：每一步之后对 workdir 取一个廉价的指纹。
+///
+/// 目的：当真实包分叉时，能回答「**是哪一步先偏离**」，而不是只知道终点不同——
+/// §9.73 卡住的原因正是缺这份读数。
+///
+/// 指纹 = workdir 的（文件数, 总字节, 名字+大小序列的 FNV-1a）。**不读文件内容**，
+/// 所以很便宜；对「多一个文件 / 少一个文件 / 大小变了」这类分叉足够敏感。
+/// 需要定位内容差异时，再看紧随其后的**按目录**细粒度读数。
+fn digest_workdir(workdir: &Path) -> (usize, u64, u64) {
+    let mut entries: Vec<(String, u64)> = Vec::new();
+    let mut stack = vec![workdir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in rd.flatten() {
+            let p = entry.path();
+            match entry.file_type() {
+                Ok(t) if t.is_dir() => stack.push(p),
+                Ok(t) if t.is_file() => {
+                    let len = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                    let rel = p
+                        .strip_prefix(workdir)
+                        .map(|r| r.to_string_lossy().replace('\\', "/"))
+                        .unwrap_or_default();
+                    entries.push((rel, len));
+                }
+                _ => {}
+            }
+        }
+    }
+    entries.sort();
+    let files = entries.len();
+    let bytes: u64 = entries.iter().map(|(_, len)| *len).sum();
+    // FNV-1a over "path\0size\0"
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for (path, len) in &entries {
+        for b in path.as_bytes().iter().chain(b"\0").chain(len.to_le_bytes().iter()).chain(b"\0") {
+            hash ^= *b as u64;
+            hash = hash.wrapping_mul(0x1000_0000_01b3);
+        }
+    }
+    (files, bytes, hash)
+}
+
+/// 逐步读数的细粒度一档（**已就绪、暂未接线**）：对**指定前缀**下的每个文件取
+/// `名字→(大小, 内容 FNV-1a)`，用来在两份粗粒度读数之间做**逐文件**对比、
+/// 直接指出分歧出现在哪些文件上。下一轮定位 §9.73 的分叉时会用到。
+#[allow(dead_code)]
+fn digest_scope(workdir: &Path, prefix: &str) -> Vec<(String, u64, u64)> {
+    let root = workdir.join(prefix);
+    let mut out = Vec::new();
+    let mut stack = vec![root.clone()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in rd.flatten() {
+            let p = entry.path();
+            match entry.file_type() {
+                Ok(t) if t.is_dir() => stack.push(p),
+                Ok(t) if t.is_file() => {
+                    let Ok(bytes) = std::fs::read(&p) else {
+                        continue;
+                    };
+                    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+                    for b in &bytes {
+                        hash ^= *b as u64;
+                        hash = hash.wrapping_mul(0x1000_0000_01b3);
+                    }
+                    let rel = p
+                        .strip_prefix(workdir)
+                        .map(|r| r.to_string_lossy().replace('\\', "/"))
+                        .unwrap_or_default();
+                    out.push((rel, bytes.len() as u64, hash));
+                }
+                _ => {}
+            }
+        }
+    }
+    out.sort();
+    out
 }
 
 /// 已迁移任务的派发表：**任务名 → (标签, 声明, 原生实现)**。开关关闭即返回 `None`（走旧路径）。
@@ -1174,6 +1281,77 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// **逐步读数**（默认忽略，§9.73 的诊断工具）：
+    /// `AROM_REAL_PACK=<包> cargo test --lib trace_stepwise -- --ignored --nocapture`
+    ///
+    /// 它做两件事：
+    /// 1. **验证读数本身不改变产物**——打开 `step_trace` 会把旧批次改成「逐任务执行 + 逐任务收层」
+    ///    （为了拿到 `legacy:<任务名>` 粒度的读数），所以先断言它与生产口径（一次性批量）**产物一致**；
+    /// 2. 打印每一步的 `(文件数, 总字节, 名字指纹)`，用来回答「分叉是**哪一步**先发生的」。
+    ///
+    /// 对比两份读数时：前缀相同、从某一标签起指纹不同 ⇒ 该标签即**第一处偏离**。
+    #[test]
+    #[ignore]
+    fn trace_stepwise_on_a_real_pack() {
+        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
+            println!("AROM_REAL_PACK 未设置，跳过");
+            return;
+        };
+        let input = PathBuf::from(&src);
+        let source = {
+            let pack = Pack::open_zip(&input, &SafeLimits::preserving_current(), None)
+                .expect("open for source format");
+            pack.view()
+                .mcmeta()
+                .ok()
+                .and_then(|m| m.effective_format())
+                .unwrap_or(34)
+        };
+        let target: u32 = std::env::var("AROM_TARGET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(97);
+        let tmp = tempfile::tempdir().expect("tempdir");
+
+        // 生产口径
+        let (prod, _) = mixed_v2_output(
+            &input,
+            tmp.path(),
+            target,
+            source,
+            NativeSwitches::all(),
+            false,
+            "prod",
+        );
+        // 读数口径（step_trace=true → 旧批次逐任务收层）
+        let work = tmp.path().join("v2_work_trace");
+        let out = tmp.path().join("v2_trace.zip");
+        let opts = MixedRunOptions {
+            source_version: source,
+            target_version: target,
+            native: NativeSwitches::all(),
+            step_trace: true,
+            ..MixedRunOptions::default()
+        };
+        let report = run_mixed(&input, &work, &out, &opts, |dir| {
+            let mcmeta = dir.join("pack.mcmeta");
+            if mcmeta.exists() {
+                write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
+        .expect("traced run");
+
+        println!("=== 逐步读数（label\tfiles\tbytes\thash）===");
+        for (label, files, bytes, hash) in &report.step_trace {
+            println!("{label}\t{files}\t{bytes}\t{hash:016x}");
+        }
+        println!("=== 读数结束（共 {} 步）===", report.step_trace.len());
+
+        // 读数不得改变产物
+        assert_equivalent(&prod, &out);
     }
 
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
