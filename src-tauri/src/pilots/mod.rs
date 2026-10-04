@@ -6743,6 +6743,8 @@ pub mod surgeon_machinery {
 /// 未派发期间这些函数暂时**只被测试用到**，所以按本仓约定整块标 `#[cfg(test)]`——**派发时应移除该属性**。
 #[cfg(test)]
 pub mod shader_adapt {
+    use super::*;
+
     /// 旧 `rewrite_import_path`：`<a/b.glsl>` → `<a:b.glsl>`；`"x.glsl"` 保持引号形式。
     pub fn rewrite_import_path(rest: &str) -> Option<String> {
         let quoted = if rest.starts_with('<') && rest.ends_with('>') {
@@ -6827,9 +6829,272 @@ pub mod shader_adapt {
         src.contains("ScreenSize") || src.contains("GameTime")
     }
 
-    /// 旧 `has_globals_import`：是否已经 import 过 globals。
+    /// 旧 `has_globals_import`：**逐行**判断是否存在 import/include 了 globals 的行。
+    ///
+    /// 注意与 `needs_globals_import` 不同：这里**不是**子串搜索——`globals.glsl` 出现在注释里
+    /// 不算数。§9.82 的逐函数对照正是靠这条把第一版的子串写法抓了出来。
     pub fn has_globals_import(src: &str) -> bool {
-        src.contains("globals.glsl")
+        src.lines().any(|l| {
+            let t = l.trim();
+            (t.starts_with("#moj_import") || t.starts_with("#include")) && t.contains("globals.glsl")
+        })
+    }
+
+    /// 旧 `inject_globals_import`：在**第一个非空、非注释**行之前插入 import；
+    /// 若通篇都是空行/注释，则追加到末尾。`use_include_directive` 决定用 `#include` 还是 `#moj_import`。
+    pub fn inject_globals_import(src: &str, use_include_directive: bool) -> String {
+        let import = if use_include_directive {
+            "#include <minecraft:globals.glsl>\n"
+        } else {
+            "#moj_import <minecraft:include/globals.glsl>\n"
+        };
+        let mut out = String::with_capacity(src.len() + import.len() + 8);
+        let mut injected = false;
+        for line in src.lines() {
+            let t = line.trim();
+            if !injected
+                && !t.is_empty()
+                && !t.starts_with("//")
+                && !t.starts_with("/*")
+                && !t.starts_with('*')
+            {
+                out.push_str(import);
+                injected = true;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        if !injected {
+            out.push_str(import);
+        }
+        out
+    }
+
+    /// 旧 `count_args_likely_three`：启发式判断 `fn_name(...)` 是否像**三参**调用
+    /// （按括号深度数顶层逗号，遇到第一个 ≥2 个逗号的调用即返回真）。
+    pub fn count_args_likely_three(src: &str, fn_name: &str) -> bool {
+        let pat = format!("{}(", fn_name);
+        let mut idx = 0usize;
+        while let Some(pos) = src[idx..].find(&pat) {
+            let start = idx + pos + pat.len();
+            let bytes = src.as_bytes();
+            let mut depth = 1usize;
+            let mut commas = 0usize;
+            let mut i = start;
+            while i < bytes.len() && depth > 0 {
+                match bytes[i] {
+                    b'(' => depth += 1,
+                    b')' => depth -= 1,
+                    b',' if depth == 1 => commas += 1,
+                    _ => {}
+                }
+                i += 1;
+            }
+            if commas >= 2 {
+                return true;
+            }
+            idx = start;
+        }
+        false
+    }
+
+    /// 旧 `walk_dir` 里的 fog 标记：`target >= 32` 且像三参调用且未标记时，**在文件开头**插入一行注释。
+    pub fn fog_note_if_needed(src: &str, target: u32) -> (String, bool) {
+        if target >= FMT_FOG_DISTANCE && src.contains("fog_distance(") {
+            if count_args_likely_three(src, "fog_distance") && !src.contains("2PYR: fog_distance") {
+                return (
+                    format!(
+                        "// 2PYR: fog_distance() 1.20.5+ 签名变更，请对照 vanilla fog.glsl\n{}",
+                        src
+                    ),
+                    true,
+                );
+            }
+        }
+        (src.to_string(), false)
+    }
+
+    const SHADERS: &str = "assets/minecraft/shaders";
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("adapt_java_shaders", Tier::Surgeon)
+            .reads(ScopeSet::prefix(SHADERS))
+            .writes(ScopeSet::prefix(SHADERS))
+            .exclusive(true)
+    }
+
+    /// 与旧实现同一套里程碑判定。
+    pub fn is_modern_shader_api(target: u32) -> bool {
+        target >= FMT_MODERN_JSON
+    }
+
+    /// 递归改写：**跳过 `include/`**（被 import 引用，写坏会导致整包重载失败）。
+    ///
+    /// 逐条照抄 `walk_dir` 的三段判定与**顺序**：导入指令 → globals 注入 → fog 标记。
+    fn walk_dir(
+        tx: &mut Tx<'_>,
+        dir: &str,
+        target: u32,
+        changed: &mut usize,
+    ) -> Result<(), AromError> {
+        for entry in tx.list(dir)? {
+            let path = entry.path.clone();
+            if entry.is_dir {
+                let folder = path.rsplit('/').next().unwrap_or("");
+                if folder.eq_ignore_ascii_case("include") {
+                    continue;
+                }
+                walk_dir(tx, &path, target, changed)?;
+                continue;
+            }
+            let lower = path.to_ascii_lowercase();
+            if !(lower.ends_with(".vsh") || lower.ends_with(".fsh") || lower.ends_with(".glsl")) {
+                continue;
+            }
+            let is_core = dir.rsplit('/').next() == Some("core");
+            let Some(bytes) = tx.read(&path)? else { continue };
+            let Ok(raw) = String::from_utf8(bytes) else {
+                continue;
+            };
+            let mut out = raw.clone();
+            let mut file_changed = false;
+
+            if is_core && target >= FMT_IMPORT_NS {
+                if target >= FMT_INCLUDE_DIRECTIVE {
+                    let (next, n) = convert_moj_import_to_include(&out);
+                    if n > 0 {
+                        out = next;
+                        file_changed = true;
+                    }
+                } else {
+                    let (next, n) = namespace_moj_imports(&out);
+                    if n > 0 {
+                        out = next;
+                        file_changed = true;
+                    }
+                }
+            }
+
+            if is_core
+                && target >= FMT_GLOBALS_INCLUDE
+                && (lower.ends_with(".vsh") || lower.ends_with(".fsh"))
+                && needs_globals_import(&out)
+                && !has_globals_import(&out)
+            {
+                out = inject_globals_import(&out, target >= FMT_INCLUDE_DIRECTIVE);
+                file_changed = true;
+            }
+
+            let (next, fog_changed) = fog_note_if_needed(&out, target);
+            if fog_changed {
+                out = next;
+                file_changed = true;
+            }
+
+            if file_changed {
+                tx.put(&path, out.into_bytes())?;
+                *changed += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// 旧 `prune_and_rename_core` 的**改名**步骤：`json/vsh/fsh` 成组；目标已存在则删源。
+    fn rename_core_group(
+        tx: &mut Tx<'_>,
+        old: &str,
+        new: &str,
+        changed: &mut usize,
+    ) -> Result<(), AromError> {
+        for ext in ["json", "vsh", "fsh"] {
+            let src = format!("{SHADERS}/core/{old}.{ext}");
+            if !tx.exists(&src) {
+                continue;
+            }
+            let dst = format!("{SHADERS}/core/{new}.{ext}");
+            if tx.exists(&dst) {
+                tx.remove(&src)?;
+            } else {
+                let bytes = tx.read(&src)?.unwrap_or_default();
+                tx.put(&dst, bytes)?;
+                tx.remove(&src)?;
+            }
+            *changed += 1;
+        }
+        Ok(())
+    }
+
+    /// 旧 `ensure_include_trailing_newline`：include 下的 `glsl/vsh/fsh` 必须以**空行**结尾
+    /// （至少两个换行）；空文件跳过。
+    fn ensure_include_trailing_newline(tx: &mut Tx<'_>, changed: &mut usize) -> Result<(), AromError> {
+        let dir = format!("{SHADERS}/include");
+        if !tx.has_prefix(&dir)? {
+            return Ok(());
+        }
+        for entry in tx.list(&dir)? {
+            if entry.is_dir {
+                continue;
+            }
+            let ext = entry.path.rsplit('.').next().unwrap_or("");
+            if !matches!(ext, "glsl" | "vsh" | "fsh") {
+                continue;
+            }
+            let Some(bytes) = tx.read(&entry.path)? else {
+                continue;
+            };
+            let Ok(mut raw) = String::from_utf8(bytes) else {
+                continue;
+            };
+            if raw.is_empty() {
+                continue;
+            }
+            if raw.ends_with('\n') {
+                if !raw.ends_with("\n\n") {
+                    raw.push('\n');
+                    tx.put(&entry.path, raw.into_bytes())?;
+                    *changed += 1;
+                }
+            } else {
+                raw.push_str("\n\n");
+                tx.put(&entry.path, raw.into_bytes())?;
+                *changed += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// 总体编排（**分步移植中**）。
+    ///
+    /// 已移植：core **改名**组、include 结尾空行、源码遍历（导入指令 / globals 注入 / fog 标记）。
+    ///
+    /// **尚未移植**（在日志里显式记明，绝不静默跳过）：`prune_and_rename_core` 的**删除**步骤、
+    /// `ensure_core_json`、`rewrite_json_matrix_types` / `strip_json_uniforms_for_ubo` 的目录遍历、
+    /// `adapt_post_paths`。在这些补齐之前**不得派发**本任务。
+    pub fn run(tx: &mut Tx<'_>, target_pack_format: u32) -> Result<Outcome, AromError> {
+        if !tx.has_prefix(SHADERS)? {
+            return Ok(Outcome::default());
+        }
+        let mut changed = 0usize;
+
+        if target_pack_format >= FMT_GLOBALS_INCLUDE {
+            for (old, new) in core_rename_table(target_pack_format) {
+                if old == new {
+                    continue;
+                }
+                rename_core_group(tx, old, new, &mut changed)?;
+            }
+        }
+        ensure_include_trailing_newline(tx, &mut changed)?;
+        walk_dir(tx, SHADERS, target_pack_format, &mut changed)?;
+
+        crate::log_info!(
+            "adapt_java_shaders（原生·分步移植中）改写 {changed} 个条目；删除/补 JSON/post 路径部分尚未移植"
+        );
+        Ok(Outcome {
+            changed,
+            notes: vec![format!("shader adapt (native, partial) target={target_pack_format}")],
+            ..Outcome::default()
+        })
     }
 
     // ───────────────────────── 表格（移植自 `converters/shaders/java.rs`）─────────────────────────

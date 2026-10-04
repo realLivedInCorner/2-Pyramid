@@ -1059,6 +1059,14 @@ pub(crate) mod legacy_text_ops {
             stem, stem
         )
     }
+    /// 旧 `inject_globals_import`。
+    pub(crate) fn inject_globals_import(src: &str, use_include_directive: bool) -> String {
+        super::inject_globals_import(src, use_include_directive)
+    }
+    /// 旧 `count_args_likely_three`。
+    pub(crate) fn count_args_likely_three(src: &str, fn_name: &str) -> bool {
+        super::count_args_likely_three(src, fn_name)
+    }
 }
 
 pub fn register_scheduler_task(scheduler: &mut crate::hurray::scheduler::Scheduler) {

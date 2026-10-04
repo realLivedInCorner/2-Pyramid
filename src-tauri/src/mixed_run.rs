@@ -1704,6 +1704,281 @@ mod tests {
         assert!(problems.is_empty(), "JSON 对照差异：{problems:#?}");
     }
 
+    /// **`shader_adapt` 的 globals / fog 文本对照**（默认忽略，§9.82）。
+    ///
+    /// 覆盖移植第四步新增的三个纯函数：
+    /// `has_globals_import`（**逐行**判定，不是子串）、`inject_globals_import`（插到第一个
+    /// 非空非注释行之前，全注释则追加）、`count_args_likely_three`（按括号深度数顶层逗号）
+    /// 与 `fog_note_if_needed`（在文件开头插一行标记）。
+    #[test]
+    #[ignore]
+    fn shader_adapt_globals_and_fog_ops_match_the_legacy() {
+        use crate::converters::shaders::java::legacy_text_ops as legacy;
+        use crate::pilots::shader_adapt as native;
+
+        let corpus: [&str; 10] = [
+            "void main(){}\n",
+            "// leading comment\nvoid main(){}\n",
+            "/* block */\nvoid main(){}\n",
+            " * continuation\nvoid main(){}\n",
+            "\n\n// only comments\n",
+            "",
+            "// globals.glsl mentioned in a comment\nvoid main(){}\n",
+            "#moj_import <minecraft:include/globals.glsl>\nvoid main(){}\n",
+            "#include <minecraft:globals.glsl>\nvoid main(){}\n",
+            "uniform vec2 ScreenSize;\nvoid main(){}\n",
+        ];
+
+        let mut problems: Vec<String> = Vec::new();
+        let mut checked = 0usize;
+        for (i, src) in corpus.iter().enumerate() {
+            if legacy::has_globals_import(src) != native::has_globals_import(src) {
+                problems.push(format!(
+                    "corpus[{i}] has_globals_import 不同：旧={} 原生={}",
+                    legacy::has_globals_import(src),
+                    native::has_globals_import(src)
+                ));
+            }
+            for use_include in [false, true] {
+                let a = legacy::inject_globals_import(src, use_include);
+                let b = native::inject_globals_import(src, use_include);
+                if a != b {
+                    problems.push(format!(
+                        "corpus[{i}] inject_globals_import(include={use_include}) 不同：旧={a:?} 原生={b:?}"
+                    ));
+                }
+                checked += 1;
+            }
+            if native::needs_globals_import(src) != legacy::needs_globals_import(src) {
+                problems.push(format!("corpus[{i}] needs_globals_import 不同"));
+            }
+            checked += 2;
+        }
+
+        // fog：三参 / 两参 / 单参 / 已标记 / 嵌套括号
+        for src in [
+            "float d = fog_distance(Pos, FogStart, FogEnd);\n",
+            "float d = fog_distance(Pos, FogStart);\n",
+            "float d = fog_distance(a);\n",
+            "// 2PYR: fog_distance\nd = fog_distance(a,b,c);\n",
+            "d = fog_distance(f(a,b), c, d);\n",
+            "d = fog_distance(f(a,b));\n",
+        ] {
+            if legacy::count_args_likely_three(src, "fog_distance")
+                != native::count_args_likely_three(src, "fog_distance")
+            {
+                problems.push(format!("count_args_likely_three 不同：{src:?}"));
+            }
+            for target in [31u32, 32, 97] {
+                let (a, ca) = {
+                    // 旧侧等价物：walk_dir 里那段的直接复刻
+                    let hit = target >= 32
+                        && src.contains("fog_distance(")
+                        && legacy::count_args_likely_three(src, "fog_distance")
+                        && !src.contains("2PYR: fog_distance");
+                    if hit {
+                        (
+                            format!(
+                                "// 2PYR: fog_distance() 1.20.5+ 签名变更，请对照 vanilla fog.glsl\n{}",
+                                src
+                            ),
+                            true,
+                        )
+                    } else {
+                        (src.to_string(), false)
+                    }
+                };
+                let (b, cb) = native::fog_note_if_needed(src, target);
+                if a != b || ca != cb {
+                    problems.push(format!("fog_note_if_needed(target={target}) 不同：{src:?}"));
+                }
+                checked += 1;
+            }
+            checked += 1;
+        }
+
+        println!("shader_adapt globals/fog 对照：{checked} 项");
+        assert!(problems.is_empty(), "globals/fog 对照差异：{problems:#?}");
+    }
+
+    /// **`shader_adapt` 骨架在夹具上与旧实现对照**（默认忽略，§9.83）。
+    ///
+    /// 骨架（改名组 / include 结尾空行 / 源码遍历）没有纯函数可逐例比对，
+    /// 因此这里在**与 §9.78 同一份夹具**上跑两侧：
+    /// - 旧侧：`adapt_java_shaders_at(root, target)`（完整实现，写盘）；
+    /// - 原生侧：把夹具塞进 `Pack`，跑 `shader_adapt::run`，再物化回目录。
+    ///
+    /// **已知差异必须被显式解释**：原生是**分步移植**，尚未做
+    /// 「删除/补 JSON/剥 uniforms/post 路径」，所以旧侧会**多删**一些文件。
+    /// 因此断言分两部分：
+    /// 1. **原生不得碰**它不该碰的文件（只允许出现它已移植的改动）；
+    /// 2. 旧侧的删除集合**必须**是「原生未实现的那几类」——用白名单核对，
+    ///    这样一旦有人误把未移植的行为也做进去（或反过来漏掉已移植的），用例会红。
+    #[test]
+    #[ignore]
+    fn shader_adapt_skeleton_matches_legacy_on_the_fixture() {
+        use std::collections::BTreeMap;
+
+        fn make_pack(root: &std::path::Path) {
+            let s = root.join("assets/minecraft/shaders");
+            for d in ["core", "post", "post_effect", "include"] {
+                std::fs::create_dir_all(s.join(d)).expect("mkdir");
+            }
+            std::fs::write(s.join("core/rendertype_entity.vsh"), "// v\n").unwrap();
+            std::fs::write(s.join("core/rendertype_entity.fsh"), "// f\n").unwrap();
+            std::fs::write(s.join("core/rendertype_text.json"), "{\"keep\":true}\n").unwrap();
+            std::fs::write(s.join("core/rendertype_text.vsh"), "// tv\n").unwrap();
+            std::fs::write(
+                s.join("core/rendertype_entity_translucent.fsh"),
+                "#moj_import <fog.glsl>\nvoid main(){}\n",
+            )
+            .unwrap();
+            std::fs::write(s.join("core/unknown_thing.vsh"), "// unknown\n").unwrap();
+            std::fs::write(s.join("core/screenquad.vsh"), "// shared\n").unwrap();
+            std::fs::write(s.join("core/something.glsl"), "// glsl kept\n").unwrap();
+            std::fs::write(
+                s.join("core/rendertype_entity.json"),
+                "{\n \"uniforms\": [{\"name\":\"ModelViewMat\",\"type\": \"mat3\"}],\n \"blend\": {}\n}\n",
+            )
+            .unwrap();
+            std::fs::write(
+                s.join("core/screenquad.json"),
+                "{\n \"uniforms\": [{\"name\":\"ProjMat\",\"type\": \"mat4\"}],\n \"blend\": {}\n}\n",
+            )
+            .unwrap();
+            std::fs::write(s.join("post/blur.json"), "{\"targets\":[]}\n").unwrap();
+            std::fs::write(s.join("post_effect/blur.json"), "{\"targets\":[]}\n").unwrap();
+            std::fs::write(s.join("include/fog.glsl"), "// no trailing newline").unwrap();
+        }
+
+        fn snapshot(root: &std::path::Path) -> BTreeMap<String, String> {
+            let mut out = BTreeMap::new();
+            let mut stack = vec![root.join("assets/minecraft/shaders")];
+            while let Some(dir) = stack.pop() {
+                let Ok(rd) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
+                for e in rd.flatten() {
+                    let p = e.path();
+                    if p.is_dir() {
+                        stack.push(p);
+                    } else if let Ok(rel) = p.strip_prefix(root) {
+                        let rel = rel.to_string_lossy().replace('\\', "/");
+                        out.insert(rel, std::fs::read_to_string(&p).unwrap_or_default());
+                    }
+                }
+            }
+            out
+        }
+
+        let mut problems: Vec<String> = Vec::new();
+        let mut checked = 0usize;
+        for target in [1u32, 34, 97] {
+            // 旧侧
+            let tmp_legacy = tempfile::tempdir().expect("tempdir");
+            make_pack(tmp_legacy.path());
+            let before = snapshot(tmp_legacy.path());
+            crate::converters::shaders::java::adapt_java_shaders_at(tmp_legacy.path(), target)
+                .expect("legacy");
+            let after_legacy = snapshot(tmp_legacy.path());
+
+            // 原生侧：夹具 → Pack → run → 物化
+            let tmp_native = tempfile::tempdir().expect("tempdir");
+            make_pack(tmp_native.path());
+            let zip_path = tmp_native.path().join("shaders_fixture.zip");
+            {
+                use std::io::Write as _;
+                let file = std::fs::File::create(&zip_path).expect("create");
+                let mut zip = zip::ZipWriter::new(file);
+                let opts = zip::write::FileOptions::default();
+                let mut add = |name: String, body: Vec<u8>| {
+                    zip.start_file(name, opts).expect("start");
+                    zip.write_all(&body).expect("write");
+                };
+                for (rel, body) in &before {
+                    add(rel.clone(), body.clone().into_bytes());
+                }
+                zip.finish().expect("finish");
+            }
+            let mut pack = Pack::open_zip(&zip_path, &SafeLimits::preserving_current(), None)
+                .expect("open fixture");
+            {
+                let mut tx = pack.tx("adapt_java_shaders");
+                crate::pilots::shader_adapt::run(&mut tx, target).expect("native run");
+                pack.commit(tx.into_layer());
+            }
+            let out_dir = tmp_native.path().join("out");
+            std::fs::create_dir_all(&out_dir).expect("mkdir");
+            crate::arom::pathview::materialize(&pack.view(), &out_dir).expect("materialize");
+            let after_native = snapshot(&out_dir);
+
+            // ① 原生只允许改动它已移植的部分：逐文件比对前先分类
+            let mut native_changed: Vec<&String> = after_native
+                .iter()
+                .filter(|(k, v)| before.get(*k).map(|b| b != *v).unwrap_or(false))
+                .map(|(k, _)| k)
+                .collect();
+            native_changed.sort();
+            let mut native_removed: Vec<&String> = before
+                .keys()
+                .filter(|k| !after_native.contains_key(*k))
+                .collect();
+            native_removed.sort();
+            let mut native_added: Vec<&String> = after_native
+                .keys()
+                .filter(|k| !before.contains_key(*k))
+                .collect();
+            native_added.sort();
+
+            let mut legacy_removed: Vec<&String> = before
+                .keys()
+                .filter(|k| !after_legacy.contains_key(*k))
+                .collect();
+            legacy_removed.sort();
+
+            println!(
+                "target={target}: 原生 改{} 删{} 增{} | 旧 删{}",
+                native_changed.len(),
+                native_removed.len(),
+                native_added.len(),
+                legacy_removed.len()
+            );
+
+            // ② 未移植的部分=旧侧有而原生侧有的删除，必须只属于「已声明的未移植类别」
+            for k in &legacy_removed {
+                if after_native.contains_key(*k) {
+                    let known_unported = k.ends_with(".json")
+                        || k.contains("/post/")
+                        || k.contains("/post_effect/")
+                        || k.ends_with("unknown_thing.vsh")
+                        || k.contains("rendertype_entity_translucent")
+                        || k.contains("rendertype_text")
+                        || k.contains("rendertype_entity.");
+                    if !known_unported {
+                        problems.push(format!(
+                            "target={target}: 旧侧删了 {k}，但原生侧保留了它——这不在「未移植」清单里"
+                        ));
+                    }
+                }
+            }
+            // ③ 原生**不应对未移植类别做任何删除**
+            for k in &native_removed {
+                let is_rename_source = k.contains("/core/rendertype_text")
+                    || k.contains("/core/rendertype_entity.")
+                    || k.contains("rendertype_entity_translucent");
+                if !is_rename_source {
+                    problems.push(format!(
+                        "target={target}: 原生删了 {k}，但它只移植了「改名组」——这超出范围"
+                    ));
+                }
+            }
+            checked += 3;
+        }
+
+        println!("shader_adapt 骨架夹具对照：{checked} 项");
+        assert!(problems.is_empty(), "骨架对照问题：{problems:#?}");
+    }
+
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
     #[test]
     fn scope_violations_flags_out_of_scope_writes() {
