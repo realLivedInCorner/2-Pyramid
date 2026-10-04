@@ -21,6 +21,7 @@
 pub mod error;
 pub mod layer;
 pub mod limits;
+pub mod pathview;
 pub mod serialize;
 pub mod source;
 pub mod store;
@@ -34,6 +35,9 @@ pub use layer::{
     Resolved, Slot, Tx,
 };
 pub use limits::SafeLimits;
+pub use pathview::{
+    decl_any, decl_prefix, decl_scopes, harvest, materialize, run_legacy, Harvest, Materialized,
+};
 pub use serialize::{
     method_for_path, write_zip, write_zip_atomic, OrderPolicy, SerializeOptions, SerializeStats,
 };
