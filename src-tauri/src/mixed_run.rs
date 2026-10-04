@@ -476,6 +476,14 @@ enum Side {
 /// - 或者列在 [`EARLY_NATIVES`] 里（**实测证据**见该常量）→ 前阶段；
 /// - 其余 → 后阶段。
 ///
+/// **已测量的隐含耦合（§9.73，尚未修）**：比较基准是「**剩余旧任务**里最小的阶段」，
+/// 于是**任何一次新派发都可能改变基准**，把别的任务从后阶段挪到前阶段。实测：真实包上
+/// 派发 `generate_shulker_box_ui`（当时唯一的 Architect 级旧任务）之后，基准从
+/// `Architect` 变成 `Surgeon`，`generate_boat` / `generate_potion_lingering` /
+/// `generate_tipped_arrow_images` 随即被判成 `Early`，真实包复现 §9.53 的 8 项 `OnlyInB`。
+/// 已尝试改成「整批计划的最小阶段」（与迁移进度无关），但那一版在真实包上**仍分叉**，
+/// 因此**先把两者一起回退**、把根因留给后续单独立项（见 §9.73）。
+///
 /// 注意「同级或更晚一律提前」这类更"整齐"的判据**已被实测否决**：`generate_boat` 与
 /// `rename_blocks_items` 一旦提前，真实包立刻分叉（§9.53 记录了 8 项 OnlyInB 的产物）。
 fn native_placements(
@@ -529,6 +537,11 @@ pub(crate) fn native_for_probe(
 }
 
 /// 已迁移任务的派发表：**任务名 → (标签, 声明, 原生实现)**。开关关闭即返回 `None`（走旧路径）。
+///
+/// **这里是「谁已经原生化」的唯一来源**：`native_placements`、`native_names`、前/后阶段三处
+/// 都只通过 `native_for` 判断。§9.73 的教训：若另外单开一条分支返回实现（例如只给
+/// `native_for_probe` 特判），就会出现「能执行但不算原生」的分裂状态，
+/// `EARLY_NATIVES` 也随之对它失效——真实包立刻分叉。
 fn native_for(
     name: &str,
     switches: &NativeSwitches,
