@@ -650,11 +650,11 @@ pub mod reverse_trivial {
     use super::*;
 
     macro_rules! noop_pilot {
-        ($m:ident, $task:literal) => {
+        ($m:ident, $task:literal, $tier:expr) => {
             pub mod $m {
                 use super::*;
                 pub fn decl() -> TaskDecl {
-                    TaskDecl::new($task, Tier::Eraser).exclusive(true)
+                    TaskDecl::new($task, $tier).exclusive(true)
                 }
                 pub fn run(_tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
                     Ok(Outcome::default())
@@ -682,10 +682,10 @@ pub mod reverse_trivial {
         };
     }
 
-    noop_pilot!(cut_gui, "reverse_cut_gui");
-    noop_pilot!(horse, "reverse_fix_horse_ui");
-    noop_pilot!(overlay_icons, "reverse_overlay_icons");
-    noop_pilot!(sub_hand, "reverse_fix_ui_sub_hand");
+    noop_pilot!(cut_gui, "reverse_cut_gui", Tier::Surgeon);
+    noop_pilot!(horse, "reverse_fix_horse_ui", Tier::Surgeon);
+    noop_pilot!(overlay_icons, "reverse_overlay_icons", Tier::Surgeon);
+    noop_pilot!(sub_hand, "reverse_fix_ui_sub_hand", Tier::Surgeon);
 
     drop_pilot!(
         snow_bucket,
@@ -2533,7 +2533,7 @@ pub mod reverse_pixels {
         const PATH: &str = "assets/minecraft/textures/gui/container/brewing_stand.png";
 
         pub fn decl() -> TaskDecl {
-            TaskDecl::new("reverse_fix_brewing_stand_ui", Tier::Eraser)
+            TaskDecl::new("reverse_fix_brewing_stand_ui", Tier::Surgeon)
                 .writes(ScopeSet::exact(PATH))
                 .exclusive(true)
         }
@@ -2583,7 +2583,7 @@ pub mod reverse_pixels {
             "assets/minecraft/textures/gui/container/creative_inventory/tab_inventory.png";
 
         pub fn decl() -> TaskDecl {
-            TaskDecl::new("reverse_fix_ui_creative", Tier::Eraser)
+            TaskDecl::new("reverse_fix_ui_creative", Tier::Surgeon)
                 .writes(ScopeSet::exact(PATH))
                 .exclusive(true)
         }
@@ -2683,7 +2683,7 @@ pub mod reverse_compose {
         const MCMETA: &[u8] = br#"{"animation":{}}"#;
 
         pub fn decl() -> TaskDecl {
-            TaskDecl::new("reverse_fix_clock_compass", Tier::Eraser)
+            TaskDecl::new("reverse_fix_clock_compass", Tier::Surgeon)
                 .reads(ScopeSet::prefix(ITEMS))
                 .writes(ScopeSet::prefix(ITEMS))
                 .exclusive(true)
@@ -2760,7 +2760,7 @@ pub mod reverse_compose {
         }
 
         pub fn decl() -> TaskDecl {
-            TaskDecl::new("reverse_fix_particles", Tier::Eraser)
+            TaskDecl::new("reverse_fix_particles", Tier::Surgeon)
                 .reads(ScopeSet::prefix("assets/minecraft/textures"))
                 .writes(ScopeSet::prefix("assets/minecraft/textures"))
                 .exclusive(true)
@@ -2865,7 +2865,7 @@ pub mod reverse_survival {
     ];
 
     pub fn decl() -> TaskDecl {
-        TaskDecl::new("reverse_fix_ui_survival", Tier::Eraser)
+        TaskDecl::new("reverse_fix_ui_survival", Tier::Surgeon)
             .reads(ScopeSet::prefix("assets/minecraft/textures"))
             .writes(ScopeSet::prefix("assets/minecraft/textures"))
             .exclusive(true)

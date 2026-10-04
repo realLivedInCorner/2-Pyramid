@@ -303,6 +303,14 @@ impl Scheduler {
         Ok(self.get_tasks_for_path_with_rules(&path, target_version))
     }
 
+    /// 某个已注册任务的**阶段**（活注册表是阶段声明的唯一来源）。
+    ///
+    /// 供混合运行驱动校验：原生任务声明的阶段必须与这里一致——驱动目前把原生任务放在
+    /// 同一个前阶段，只有 Eraser 级的位置与生产一致，声明写错会静默改变执行顺序。
+    pub fn task_tier(&self, name: &str) -> Option<TaskTier> {
+        self.task_registry.get(name).map(|task| task.tier)
+    }
+
     /// 按名字执行已注册的任务。
     ///
     /// 复用 [`Self::execute_tasks`]，因此**执行顺序与生产一致**：阶段顺序固定

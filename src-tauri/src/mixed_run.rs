@@ -121,6 +121,8 @@ pub struct MixedRunReport {
     pub native_names: Vec<String>,
     /// 原生任务登记的**延迟删除**路径（在清理点统一应用）。
     pub deferred_removals: Vec<String>,
+    /// 声明阶段与活注册表不一致的原生任务（见 §9.40：阶段决定相对位置）。
+    pub tier_mismatches: Vec<String>,
     pub stats: SerializeStats,
 }
 
@@ -242,6 +244,23 @@ where
                 .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
             (outcome, tx.into_layer())
         };
+        // **阶段一致性检查**：`decl().tier` 必须与活注册表登记的阶段一致。
+        // 阶段不是装饰：驱动目前把所有原生任务放在同一个「前阶段」，只有 Eraser 级任务的
+        // 位置才与生产一致；写错阶段会静默改变执行顺序（§9.40 的谜题正是这样来的）。
+        if let Some(live) = scheduler.task_tier(name) {
+            let live_str = match live {
+                crate::hurray::scheduler::TaskTier::Eraser => "eraser",
+                crate::hurray::scheduler::TaskTier::Architect => "architect",
+                crate::hurray::scheduler::TaskTier::Surgeon => "surgeon",
+                crate::hurray::scheduler::TaskTier::Closure => "closure",
+            };
+            if live_str != decl.tier.as_str() {
+                return Err(AromError::internal(format!(
+                    "native task `{label}` ({name}) declares tier `{}` but the live registry says `{live_str}`",
+                    decl.tier.as_str()
+                )));
+            }
+        }
         // 契约检查：原生任务只能写它声明过的路径
         let violations = scope_violations(&decl, &layer);
         if !violations.is_empty() {
