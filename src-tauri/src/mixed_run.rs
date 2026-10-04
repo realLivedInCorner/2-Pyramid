@@ -499,13 +499,16 @@ enum Side {
 /// - 或者列在 [`EARLY_NATIVES`] 里（**实测证据**见该常量）→ 前阶段；
 /// - 其余 → 后阶段。
 ///
-/// **已测量的隐含耦合（§9.73，尚未修）**：比较基准是「**剩余旧任务**里最小的阶段」，
-/// 于是**任何一次新派发都可能改变基准**，把别的任务从后阶段挪到前阶段。实测：真实包上
-/// 派发 `generate_shulker_box_ui`（当时唯一的 Architect 级旧任务）之后，基准从
-/// `Architect` 变成 `Surgeon`，`generate_boat` / `generate_potion_lingering` /
-/// `generate_tipped_arrow_images` 随即被判成 `Early`，真实包复现 §9.53 的 8 项 `OnlyInB`。
-/// 已尝试改成「整批计划的最小阶段」（与迁移进度无关），但那一版在真实包上**仍分叉**，
-/// 因此**先把两者一起回退**、把根因留给后续单独立项（见 §9.73）。
+/// **已实测的耦合（§9.73/§9.75，待与派发一起修）**：基准是「**剩余旧任务**里最小的阶段」，
+/// 于是**任何一次新派发都可能改变基准**，把无关任务挪到另一侧。真实包上派发
+/// `generate_shulker_box_ui`（当时唯一的 Architect 级旧任务）之后基准从 `Architect` 变成
+/// `Surgeon`，`generate_boat`、`generate_potion_lingering`、`generate_tipped_arrow_images`、
+/// `generate_furnace`… **全部被挪到前阶段**——§9.74 的逐步读数里能直接看到它们出现在 `pre:` 段。
+///
+/// **改成「整批计划里最小的阶段」可以消除这份漂移**（基准恒为计划里本就有的 `Eraser`），
+/// 单独改它时闸门也是**通过**的（§9.75 实测）；但派发 `generate_shulker_box_ui` 之后
+/// 真实包仍分叉（差异与派发前不同，涉及 `copper_bulb`/`poplar`/`breeze` 等），
+/// 两处因此**一起回退**、留待后续单独立项。修的时候请**成对验收**。
 ///
 /// 注意「同级或更晚一律提前」这类更"整齐"的判据**已被实测否决**：`generate_boat` 与
 /// `rename_blocks_items` 一旦提前，真实包立刻分叉（§9.53 记录了 8 项 OnlyInB 的产物）。
