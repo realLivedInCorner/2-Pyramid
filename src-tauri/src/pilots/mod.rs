@@ -2682,6 +2682,99 @@ mod tests {
         assert!(problems.is_empty(), "夹具正题差异：{problems:#?}");
     }
 
+    /// **`fix_tabs` 的正题**（默认忽略）。
+    ///
+    /// 为什么需要单独测：`fix_tabs` 在**本仓的验收路径上根本不出现**——`scheduler` 有一条规则
+    /// `from==9 && to==12 && target_version>15` 时**跳过**它，而 1→97 的路径不含 9→12 段。
+    /// 也就是说真实包闸门**覆盖不到**它，只能靠这里证明「算法与旧实现一致」。
+    #[test]
+    #[ignore]
+    fn fix_tabs_matches_the_old_implementation_on_a_fixture() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let fixture = tmp.path().join("tabs_fixture.zip");
+        let tabs_rel = "assets/minecraft/textures/gui/container/creative_inventory/tabs.png";
+
+        // 造一张 256×256 的 tabs.png：每个 8×8 区块用坐标派生出的确定性颜色，便于比对
+        let make_tabs = |size: u32| -> Vec<u8> {
+            let mut img = RgbaImage::new(size, size);
+            for y in 0..size {
+                for x in 0..size {
+                    img.put_pixel(
+                        x,
+                        y,
+                        image::Rgba([
+                            (x % 251) as u8,
+                            (y % 251) as u8,
+                            ((x + y) % 251) as u8,
+                            if (x + y) % 7 == 0 { 0 } else { 255 },
+                        ]),
+                    );
+                }
+            }
+            let mut buf = Vec::new();
+            image::DynamicImage::ImageRgba8(img)
+                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .expect("encode");
+            buf
+        };
+
+        for size in [256u32, 512u32] {
+            let fixture = tmp.path().join(format!("tabs_{size}.zip"));
+            {
+                use std::io::Write as _;
+                let file = std::fs::File::create(&fixture).expect("create");
+                let mut zip = zip::ZipWriter::new(file);
+                let opts = zip::write::FileOptions::default();
+                zip.start_file("pack.mcmeta", opts).expect("start");
+                zip.write_all(br#"{"pack":{"pack_format":34}}"#).expect("write");
+                zip.start_file(tabs_rel, opts).expect("start");
+                zip.write_all(&make_tabs(size)).expect("write");
+                zip.finish().expect("finish");
+            }
+
+            // 旧侧
+            let legacy_dir = tmp.path().join(format!("legacy_{size}"));
+            std::fs::create_dir_all(&legacy_dir).expect("mkdir");
+            crate::converters::zip::extract_resource_pack(
+                fixture.to_str().expect("utf8"),
+                legacy_dir.to_str().expect("utf8"),
+            )
+            .expect("extract");
+            crate::converters::ui::tabs::fix_tabs(&legacy_dir).expect("legacy fix_tabs");
+
+            // 原生侧
+            let native_dir = tmp.path().join(format!("native_{size}"));
+            std::fs::create_dir_all(&native_dir).expect("mkdir");
+            {
+                let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
+                    .expect("open fixture");
+                let (_, _, run) = crate::mixed_run::native_for_probe("fix_tabs")
+                    .expect("native fix_tabs");
+                let mut tx = pack.tx("fix_tabs");
+                run(&mut tx).expect("native run");
+                pack.commit(tx.into_layer());
+                crate::arom::pathview::materialize(&pack.view(), &native_dir)
+                    .expect("materialize");
+            }
+
+            let a = image::open(legacy_dir.join(tabs_rel)).expect("legacy image").to_rgba8();
+            let b = image::open(native_dir.join(tabs_rel)).expect("native image").to_rgba8();
+            assert_eq!(a.dimensions(), b.dimensions(), "size {size}: 尺寸不同");
+            let mut diff = 0usize;
+            let mut worst = 0i32;
+            for (pa, pb) in a.pixels().zip(b.pixels()) {
+                if pa.0 != pb.0 {
+                    diff += 1;
+                    for c in 0..4 {
+                        worst = worst.max((pa.0[c] as i32 - pb.0[c] as i32).abs());
+                    }
+                }
+            }
+            println!("fix_tabs size={size}: 差异 {diff} 像素（最大通道差 {worst}）");
+            assert_eq!(diff, 0, "size {size}: fix_tabs 与旧实现不一致");
+        }
+    }
+
     /// 从 zip 里读一个条目的字节（读不到返回 None）。
     fn read_zip_entry(zip_path: &std::path::Path, name: &str) -> Option<Vec<u8>> {
         use std::io::Read as _;
@@ -5988,6 +6081,118 @@ pub mod surgeon_mid3 {
     pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
         match name {
             "fix_particles" => Some((decl(), run)),
+            _ => None,
+        }
+    }
+}
+
+/// **Surgeon 组（续）**：`fix_tabs` —— 原位搬移 `gui/container/creative_inventory/tabs.png` 的区域。
+///
+/// 逐条照抄 `converters/ui/tabs.rs` 的四步（缩放因子走共享的 `determine_scale_factor`，
+/// **不是**「必须等于标准尺寸」那套）：
+/// 1. 把 (168,0)-(196,128) **右移 14**；
+/// 2. 六组区域各自**左移**固定像素（(15,0)-(41,128) 左移 2、(43,…) 左移 4、(71,…) 6、
+///    (99,…) 8、(127,…) 10、(155,0)-(168,128) 12），左移用 `saturating_sub`（**不会为负**）；
+/// 3. 把 (0,0)-(26,128) **拷到** (156,0)；
+/// 4. **无论哪一步都没写**，最后都会把 `tabs.png` 重写一次（旧实现如此）。
+///
+/// 搬移的语义是「先整体裁剪出源区域、再**逐像素覆盖**贴到目标」——读取全部来自裁剪副本，
+/// 因此源区与目标区重叠时不会自我污染，且**越界写入跳过**、**越界读取留透明**。
+pub mod surgeon_mid4 {
+    use super::*;
+    use crate::converters::scale_factor::determine_scale_factor;
+
+    const TABS: &str =
+        "assets/minecraft/textures/gui/container/creative_inventory/tabs.png";
+
+    /// 旧 `extract_region`：越界处留透明（`get_pixel_checked` 失败即保持默认 0）。
+    fn extract(img: &RgbaImage, coords: (u32, u32, u32, u32)) -> RgbaImage {
+        let (x1, y1, x2, y2) = coords;
+        let mut region = RgbaImage::new(x2.saturating_sub(x1), y2.saturating_sub(y1));
+        for y in 0..region.height() {
+            for x in 0..region.width() {
+                if let Some(px) = img.get_pixel_checked(x1 + x, y1 + y) {
+                    region.put_pixel(x, y, *px);
+                }
+            }
+        }
+        region
+    }
+
+    /// 旧 `move_region` / `copy_and_paste_region`（两者实现相同）：逐像素覆盖，越界跳过。
+    fn paste(img: &mut RgbaImage, region: &RgbaImage, dst: (u32, u32)) {
+        let (dx, dy) = dst;
+        for y in 0..region.height() {
+            for x in 0..region.width() {
+                if let Some(px) = region.get_pixel_checked(x, y) {
+                    if let Some(dst_px) = img.get_pixel_mut_checked(dx + x, dy + y) {
+                        *dst_px = *px;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("fix_tabs", Tier::Surgeon)
+            .reads(ScopeSet::exact(TABS))
+            .writes(ScopeSet::exact(TABS))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        if !tx.exists(TABS) {
+            crate::log_info!("tabs.png not found, skip");
+            return Ok(Outcome::default());
+        }
+        let mut img: RgbaImage = (*tx.image(TABS)?).clone();
+        let (width, height) = img.dimensions();
+        let (s, _exact) = determine_scale_factor(width, height);
+        let sc = |x: u32, y: u32| (x * s, y * s);
+
+        // 步骤 1：(168,0)-(196,128) 右移 14
+        let src = {
+            let (x1, y1) = sc(168, 0);
+            let (x2, y2) = sc(196, 128);
+            (x1, y1, x2, y2)
+        };
+        let region = extract(&img, src);
+        paste(&mut img, &region, (src.0 + 14 * s, src.1));
+
+        // 步骤 2：六组左移
+        for ((x1, y1, x2, y2), shift) in [
+            ((15u32, 0u32, 41u32, 128u32), 2u32),
+            ((43, 0, 69, 128), 4),
+            ((71, 0, 97, 128), 6),
+            ((99, 0, 125, 128), 8),
+            ((127, 0, 153, 128), 10),
+            ((155, 0, 168, 128), 12),
+        ] {
+            let (sx1, sy1) = sc(x1, y1);
+            let (sx2, sy2) = sc(x2, y2);
+            let region = extract(&img, (sx1, sy1, sx2, sy2));
+            let dest = (sx1.saturating_sub(shift * s), sy1);
+            paste(&mut img, &region, dest);
+        }
+
+        // 步骤 3：(0,0)-(26,128) 拷到 (156,0)
+        let (x2, y2) = sc(26, 128);
+        let region = extract(&img, (0, 0, x2, y2));
+        let dest = sc(156, 0);
+        paste(&mut img, &region, dest);
+
+        tx.put_image(TABS, &img)?;
+        Ok(Outcome {
+            changed: 1,
+            notes: vec![format!("tabs.png rewritten (scale {s})")],
+            ..Outcome::default()
+        })
+    }
+
+    /// 任务名 → (声明, 实现)。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "fix_tabs" => Some((decl(), run)),
             _ => None,
         }
     }

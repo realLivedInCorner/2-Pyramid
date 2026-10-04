@@ -637,6 +637,9 @@ fn native_for(
         if let Some((decl, run)) = crate::pilots::surgeon_mid3::lookup(name) {
             return Some(("surgeon_mid3", decl, run));
         }
+        if let Some((decl, run)) = crate::pilots::surgeon_mid4::lookup(name) {
+            return Some(("surgeon_mid4", decl, run));
+        }
     }
     if !switches.textures {
         return None;
