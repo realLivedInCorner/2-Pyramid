@@ -2692,6 +2692,127 @@ mod tests {
         file.read_to_end(&mut buf).ok()?;
         Some(buf)
     }
+
+    /// **`fix_clock_compass` 的正题**（默认忽略）。
+    ///
+    /// 为什么需要单独测：在**生产计划里它是空操作**——旧实现读 `textures/items/{clock,compass}.png`，
+    /// 而阶段 3–4 的 `rename_blocks_items` 已经把这两个文件改名到 `item/`，所以源"不存在"→ 整任务跳过。
+    /// 真实包闸门因此只证明「我也跳过了」，证明不了**抽帧算法**（这也解释了它为何必须放在后阶段，见 §9.59）。
+    ///
+    /// 这里自造纵向条带图，对同一份输入分别跑旧函数与原生实现，逐像素 + 逐条目比对。
+    #[test]
+    #[ignore]
+    fn clock_compass_split_matches_the_old_implementation_on_a_fixture() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let fixture = tmp.path().join("split_fixture.zip");
+
+        // clock：8x8 的宽度、高 8*8=64（8 帧）→ retain 64 → 全部保留，无抽取
+        // compass：8x8 的宽度、高 8*32=256（32 帧）→ retain 32 → 全部保留
+        // 另造一张「帧数多于 retain」的：高度 8*128=1024，retain 64 → 走抽帧分支
+        let make_strip = |w: u32, frames: u32| -> Vec<u8> {
+            let mut img = RgbaImage::new(w, w * frames);
+            for y in 0..img.height() {
+                for x in 0..w {
+                    let frame = y / w;
+                    img.put_pixel(
+                        x,
+                        y,
+                        image::Rgba([(frame % 251) as u8, (x * 7 % 251) as u8, (y % 251) as u8, 255]),
+                    );
+                }
+            }
+            let mut buf = Vec::new();
+            image::DynamicImage::ImageRgba8(img)
+                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .expect("encode");
+            buf
+        };
+        {
+            use std::io::Write as _;
+            let file = std::fs::File::create(&fixture).expect("create");
+            let mut zip = zip::ZipWriter::new(file);
+            let opts = zip::write::FileOptions::default();
+            let mut add = |name: &str, body: Vec<u8>| {
+                zip.start_file(name, opts).expect("start");
+                zip.write_all(&body).expect("write");
+            };
+            add("pack.mcmeta", br#"{"pack":{"pack_format":34}}"#.to_vec());
+            let items = "assets/minecraft/textures/items";
+            add(&format!("{items}/clock.png"), make_strip(8, 8));
+            add(&format!("{items}/compass.png"), make_strip(8, 128));
+            add(
+                &format!("{items}/compass.png.mcmeta"),
+                br#"{"animation":{"frametime":1}}"#.to_vec(),
+            );
+            zip.finish().expect("finish");
+        }
+
+        // 旧侧
+        let legacy_dir = tmp.path().join("legacy");
+        std::fs::create_dir_all(&legacy_dir).expect("mkdir");
+        crate::converters::zip::extract_resource_pack(
+            fixture.to_str().expect("utf8"),
+            legacy_dir.to_str().expect("utf8"),
+        )
+        .expect("extract");
+        let ctx = crate::hurray::context::HurrayContext::new(&legacy_dir.to_string_lossy());
+        crate::converters::ui::clock_compass::fix_clock_compass(&ctx).expect("legacy split");
+
+        // 原生侧
+        let native_dir = tmp.path().join("native");
+        std::fs::create_dir_all(&native_dir).expect("mkdir");
+        {
+            let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
+                .expect("open fixture");
+            let (_, _, run) = crate::mixed_run::native_for_probe("fix_clock_compass")
+                .expect("native fix_clock_compass");
+            let mut tx = pack.tx("fix_clock_compass");
+            run(&mut tx).expect("native run");
+            pack.commit(tx.into_layer());
+            crate::arom::pathview::materialize(&pack.view(), &native_dir).expect("materialize");
+        }
+
+        // 逐条目比对（含「原图应被删除」这一条）
+        let items = "assets/minecraft/textures/items";
+        let mut problems = Vec::new();
+        let mut checked = 0usize;
+        for name in ["clock.png", "clock.png.mcmeta", "compass.png", "compass.png.mcmeta"] {
+            let rel = format!("{items}/{name}");
+            let a = legacy_dir.join(&rel);
+            let b = native_dir.join(&rel);
+            if a.exists() != b.exists() {
+                problems.push(format!("{rel}: 存在性不同（旧={} 原生={}）", a.exists(), b.exists()));
+            }
+            checked += 1;
+        }
+        for (prefix, count) in [("clock", 8usize), ("compass", 64usize)] {
+            for j in 0..count {
+                let rel = format!("{items}/{prefix}_{j:02}.png");
+                let a = std::fs::read(legacy_dir.join(&rel));
+                let b = std::fs::read(native_dir.join(&rel));
+                match (a, b) {
+                    (Ok(a), Ok(b)) => {
+                        let ia = image::load_from_memory(&a).expect("decode legacy").to_rgba8();
+                        let ib = image::load_from_memory(&b).expect("decode native").to_rgba8();
+                        if ia.dimensions() != ib.dimensions() {
+                            problems.push(format!("{rel}: 尺寸不同"));
+                        } else if ia.pixels().zip(ib.pixels()).any(|(x, y)| x.0 != y.0) {
+                            problems.push(format!("{rel}: 像素不同"));
+                        }
+                        checked += 1;
+                    }
+                    (Err(_), Err(_)) => {}
+                    (a, b) => problems.push(format!(
+                        "{rel}: 一侧缺失（旧={} 原生={}）",
+                        a.is_ok(),
+                        b.is_ok()
+                    )),
+                }
+            }
+        }
+        println!("fix_clock_compass: 比对 {checked} 个条目");
+        assert!(problems.is_empty(), "抽帧夹具差异：{problems:#?}");
+    }
 }
 
 /// §9.34 的实验（旧实现那一半）：单独串起两个任务，逐步打印目标文件是否存在。
@@ -5096,6 +5217,164 @@ pub mod arch_gen3 {
                 Some((tipped_arrows::decl(), tipped_arrows::run))
             }
             "generate_snow_bucket" => Some((snow_bucket::decl(), snow_bucket::run)),
+            _ => None,
+        }
+    }
+}
+
+/// **Surgeon 早期组**（计划里排在最前面的几个 Surgeon 旧任务）。
+///
+/// 为什么这组能**逐个**边迁边验（而不像 §9.51 说的「必须整阶段」）：它们的槽位在旧批次**之前**，
+/// 所以「放进前阶段」与生产顺序一致——这正是 §9.53 之后把早期原生任务放进
+/// `EARLY_NATIVES` 的那条路的自然延伸。
+///
+/// 本批两个任务的语义要点：
+/// - `fix_slider`：由 `gui/widgets.png` **裁两条**贴到一张同尺寸的**全透明**新图——
+///   注意目标画布是 `ImageBuffer::new`（全 0，含 alpha），不是原图副本；复制逐像素且**越界即跳过**；
+/// - `fix_clock_compass`：把 `items/{clock,compass}.png` 纵向**均分抽帧**成 `{prefix}_{NN}.png`
+///   （`num_splits > retain_num` 时按 `floor(i*step)` 取帧并夹到 `num_splits-1`），
+///   然后**删掉原图与其 `.mcmeta`**。
+pub mod surgeon_early {
+    use super::*;
+    use crate::converters::scale_factor::determine_scale_factor;
+
+    const ITEMS_LEGACY: &str = "assets/minecraft/textures/items";
+
+    /// 旧 `copy_and_paste_region`：逐像素覆盖，**越界跳过**（`get_*_checked`）。
+    fn copy_and_paste(src: &RgbaImage, dest: &mut RgbaImage, src_box: (u32, u32, u32, u32), dest_pt: (u32, u32)) {
+        let (sx, sy, ex, ey) = src_box;
+        let (dx, dy) = dest_pt;
+        for y in 0..(ey.saturating_sub(sy)) {
+            for x in 0..(ex.saturating_sub(sx)) {
+                if let Some(p) = src.get_pixel_checked(sx + x, sy + y) {
+                    if let Some(d) = dest.get_pixel_mut_checked(dx + x, dy + y) {
+                        *d = *p;
+                    }
+                }
+            }
+        }
+    }
+
+    /// 旧 `converters/ui/slider.rs`。
+    pub mod slider {
+        use super::*;
+
+        const WIDGETS: &str = "assets/minecraft/textures/gui/widgets.png";
+        const SLIDER: &str = "assets/minecraft/textures/gui/slider.png";
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("fix_slider", Tier::Surgeon)
+                .reads(ScopeSet::exact(WIDGETS))
+                .writes(ScopeSet::exact(SLIDER))
+                .exclusive(true)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            if !tx.exists(WIDGETS) {
+                crate::log_info!("widgets.png not found, skip slider");
+                return Ok(Outcome::default());
+            }
+            let img: RgbaImage = (*tx.image(WIDGETS)?).clone();
+            let (width, height) = img.dimensions();
+            let (s, _exact) = determine_scale_factor(width, height);
+
+            // 旧实现：目标是**全透明**的同尺寸新图
+            let mut slider_img = RgbaImage::new(width, height);
+            let sc = |x: u32, y: u32| (x * s, y * s);
+            let (x1, y1) = sc(0, 46);
+            let (x2, y2) = sc(200, 66);
+            copy_and_paste(&img, &mut slider_img, (x1, y1, x2, y2), (0, 0));
+            let (x1, y1) = sc(0, 46);
+            let (x2, y2) = sc(200, 106);
+            let (dx, dy) = sc(0, 20);
+            copy_and_paste(&img, &mut slider_img, (x1, y1, x2, y2), (dx, dy));
+
+            // 旧实现**不创建目录**（`widgets.png` 存在即意味着 `gui/` 已在包里），
+            // 因此这里也不能写目录条目——多写一条会让「声明范围」契约当场报错（实测）。
+            tx.put_image(SLIDER, &slider_img)?;
+            Ok(Outcome {
+                changed: 1,
+                notes: vec![format!("widgets.png -> slider.png (scale {s})")],
+                ..Outcome::default()
+            })
+        }
+    }
+
+    /// 旧 `converters/ui/clock_compass.rs`。
+    pub mod clock_compass {
+        use super::*;
+
+        pub fn decl() -> TaskDecl {
+            TaskDecl::new("fix_clock_compass", Tier::Surgeon)
+                .reads(ScopeSet::prefix(ITEMS_LEGACY))
+                .writes(ScopeSet::prefix(ITEMS_LEGACY))
+                .exclusive(true)
+        }
+
+        /// 旧 `split_image`：纵向均分抽帧 → 写 `{prefix}_{NN}.png` → 删原图与 `.mcmeta`。
+        fn split(
+            tx: &mut Tx<'_>,
+            image_rel: &str,
+            prefix: &str,
+            retain_num: u32,
+        ) -> Result<usize, AromError> {
+            let img: RgbaImage = (*tx.image(image_rel)?).clone();
+            let (img_width, img_height) = img.dimensions();
+            if img_width == 0 {
+                return Err(AromError::io(format!("invalid image width 0 for {image_rel}")));
+            }
+            let num_splits = img_height / img_width;
+            let split_height = img_height / num_splits.max(1);
+
+            let indices: Vec<u32> = if num_splits > retain_num {
+                let step = num_splits as f64 / retain_num as f64;
+                (0..retain_num)
+                    .map(|i| ((i as f64) * step) as u32)
+                    .map(|idx| idx.min(num_splits - 1))
+                    .collect()
+            } else {
+                (0..num_splits).collect()
+            };
+
+            let mut written = 0usize;
+            for (j, &i) in indices.iter().enumerate() {
+                let y = i * split_height;
+                let cropped = image::imageops::crop_imm(&img, 0, y, img_width, split_height).to_image();
+                tx.put_image(&format!("{ITEMS_LEGACY}/{prefix}_{j:02}.png"), &cropped)?;
+                written += 1;
+            }
+
+            // 旧实现随后**删原图**（含 `.mcmeta` 附属）
+            tx.remove(image_rel)?;
+            let mcmeta = format!("{image_rel}.mcmeta");
+            if tx.exists(&mcmeta) {
+                tx.remove(&mcmeta)?;
+            }
+            Ok(written)
+        }
+
+        pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+            let mut outcome = Outcome::default();
+            for (name, prefix, retain) in [
+                ("clock.png", "clock", 64u32),
+                ("compass.png", "compass", 32u32),
+            ] {
+                let rel = format!("{ITEMS_LEGACY}/{name}");
+                if !tx.exists(&rel) {
+                    crate::log_info!("{name} not found, skip");
+                    continue;
+                }
+                outcome.changed += split(tx, &rel, prefix, retain)?;
+            }
+            Ok(outcome)
+        }
+    }
+
+    /// 任务名 → (声明, 实现)。
+    pub fn lookup(name: &str) -> Option<(TaskDecl, PilotFn)> {
+        match name {
+            "fix_slider" => Some((slider::decl(), slider::run)),
+            "fix_clock_compass" => Some((clock_compass::decl(), clock_compass::run)),
             _ => None,
         }
     }
