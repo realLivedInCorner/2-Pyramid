@@ -1354,6 +1354,157 @@ mod tests {
         assert_equivalent(&prod, &out);
     }
 
+    /// **`adapt_java_shaders` 的三分支正题**（默认忽略，§9.77 建议①）。
+    ///
+    /// 为什么必须单独测：真实包里 `shaders` 相关条目为 **0**，该函数在第一个判断
+    /// （`!shaders.is_dir()`）就返回——**真实包闸门对它给的是假绿灯**（§9.77）。
+    ///
+    /// 本用例造一份含 `shaders/{core,post,post_effect,include}` 的夹具，对三个版本分支
+    /// 各跑一次**旧实现** `adapt_java_shaders_at`，把结果落成**逐文件快照**并打印，
+    /// 同时钉住每个分支的可观测语义（删了什么、改了什么）。它既是"旧行为"的基线记录，
+    /// 也是后续原生移植的**对照标准**（移植后应能对同一夹具产出同样的快照）。
+    #[test]
+    #[ignore]
+    fn adapt_java_shaders_three_branches_on_a_fixture() {
+        use std::collections::BTreeMap;
+
+        /// 造一份 1.20.1 风格（format 15）的 shader 包，覆盖各分支关心的结构。
+        fn make_pack(root: &std::path::Path) {
+            let s = root.join("assets/minecraft/shaders");
+            for d in ["core", "post", "post_effect", "include"] {
+                std::fs::create_dir_all(s.join(d)).expect("mkdir");
+            }
+            // core：成对 vsh+fsh（缺 json）、已有 json、旧名（→ 新名）、已移除名、未知名、共享 vsh
+            std::fs::write(s.join("core/rendertype_entity.vsh"), "// v\n").unwrap();
+            std::fs::write(s.join("core/rendertype_entity.fsh"), "// f\n").unwrap();
+            std::fs::write(s.join("core/rendertype_text.json"), "{\"keep\":true}\n").unwrap();
+            std::fs::write(s.join("core/rendertype_text.vsh"), "// tv\n").unwrap();
+            std::fs::write(
+                s.join("core/rendertype_entity_translucent.fsh"),
+                "#moj_import <fog.glsl>\nvoid main(){}\n",
+            )
+            .unwrap();
+            std::fs::write(s.join("core/unknown_thing.vsh"), "// unknown\n").unwrap();
+            std::fs::write(s.join("core/screenquad.vsh"), "// shared\n").unwrap();
+            std::fs::write(s.join("core/something.glsl"), "// glsl kept\n").unwrap();
+            // core JSON：mat3（≥7 要升级为 mat4）、uniform 块（≥63 要剥）
+            std::fs::write(
+                s.join("core/rendertype_entity.json"),
+                "{\n \"uniforms\": [{\"name\":\"ModelViewMat\",\"type\": \"mat3\"}],\n \"blend\": {}\n}\n",
+            )
+            .unwrap();
+            std::fs::write(
+                s.join("core/screenquad.json"),
+                "{\n \"uniforms\": [{\"name\":\"ProjMat\",\"type\": \"mat4\"}],\n \"blend\": {}\n}\n",
+            )
+            .unwrap();
+            // post / post_effect
+            std::fs::write(s.join("post/blur.json"), "{\"targets\":[]}\n").unwrap();
+            std::fs::write(s.join("post_effect/blur.json"), "{\"targets\":[]}\n").unwrap();
+            // include：故意**不带**结尾空行，触发 include_newline_fixed
+            std::fs::write(s.join("include/fog.glsl"), "// no trailing newline").unwrap();
+        }
+
+        fn snapshot(root: &std::path::Path) -> BTreeMap<String, String> {
+            let mut out = BTreeMap::new();
+            let mut stack = vec![root.join("assets/minecraft/shaders")];
+            while let Some(dir) = stack.pop() {
+                let Ok(rd) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
+                for e in rd.flatten() {
+                    let p = e.path();
+                    if p.is_dir() {
+                        stack.push(p);
+                    } else if let Ok(rel) = p.strip_prefix(root) {
+                        let rel = rel.to_string_lossy().replace('\\', "/");
+                        let body = std::fs::read_to_string(&p).unwrap_or_default();
+                        out.insert(rel, body);
+                    }
+                }
+            }
+            out
+        }
+
+        for target in [1u32, 34, 97] {
+            let tmp = tempfile::tempdir().expect("tempdir");
+            make_pack(tmp.path());
+            let before = snapshot(tmp.path());
+            crate::converters::shaders::java::adapt_java_shaders_at(tmp.path(), target)
+                .unwrap_or_else(|e| panic!("legacy adapt failed for {target}: {e}"));
+            let after = snapshot(tmp.path());
+
+            let mut removed: Vec<&String> =
+                before.keys().filter(|k| !after.contains_key(*k)).collect();
+            removed.sort();
+            let mut changed: Vec<&String> = after
+                .iter()
+                .filter(|(k, v)| before.get(*k).map(|b| b != *v).unwrap_or(false))
+                .map(|(k, _)| k)
+                .collect();
+            changed.sort();
+            let mut added: Vec<&String> =
+                after.keys().filter(|k| !before.contains_key(*k)).collect();
+            added.sort();
+
+            println!("=== target={target} ===");
+            println!("  删除({}): {removed:?}", removed.len());
+            println!("  修改({}): {changed:?}", changed.len());
+            println!("  新增({}): {added:?}", added.len());
+
+            // 钉住每个分支的可观测语义（读数来自本次实测，见 §9.78）
+            match target {
+                1 => {
+                    assert!(
+                        !after.keys().any(|k| k.contains("post_effect/")),
+                        "legacy 目标应删掉 post_effect/：{after:?}"
+                    );
+                    assert!(
+                        !after.keys().any(|k| k.ends_with(".json") && k.contains("core/")),
+                        "legacy 目标应 strip 掉 core/ 下的 JSON"
+                    );
+                    assert!(
+                        after.keys().any(|k| k.ends_with("core/rendertype_entity.vsh")),
+                        "legacy 目标不该给 core 改名"
+                    );
+                }
+                34 => {
+                    // ≥7：JSON 里的 mat3 要升级为 mat4
+                    let ent = after
+                        .iter()
+                        .find(|(k, _)| k.ends_with("core/rendertype_entity.json"))
+                        .map(|(_, v)| v.clone())
+                        .unwrap_or_default();
+                    assert!(
+                        !ent.contains("matrix3x3"),
+                        "target≥7 应把 JSON 的 matrix3x3 升级为 matrix4x4，实际：{ent:?}"
+                    );
+                    assert!(
+                        after.keys().any(|k| k.ends_with("core/rendertype_entity.vsh")),
+                        "target=34 仍用旧名，不该改名"
+                    );
+                }
+                97 => {
+                    assert!(
+                        !after.keys().any(|k| k.contains("post/")),
+                        "现代目标应删掉过时的 shaders/post/"
+                    );
+                    // 重命名组的**新名**上检查指令改写
+                    let ent = after
+                        .iter()
+                        .find(|(k, _)| k.ends_with("core/entity.fsh"))
+                        .map(|(_, v)| v.clone())
+                        .unwrap_or_default();
+                    assert!(
+                        ent.contains("#include") && !ent.contains("#moj_import"),
+                        "target≥97 应把 #moj_import 改成 #include，实际：{ent:?}"
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// 声明范围检查必须真的能抓住越界写入（否则它就是空转的）。
     #[test]
     fn scope_violations_flags_out_of_scope_writes() {
