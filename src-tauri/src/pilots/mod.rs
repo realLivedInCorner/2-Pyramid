@@ -2887,6 +2887,143 @@ mod tests {
         }
     }
 
+    /// **`gui_surgeon_tx` 阶段 1 的正题**（默认忽略，§9.105）。
+    ///
+    /// 只比对 **`SPRITE_MAP` 主循环**的产出（Late 那批 sprite）。
+    /// 做法：造一份含 15 张 `gui/container/*.png` 的夹具（256×256，坐标派生色），
+    /// **旧侧**跑完整的 `GuiSurgeon::execute_transformation`（它会产出主循环 + 7 个 `process_*`），
+    /// **原生侧**只跑 `cut_sprite_map`。断言：**主循环的那 74 个 target 逐个逐字节相同**。
+    ///
+    /// 用"逐个比对原生产出"而不是"比对整个 sprites 树"，是因为原生侧**刻意只做了主循环**；
+    /// 比对整棵树会把"尚未移植的 7 个过程"误报成差异。
+    #[test]
+    #[ignore]
+    fn gui_surgeon_sprite_map_matches_the_old_implementation_on_a_fixture() {
+        let container = "assets/minecraft/textures/gui/container";
+        // 与 legacy `SPRITE_MAP` 的 source_name 去重结果一致（15 个）。
+        const SOURCES: [&str; 15] = [
+            "anvil", "beacon", "blast_furnace", "brewing_stand", "cartography_table",
+            "enchanting_table", "furnace", "grindstone", "horse", "inventory", "loom",
+            "smithing", "smoker", "stonecutter", "villager2",
+        ];
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let fixture = tmp.path().join("gui_fixture.zip");
+        {
+            use std::io::Write as _;
+            let f = std::fs::File::create(&fixture).expect("create");
+            let mut zip = zip::ZipWriter::new(f);
+            let opts = zip::write::FileOptions::default();
+            zip.start_file("pack.mcmeta", opts).expect("start");
+            zip.write_all(br#"{"pack":{"pack_format":34}}"#).expect("write");
+            for name in SOURCES {
+                // 256×256：与 base_width=256/512 的缩放路径都对得上（512 档会取 256/512=0.5）
+                let mut img = RgbaImage::new(256, 256);
+                for y in 0..256u32 {
+                    for x in 0..256u32 {
+                        img.put_pixel(
+                            x,
+                            y,
+                            image::Rgba([
+                                (x % 251) as u8,
+                                (y % 251) as u8,
+                                ((x * 3 + y * 7) % 251) as u8,
+                                if (x + y) % 11 == 0 { 0 } else { 255 },
+                            ]),
+                        );
+                    }
+                }
+                let mut buf = Vec::new();
+                image::DynamicImage::ImageRgba8(img)
+                    .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                    .expect("encode");
+                zip.start_file(format!("{container}/{name}.png"), opts).expect("start");
+                zip.write_all(&buf).expect("write");
+            }
+            zip.finish().expect("finish");
+        }
+
+        // 旧侧：解压 → 完整 GuiSurgeon（它磁盘读写）
+        let legacy_dir = tmp.path().join("legacy");
+        std::fs::create_dir_all(&legacy_dir).expect("mkdir");
+        crate::converters::zip::extract_resource_pack(
+            fixture.to_str().expect("utf8"),
+            legacy_dir.to_str().expect("utf8"),
+        )
+        .expect("extract");
+        {
+            let ctx = crate::hurray::context::HurrayContext::new(
+                legacy_dir.to_str().expect("utf8"),
+            );
+            let mut pool = crate::hurray::texture::TexturePool::new();
+            let mut res = crate::hurray::resolution::ResolutionTransducer::new();
+            let _ = res.detect_resolution(&legacy_dir);
+            crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
+                &ctx, &mut pool, &res,
+            )
+            .expect("legacy GuiSurgeon");
+        }
+
+        // 原生侧：Pack → cut_sprite_map → 物化
+        let native_dir = tmp.path().join("native");
+        std::fs::create_dir_all(&native_dir).expect("mkdir");
+        let written = {
+            let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
+                .expect("open fixture");
+            let mut tx = pack.tx("gui_surgeon_tx");
+            let n = crate::pilots::gui_surgeon_tx::cut_sprite_map(&mut tx).expect("native cut");
+            pack.commit(tx.into_layer());
+            crate::arom::pathview::materialize(&pack.view(), &native_dir).expect("materialize");
+            n
+        };
+        println!("原生主循环写出 {written} 个 sprite");
+
+        // 非空转：必须真的写出一批（源图齐全时不至于是 0）
+        assert!(written > 0, "原生侧没有写出任何 sprite —— 夹具或实现有问题");
+
+        // 逐条比对：原生写出的每个 sprite，都必须与旧侧**逐字节相同**
+        let sprites_root = native_dir.join("assets/minecraft/textures/gui/sprites");
+        let mut checked = 0usize;
+        let mut problems: Vec<String> = Vec::new();
+        let mut stack = vec![sprites_root.clone()];
+        while let Some(dir) = stack.pop() {
+            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    stack.push(p);
+                    continue;
+                }
+                let rel = p.strip_prefix(&native_dir).expect("rel").to_string_lossy().replace('\\', "/");
+                let lp = legacy_dir.join(&rel);
+                if !lp.exists() {
+                    problems.push(format!("{rel}: 原生有、旧侧没有"));
+                    continue;
+                }
+                let a = std::fs::read(&lp).expect("read legacy");
+                let b = std::fs::read(&p).expect("read native");
+                if a != b {
+                    // 逐像素给出差异量级（PNG 字节可能因编码不同而不同，故再看像素）
+                    let ia = image::load_from_memory(&a).map(|i| i.to_rgba8());
+                    let ib = image::load_from_memory(&b).map(|i| i.to_rgba8());
+                    match (ia, ib) {
+                        (Ok(ia), Ok(ib)) if ia.dimensions() == ib.dimensions() => {
+                            let diff = ia.pixels().zip(ib.pixels()).filter(|(x, y)| x.0 != y.0).count();
+                            if diff > 0 {
+                                problems.push(format!("{rel}: 像素不同 {diff} 个"));
+                            }
+                        }
+                        _ => problems.push(format!("{rel}: 尺寸不同或解码失败")),
+                    }
+                }
+                checked += 1;
+            }
+        }
+        println!("逐条比对 {checked} 个 sprite");
+        assert!(problems.is_empty(), "主循环与旧实现不一致：{problems:#?}");
+        assert_eq!(checked, written, "比对数量应与写出数量一致");
+    }
+
     /// 从 zip 里读一个条目的字节（读不到返回 None）。
     fn read_zip_entry(zip_path: &std::path::Path, name: &str) -> Option<Vec<u8>> {
         use std::io::Read as _;
@@ -8372,5 +8509,167 @@ pub mod surgeon_cut_gui {
         )?;
         pool.commit_all().map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+/// **`GuiSurgeon` 的 `Tx` 本地化（阶段 1：`SPRITE_MAP` 主循环）**（§9.105）。
+///
+/// 背景（§9.96/§9.104）：`GuiSurgeon` 是 M3 依赖链的**链首**——它是唯一「必须直接读盘」的转换器，
+/// 只要它还在读磁盘，`temp_dir` / 旧闭包路径 / `Foray Rom` 三项都无法动。
+/// 本模块按 §9.96 的替换表把它的**主循环**（产出 Late 那 62 项 sprite 的那一段）
+/// 从「`&Path` + `TexturePool`」改写成「`Tx` + `PackView`」，**不动其余 7 个 `process_*`**。
+///
+/// **机械替换**（与 §9.96 的表一致）：
+/// | 旧 | 新 |
+/// |---|---|
+/// | `base_path.join(x)` | `x`（`x` 本就是包内相对路径） |
+/// | `pool.load_texture(&p)`（失败静默跳过） | `tx.image(x).ok()`（`PackView::image` 缺失即 `Err`，`.ok()` 等价） |
+/// | `pool.store_texture(&p, img)` | `tx.put_image(x, &img)` |
+/// | `pool.commit_all()` | 不需要（Tx 写层） |
+///
+/// **本阶段刻意不做**：7 个 `process_*`（`slider`/`icons`/`widgets`/`tabs`/`resource_packs`/
+/// `server_selection`/`title`）与 20 个 atlas 文件的**延迟删除**。因此本模块**暂不派发**——
+/// 它只用于夹具对照，证明主循环的原生实现与旧实现逐像素一致。
+pub mod gui_surgeon_tx {
+    use super::*;
+    use image::imageops;
+
+    /// 一条 sprite 的切图定义（与 `converters/ui/gui_surgeon.rs::GuiSpriteDef` 字段一致）。
+    struct SpriteDef {
+        source_name: &'static str,
+        target_path: &'static str,
+        rect: (u32, u32, u32, u32),
+        base_width: u32,
+    }
+
+    /// 与旧 `SPRITE_MAP` **逐条一致**（§9.97 记过：一个字节错就会改变产物）。
+    /// 顺序即语义（同名 target 会被后者覆盖），故照抄原顺序。
+    const SPRITE_MAP: &[SpriteDef] = &[
+        SpriteDef { source_name: "anvil", target_path: "container/anvil/error", rect: (176, 0, 204, 21), base_width: 256 },
+        SpriteDef { source_name: "anvil", target_path: "container/anvil/text_field", rect: (0, 166, 110, 182), base_width: 256 },
+        SpriteDef { source_name: "anvil", target_path: "container/anvil/text_field_disabled", rect: (0, 182, 110, 198), base_width: 256 },
+        SpriteDef { source_name: "beacon", target_path: "container/beacon/button", rect: (0, 219, 22, 241), base_width: 256 },
+        SpriteDef { source_name: "beacon", target_path: "container/beacon/button_selected", rect: (22, 219, 44, 241), base_width: 256 },
+        SpriteDef { source_name: "beacon", target_path: "container/beacon/button_disabled", rect: (44, 219, 66, 241), base_width: 256 },
+        SpriteDef { source_name: "beacon", target_path: "container/beacon/button_highlighted", rect: (66, 219, 88, 241), base_width: 256 },
+        SpriteDef { source_name: "beacon", target_path: "container/beacon/confirm", rect: (90, 220, 108, 238), base_width: 256 },
+        SpriteDef { source_name: "beacon", target_path: "container/beacon/cancel", rect: (112, 220, 130, 238), base_width: 256 },
+        SpriteDef { source_name: "furnace", target_path: "container/furnace/lit_progress", rect: (176, 0, 190, 14), base_width: 256 },
+        SpriteDef { source_name: "furnace", target_path: "container/furnace/burn_progress", rect: (176, 14, 200, 31), base_width: 256 },
+        SpriteDef { source_name: "blast_furnace", target_path: "container/blast_furnace/lit_progress", rect: (176, 0, 190, 14), base_width: 256 },
+        SpriteDef { source_name: "blast_furnace", target_path: "container/blast_furnace/burn_progress", rect: (176, 14, 200, 31), base_width: 256 },
+        SpriteDef { source_name: "smoker", target_path: "container/smoker/lit_progress", rect: (176, 0, 190, 14), base_width: 256 },
+        SpriteDef { source_name: "smoker", target_path: "container/smoker/burn_progress", rect: (176, 14, 200, 31), base_width: 256 },
+        SpriteDef { source_name: "brewing_stand", target_path: "container/brewing_stand/brew_progress", rect: (176, 0, 185, 28), base_width: 256 },
+        SpriteDef { source_name: "brewing_stand", target_path: "container/brewing_stand/bubbles", rect: (185, 14, 197, 29), base_width: 256 },
+        SpriteDef { source_name: "brewing_stand", target_path: "container/brewing_stand/fuel_length", rect: (176, 29, 194, 33), base_width: 256 },
+        SpriteDef { source_name: "inventory", target_path: "container/inventory/effect_background_large", rect: (0, 166, 120, 198), base_width: 256 },
+        SpriteDef { source_name: "inventory", target_path: "container/inventory/effect_background_small", rect: (0, 198, 32, 230), base_width: 256 },
+        SpriteDef { source_name: "horse", target_path: "container/horse/armor_slot", rect: (0, 220, 18, 238), base_width: 256 },
+        SpriteDef { source_name: "horse", target_path: "container/horse/saddle_slot", rect: (18, 220, 36, 238), base_width: 256 },
+        SpriteDef { source_name: "horse", target_path: "container/horse/llama_armor_slot", rect: (36, 220, 54, 238), base_width: 256 },
+        SpriteDef { source_name: "horse", target_path: "container/horse/chest_slots", rect: (0, 166, 90, 220), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/enchantment_slot", rect: (0, 166, 108, 185), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/enchantment_slot_disabled", rect: (0, 185, 108, 204), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/enchantment_slot_highlighted", rect: (0, 204, 108, 223), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/level_1", rect: (0, 223, 16, 239), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/level_2", rect: (16, 223, 32, 239), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/level_3", rect: (32, 223, 48, 239), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/level_1_disabled", rect: (0, 239, 16, 255), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/level_2_disabled", rect: (16, 239, 32, 255), base_width: 256 },
+        SpriteDef { source_name: "enchanting_table", target_path: "container/enchanting_table/level_3_disabled", rect: (32, 239, 48, 255), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/recipe", rect: (0, 166, 16, 184), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/recipe_selected", rect: (0, 184, 16, 202), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/recipe_highlighted", rect: (0, 202, 16, 220), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/scroller", rect: (176, 0, 188, 15), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/scroller_disabled", rect: (188, 0, 200, 15), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/input_slot", rect: (176, 0, 192, 16), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/output_slot", rect: (192, 0, 208, 16), base_width: 256 },
+        SpriteDef { source_name: "stonecutter", target_path: "container/stonecutter/result_slot", rect: (192, 0, 208, 16), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/banner_slot", rect: (176, 0, 192, 16), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/dye_slot", rect: (192, 0, 208, 16), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/pattern_slot", rect: (208, 0, 224, 16), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/pattern", rect: (0, 166, 14, 180), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/pattern_selceted", rect: (0, 180, 14, 194), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/pattern_selected", rect: (0, 180, 14, 194), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/pattern_highlighted", rect: (0, 194, 14, 208), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/scroller", rect: (232, 0, 244, 15), base_width: 256 },
+        SpriteDef { source_name: "loom", target_path: "container/loom/scroller_disabled", rect: (244, 0, 256, 15), base_width: 256 },
+        SpriteDef { source_name: "smithing", target_path: "container/smithing/error", rect: (176, 0, 204, 21), base_width: 256 },
+        SpriteDef { source_name: "smithing", target_path: "container/smithing/template_slot", rect: (16, 0, 32, 16), base_width: 256 },
+        SpriteDef { source_name: "smithing", target_path: "container/smithing/base_slot", rect: (32, 0, 48, 16), base_width: 256 },
+        SpriteDef { source_name: "smithing", target_path: "container/smithing/addition_slot", rect: (16, 16, 32, 32), base_width: 256 },
+        SpriteDef { source_name: "smithing", target_path: "container/smithing/result_slot", rect: (32, 16, 48, 32), base_width: 256 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/discount_strikethrough", rect: (0, 176, 9, 178), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/experience_bar_result", rect: (0, 181, 102, 186), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/experience_bar_background", rect: (0, 186, 102, 191), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/experience_bar_current", rect: (0, 191, 102, 196), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/trade_arrow", rect: (15, 171, 25, 180), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/out_of_stuck", rect: (25, 171, 35, 180), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/out_of_stock", rect: (25, 171, 35, 180), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/scroller", rect: (0, 199, 6, 226), base_width: 512 },
+        SpriteDef { source_name: "villager2", target_path: "container/villager/scroller_disabled", rect: (6, 199, 12, 226), base_width: 512 },
+        SpriteDef { source_name: "cartography_table", target_path: "container/cartography_table/duplicated_map", rect: (176, 132, 226, 198), base_width: 256 },
+        SpriteDef { source_name: "cartography_table", target_path: "container/cartography_table/scaled_map", rect: (176, 66, 242, 132), base_width: 256 },
+        SpriteDef { source_name: "cartography_table", target_path: "container/cartography_table/map", rect: (176, 0, 242, 66), base_width: 256 },
+        SpriteDef { source_name: "cartography_table", target_path: "container/cartography_table/locked", rect: (52, 214, 62, 228), base_width: 256 },
+        SpriteDef { source_name: "cartography_table", target_path: "container/cartography_table/error", rect: (226, 132, 254, 153), base_width: 256 },
+        SpriteDef { source_name: "grindstone", target_path: "container/grindstone/error", rect: (176, 0, 204, 21), base_width: 256 },
+        SpriteDef { source_name: "grindstone", target_path: "container/grindstone/input_slot", rect: (30, 53, 48, 71), base_width: 256 },
+        SpriteDef { source_name: "grindstone", target_path: "container/grindstone/additional_slot", rect: (66, 53, 84, 71), base_width: 256 },
+        SpriteDef { source_name: "grindstone", target_path: "container/grindstone/output_slot", rect: (66, 53, 84, 71), base_width: 256 },
+        SpriteDef { source_name: "grindstone", target_path: "container/grindstone/result_slot", rect: (66, 53, 84, 71), base_width: 256 },
+    ];
+
+    const CONTAINER: &str = "assets/minecraft/textures/gui/container";
+    const SPRITES: &str = "assets/minecraft/textures/gui/sprites";
+
+    /// 旧 `scale_from_image_base`。
+    fn scale_from_image_base(img: &RgbaImage, base_width: u32) -> f32 {
+        let width = img.width().max(1);
+        let base = base_width.max(1);
+        width as f32 / base as f32
+    }
+
+    /// 旧 `scale_coordinate`。
+    fn scale_coordinate(scale: f32, coord: u32) -> u32 {
+        (coord as f32 * scale).round() as u32
+    }
+
+    /// 旧 `scale_rect`（注意第 3/4 个返回值是**宽高**，不是右/下坐标）。
+    fn scale_rect(scale: f32, x1: u32, y1: u32, x2: u32, y2: u32) -> (u32, u32, u32, u32) {
+        (
+            scale_coordinate(scale, x1),
+            scale_coordinate(scale, y1),
+            scale_coordinate(scale, x2 - x1),
+            scale_coordinate(scale, y2 - y1),
+        )
+    }
+
+    /// **主循环**（旧 `execute_transformation` 的第一个 `for def in SPRITE_MAP` 段）。
+    ///
+    /// 语义与旧实现逐条对应：源图缺失**静默跳过**（`tx.image(..).ok()`）；
+    /// 缩放按 `def.base_width`；裁剪后写 `sprites/<target_path>.png`。
+    pub fn cut_sprite_map(tx: &mut Tx<'_>) -> Result<usize, AromError> {
+        let mut written = 0usize;
+        for def in SPRITE_MAP {
+            let src = format!("{CONTAINER}/{}.png", def.source_name);
+            let Ok(img) = tx.image(&src) else {
+                continue; // 与旧实现一致：源图缺失 → 跳过（旧侧是 load_texture 返回 Err）
+            };
+            let (x1, y1, x2, y2) = def.rect;
+            let scale = scale_from_image_base(&img, def.base_width);
+            let (rx1, ry1, rw, rh) = scale_rect(scale, x1, y1, x2, y2);
+            // `tx.image` 返回 `Arc<RgbaImage>`；`crop_imm` 要 `&RgbaImage`，故解引用（不克隆整图）。
+            let sprite = imageops::crop_imm(&*img, rx1, ry1, rw, rh).to_image();
+            let target = format!("{SPRITES}/{}.png", def.target_path);
+            tx.put_image(&target, &sprite)?;
+            written += 1;
+        }
+        Ok(written)
+    }
+
+    /// `SPRITE_MAP` 的条目数（供测试断言"表没被漏抄"）。
+    pub fn sprite_map_len() -> usize {
+        SPRITE_MAP.len()
     }
 }
