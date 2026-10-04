@@ -844,6 +844,12 @@ fn native_for(
             crate::pilots::shader_adapt::decl(),
             crate::pilots::shader_adapt::run_from_pack,
         )),
+        // `fix_smithing2_villager2_ui`（§9.87）：铁砧/村民 GUI 的第二步重排。
+        "fix_smithing2_villager2_ui" => Some((
+            "surgeon_smithing2",
+            crate::pilots::surgeon_smithing2::decl(),
+            crate::pilots::surgeon_smithing2::run,
+        )),
         _ => None,
     }
 }

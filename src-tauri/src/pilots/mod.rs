@@ -2775,6 +2775,118 @@ mod tests {
         }
     }
 
+    /// **`fix_smithing2_villager2_ui` 的正题**（默认忽略，§9.87）。
+    ///
+    /// 两个子过程都比对：`smithing.png`（由 `anvil.png` 派生）与 `villager.png`（原位改写，
+    /// 并产生 `villager_backup.png`）。夹具按 256 与 512 两档尺寸各造一份，
+    /// 像素用坐标派生的确定性颜色（含 alpha 变体，以覆盖 paste/overlay 的 alpha 语义）。
+    #[test]
+    #[ignore]
+    fn smithing2_villager2_matches_the_old_implementation_on_a_fixture() {
+        let container = "assets/minecraft/textures/gui/container";
+        let anvil_rel = format!("{container}/anvil.png");
+        let smithing_rel = format!("{container}/smithing.png");
+        let villager_rel = format!("{container}/villager.png");
+        let backup_rel = format!("{container}/villager_backup.png");
+
+        let make_png = |size: u32, seed: u32| -> Vec<u8> {
+            let mut img = RgbaImage::new(size, size);
+            for y in 0..size {
+                for x in 0..size {
+                    img.put_pixel(
+                        x,
+                        y,
+                        image::Rgba([
+                            ((x + seed) % 251) as u8,
+                            ((y + seed * 3) % 251) as u8,
+                            ((x + y + seed * 7) % 251) as u8,
+                            if (x + y + seed) % 7 == 0 { 0 } else { 255 },
+                        ]),
+                    );
+                }
+            }
+            let mut buf = Vec::new();
+            image::DynamicImage::ImageRgba8(img)
+                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .expect("encode");
+            buf
+        };
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        for size in [256u32, 512u32] {
+            let fixture = tmp.path().join(format!("sv_{size}.zip"));
+            {
+                use std::io::Write as _;
+                let file = std::fs::File::create(&fixture).expect("create");
+                let mut zip = zip::ZipWriter::new(file);
+                let opts = zip::write::FileOptions::default();
+                zip.start_file("pack.mcmeta", opts).expect("start");
+                zip.write_all(br#"{"pack":{"pack_format":34}}"#).expect("write");
+                zip.start_file(&anvil_rel, opts).expect("start");
+                zip.write_all(&make_png(size, 1)).expect("write");
+                zip.start_file(&villager_rel, opts).expect("start");
+                zip.write_all(&make_png(size, 2)).expect("write");
+                zip.finish().expect("finish");
+            }
+
+            // 旧侧
+            let legacy_dir = tmp.path().join(format!("legacy_{size}"));
+            std::fs::create_dir_all(&legacy_dir).expect("mkdir");
+            crate::converters::zip::extract_resource_pack(
+                fixture.to_str().expect("utf8"),
+                legacy_dir.to_str().expect("utf8"),
+            )
+            .expect("extract");
+            crate::converters::ui::smithing_villager::fix_smithing2_villager2_ui(&legacy_dir)
+                .expect("legacy fix_smithing2_villager2_ui");
+
+            // 原生侧
+            let native_dir = tmp.path().join(format!("native_{size}"));
+            std::fs::create_dir_all(&native_dir).expect("mkdir");
+            {
+                let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
+                    .expect("open fixture");
+                let (_, _, run) = crate::mixed_run::native_for_probe("fix_smithing2_villager2_ui")
+                    .expect("native fix_smithing2_villager2_ui");
+                let mut tx = pack.tx("fix_smithing2_villager2_ui");
+                run(&mut tx).expect("native run");
+                pack.commit(tx.into_layer());
+                crate::arom::pathview::materialize(&pack.view(), &native_dir)
+                    .expect("materialize");
+            }
+
+            for rel in [&smithing_rel, &villager_rel, &backup_rel] {
+                let lp = legacy_dir.join(rel);
+                let np = native_dir.join(rel);
+                if lp.exists() != np.exists() {
+                    panic!(
+                        "size {size} {rel}: 存在性不同（旧 {} / 原生 {}）",
+                        lp.exists(),
+                        np.exists()
+                    );
+                }
+                if !lp.exists() {
+                    continue;
+                }
+                let a = image::open(&lp).expect("legacy image").to_rgba8();
+                let b = image::open(&np).expect("native image").to_rgba8();
+                assert_eq!(a.dimensions(), b.dimensions(), "size {size} {rel}: 尺寸不同");
+                let mut diff = 0usize;
+                let mut worst = 0i32;
+                for (pa, pb) in a.pixels().zip(b.pixels()) {
+                    if pa.0 != pb.0 {
+                        diff += 1;
+                        for c in 0..4 {
+                            worst = worst.max((pa.0[c] as i32 - pb.0[c] as i32).abs());
+                        }
+                    }
+                }
+                println!("size={size} {rel}: 差异 {diff} 像素（最大通道差 {worst}）");
+                assert_eq!(diff, 0, "size {size} {rel}: 与旧实现不一致");
+            }
+        }
+    }
+
     /// 从 zip 里读一个条目的字节（读不到返回 None）。
     fn read_zip_entry(zip_path: &std::path::Path, name: &str) -> Option<Vec<u8>> {
         use std::io::Read as _;
@@ -7950,5 +8062,258 @@ pub mod surgeon_survival {
             "fix_ui_survival" => Some((decl(), run)),
             _ => None,
         }
+    }
+}
+/// **Surgeon 阶段**：`fix_smithing2_villager2_ui` —— 铁砧/村民 GUI 的第二步重排。
+///
+/// 逐条照抄 `converters/ui/smithing_villager.rs`（364 行，两个子过程）。
+/// 与反向任务 `reverse_fix_smithing2_villager2_ui`（已迁移，见 `reverse_defer::smithing_villager`）配对。
+///
+/// **`s` 的语义**（两个子过程各自判定，互不共享）：
+/// - `process_smithing2` 用 **`(width, height)`** 匹配 `(256,256)→1 / (512,512)→2 / (1024,1024)→4 / (2048,2048)→8`，
+///   非方形或其它尺寸**跳过**；
+/// - `process_villager2` 先要求 **`width == height`**，再用 **`width`** 匹配 `256/512/1024/2048`。
+///
+/// **刻意照抄的两处**：
+/// 1. `get_pixel` 一律用 `*img.get_pixel(..)`（越界会 panic），不做"顺手加保护"；
+/// 2. 写回用 `DynamicImage::write_to(.., Png)`——与旧 `img.save(path)` 同一编码路径（§9.87 由闸门实测把关）。
+pub mod surgeon_smithing2 {
+    use super::*;
+    use image::imageops;
+
+    const GUI: &str = "assets/minecraft/textures/gui/container";
+    const ANVIL: &str = "assets/minecraft/textures/gui/container/anvil.png";
+    const SMITHING: &str = "assets/minecraft/textures/gui/container/smithing.png";
+    const VILLAGER: &str = "assets/minecraft/textures/gui/container/villager.png";
+    const BACKUP: &str = "assets/minecraft/textures/gui/container/villager_backup.png";
+
+    /// `UImage` 目录（与其它试点同一个解析函数）。
+    fn uimage_dir() -> Option<std::path::PathBuf> {
+        match crate::converters::get_uimage_path() {
+            Ok(p) => Some(p),
+            Err(e) => {
+                crate::log_info!("UImage path not available: {}", e);
+                None
+            }
+        }
+    }
+
+    fn read_rgba(tx: &Tx<'_>, path: &str) -> Result<Option<RgbaImage>, AromError> {
+        let Some(bytes) = tx.read(path)? else {
+            return Ok(None);
+        };
+        match image::load_from_memory(&bytes) {
+            Ok(img) => Ok(Some(img.to_rgba8())),
+            Err(e) => Err(AromError::Io(format!("failed to open {path}: {e}"))),
+        }
+    }
+
+    fn png_bytes(img: &RgbaImage) -> Result<Vec<u8>, AromError> {
+        let mut buf = Vec::new();
+        image::DynamicImage::ImageRgba8(img.clone())
+            .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .map_err(|e| AromError::Io(format!("png encode failed: {e}")))?;
+        Ok(buf)
+    }
+
+    /// 旧 `paste_region` 在**同尺寸**区域上的等价物：整块覆盖（含 alpha）。
+    fn paste(img: &mut RgbaImage, region: &RgbaImage, dx: u32, dy: u32) {
+        let (rw, rh) = region.dimensions();
+        for y in 0..rh {
+            for x in 0..rw {
+                let px = dx + x;
+                let py = dy + y;
+                if px < img.width() && py < img.height() {
+                    img.put_pixel(px, py, *region.get_pixel(x, y));
+                }
+            }
+        }
+    }
+
+    fn fill_rect(img: &mut RgbaImage, x0: u32, y0: u32, x1: u32, y1: u32, color: image::Rgba<u8>) {
+        for y in y0..y1 {
+            for x in x0..x1 {
+                img.put_pixel(x, y, color);
+            }
+        }
+    }
+
+    /// 旧 `process_smithing2`。
+    fn process_smithing2(tx: &mut Tx<'_>, outcome: &mut Outcome) -> Result<(), AromError> {
+        if !tx.exists(ANVIL) {
+            crate::log_info!("anvil.png not found, skip smithing2");
+            return Ok(());
+        }
+        let Some(mut img) = read_rgba(tx, ANVIL)? else {
+            return Ok(());
+        };
+        let (width, height) = img.dimensions();
+        let s = match (width, height) {
+            (256, 256) => 1,
+            (512, 512) => 2,
+            (1024, 1024) => 4,
+            (2048, 2048) => 8,
+            _ => {
+                crate::log_info!(
+                    "unsupported anvil.png size: {}x{}, skip smithing2",
+                    width,
+                    height
+                );
+                return Ok(());
+            }
+        };
+
+        // 用 (5,4) 的颜色填 (5,5)-(171,72)
+        let fill_color = *img.get_pixel(5 * s, 4 * s);
+        fill_rect(&mut img, 5 * s, 5 * s, 171 * s, 72 * s, fill_color);
+
+        // 把 (7,83) 起的 18x18 区域贴到 4 个位置
+        let region = imageops::crop_imm(&img, 7 * s, 83 * s, 18 * s, 18 * s).to_image();
+        for &(px, py) in &[
+            (7 * s, 47 * s),
+            (25 * s, 47 * s),
+            (43 * s, 47 * s),
+            (97 * s, 47 * s),
+        ] {
+            paste(&mut img, &region, px, py);
+        }
+
+        // 外部叠加（与其它试点一致：UImage 在真实文件系统上）
+        if let Some(uimage) = uimage_dir() {
+            let overlay_path = uimage.join("smithing2").join(format!("smithing2_{}.png", width));
+            if overlay_path.exists() {
+                if let Ok(overlay_img) = image::open(&overlay_path).map(|i| i.to_rgba8()) {
+                    imageops::overlay(&mut img, &overlay_img, 0, 0);
+                    crate::log_info!("overlayed smithing2_{}.png", width);
+                }
+            }
+        }
+
+        tx.put(SMITHING, png_bytes(&img)?)?;
+        outcome.changed += 1;
+        outcome.notes.push("smithing2: saved smithing.png".into());
+        Ok(())
+    }
+
+    /// 旧 `process_villager2`。
+    fn process_villager2(tx: &mut Tx<'_>, outcome: &mut Outcome) -> Result<(), AromError> {
+        if !tx.exists(VILLAGER) {
+            crate::log_info!("villager.png not found, skip villager2");
+            return Ok(());
+        }
+        let Some(img) = read_rgba(tx, VILLAGER)? else {
+            return Ok(());
+        };
+        let (width, height) = img.dimensions();
+        if width != height {
+            crate::log_info!(
+                "villager.png is not square ({}x{}), skip villager2",
+                width,
+                height
+            );
+            return Ok(());
+        }
+        let s = match width {
+            256 => 1,
+            512 => 2,
+            1024 => 4,
+            2048 => 8,
+            _ => {
+                crate::log_info!("unsupported villager.png size: {}, skip villager2", width);
+                return Ok(());
+            }
+        };
+
+        let scaled = |c: u32| c * s;
+        let new_w = width * 2;
+        let new_h = height;
+        let mut v2 = RgbaImage::new(new_w, new_h);
+
+        // 把 (0,0)-(240,166) 贴到 (100*s, 0)
+        let cropped = imageops::crop_imm(&img, 0, 0, scaled(240), scaled(166)).to_image();
+        imageops::overlay(&mut v2, &cropped, scaled(100) as i64, 0);
+
+        // 外部叠加 villager2/villager2_{256*s}.png
+        if let Some(uimage) = uimage_dir() {
+            let overlay_path = uimage
+                .join("villager2")
+                .join(format!("villager2_{}.png", 256 * s));
+            if overlay_path.exists() {
+                if let Ok(overlay_img) = image::open(&overlay_path).map(|i| i.to_rgba8()) {
+                    imageops::overlay(&mut v2, &overlay_img, 0, 0);
+                    crate::log_info!("overlayed villager2_{}.png", 256 * s);
+                }
+            }
+        }
+
+        // 用 (185,17) 的颜色填 (186,24)-(208,39)
+        let color1 = *v2.get_pixel(scaled(185), scaled(17));
+        fill_rect(&mut v2, scaled(186), scaled(24), scaled(208), scaled(39), color1);
+
+        // 把 (133,48)-(242,76) 上移 16*s
+        let move_w = scaled(242) - scaled(133);
+        let move_h = scaled(76) - scaled(48);
+        let moved = imageops::crop_imm(&v2, scaled(133), scaled(48), move_w, move_h).to_image();
+        let dst_y = scaled(48) - scaled(16);
+        imageops::overlay(&mut v2, &moved, scaled(133) as i64, dst_y as i64);
+
+        // 用 (132,60) 的颜色填 (133,60)-(242,76)
+        let color2 = *v2.get_pixel(scaled(132), scaled(60));
+        fill_rect(&mut v2, scaled(133), scaled(60), scaled(242), scaled(76), color2);
+
+        // (0,166)-(110,198) 置为全透明
+        fill_rect(&mut v2, 0, scaled(166), scaled(110), scaled(198), image::Rgba([0, 0, 0, 0]));
+
+        // 把 anvil 的 (176,0)-(204,21) 贴到 villager2 的同位置（尺寸不符时按 Nearest 缩放到新尺寸）
+        if tx.exists(ANVIL) {
+            if let Some(anvil_img) = read_rgba(tx, ANVIL)? {
+                let anvil_resized = if anvil_img.dimensions() != (new_w, new_h) {
+                    imageops::resize(&anvil_img, new_w, new_h, imageops::FilterType::Nearest)
+                } else {
+                    anvil_img
+                };
+                let anvil_crop = imageops::crop_imm(
+                    &anvil_resized,
+                    scaled(176),
+                    0,
+                    scaled(204) - scaled(176),
+                    scaled(21),
+                )
+                .to_image();
+                imageops::overlay(&mut v2, &anvil_crop, scaled(176) as i64, 0);
+            }
+        }
+
+        // 备份原图（仅当备份不存在）
+        if !tx.exists(BACKUP) {
+            let bytes = tx.read(VILLAGER)?.unwrap_or_default();
+            tx.put(BACKUP, bytes)?;
+            outcome.changed += 1;
+            outcome.notes.push("backed up villager.png".into());
+        }
+
+        // 覆盖写回 villager.png
+        tx.put(VILLAGER, png_bytes(&v2)?)?;
+        outcome.changed += 1;
+        outcome.notes.push("villager2: saved villager.png".into());
+        Ok(())
+    }
+
+    pub fn decl() -> TaskDecl {
+        TaskDecl::new("fix_smithing2_villager2_ui", Tier::Surgeon)
+            .reads(ScopeSet::prefix(GUI))
+            .writes(ScopeSet::prefix(GUI))
+            .exclusive(true)
+    }
+
+    pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
+        if !tx.has_prefix(GUI)? {
+            return Ok(Outcome::default());
+        }
+        let mut outcome = Outcome::default();
+        process_smithing2(tx, &mut outcome)?;
+        process_villager2(tx, &mut outcome)?;
+        crate::log_info!("fix_smithing2_villager2_ui completed");
+        Ok(outcome)
     }
 }
