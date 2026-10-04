@@ -8,7 +8,7 @@ use crate::hurray::context::HurrayContext;
 use crate::hurray::error::{EngineError, EngineResult};
 use crate::hurray::resolution::ResolutionTransducer;
 use crate::hurray::texture::TexturePool;
-use crate::{log_error, log_info};
+use crate::{log_error, log_info, log_warn};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TaskType {
@@ -291,6 +291,38 @@ impl Scheduler {
     pub fn clear(&mut self) {
         self.tasks.clear();
         self.task_registry.clear();
+    }
+
+    /// 版本对 → **该跑哪些任务**（有序名字）。
+    ///
+    /// 与 [`Self::execute_version_conversion`] 的选择逻辑完全一致（同一对私有方法），
+    /// 只是把「选哪些」与「怎么跑」分开——M2 的混合运行驱动据此按名字逐个执行：
+    /// 迁移过的任务交给 A-ROM，未迁移的在这里按名字跑。
+    pub fn plan(&self, source_version: u32, target_version: u32) -> EngineResult<Vec<String>> {
+        let path = self.calculate_path(source_version, target_version)?;
+        Ok(self.get_tasks_for_path_with_rules(&path, target_version))
+    }
+
+    /// 按名字执行已注册的任务。
+    ///
+    /// 复用 [`Self::execute_tasks`]，因此**执行顺序与生产一致**：阶段顺序固定
+    /// （Eraser → Architect → Surgeon → Closure），阶段内保持传入顺序；计时与
+    /// 纹理池提交也照旧。未注册的名字只记日志、不报错（便于驱动按计划表驱动，
+    /// 而计划表里可能列着本里程碑尚未注册的任务）。
+    pub fn run_named(
+        &self,
+        names: &[String],
+        context: &HurrayContext,
+        texture_pool: &mut TexturePool,
+    ) -> EngineResult<()> {
+        let mut tasks: Vec<Task> = Vec::with_capacity(names.len());
+        for name in names {
+            match self.task_registry.get(name) {
+                Some(task) => tasks.push(task.clone()),
+                None => log_warn!("run_named: task not registered, skipped: {}", name),
+            }
+        }
+        self.execute_tasks(&tasks, context, texture_pool, None)
     }
 
     fn execute_tasks(
@@ -687,6 +719,51 @@ impl ProgressTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `plan()` 只暴露「选哪些任务」，不得改变选择结果：名字非空、无重复、正反向不同。
+    #[test]
+    fn plan_exposes_the_same_selection_as_execution() {
+        let scheduler = Scheduler::new();
+
+        let forward = scheduler.plan(1, 97).expect("plan 1 -> 97");
+        assert!(!forward.is_empty(), "1 → 97 应当有任务");
+        let mut deduped = forward.clone();
+        deduped.sort();
+        deduped.dedup();
+        assert_eq!(deduped.len(), forward.len(), "计划里不应有重复名字：{forward:?}");
+
+        let reverse = scheduler.plan(97, 1).expect("plan 97 -> 1");
+        assert!(!reverse.is_empty(), "97 → 1 应当有任务");
+        assert_ne!(forward, reverse, "正向与反向的计划不应相同");
+    }
+
+    /// `run_named()` 只跑被点名的任务，且对未注册的名字宽容（驱动按计划表驱动时需要）。
+    #[test]
+    fn run_named_runs_only_the_named_tasks_and_tolerates_unknown() {
+        use crate::hurray::context::HurrayContext;
+        use crate::hurray::texture::TexturePool;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ctx = HurrayContext::new(dir.path().to_str().expect("utf8"));
+        let mut pool = TexturePool::new();
+
+        let path_a = dir.path().join("a.txt");
+        let path_b = dir.path().join("b.txt");
+        let (a, b) = (path_a.clone(), path_b.clone());
+        let mut scheduler = Scheduler::new();
+        scheduler.register_task("task_a", TaskType::Parallel, TaskTier::Surgeon, move |_| {
+            std::fs::write(&a, b"a").map_err(|e| e.to_string())
+        });
+        scheduler.register_task("task_b", TaskType::Parallel, TaskTier::Surgeon, move |_| {
+            std::fs::write(&b, b"b").map_err(|e| e.to_string())
+        });
+
+        scheduler
+            .run_named(&["task_a".to_string(), "not_registered".to_string()], &ctx, &mut pool)
+            .expect("run_named");
+        assert!(path_a.exists(), "被点名的任务必须执行");
+        assert!(!path_b.exists(), "未被点名的任务不得执行");
+    }
 
     fn has(map: &VersionMap, key: (u32, u32), task: &str) -> bool {
         map.get(&key)

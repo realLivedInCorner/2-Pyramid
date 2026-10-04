@@ -117,7 +117,7 @@ pub fn invoke_conversion_ex(
     fix_alpha_layers: bool,
     adapt_shaders: bool,
 ) -> Result<(), Box<dyn Error>> {
-    use crate::{log_info, log_debug, log_warn};
+    use crate::{log_info, log_warn};
     log_info!("==============================");
     log_info!("2-Pyramid DTD engine start");
     log_info!("source pack_format = {}", source_version);
@@ -131,6 +131,97 @@ pub fn invoke_conversion_ex(
     }
 
     let mut scheduler = Scheduler::new();
+    register_legacy_tasks(
+        &mut scheduler,
+        target_path,
+        target_version,
+        source_version,
+        run_gui_surgeon,
+        fix_alpha_layers,
+        adapt_shaders,
+    );
+
+    // ── 通过 Engine 执行 ──
+    log_info!("engine execute DTD scheduler");
+    let mut texture_pool = TexturePool::new();
+    let work_dir_str = work_dir.to_str().unwrap_or_else(|| {
+        log_warn!("work_dir contains invalid UTF-8, using lossy representation");
+        ""
+    });
+    let context = HurrayContext::new(work_dir_str);
+    let pack_name = target_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("pack");
+    context.set_data("pack_name", pack_name);
+    // 着色器适配需要知道目标 pack_format（1.20→26.x 等）
+    context.set_data("target_pack_format", &target_version.to_string());
+
+    scheduler.execute_version_conversion(&context, &mut texture_pool, source_version, target_version)?;
+
+    // GuiSurgeon：Java 1.21+ sprite UI。Bedrock 中间态跳过（见 invoke_conversion_ex）。
+    if run_gui_surgeon && target_version >= 34 {
+        let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
+        let _ = resolution.detect_resolution(work_dir);
+        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
+            &context,
+            &mut texture_pool,
+            &resolution,
+        ).map_err(|e| format!("GuiSurgeon failed: {}", e))?;
+    }
+
+    // ── Execute all deferred file/directory cleanup at the very end ──
+    // All cleanup operations (Eraser deletions, GuiSurgeon atlas cleanup,
+    // reverse generate/fix deletions, etc.) are registered during conversion
+    // and executed here in one batch, ensuring no file is deleted before
+    // every conversion task has had a chance to read or modify it.
+    log_info!("executing deferred cleanup...");
+    context.execute_cleanup().map_err(|e| format!("cleanup failed: {}", e))?;
+    log_info!("deferred cleanup complete");
+
+    log_info!("==============================");
+    log_info!("conversion finished");
+    log_info!("output dir: {}", target_path.display());
+    log_info!("==============================");
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_invoke_conversion() {
+        let temp_dir = tempdir().expect("Failed to create temp directory");
+        let textures_path = temp_dir.path().join("assets/minecraft/textures");
+        fs::create_dir_all(&textures_path).expect("Failed to create test directory structure");
+
+        let result = invoke_conversion(temp_dir.path(), temp_dir.path(), 46, 1);
+        assert!(result.is_ok());
+    }
+}
+
+/// 注册全部转换任务。
+///
+/// **这是「谁跑什么」的单一来源**：旧执行器（`invoke_conversion_ex`）与 M2 的混合运行驱动
+/// （`crate::mixed_run`）都从这里构建同一份注册；驱动再按 [`Scheduler::plan`] 给出的顺序，
+/// 决定每个名字走 A-ROM 原生实现，还是走适配层的旧闭包。
+///
+/// 参数即闭包会捕获的全部上下文——注册发生在 `HurrayContext` 创建之前，因此不含 context。
+#[allow(clippy::too_many_arguments)]
+pub fn register_legacy_tasks(
+    scheduler: &mut Scheduler,
+    target_path: &Path,
+    target_version: u32,
+    source_version: u32,
+    run_gui_surgeon: bool,
+    fix_alpha_layers: bool,
+    adapt_shaders: bool,
+) {
+    use crate::{log_debug, log_info};
 
     // ============================================================
     // 以下任务注册严格对齐 pack.py ADJACENT_CONVERSIONS 映射表
@@ -175,7 +266,7 @@ pub fn invoke_conversion_ex(
     // j2j 着色器：1.20→26.x 等边界用适配，而非整目录删除
     // 实验项：默认开启；关闭时保留原 shaders 不改写（可能在新版本失效）
     if adapt_shaders {
-        crate::converters::shaders::java::register_scheduler_task(&mut scheduler);
+        crate::converters::shaders::java::register_scheduler_task(scheduler);
     } else {
         log_info!("adapt_java_shaders disabled by user (experimental)");
     }
@@ -316,7 +407,7 @@ pub fn invoke_conversion_ex(
 
     // ── Surgeon 层：修改已有资源，Hybrid（并行内部安全操作 + 串行独占操作） ──
     if fix_alpha_layers {
-        crate::converters::textures::alpha_layers::register_scheduler_task(&mut scheduler);
+        crate::converters::textures::alpha_layers::register_scheduler_task(scheduler);
     }
 
     scheduler.register_task("fix_clock_compass", TaskType::Hybrid, TaskTier::Surgeon, |ctx| {
@@ -590,69 +681,7 @@ pub fn invoke_conversion_ex(
     });
 
     // 基岩 ↔ Java 结构转换：逻辑在 converters/bedrock/*，此处仅注册到 Scheduler
-    crate::converters::bedrock::register_tasks(&mut scheduler);
+    crate::converters::bedrock::register_tasks(scheduler);
 
     log_debug!("all mapping table tasks registered");
-
-    // ── 通过 Engine 执行 ──
-    log_info!("engine execute DTD scheduler");
-    let mut texture_pool = TexturePool::new();
-    let work_dir_str = work_dir.to_str().unwrap_or_else(|| {
-        log_warn!("work_dir contains invalid UTF-8, using lossy representation");
-        ""
-    });
-    let context = HurrayContext::new(work_dir_str);
-    let pack_name = target_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("pack");
-    context.set_data("pack_name", pack_name);
-    // 着色器适配需要知道目标 pack_format（1.20→26.x 等）
-    context.set_data("target_pack_format", &target_version.to_string());
-
-    scheduler.execute_version_conversion(&context, &mut texture_pool, source_version, target_version)?;
-
-    // GuiSurgeon：Java 1.21+ sprite UI。Bedrock 中间态跳过（见 invoke_conversion_ex）。
-    if run_gui_surgeon && target_version >= 34 {
-        let mut resolution = crate::hurray::resolution::ResolutionTransducer::new();
-        let _ = resolution.detect_resolution(work_dir);
-        crate::converters::ui::gui_surgeon::GuiSurgeon::execute_transformation(
-            &context,
-            &mut texture_pool,
-            &resolution,
-        ).map_err(|e| format!("GuiSurgeon failed: {}", e))?;
-    }
-
-    // ── Execute all deferred file/directory cleanup at the very end ──
-    // All cleanup operations (Eraser deletions, GuiSurgeon atlas cleanup,
-    // reverse generate/fix deletions, etc.) are registered during conversion
-    // and executed here in one batch, ensuring no file is deleted before
-    // every conversion task has had a chance to read or modify it.
-    log_info!("executing deferred cleanup...");
-    context.execute_cleanup().map_err(|e| format!("cleanup failed: {}", e))?;
-    log_info!("deferred cleanup complete");
-
-    log_info!("==============================");
-    log_info!("conversion finished");
-    log_info!("output dir: {}", target_path.display());
-    log_info!("==============================");
-
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_invoke_conversion() {
-        let temp_dir = tempdir().expect("Failed to create temp directory");
-        let textures_path = temp_dir.path().join("assets/minecraft/textures");
-        fs::create_dir_all(&textures_path).expect("Failed to create test directory structure");
-
-        let result = invoke_conversion(temp_dir.path(), temp_dir.path(), 46, 1);
-        assert!(result.is_ok());
-    }
 }
