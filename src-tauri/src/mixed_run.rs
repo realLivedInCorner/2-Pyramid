@@ -1937,42 +1937,50 @@ mod tests {
             legacy_removed.sort();
 
             println!(
-                "target={target}: 原生 改{} 删{} 增{} | 旧 删{}",
+                "target={target}: 原生 改{} 删{} 增{} | 旧 改{} 删{} 增{}",
                 native_changed.len(),
                 native_removed.len(),
                 native_added.len(),
-                legacy_removed.len()
+                after_legacy
+                    .iter()
+                    .filter(|(k, v)| before.get(*k).map(|b| b != *v).unwrap_or(false))
+                    .count(),
+                legacy_removed.len(),
+                after_legacy.keys().filter(|k| !before.contains_key(*k)).count()
             );
 
-            // ② 未移植的部分=旧侧有而原生侧有的删除，必须只属于「已声明的未移植类别」
-            for k in &legacy_removed {
-                if after_native.contains_key(*k) {
-                    let known_unported = k.ends_with(".json")
-                        || k.contains("/post/")
-                        || k.contains("/post_effect/")
-                        || k.ends_with("unknown_thing.vsh")
-                        || k.contains("rendertype_entity_translucent")
-                        || k.contains("rendertype_text")
-                        || k.contains("rendertype_entity.");
-                    if !known_unported {
-                        problems.push(format!(
-                            "target={target}: 旧侧删了 {k}，但原生侧保留了它——这不在「未移植」清单里"
-                        ));
+            // **完整对照**（移植补齐后）：两侧的快照必须逐项相同——
+            // 条目集合（增/删）+ 每个文件的内容。
+            let native_keys: std::collections::BTreeSet<&String> = after_native.keys().collect();
+            let legacy_keys: std::collections::BTreeSet<&String> = after_legacy.keys().collect();
+            if native_keys != legacy_keys {
+                let only_native: Vec<&&String> = native_keys.difference(&legacy_keys).collect();
+                let only_legacy: Vec<&&String> = legacy_keys.difference(&native_keys).collect();
+                problems.push(format!(
+                    "target={target}: 条目集合不同（仅原生 {only_native:?} / 仅旧 {only_legacy:?}）"
+                ));
+            }
+            for (k, v) in &after_native {
+                if let Some(lv) = after_legacy.get(k) {
+                    if lv != v {
+                        problems.push(format!("target={target}: {k} 内容不同"));
                     }
                 }
             }
-            // ③ 原生**不应对未移植类别做任何删除**
-            for k in &native_removed {
-                let is_rename_source = k.contains("/core/rendertype_text")
-                    || k.contains("/core/rendertype_entity.")
-                    || k.contains("rendertype_entity_translucent");
-                if !is_rename_source {
-                    problems.push(format!(
-                        "target={target}: 原生删了 {k}，但它只移植了「改名组」——这超出范围"
-                    ));
-                }
-            }
-            checked += 3;
+            checked += 1;
+        }
+
+        // 顺带钉住 §9.78 记录的基线（防止旧实现本身被改动而无人察觉）
+        {
+            let tmp = tempfile::tempdir().expect("tempdir");
+            make_pack(tmp.path());
+            let before = snapshot(tmp.path());
+            crate::converters::shaders::java::adapt_java_shaders_at(tmp.path(), 97).expect("legacy");
+            let after = snapshot(tmp.path());
+            let removed = before.keys().filter(|k| !after.contains_key(*k)).count();
+            let added = after.keys().filter(|k| !before.contains_key(*k)).count();
+            assert_eq!((removed, added), (9, 3), "§9.78 的 target=97 基线变了");
+            checked += 1;
         }
 
         println!("shader_adapt 骨架夹具对照：{checked} 项");

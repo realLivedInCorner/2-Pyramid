@@ -7063,38 +7063,268 @@ pub mod shader_adapt {
         Ok(())
     }
 
-    /// 总体编排（**分步移植中**）。
+    /// 总体编排（**与原实现逐项对照通过**，见 §9.83 的夹具快照对照）。
     ///
-    /// 已移植：core **改名**组、include 结尾空行、源码遍历（导入指令 / globals 注入 / fog 标记）。
+    /// 覆盖旧实现 `adapt_java_shaders_at` 的**全部步骤**：
+    /// 0) **post 路径**（现代删 `shaders/post` 与 `post_effect`；旧目标删各 namespace 的 `post_effect`）；
+    ///    旧着色器 API（`target < 7`）→ 删 `post_effect` + **递归删 JSON** 后返回；
+    /// 1) core **改名** + **删除**（移除名单 / 白名单外）+ include 结尾空行；
+    /// 2) core JSON 的**补齐**（`<63`）/ **mat 升级**（`≥7`）/ **剥 uniforms**（`≥63`）；
+    /// 3) 源码遍历（导入指令 / globals 注入 / fog 标记，跳过 `include/`）。
     ///
-    /// **尚未移植**（在日志里显式记明，绝不静默跳过）：`prune_and_rename_core` 的**删除**步骤、
-    /// `ensure_core_json`、`rewrite_json_matrix_types` / `strip_json_uniforms_for_ubo` 的目录遍历、
-    /// `adapt_post_paths`。在这些补齐之前**不得派发**本任务。
+    /// **调用方仍需提供目标 pack_format**：旧实现从 `ctx.get_data("target_pack_format")` 取，
+    /// 而驱动的原生任务只拿得到 `&mut Tx`——因此**接入生产路径需要一次签名/接线改动**
+    /// （把这一个参数从编排层传进来）。这也正是本任务**尚未派发**的唯一原因；
+    /// 真实包里没有 `shaders/`，派发与否在生产路径上都是「跳过」，**无法用闸门区分**。
     pub fn run(tx: &mut Tx<'_>, target_pack_format: u32) -> Result<Outcome, AromError> {
         if !tx.has_prefix(SHADERS)? {
             return Ok(Outcome::default());
         }
         let mut changed = 0usize;
 
-        if target_pack_format >= FMT_GLOBALS_INCLUDE {
-            for (old, new) in core_rename_table(target_pack_format) {
+        // 0) post 路径（现代删 shaders/post 与 post_effect；旧目标删各 namespace 的 post_effect）
+        adapt_post_paths(tx, target_pack_format, &mut changed)?;
+
+        // 旧着色器 API：删 post_effect + 递归删 JSON，然后返回
+        if !is_modern_shader_api(target_pack_format) {
+            if tx.has_prefix(&format!("{SHADERS}/post_effect"))? {
+                tx.remove(&format!("{SHADERS}/post_effect"))?;
+                changed += 1;
+            }
+            strip_json_in(tx, SHADERS, &mut changed)?;
+            return Ok(Outcome {
+                changed,
+                notes: vec![format!("shader adapt (legacy target {target_pack_format})")],
+                ..Outcome::default()
+            });
+        }
+
+        // 1) core：改名 + 删除（两者都只动 core/）
+        prune_and_rename_core(tx, target_pack_format, &mut changed)?;
+        ensure_include_trailing_newline(tx, &mut changed)?;
+
+        // 2) core JSON：补齐（<63）/ mat 升级（≥7）/ 剥 uniforms（≥63）
+        if tx.has_prefix(&format!("{SHADERS}/core"))? {
+            if target_pack_format < FMT_GLOBALS_INCLUDE {
+                ensure_core_json(tx, &mut changed)?;
+            }
+            if target_pack_format >= FMT_MODERN_JSON {
+                rewrite_json_matrix_types(tx, &mut changed)?;
+            }
+            if target_pack_format >= FMT_GLOBALS_INCLUDE {
+                strip_json_uniforms_for_ubo(tx, &mut changed)?;
+            }
+        }
+
+        // 3) 源码遍历（跳过 include/）
+        walk_dir(tx, SHADERS, target_pack_format, &mut changed)?;
+
+        Ok(Outcome {
+            changed,
+            notes: vec![format!("shader adapt target={target_pack_format}")],
+            ..Outcome::default()
+        })
+    }
+
+    /// 旧 `adapt_post_paths`。
+    fn adapt_post_paths(tx: &mut Tx<'_>, target: u32, changed: &mut usize) -> Result<(), AromError> {
+        if target >= FMT_GLOBALS_INCLUDE {
+            // 现代：删掉旧位置（这些 JSON 在新版本不会被正确加载，且可能干扰）
+            for dir in [format!("{SHADERS}/post"), format!("{SHADERS}/post_effect")] {
+                if tx.has_prefix(&dir)? {
+                    tx.remove(&dir)?;
+                    *changed += 1;
+                }
+            }
+            // 扫描各 namespace：若只有旧式 shaders/post 源而无 post_effect，**不**自动伪造 JSON
+        } else {
+            // 旧目标：删各 namespace 下的现代路径 post_effect，避免旧版本无法解析
+            for entry in tx.list("assets")? {
+                if !entry.is_dir {
+                    continue;
+                }
+                let pe = format!("{}/post_effect", entry.path);
+                if tx.has_prefix(&pe)? {
+                    tx.remove(&pe)?;
+                    *changed += 1;
+                }
+            }
+            let pe = format!("{SHADERS}/post_effect");
+            if tx.has_prefix(&pe)? {
+                tx.remove(&pe)?;
+                *changed += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// 旧 `prune_and_rename_core`：改名组（仅 modern）+ 移除名单 + 白名单外清理。
+    fn prune_and_rename_core(
+        tx: &mut Tx<'_>,
+        target: u32,
+        changed: &mut usize,
+    ) -> Result<(), AromError> {
+        let core = format!("{SHADERS}/core");
+        if !tx.has_prefix(&core)? {
+            return Ok(());
+        }
+        let modern = target >= FMT_GLOBALS_INCLUDE;
+        let allow: Vec<&str> = if modern {
+            modern_core_allowlist(target)
+        } else {
+            legacy_core_allowlist()
+        };
+        let removed = core_removed_stems(target);
+
+        // 1) 旧名 → 新名（json/vsh/fsh 成组；仅 modern 目标）
+        if modern {
+            for (old, new) in core_rename_table(target) {
                 if old == new {
                     continue;
                 }
-                rename_core_group(tx, old, new, &mut changed)?;
+                rename_core_group(tx, old, new, changed)?;
             }
         }
-        ensure_include_trailing_newline(tx, &mut changed)?;
-        walk_dir(tx, SHADERS, target_pack_format, &mut changed)?;
 
-        crate::log_info!(
-            "adapt_java_shaders（原生·分步移植中）改写 {changed} 个条目；删除/补 JSON/post 路径部分尚未移植"
-        );
-        Ok(Outcome {
-            changed,
-            notes: vec![format!("shader adapt (native, partial) target={target_pack_format}")],
-            ..Outcome::default()
-        })
+        // 2) 明确移除名单（旧目标不删 legacy 白名单里仍存在的名字）
+        for stem in &removed {
+            if !modern && allow.contains(stem) {
+                continue;
+            }
+            for ext in ["json", "vsh", "fsh"] {
+                let p = format!("{SHADERS}/core/{stem}.{ext}");
+                if tx.exists(&p) {
+                    tx.remove(&p)?;
+                    *changed += 1;
+                }
+            }
+        }
+
+        // 3) 白名单外的核心程序文件删除（.glsl 与共享 vsh 保留）
+        for entry in tx.list(&core)? {
+            if entry.is_dir {
+                continue;
+            }
+            let name = entry
+                .path
+                .rsplit('/')
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if name.ends_with(".glsl") {
+                continue;
+            }
+            let stem = if let Some(s) = name.strip_suffix(".vsh") {
+                s.to_string()
+            } else if let Some(s) = name.strip_suffix(".fsh") {
+                s.to_string()
+            } else if let Some(s) = name.strip_suffix(".json") {
+                s.to_string()
+            } else {
+                continue;
+            };
+            if allow.contains(&stem.as_str()) || SHARED_VERTEX_STEMS.contains(&stem.as_str()) {
+                continue;
+            }
+            tx.remove(&entry.path)?;
+            *changed += 1;
+        }
+        Ok(())
+    }
+
+    /// 旧 `ensure_core_json`：成对 `vsh+fsh` 且缺 JSON 时补最小定义（共享顶点程序与
+    /// `position_color` 除外）。
+    fn ensure_core_json(tx: &mut Tx<'_>, changed: &mut usize) -> Result<(), AromError> {
+        let core = format!("{SHADERS}/core");
+        for entry in tx.list(&core)? {
+            if entry.is_dir {
+                continue;
+            }
+            let name = entry.path.rsplit('/').next().unwrap_or("").to_string();
+            if !(name.ends_with(".vsh") || name.ends_with(".fsh")) {
+                continue;
+            }
+            let stem = name
+                .trim_end_matches(".vsh")
+                .trim_end_matches(".fsh")
+                .to_string();
+            if SHARED_VERTEX_STEMS.contains(&stem.as_str()) || stem == "position_color" {
+                continue;
+            }
+            if !tx.exists(&format!("{core}/{stem}.vsh")) || !tx.exists(&format!("{core}/{stem}.fsh")) {
+                continue;
+            }
+            let json = format!("{core}/{stem}.json");
+            if tx.exists(&json) {
+                continue;
+            }
+            tx.put(&json, minimal_core_json(&stem).into_bytes())?;
+            *changed += 1;
+        }
+        Ok(())
+    }
+
+    /// 旧 `rewrite_json_matrix_types`：core 下每个 `.json` 做 mat2/mat3 → mat4。
+    fn rewrite_json_matrix_types(tx: &mut Tx<'_>, changed: &mut usize) -> Result<(), AromError> {
+        let core = format!("{SHADERS}/core");
+        for entry in tx.list(&core)? {
+            if entry.is_dir || !entry.path.ends_with(".json") {
+                continue;
+            }
+            let Some(bytes) = tx.read(&entry.path)? else {
+                continue;
+            };
+            let Ok(raw) = String::from_utf8(bytes) else {
+                continue;
+            };
+            let (out, did) = rewrite_json_matrix_types_text(&raw);
+            if did && out != raw {
+                tx.put(&entry.path, out.into_bytes())?;
+                *changed += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// 旧 `strip_json_uniforms_for_ubo`：含 `"uniforms"` 的 core JSON 去掉该键。
+    fn strip_json_uniforms_for_ubo(tx: &mut Tx<'_>, changed: &mut usize) -> Result<(), AromError> {
+        let core = format!("{SHADERS}/core");
+        for entry in tx.list(&core)? {
+            if entry.is_dir || !entry.path.ends_with(".json") {
+                continue;
+            }
+            let Some(bytes) = tx.read(&entry.path)? else {
+                continue;
+            };
+            let Ok(raw) = String::from_utf8(bytes) else {
+                continue;
+            };
+            if !json_has_uniforms(&raw) {
+                continue;
+            }
+            let stripped = remove_json_key(&raw, "uniforms");
+            if stripped != raw {
+                tx.put(&entry.path, stripped.into_bytes())?;
+                *changed += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// 旧 `strip_json_in`：**递归**删掉目录下所有 `.json`。
+    fn strip_json_in(tx: &mut Tx<'_>, dir: &str, changed: &mut usize) -> Result<(), AromError> {
+        if !tx.has_prefix(dir)? {
+            return Ok(());
+        }
+        for entry in tx.list(dir)? {
+            if entry.is_dir {
+                strip_json_in(tx, &entry.path, changed)?;
+            } else if entry.path.ends_with(".json") {
+                tx.remove(&entry.path)?;
+                *changed += 1;
+            }
+        }
+        Ok(())
     }
 
     // ───────────────────────── 表格（移植自 `converters/shaders/java.rs`）─────────────────────────
