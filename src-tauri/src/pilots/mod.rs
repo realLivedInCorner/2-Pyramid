@@ -776,6 +776,32 @@ pub mod reverse_trivial {
         }
     }
 
+    defer_list_pilot!(
+        crossbow,
+        "reverse_generate_crossbow",
+        [
+            "assets/minecraft/textures/item/crossbow_standby.png",
+            "assets/minecraft/textures/item/crossbow_pulling_0.png",
+            "assets/minecraft/textures/item/crossbow_pulling_1.png",
+            "assets/minecraft/textures/item/crossbow_pulling_2.png",
+            "assets/minecraft/textures/item/crossbow_arrow.png",
+            "assets/minecraft/textures/item/crossbow_firework.png"
+        ]
+    );
+
+    defer_list_pilot!(
+        fish_bucket,
+        "reverse_generate_fish_bucket",
+        [
+            "assets/minecraft/textures/item/axolotl_bucket.png",
+            "assets/minecraft/textures/item/cod_bucket.png",
+            "assets/minecraft/textures/item/pufferfish_bucket.png",
+            "assets/minecraft/textures/item/salmon_bucket.png",
+            "assets/minecraft/textures/item/tropical_fish_bucket.png",
+            "assets/minecraft/textures/item/tadpole_bucket.png"
+        ]
+    );
+
     /// 带 `.png.mcmeta` 附属的延迟删除（planks 家族的旧实现：本体与附属各删一次）。
     macro_rules! defer_with_meta_pilot {
         ($m:ident, $task:literal, [$($p:literal),*]) => {
@@ -1068,6 +1094,32 @@ pub mod reverse_defer {
         }
     }
 
+    defer_list_pilot!(
+        crossbow,
+        "reverse_generate_crossbow",
+        [
+            "assets/minecraft/textures/item/crossbow_standby.png",
+            "assets/minecraft/textures/item/crossbow_pulling_0.png",
+            "assets/minecraft/textures/item/crossbow_pulling_1.png",
+            "assets/minecraft/textures/item/crossbow_pulling_2.png",
+            "assets/minecraft/textures/item/crossbow_arrow.png",
+            "assets/minecraft/textures/item/crossbow_firework.png"
+        ]
+    );
+
+    defer_list_pilot!(
+        fish_bucket,
+        "reverse_generate_fish_bucket",
+        [
+            "assets/minecraft/textures/item/axolotl_bucket.png",
+            "assets/minecraft/textures/item/cod_bucket.png",
+            "assets/minecraft/textures/item/pufferfish_bucket.png",
+            "assets/minecraft/textures/item/salmon_bucket.png",
+            "assets/minecraft/textures/item/tropical_fish_bucket.png",
+            "assets/minecraft/textures/item/tadpole_bucket.png"
+        ]
+    );
+
     /// 带 `.png.mcmeta` 附属的延迟删除（planks 家族的旧实现：本体与附属各删一次）。
     macro_rules! defer_with_meta_pilot {
         ($m:ident, $task:literal, [$($p:literal),*]) => {
@@ -1177,6 +1229,8 @@ pub mod reverse_defer {
         match name {
             "reverse_generate_shulker_box_ui" => Some((shulker_box::decl(), shulker_box::run)),
             "reverse_fix_sign_entities" => Some((sign_entities::decl(), sign_entities::run)),
+            "reverse_generate_crossbow" => Some((crossbow::decl(), crossbow::run)),
+            "reverse_generate_fish_bucket" => Some((fish_bucket::decl(), fish_bucket::run)),
             "reverse_generate_furnace" => Some((furnace::decl(), furnace::run)),
             "reverse_generate_potion_lingering" => Some((potion_lingering::decl(), potion_lingering::run)),
             "reverse_generate_redwood_cherry_bamboo_planks" => {
