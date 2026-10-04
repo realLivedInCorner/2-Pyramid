@@ -119,6 +119,8 @@ pub struct MixedRunReport {
     /// 其中经适配层跑旧闭包的个数。
     pub legacy_tasks: usize,
     pub native_names: Vec<String>,
+    /// 原生任务登记的**延迟删除**路径（在清理点统一应用）。
+    pub deferred_removals: Vec<String>,
     pub stats: SerializeStats,
 }
 
@@ -234,11 +236,11 @@ where
         .collect();
     for name in &native_names {
         let (label, decl, run) = native_for(name, &opts.native).expect("checked above");
-        let layer = {
+        let (outcome, layer) = {
             let mut tx = pack.tx(name);
-            run(&mut tx)
+            let outcome = run(&mut tx)
                 .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
-            tx.into_layer()
+            (outcome, tx.into_layer())
         };
         // 契约检查：原生任务只能写它声明过的路径
         let violations = scope_violations(&decl, &layer);
@@ -256,6 +258,7 @@ where
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.native_tasks += 1;
+        report.deferred_removals.extend(outcome.deferred_removals.iter().cloned());
         report.native_names.push(name.clone());
     }
 
@@ -313,6 +316,23 @@ where
     ctx.execute_cleanup()
         .map_err(|e| AromError::internal(format!("execute_cleanup: {e}")))?;
     pool.clear_unused();
+
+    // 原生任务登记的**延迟删除**：与旧实现的 `defer_remove_*` **同一时机**（清理点）统一应用。
+    // 早删会让更晚的任务看不到文件（实测：反向改名搬不动已被删的源，§9.23）。
+    if !report.deferred_removals.is_empty() {
+        let deferred = std::mem::take(&mut report.deferred_removals);
+        let layer = {
+            let mut tx = pack.tx("deferred-removals");
+            for path in &deferred {
+                tx.remove(path)?;
+            }
+            tx.into_layer()
+        };
+        apply_layer_to_workdir(&pack, workdir, &layer)?;
+        sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
+        pack.commit(layer);
+        report.deferred_removals = deferred;
+    }
 
     // 收尾步骤：仍在 workdir 上跑一次，然后收获
     tail(workdir).map_err(AromError::internal)?;

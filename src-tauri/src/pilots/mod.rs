@@ -24,6 +24,23 @@ pub struct Outcome {
     pub changed: usize,
     pub skipped: usize,
     pub notes: Vec<String>,
+    /// **延迟删除**：旧实现用 `defer_remove_file/dir` 登记、在全局清理点统一执行；
+    /// 原生任务同样只登记，由驱动在清理点应用（见 `mixed_run`）。
+    pub deferred_removals: Vec<String>,
+}
+
+/// **延迟删除**：只登记路径，由驱动在清理点统一 tombstone——复刻旧实现 `defer_remove_*` 的时机。
+///
+/// 立即删除会让**更晚**的任务看不到文件（实测：反向改名因源文件已被删而搬不动东西，§9.23）。
+fn defer_remove_if_present(tx: &Tx<'_>, path: &str) -> Result<Outcome, AromError> {
+    if !tx.has_prefix(path)? {
+        return Ok(Outcome::default());
+    }
+    Ok(Outcome {
+        deferred_removals: vec![path.to_string()],
+        notes: vec![format!("defer removal of {path}")],
+        ..Outcome::default()
+    })
 }
 
 /// 整棵子树删除（对应旧 `delete_font_folder`）。
@@ -657,7 +674,9 @@ pub mod reverse_trivial {
                         .exclusive(true)
                 }
                 pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
-                    remove_if_present(tx, TARGET)
+                    // 旧实现是 `defer_remove_file/dir`：删除**延迟到清理点**，
+                    // 否则更晚的任务看不到该文件（§9.23）
+                    defer_remove_if_present(tx, TARGET)
                 }
             }
         };
@@ -691,9 +710,9 @@ pub mod reverse_trivial {
             "reverse_fix_horse_ui" => Some((horse::decl(), horse::run)),
             "reverse_overlay_icons" => Some((overlay_icons::decl(), overlay_icons::run)),
             "reverse_fix_ui_sub_hand" => Some((sub_hand::decl(), sub_hand::run)),
-            // 删除类暂不派发：旧实现的删除**延迟到最末**（`defer_remove_*`），立即删除会让后续改名找不到源（§9.23）
-            // 删除类暂不派发：旧实现的删除**延迟到最末**（`defer_remove_*`），立即删除会让后续改名找不到源（§9.23）
-            // 删除类暂不派发：旧实现的删除**延迟到最末**（`defer_remove_*`），立即删除会让后续改名找不到源（§9.23）
+            "reverse_generate_snow_bucket" => Some((snow_bucket::decl(), snow_bucket::run)),
+            "reverse_generate_smithing_ui" => Some((smithing_ui::decl(), smithing_ui::run)),
+            "reverse_fix_slider" => Some((slider::decl(), slider::run)),
             _ => None,
         }
     }
