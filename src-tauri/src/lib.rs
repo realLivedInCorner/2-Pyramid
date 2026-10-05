@@ -100,7 +100,9 @@ mod resource_resolver;
 mod updater;
 pub mod hurray;
 
-pub use invoke_conversion::invoke_conversion;
+// §9.121（M3 ②-c）：`invoke_conversion::invoke_conversion` 与其 `_ex` 变体已删除——
+// 生产入口改走 `mixed_run`（§9.118），旧入口不再有任何调用者。
+// 本模块现在只保留 `register_legacy_tasks`（旧闭包注册表，供闸门的全旧基线使用）。
 
 /// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
 pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};

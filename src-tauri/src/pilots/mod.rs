@@ -8833,6 +8833,26 @@ pub mod gui_surgeon_tx {
         width as f32 / base as f32
     }
 
+    /// **裁剪守卫**（§9.122）：`crop_imm` 越界时返回**空图**，而 PNG 编码器拒绝 0 宽/0 高。
+    /// 旧实现里这个错误发生在并行 `commit_all` 内部并被吞掉；`Tx` 形态若直接 `?`
+    /// 会把**整次转换**打断。返回 `None` 表示"这次裁剪无意义，跳过"，与旧实现的净效果一致。
+    fn crop_checked(
+        img: &RgbaImage,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        what: &str,
+    ) -> Option<RgbaImage> {
+        if w == 0 || h == 0 || x >= img.width() || y >= img.height() {
+            crate::log_warn!(
+                "{}: 裁剪越界（源 {}x{}，rect {x},{y},{w},{h}）——跳过",
+                what, img.width(), img.height()
+            );
+            return None;
+        }
+        Some(imageops::crop_imm(img, x, y, w, h).to_image())
+    }
     /// 旧 `scale_coordinate`。
     fn scale_coordinate(scale: f32, coord: u32) -> u32 {
         (coord as f32 * scale).round() as u32
@@ -8901,6 +8921,17 @@ pub mod gui_surgeon_tx {
         let scale = scale_from_image_base(img, 256);
         let (x1, y1, x2, y2) = crop;
         let (rx, ry, rw, rh) = scale_rect(scale, x1, y1, x2, y2);
+        // **零尺寸守卫**（§9.122）：`crop_imm` 在越界时返回**空图**，而 PNG 编码器
+        // **拒绝 0 宽/0 高**。旧实现里这个错误发生在并行的 `commit_all` 内部并被吞掉
+        // （转换照常完成，只是少一个 sprite）；`Tx` 形态若直接 `?` 会把**整次转换**打断。
+        // 因此这里显式跳过并告警——与旧实现的净效果一致，且不再静默。
+        if rw == 0 || rh == 0 {
+            crate::log_warn!(
+                "save_slices: 裁剪越界（源 {}x{}，scale {:.3}，rect {rx},{ry},{rw},{rh}）——跳过",
+                img.width(), img.height(), scale
+            );
+            return Ok(0);
+        }
         let cropped = imageops::crop_imm(img, rx, ry, rw, rh).to_image();
 
         let slice_w = scale_coordinate(scale, slice_size.0);
@@ -8992,15 +9023,16 @@ pub mod gui_surgeon_tx {
 
         // 滑块主体
         let (x1, y1, w, h) = scale_rect(scale, 0, 0, 200, 20);
-        let slider = imageops::crop_imm(&*img, x1, y1, w, h).to_image();
+        let Some(slider) = crop_checked(&img, x1, y1, w, h, "slider") else { return Ok(0) };
         tx.put_image("assets/minecraft/textures/gui/sprites/widget/slider.png", &slider)?;
         n += 1;
 
         // 手柄 = 左片(0,40)-(4,60) 与 右片(196,40)-(200,60) 横向拼接
         let (lx, ly, lw, lh) = scale_rect(scale, 0, 40, 4, 60);
         let (rx, ry, rw, rh) = scale_rect(scale, 196, 40, 200, 60);
-        let left = imageops::crop_imm(&*img, lx, ly, lw, lh).to_image();
-        let right = imageops::crop_imm(&*img, rx, ry, rw, rh).to_image();
+        let (Some(left), Some(right)) = (crop_checked(&img, lx, ly, lw, lh, "slider_handle_l"), crop_checked(&img, rx, ry, rw, rh, "slider_handle_r")) else {
+            return Ok(n);
+        };
         let mut handle = RgbaImage::new(left.width() + right.width(), left.height());
         for y in 0..left.height() {
             for x in 0..left.width() {
@@ -9019,8 +9051,9 @@ pub mod gui_surgeon_tx {
         // 高亮手柄 = 同样的拼法，取 y=60..80 那一行
         let (hx, hy, hw, hh) = scale_rect(scale, 0, 60, 4, 80);
         let (hrx, hry, hrw, hrh) = scale_rect(scale, 196, 60, 200, 80);
-        let hl = imageops::crop_imm(&*img, hx, hy, hw, hh).to_image();
-        let hr = imageops::crop_imm(&*img, hrx, hry, hrw, hrh).to_image();
+        let (Some(hl), Some(hr)) = (crop_checked(&img, hx, hy, hw, hh, "slider_hl_l"), crop_checked(&img, hrx, hry, hrw, hrh, "slider_hl_r")) else {
+            return Ok(n);
+        };
         let mut h_handle = RgbaImage::new(hl.width() + hr.width(), hl.height());
         for y in 0..hl.height() {
             for x in 0..hl.width() {
@@ -9055,15 +9088,15 @@ pub mod gui_surgeon_tx {
 
         // realms：直接裁一块
         let (rx, ry, rw, rh) = scale_rect(scale, 0, 94, 200, 194);
-        let realms = imageops::crop_imm(&*img, rx, ry, rw, rh).to_image();
+        let Some(realms) = crop_checked(&img, rx, ry, rw, rh, "title/realms") else { return Ok(0) };
         tx.put_image("assets/minecraft/textures/gui/sprites/title/realms.png", &realms)?;
         n += 1;
 
         // 两片横向拼接，再补一段透明底
         let (x1, y1, w1, h1) = scale_rect(scale, 0, 0, 155, 44);
-        let part1 = imageops::crop_imm(&*img, x1, y1, w1, h1).to_image();
+        let Some(part1) = crop_checked(&img, x1, y1, w1, h1, "title/part1") else { return Ok(n) };
         let (x2, y2, w2, h2) = scale_rect(scale, 0, 45, 119, 89);
-        let part2 = imageops::crop_imm(&*img, x2, y2, w2, h2).to_image();
+        let Some(part2) = crop_checked(&img, x2, y2, w2, h2, "title/part2") else { return Ok(n) };
 
         let concat_w = part1.width() + part2.width();
         let concat_h = part1.height().max(part2.height());
@@ -9165,7 +9198,7 @@ pub mod gui_surgeon_tx {
                 (86, "button_highlighted.png"),
             ] {
                 let (x1, y1, w, h) = scale_rect(bscale, 0, crop_y, 200, crop_y + 20);
-                let raw = imageops::crop_imm(&*img, x1, y1, w, h).to_image();
+                let Some(raw) = crop_checked(&img, x1, y1, w, h, "widgets/button") else { continue };
                 let fixed = equalize_nine_slice_frame(&raw, border);
                 tx.put_image(&format!("{SPRITES}/widget/{name}"), &fixed)?;
                 n += 1;
@@ -9185,12 +9218,12 @@ pub mod gui_surgeon_tx {
                 (20, 40, ["unlocked_button.png", "unlocked_button_highlighted.png", "unlocked_button_disabled.png"]),
             ] {
                 let (rx1, ry1, rw, rh) = scale_rect(bscale, x1, 146, x2, 206);
-                let strip = imageops::crop_imm(&*img, rx1, ry1, rw, rh).to_image();
+                let Some(strip) = crop_checked(&img, rx1, ry1, rw, rh, "widgets/strip") else { continue };
                 let slice_h = scale_coordinate(bscale, 20);
                 let slice_w = scale_coordinate(bscale, 20);
                 for (i, name) in names.iter().enumerate() {
                     let sy = i as u32 * slice_h;
-                    let raw = imageops::crop_imm(&strip, 0, sy, slice_w, slice_h).to_image();
+                    let Some(raw) = crop_checked(&strip, 0, sy, slice_w, slice_h, "widgets/locked") else { continue };
                     let fixed = equalize_nine_slice_frame(&raw, border);
                     tx.put_image(&format!("{SPRITES}/widget/{name}"), &fixed)?;
                     n += 1;

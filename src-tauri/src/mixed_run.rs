@@ -1224,52 +1224,51 @@ mod tests {
         zip.finish().expect("finish");
     }
 
-    /// 旧管线的等价物：解压 → 跑任务 → 重打包（与 `process_zip_timed` 同序）。
+    /// **全旧基线**：所有任务都走旧闭包（`NativeSwitches::none()`）——§9.121。
+    ///
+    /// 原先这里手写「解压 → `invoke_conversion_ex` → 重打包」，用旧入口当基线。
+    /// 生产已经不再经过旧入口（§9.118），因此改为**用同一个 `run_mixed` 驱动、
+    /// 但把原生开关全关**：跑的是同一批旧闭包，走的是同一个驱动器。
+    ///
+    /// **为什么这仍有意义**：`legacy` 与 `off`/`on` 的对照不再是"两套驱动器"的对照，
+    /// 但它仍能抓住"某个任务的**原生实现**与**旧实现**不一致"——那正是闸门要守的东西。
+    /// 而"驱动器自身对不对"由 §9.115 的**冻结内容基线**独立守住（它不依赖任何配置）。
     fn legacy_output(input: &Path, tmp: &Path, target: u32, source: u32) -> PathBuf {
         let work = tmp.join("legacy_work");
-        std::fs::create_dir_all(&work).expect("mkdir");
-        crate::converters::zip::extract_resource_pack(
-            input.to_str().expect("utf8"),
-            work.to_str().expect("utf8"),
-        )
-        .expect("extract");
-
-        crate::invoke_conversion::invoke_conversion_ex(input, &work, target, source, true, false, true)
-            .expect("legacy pipeline");
-        let mcmeta = work.join("pack.mcmeta");
-        if mcmeta.exists() {
-            write_pack_format(&mcmeta, target).expect("write_pack_format");
-        }
-
         let out = tmp.join("legacy.zip");
-        crate::converters::zip::repack_resource_pack(
-            work.to_str().expect("utf8"),
-            out.to_str().expect("utf8"),
-        )
-        .expect("repack");
+        let mut opts = MixedRunOptions::default();
+        opts.source_version = source;
+        opts.target_version = target;
+        opts.native = NativeSwitches::none();
+        let _ = run_mixed(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
+            let mcmeta = dir.join("pack.mcmeta");
+            if mcmeta.exists() {
+                write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
+        .expect("legacy baseline run");
         out
     }
 
+    /// **全旧基线·经 `run_with_legacy_tasks`**（§9.121）——与 `legacy_output` 的差别只在驱动器。
+    ///
+    /// 原先这里用 `invoke_conversion_ex` 当闭包体（即"旧入口整条管线"）。生产已不经旧入口（§9.118），
+    /// 故改为 `NativeSwitches::none()`：跑的是**同一批旧闭包**，但由 `run_mixed` 派发。
     fn mixed_output(input: &Path, tmp: &Path, target: u32, source: u32) -> (PathBuf, MixedRunReport) {
         let work = tmp.join("mixed_work");
         let out = tmp.join("mixed.zip");
-        let report = run_with_legacy_tasks(
-            input,
-            &work,
-            &out,
-            &MixedRunOptions::default(),
-            |dir| {
-                // `target_path` 与旧管线一致地传输入包（`invoke_conversion_ex` 用它推导包名），
-                // 否则两边会因为包名不同而产生差异——那与「谁负责 IO」无关。
-                crate::invoke_conversion::invoke_conversion_ex(input, dir, target, source, true, false, true)
-                    .map_err(|e| e.to_string())?;
-                let mcmeta = dir.join("pack.mcmeta");
-                if mcmeta.exists() {
-                    write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
-                }
-                Ok(())
-            },
-        )
+        let mut opts = MixedRunOptions::default();
+        opts.source_version = source;
+        opts.target_version = target;
+        opts.native = NativeSwitches::none();
+        let report = run_mixed(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
+            let mcmeta = dir.join("pack.mcmeta");
+            if mcmeta.exists() {
+                write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
         .expect("mixed run");
         (out, report)
     }

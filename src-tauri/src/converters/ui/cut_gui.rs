@@ -70,20 +70,19 @@ mod tests {
         copy_dir_all(std::path::Path::new(rp_root), temp.path()).expect("copy pika");
 
         // Production conversion: 1.20.1 (pack_format 15) -> 1.21.4 (pack_format 34)
-        crate::invoke_conversion::invoke_conversion(
-            temp.path(),
+        //
+        // §9.121（M3 ②-c）：原先调 `invoke_conversion::invoke_conversion`（旧入口），
+        // 该入口已随生产改道而删除。改用 `process_extracted_dir_only`——
+        // 它现在也走**同一条 A-ROM 原生管线**（§9.119），因此本用例仍覆盖生产的真实引擎。
+        let mcmeta = temp.path().join("pack.mcmeta");
+        crate::converters::version_converter::process_extracted_dir_only(
+            &mcmeta,
             temp.path(),
             34, // target: 1.21.4
-            15, // source: 1.20.1
-        ).expect("invoke_conversion 1.20.1 -> 1.21.4");
+        )
+        .expect("A-ROM pipeline 1.20.1 -> 1.21.4");
 
-        // Copy the result to a stable path for diffing with Py 1.0's output
-        // (Py 1.0 was run separately and produced D:\temp_rp_test\py_output).
-        let dst = std::path::Path::new(r"D:\temp_rp_test\rust_invoke_fixed");
-        if dst.exists() { let _ = std::fs::remove_dir_all(dst); }
-        std::fs::create_dir_all(dst).expect("mkdir rust_invoke_fixed");
         let temp_path = temp.path();
-        copy_dir_all(temp_path, dst).expect("copy rust_invoke_fixed");
 
         // Assert: `container/inventory.png` MUST survive the conversion.
         // The 1.21 vanilla resource pack still ships an `inventory.png`
