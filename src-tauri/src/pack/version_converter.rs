@@ -856,6 +856,33 @@ pub fn process_zip_timed(
     // §9.142：整条管线的相位分解（由驱动内部的打点汇总）。
     let mut pipeline_phases = crate::native_run::PipelinePhases::default();
     let pipeline_start = std::time::Instant::now();
+
+    // **§9.143：Java 目标直接写 zip，不再"先物化目录、再重新打包"。**
+    //
+    // 原流程对**所有**目标都让管线把最终视图物化到 `temp_dir`，随后无条件
+    // `repack_resource_pack` 把同一棵树再打包成 zip。实测（release，真实包）：
+    // `output`（物化目录）**2.30s** + `pack`（重打包）**0.41s**——整包被写了两遍。
+    //
+    // 那趟物化**只为 Bedrock 目标而存在**：只有它需要在管线之后、以**目录**形态
+    // 继续跑 `run_bedrock_edge_task(temp_dir, 97, 1000, …)`。Java 目标在管线之后
+    // 只剩下两次幂等动作（`pack.mcmeta` 的复核与重打包），`pack.mcmeta` 本就由
+    // 管线内的 `tail` 写好，因此物化那棵树没有任何读者。
+    //
+    // 等价性已实测（`Output::Zip` vs `Output::Dir` + 重打包，真实包）：
+    // 条目数 4138 = 4138、字节数 19874509 = 19874509、**排序后内容逐条相同**
+    // （路径/大小/CRC 全等）。唯一差别是 zip 内条目顺序——而重打包那条路走
+    // `walkdir` 的枚举顺序，本来就不确定；`write_zip` 的顺序由 `OrderPolicy` 决定，
+    // 反而更确定。因此这是**语义等价**的替换。
+    let java_direct_zip: Option<PathBuf> = if is_bedrock_target {
+        None
+    } else {
+        Some(build_output_path(
+            input_zip,
+            pack_format2,
+            parent_folder_path,
+            output_dir_override,
+        )?)
+    };
     {
         let mut mopts = crate::native_run::MixedRunOptions::default();
         mopts.source_version = source_version;
@@ -867,10 +894,14 @@ pub fn process_zip_timed(
         // `tail`：把 `pack.mcmeta` 的 `pack_format` 改写到目标版本。
         // `run_native` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
         let java_target_for_tail = java_target;
+        let output_sink = match &java_direct_zip {
+            Some(p) => crate::native_run::Output::Zip(p.clone()),
+            None => crate::native_run::Output::Dir(temp_dir.path().to_path_buf()),
+        };
         let report = crate::native_run::run_native(
             pipeline_input,
             _pipeline_scratch.path(),
-            &crate::native_run::Output::Dir(temp_dir.path().to_path_buf()),
+            &output_sink,
             &mopts,
             |dir| {
                 let m = dir.join("pack.mcmeta");
@@ -889,13 +920,16 @@ pub fn process_zip_timed(
     //
     // `pack.mcmeta` 已由上面的 `tail` 写好（§9.118）；此处保留一次"幂等复核"，
     // 使行为与改动前**逐字相同**——若 `pack.mcmeta` 存在而版本不符，这里会再写一次。
+    //
+    // **§9.143：Java 路径下这一步是空操作。** 管线不再物化目录（直接写 zip），
+    // 因此 `temp_dir` 里是**源树**，不该也不能在这里改写它的 `pack.mcmeta`——
+    // 改的会是输入而不是产物。zip 内的 `pack.mcmeta` 已由管线内的 `tail` 写为目标版本。
     let post_start = std::time::Instant::now();
-    let pack_meta_path = temp_dir.path().join("pack.mcmeta");
-    if pack_meta_path.exists() {
-        write_pack_format(&pack_meta_path, java_target)?;
-    }
-
     if is_bedrock_target {
+        let pack_meta_path = temp_dir.path().join("pack.mcmeta");
+        if pack_meta_path.exists() {
+            write_pack_format(&pack_meta_path, java_target)?;
+        }
         let base_name = input_zip
             .file_stem()
             .and_then(|s| s.to_str())
@@ -910,9 +944,16 @@ pub fn process_zip_timed(
     let engine_elapsed = engine_start.elapsed();
 
     let pack_start = std::time::Instant::now();
-    let output_path = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;
-
-    repack_resource_pack(&temp_dir_path, &output_path.to_string_lossy())?;
+    // **§9.143**：Java 目标的 zip 已由管线直接写出，这里不再重打包；
+    // Bedrock 目标仍走"目录 → 边任务 → 重打包"。
+    let output_path = match &java_direct_zip {
+        Some(p) => p.clone(),
+        None => {
+            let p = build_output_path(input_zip, pack_format2, parent_folder_path, output_dir_override)?;
+            repack_resource_pack(&temp_dir_path, &p.to_string_lossy())?;
+            p
+        }
+    };
     let pack_elapsed = pack_start.elapsed();
 
     if !output_path.exists() {

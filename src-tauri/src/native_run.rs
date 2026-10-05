@@ -250,7 +250,6 @@ fn build_layer_for_task(
     pack: &Pack,
     name: &str,
     switches: &NativeSwitches,
-    strict_scopes: bool,
 ) -> Result<(crate::natives::Outcome, Layer, bool), AromError> {
     let (label, decl, run) = native_for(name, switches).expect("dispatched from the plan");
     let (outcome, layer) = {
@@ -269,14 +268,10 @@ fn build_layer_for_task(
             )));
         }
     }
+    // 作用域契约检查：这里**只算不判**——`strict_scopes` 的处理留给调用方
+    // （严格模式要报错，非严格模式要把越界写入记进报告）。这样本函数保持纯只读，
+    // 才能在并行批里被并发调用。
     let violations = scope_violations(&decl, &layer);
-    if !violations.is_empty() && strict_scopes {
-        return Err(AromError::internal(format!(
-            "native task `{label}` ({name}) wrote outside its declared scope: {:?} (declared writes: {})",
-            violations,
-            decl.writes.describe()
-        )));
-    }
     // **打点不在这里做。** 并行批次的任务体是并发跑的，这里记的是"墙钟占用"而非该任务
     // 的真实成本；收尾（落盘/校验/基线/提交）由 `apply_parallel_layers` 串行完成并**统一打点**
     // 一次。若这里也记一次，同一任务会出现两条记录（实测 46 个任务被记成 61 条），
@@ -531,20 +526,23 @@ where
                     parallel
                         .par_iter()
                         .map(|name| {
-                            let (outcome, layer, clean) = build_layer_for_task(
-                                &pack,
-                                name,
-                                &opts.native,
-                                opts.strict_scopes,
-                            )?;
+                            let (outcome, layer, clean) =
+                                build_layer_for_task(&pack, name, &opts.native)?;
                             let violations = if clean {
                                 Vec::new()
                             } else {
                                 // 非严格模式：把越界写入记进报告（与串行路径同一语义）
-                                scope_violations(
+                                let v = scope_violations(
                                     &native_for(name, &opts.native).expect("checked above").1,
                                     &layer,
-                                )
+                                );
+                                // 严格模式：越界即失败——与串行路径同一判据
+                                if opts.strict_scopes && !v.is_empty() {
+                                    return Err(AromError::internal(format!(
+                                        "native task `{name}` wrote outside its declared scope: {v:?}"
+                                    )));
+                                }
+                                v
                             };
                             Ok((name.clone(), outcome, layer, violations))
                         })
