@@ -503,7 +503,7 @@ pub mod chest {
     }
 
     pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
-        use crate::converters::ui::process_chest_folder as legacy;
+        use crate::chest_region as legacy;
 
         if !tx.has_prefix(CHEST)? {
             return Ok(Outcome::default());
@@ -618,7 +618,7 @@ pub mod chest_reverse {
                 (sb(14, 19, 28, 33), sb(28, 19, 42, 33)),
                 (sb(14, 33, 28, 43), sb(42, 33, 56, 43)),
             ] {
-                crate::converters::reverse::chest_folder::swap_and_mirror(&mut img, a, b)
+                crate::chest_region::swap_and_mirror(&mut img, a, b)
                     .map_err(AromError::internal)?;
             }
             for b in [
@@ -631,7 +631,7 @@ pub mod chest_reverse {
                 sb(0, 33, 14, 43),
                 sb(28, 33, 42, 43),
             ] {
-                crate::converters::ui::process_chest_folder::mirror_region(&mut img, b);
+                crate::chest_region::mirror_region(&mut img, b);
             }
             tx.put_image(&path, &img)?;
             outcome.changed += 1;
