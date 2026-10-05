@@ -118,15 +118,17 @@ impl ConversionMaps {
 }
 
 pub struct Scheduler {
-    tasks: Vec<Task>,
     conversion_maps: ConversionMaps,
+    /// 已注册任务的实现表。**按名字索引**——`execute_version_conversion` 只从这里取任务。
+    ///
+    /// §9.133：原先还有一个 `tasks: Vec<Task>` 与它并存（`register_task` 同时 push 两边），
+    /// 但那个 `Vec` **没有任何读取点**；`clear()` 是唯一同时用到两者的方法，而它也没有调用者。
     task_registry: HashMap<String, Task>,
 }
 
 impl Scheduler {
     pub fn new() -> Self {
         Self {
-            tasks: Vec::new(),
             conversion_maps: ConversionMaps::new(),
             task_registry: HashMap::new(),
         }
@@ -143,7 +145,8 @@ impl Scheduler {
             task: Arc::new(task),
         };
 
-        self.tasks.push(task.clone());
+        // §9.133：不再往 `tasks` 里 push —— 那个 `Vec` 只被写入、从未被读取
+        // （`execute_version_conversion` 只查 `task_registry`）。字段本身也已删除。
         self.task_registry.insert(name.to_string(), task);
     }
 
@@ -287,10 +290,8 @@ impl Scheduler {
         Ok(())
     }
 
-    pub fn clear(&mut self) {
-        self.tasks.clear();
-        self.task_registry.clear();
-    }
+    // §9.133：`clear()` **已删除**——全库 0 个调用者。它同时暴露了 `tasks` 字段的问题：
+    // 那个 `Vec<Task>` 只被 `register_task` push、**从未被读取**，是纯粹的重复持有。
 
     /// 版本对 → **该跑哪些任务**（有序名字）。
     ///
