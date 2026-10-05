@@ -428,10 +428,31 @@ where
     // 由下方统一的 tombstone 步骤应用（原先走 `ctx.defer_remove_file` + `ctx.execute_cleanup()`，
     // 而那两个清理点**本来就相邻**，时机等价）。
     //
+    // **§9.135：本步改为 pack 原生**，不再经 `surgeon_cut_gui::run_in_workdir`。
+    //
+    // 那层桥做的是「读 workdir 的 gui 子树 → 建内存包 → 跑 `Tx` → 把层写回 workdir」，
+    // 而它存在的**唯一理由**是"`cut_gui` 的槽位在批次内部，而批次只能整体喂给旧引擎"
+    // （§9.113）。§9.129 起驱动已按 `plan` 逐任务派发 `Tx`，那个理由消失了：
+    // `gui_surgeon_tx` 用的是**包内全路径**（`assets/minecraft/textures/gui/...`），
+    // 因此可以直接跑在**驱动自己的 pack** 上，省掉一整趟"写盘再读回"。
+    //
+    // 与批次内那次 `cut_gui` 的关系不变：§9.90/§9.91 实测**两者各自必需**，删任何一个都会
+    // 丢 sprite。区别只在**输入状态**（本步在全部任务之后），不在实现。
+    //
     // **保留旧实现的两个门槛**（Bedrock 中间态跳过 sprite 手术，避免干扰 j2b；目标 < 34 也跳过）：
     if opts.run_gui_surgeon && opts.target_version >= 34 {
-        let outcome = crate::natives::surgeon_cut_gui::run_in_workdir(workdir)
-            .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
+        let (outcome, layer) = {
+            let mut tx = pack.tx("cut_gui_direct");
+            let outcome = crate::natives::gui_surgeon_tx::run(&mut tx)
+                .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
+            (outcome, tx.into_layer())
+        };
+        // 与其它原生任务同一套收尾：层落 workdir（后续步骤仍以 workdir 为真源）
+        // → 契约检查 → 基线同步 → 提交进 pack。
+        apply_layer_to_workdir(&pack, workdir, &layer)?;
+        check_layer_materialized(&pack, workdir, &layer, "cut_gui_direct")?;
+        sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
+        pack.commit(layer);
         report.deferred_removals.extend(outcome.deferred_removals);
     }
     trace_step("after-direct-steps", &mut trace);
