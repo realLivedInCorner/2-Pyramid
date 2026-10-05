@@ -236,8 +236,12 @@ fn dispatch_native_into_pack(
     if mirror {
         apply_layer_to_workdir(pack, workdir, &layer)?;
         check_layer_materialized(pack, workdir, &layer, name)?;
+        // §9.150：基线只服务 `Output::Dir`（harvest 的变更检测）。
+        // Zip 路径上它唯一的读者是报告构造时的 `file_count()`/`dir_count()`，
+        // 那一次在任务循环**之前**就已取值——之后的同步全是白做，
+        // 而每次同步都要 `read_body`（克隆整块字节）+ SHA256。
+        sync_baseline_with_layer(pack, &layer, baseline)?;
     }
-    sync_baseline_with_layer(pack, &layer, baseline)?;
     pack.commit(layer);
     // 打点放在**收尾之后**：`started` 起于任务执行前，因此这里记的是该任务在流水线里的
     // 真实占用（执行 + 层落盘 + 契约检查 + 基线同步 + 提交）。
@@ -315,8 +319,8 @@ fn apply_parallel_layers(
         if mirror {
             apply_layer_to_workdir(pack, workdir, &layer)?;
             check_layer_materialized(pack, workdir, &layer, &name)?;
+            sync_baseline_with_layer(pack, &layer, baseline)?;
         }
-        sync_baseline_with_layer(pack, &layer, baseline)?;
         pack.commit(layer);
         finish_dispatch(report, &name, outcome)?;
     }
