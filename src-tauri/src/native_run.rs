@@ -679,8 +679,11 @@ where
         if mirror {
             apply_layer_to_workdir(&pack, workdir, &layer)?;
             check_layer_materialized(&pack, workdir, &layer, "cut_gui_direct")?;
+            // §9.150 的遗漏补齐：基线只服务 harvest 的变更检测，Zip 路径没有 harvest。
+            // 逐任务那两处当时已条件化，这里漏了——而本步写 209 条，
+            // 每条都要 `read_body`（克隆整块字节）+ SHA256。
+            sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         }
-        sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.deferred_removals.extend(outcome.deferred_removals);
     }

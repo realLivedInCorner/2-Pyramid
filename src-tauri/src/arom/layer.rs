@@ -304,6 +304,7 @@ impl Pack {
         PackView {
             pack: self,
             pending: None,
+            pending_cache: None,
         }
     }
 
@@ -473,15 +474,31 @@ impl Pack {
             layer: Layer::new(),
             origin: origin.to_string(),
             image_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
+            entries_cache: std::cell::RefCell::new(None),
         }
     }
 }
+
+/// 在途视图的条目表缓存：`(本事务写入数, 条目表)`（§9.154）。
+///
+/// `RefCell` 而非 `Mutex`：`Tx` 只在一个线程里用（并行批里每个任务各持一个），
+/// 与 `image_cache` 同一理由。
+pub(crate) type PendingEntriesCache =
+    std::cell::RefCell<Option<(usize, std::sync::Arc<Vec<Resolved>>)>>;
 
 /// 只读视图：基座 + 已提交层（+ 可选的在途层）。
 pub struct PackView<'a> {
     /// 供同模块树的视图层（`view.rs`）访问缓存与基座。
     pub(crate) pack: &'a Pack,
     pending: Option<&'a Layer>,
+    /// **在途视图的条目表缓存**（§9.154）：`(本事务写入数, 条目表)`。
+    ///
+    /// 由 `Tx` 持有、与它的每个 `PackView` 共享，因此同一事务内的多次枚举能复用同一张表。
+    /// 键是"写入数"而非时间戳：已提交层在事务生命周期内不变（`Tx` 只持 `&Pack`），
+    /// 唯一的变量就是本事务层的写入数——它不变则条目表必然相同。
+    ///
+    /// `None` 表示这是**已提交视图**（`Pack::view()`），那种情况走包级版本缓存（§9.153）。
+    pub(crate) pending_cache: Option<&'a PendingEntriesCache>,
 }
 
 impl<'a> PackView<'a> {
@@ -578,22 +595,40 @@ impl<'a> PackView<'a> {
     pub fn entries(&self) -> Result<Vec<Resolved>, AromError> {
         // **§9.153：已提交视图的条目表按包版本缓存。**
         //
-        // 只在 `pending` 为空（"纯已提交视图"）时缓存：带在途层的视图结果与版本号
-        // 不是一一对应，缓存它会读到过期结果。`Tx` 的视图恒为 pending，因此任务内部的
-        // 枚举不缓存——它们本来就该看到自己的在途写入。
+        // 只在 `pending` 为空（"纯已提交视图"）时用包级缓存：那种视图的结果是版本的函数。
         //
         // 省下的是什么：真实包实测（debug）19 次 `entries()` 累计 **2.719s / 4.764s（57%）**，
-        // 每次都要遍历全部层重建整表。而 `has_prefix` → `list` 每次都会走到这里，
-        // `gui_surgeon` 的清理循环一次 `run` 就有 20 次 `has_prefix`。
-        let cacheable = self.pending.is_none();
-        if cacheable {
+        // 每次都要遍历全部层重建整表。而 `has_prefix` → `list` 每次都会走到这里。
+        if self.pending.is_none() {
             if let Some(hit) = self.pack.entries_cached() {
                 return Ok((*hit).clone());
             }
+            let built = self.entries_uncached()?;
+            self.pack.store_entries(std::sync::Arc::new(built.clone()));
+            return Ok(built);
+        }
+
+        // **§9.154：在途视图按"本事务写入数"缓存。**
+        //
+        // 包级缓存救不了任务内部：`Tx` 的视图恒为 pending，而 `gui_surgeon_tx::run` 末尾的
+        // 清理循环会对 20 个候选路径调 `has_prefix` → `list` → `entries()`，
+        // 每次 143ms（46 层重建）⇒ **一次 run 光问"在不在"就花掉约 0.7s**。
+        //
+        // 键取写入数：已提交层在事务生命周期内不变，本事务层只在写入时变，因此
+        // 写入数相同 ⇒ 条目表必然相同。
+        let writes = self.pending.map(|l| l.writes().len()).unwrap_or(0);
+        if let Some(cache) = self.pending_cache {
+            let hit = cache.borrow();
+            if let Some((n, table)) = hit.as_ref() {
+                if *n == writes {
+                    return Ok((**table).clone());
+                }
+            }
         }
         let built = self.entries_uncached()?;
-        if cacheable {
-            self.pack.store_entries(std::sync::Arc::new(built.clone()));
+        if let Some(cache) = self.pending_cache {
+            *cache.borrow_mut() =
+                Some((writes, std::sync::Arc::new(built.clone())));
         }
         Ok(built)
     }
@@ -714,6 +749,27 @@ pub struct Tx<'a> {
     /// （`natives/mod.rs`、`arch_gen_metal.rs` 等），改成 `&mut self` 会无谓地扩散可变性。
     /// `Tx` 不跨线程（在并行批里每个任务各持一个），因此这里无需同步原语。
     image_cache: std::cell::RefCell<std::collections::HashMap<String, Arc<RgbaImage>>>,
+    /// **本事务内的条目表缓存**（§9.154）。
+    ///
+    /// ## 为什么包级缓存救不了这里
+    ///
+    /// §9.153 给 `PackView::entries()` 加了按包版本失效的缓存，条件是 `!is_pending()`。
+    /// 而 `Tx::view()` **恒为 pending**，所以任务内部的枚举**一律不缓存**。
+    ///
+    /// 后果实测（debug，真实包）：`gui_surgeon_tx::run` 末尾的清理循环会对 20 个候选路径
+    /// 调 `has_prefix` → `list` → `entries()`，而 `entries()` 每次都要遍历全部层重建整表
+    /// （46 层下约 143ms）。于是**一次 `run` 光问"这个路径在不在"就花掉约 0.7s**——
+    /// 这正是 `cut_gui` 记录 0.98s 而算法自身只 0.257s 的原因。
+    ///
+    /// ## 缓存键为什么是"写入数"
+    ///
+    /// 视图结果 = 已提交层 + 本事务在途层。已提交层在本事务生命周期内**不变**
+    /// （`Tx` 只持 `&Pack`，提交由 `Pack` 侧发起），因此**唯一的变量就是本事务层的写入数**。
+    /// 写入数不变 ⇒ 条目表必然相同，可直接复用；一旦本事务发生写入（`put`/`remove`/
+    /// 改名），写入数变化即作废。
+    ///
+    /// 用 `RefCell` 保持 `entries()` 的 `&self`（与 `image_cache` 同理）。
+    entries_cache: PendingEntriesCache,
 }
 
 impl<'a> Tx<'a> {
@@ -729,6 +785,7 @@ impl<'a> Tx<'a> {
         PackView {
             pack: self.pack,
             pending: Some(&self.layer),
+            pending_cache: Some(&self.entries_cache),
         }
     }
 
