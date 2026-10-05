@@ -122,9 +122,11 @@ mod updater;
 // §9.121（M3 ②-c）：`invoke_conversion::invoke_conversion` 与其 `_ex` 变体已删除——
 // 生产入口改走 `native_run`（§9.118），旧入口不再有任何调用者。
 //
-// §9.125（M3 收口）：本模块只剩 `register_tasks`：**元数据段总是注册**（生产取阶段要用），
-// 88 个旧闭包体移到 `#[cfg(feature = "legacy-oracle")]`（默认关闭）——
-// 那 71 个 `use crate::pack::…` 与闭包体一起被门控，因此默认构建不含旧转换器代码。
+// §9.125–§9.129（M3 收口）：本模块只剩 `register_tasks`（52 行），**只注册元数据**
+// （名字 + `TaskType` + `Tier`）——驱动取阶段要用它。
+// 那 88 个旧闭包体**已彻底删除**，不是门控：`cut_gui` 折进派发表（§9.129）、
+// 任务改为按计划顺序逐个派发 `Tx`，闭包签名随之作废（§9.130 删 `HurrayContext` / `TexturePool`）。
+// `pack/` 下的旧实现整棵移除（§9.128），只留 `archive/legacy-converters/` 作参考快照。
 
 /// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
 pub use pack::analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};

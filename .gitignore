@@ -100,7 +100,25 @@ tools/store/*.png
 /_*.md
 /_*.json
 
-# ── 旧转换器：§9.128 已**整体送走** ──
-# 生产不再需要它们（`legacy-oracle` 兼容层已删），完整快照留在
-# `archive/legacy-converters/`（不参与构建，仅作历史参考）。
-# 因此这里不再需要"把这些文件排除在版本控制之外"的规则。
+# ── 旧转换器：§9.128 已**整体送走**，M4 收尾**不入库** ──
+#
+# `archive/legacy-converters/`（107 文件 / 16634 行）是旧转换器的完整快照，
+# **不参与构建、零活代码依赖**（全库只有注释提及）。它原本要支撑"重生成冻结基线"
+# 的能力，但那个能力**从未实现**（`legacy-oracle` feature 不在 `Cargo.toml` 里），
+# 因此存档已无功能用途。
+#
+# 决定（M4）：**本地保留、不入版本控制**。16.6k 行死代码入库会永久污染仓库体积，
+# 而它已不再支撑任何构建或测试。需要查阅时它仍在工作树里。
+/archive/
+
+# ── 设计过程日志：本地保留、不入库 ──
+#
+# 这两份是 M3 期间的**逐节设计流水**（`astray-arom-model.md` 3627 行、
+# `astray.md` 377 行），价值在过程记录而非规范本身；入库会把仓库撑大且
+# 内容与最终实现存在大量中间态。给 master 的是精简版：
+# `astray-summary.md`（设计汇总）+ `perf-verification.md`（性能验证规范）。
+#
+# 交接文档一次性作废——它的 HEAD 停在 `88e2f0e`，比实际落后 52 个提交。
+/docs/compose/spec/astray-arom-model.md
+/docs/compose/spec/astray.md
+/docs/compose/spec/HANDOVER-m3-final.md
