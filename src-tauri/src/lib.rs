@@ -98,6 +98,8 @@ mod overlay;
 pub mod perf;
 mod resource_resolver;
 /// 箱子贴图区域变换（共享：原生实现与旧转换器用同一份，§9.124）
+/// 颜色/HSV 工具（共享：原生实现与旧转换器用同一份，§9.124）
+mod color;
 mod chest_region;
 
 mod updater;

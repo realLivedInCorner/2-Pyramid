@@ -13,7 +13,6 @@ pub use textures::mcpatcher_to_optifine::rename_mcpatcher_to_optifine;
 pub mod audio;
 pub mod bedrock;
 pub mod blockstate_adapter;
-pub mod color;
 pub mod main_converter;
 pub mod pack_analysis;
 pub mod pack_diff;

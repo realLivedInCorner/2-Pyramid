@@ -178,7 +178,7 @@ mod rename_blocks_tables;
 pub mod rename_blocks {
     use super::rename_blocks_tables::{BLOCK_PAIRS, ITEM_PAIRS, PROCESS_BLOCK_PAIRS};
     use super::*;
-    use crate::converters::color::utils::{hsv_to_rgba, rgb_to_hsv};
+    use crate::color::utils::{hsv_to_rgba, rgb_to_hsv};
     use image::{Rgba, RgbaImage};
 
     pub(super) const TEXTURES: &str = "assets/minecraft/textures";
@@ -3896,7 +3896,7 @@ pub mod arch_gen {
     /// 最后把 `boat.png` **改名**为 `spruce_boat.png`（源消失——这一步很容易漏）。
     pub mod boat {
         use super::*;
-        use crate::converters::color::hue::adjust_hue_brightness;
+        use crate::color::hue::adjust_hue_brightness;
 
         const ITEMS: &str = "assets/minecraft/textures/items";
         const BOAT: &str = "assets/minecraft/textures/items/boat.png";
@@ -4319,7 +4319,7 @@ pub mod shulker_box_gen {
 ///   `copper_armor_models` 是「iron 优先，否则 diamond→gold→chainmail→leather」——**顺序即产物**。
 pub mod arch_gen_metal {
     use super::*;
-    use crate::converters::color::utils::{
+    use crate::color::utils::{
         adjust_copper_color, apply_netherite_transform, apply_spectral_arrow_transform,
     };
 
@@ -4678,7 +4678,7 @@ pub mod arch_gen_metal {
 /// 改一个数字就会改变产物。
 pub mod arch_gen_planks {
     use super::*;
-    use crate::converters::color::hue::{adjust_hue_brightness, force_hue_saturation};
+    use crate::color::hue::{adjust_hue_brightness, force_hue_saturation};
 
     const BLOCK: &str = "assets/minecraft/textures/block";
 
@@ -4978,7 +4978,7 @@ pub mod arch_gen_planks {
 /// 3. **不祥试炼钥匙的源是条件选择**：`trial_key.png` 存在就用它，否则用 `gold_ingot.png`。
 pub mod arch_gen_breeze {
     use super::*;
-    use crate::converters::color::hue::{adjust_hue_brightness, force_hue_saturation};
+    use crate::color::hue::{adjust_hue_brightness, force_hue_saturation};
 
     const ITEM: &str = "assets/minecraft/textures/item/";
     const BLOCK: &str = "assets/minecraft/textures/block/";
@@ -6084,7 +6084,7 @@ pub mod surgeon_early2 {
 /// - `fix2_horse_ui`：三个槽位 sprite 的**改名拷贝**（`*_slot.png` → 去掉 `_slot`），源保留。
 pub mod surgeon_mid {
     use super::*;
-    use crate::converters::color::hue::adjust_hue_brightness;
+    use crate::color::hue::adjust_hue_brightness;
 
     /// 旧 `converters/ui/horse_v2.rs`。
     pub mod horse_v2 {
@@ -6312,7 +6312,7 @@ pub mod surgeon_mid2 {
     /// 旧 `converters/ui/sign.rs`。
     pub mod sign {
         use super::*;
-        use crate::converters::color::hue::adjust_hue_brightness;
+        use crate::color::hue::adjust_hue_brightness;
 
         const ITEM: &str = "assets/minecraft/textures/item";
         const OAK: &str = "assets/minecraft/textures/item/oak_sign.png";
