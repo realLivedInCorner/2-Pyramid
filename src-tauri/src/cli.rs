@@ -340,6 +340,11 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         summary.pure_sum_s, summary.total_sum_s, summary.io_sum_s
     );
     println!("墙钟时间：{:.2}s", summary.wall_clock_s);
+    // **测量提示（§9.146）**：只有**进程内**这几个数（纯转换 / 含 IO 总时间 / 墙钟）彼此可比。
+    // 外部用 PowerShell `Start-Process -Wait` 计时会**每次虚增 2.4–2.7s**
+    // （实测：进程内 1.49s 被报成 3.93s；改用 `cmd /C` 同步执行则 1.52s ≈ 进程内 1.52s，
+    // 真实进程开销只有约 0.05s）。我据此做过一次错误的优化取舍，故把结论留在输出里。
+    println!("  （外部计时请用同步方式：Start-Process -Wait 会虚增约 2.5s，以进程内数为准）");
     if summary.input_bytes > 0 {
         println!(
             "体积：{:.2} MB → {:.2} MB",
