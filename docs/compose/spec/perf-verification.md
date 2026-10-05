@@ -151,6 +151,18 @@ $z.Dispose()
 | 不物化 workdir（全内存管线） | 纯转换 3.11 → **0.45s** |
 | Zip 路径跳过无人读的内容基线 | `materialize` 0.06 → **0.00s** |
 | 修正 `harvest` 相位的错误归属（拆分出 `direct_s`） | 无性能收益，但**避免了把优化引向错误目标**（§9.148） |
+| **`Tx` 内的图片解码缓存**（§9.149） | 真实包上一次转换 `tx.image` 被调 262 次 / 不同路径仅 75 个，重复解码累计 **1.353s**（端到端 5.866s 的 23%）；release 纯转换 0.40–0.42 → **0.35–0.39s** |
+
+### 一个必须记住的陷阱：**`Tx` 绕过包级图片缓存**
+
+`PackView::image` 带缓存，但条件是 `let cacheable = !self.is_pending();`，
+而 `Tx::view()` **恒为 pending**（要看到本事务的在途写入）。因此**所有任务都绕过了它**。
+`gui_surgeon_tx` 的 `process_icons`/`process_widgets`/`process_tabs` 对同一张图做几十次裁切，
+每次都重新解码整图——实测 `enchanting_table.png` 在一次转换里被解码 **18 次**。
+
+诊断方法（可复用）：在 `Tx::image` 里按路径计数，跑一次真实转换，看
+`总调用次数 / 不同路径数 / 单路径最高次数`。
+
 | `apply_layer_to_workdir` 目录缓存 | 0.43s（较小但真实） |
 
 ---

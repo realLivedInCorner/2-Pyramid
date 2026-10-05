@@ -458,6 +458,7 @@ impl Pack {
             pack: self,
             layer: Layer::new(),
             origin: origin.to_string(),
+            image_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
         }
     }
 }
@@ -647,6 +648,35 @@ pub struct Tx<'a> {
     pack: &'a Pack,
     layer: Layer,
     origin: String,
+    /// **本事务内的图片解码缓存**（§9.149）。
+    ///
+    /// ## 为什么 `Tx` 需要自己的缓存
+    ///
+    /// `PackView::image` 带缓存，但它的条件是 `let cacheable = !self.is_pending();`——
+    /// 而 `Tx::view()` **恒为 pending**（它必须看到本事务的在途写入）。于是
+    /// **所有任务都绕过了包级图片缓存**，同一张 PNG 在每次 `tx.image()` 时重新解码。
+    ///
+    /// 真实包实测（debug，一次完整转换）：
+    ///
+    /// ```text
+    /// tx.image 调用 262 次 / 不同路径仅 75 个  ⇒ 重复 187 次
+    /// 累计解码 1.353s / 端到端 5.866s         ⇒ 占 23%
+    /// enchanting_table.png 被解码 18 次、villager2.png 18 次、loom.png 18 次
+    /// ```
+    ///
+    /// 典型来源：`gui_surgeon_tx` 的 `process_icons`/`process_widgets`/`process_tabs`
+    /// 对同一张图做几十次裁切，每次都重新解码整张图。
+    ///
+    /// ## 正确性
+    ///
+    /// 缓存键是路径，值是"从**包视图**解码出的图"。只有在包视图能解析出该路径时才写缓存；
+    /// 一旦本事务写入同路径，`view().resolve()` 会优先命中在途写入，因此 `image()` 走的是
+    /// 新的 blob 而不是缓存——所以写后读不会读到旧图。
+    ///
+    /// 用 `RefCell` 是为了让 `image()` 保持 `&self`：大量既有调用点把 `&Tx` 传给帮助函数
+    /// （`natives/mod.rs`、`arch_gen_metal.rs` 等），改成 `&mut self` 会无谓地扩散可变性。
+    /// `Tx` 不跨线程（在并行批里每个任务各持一个），因此这里无需同步原语。
+    image_cache: std::cell::RefCell<std::collections::HashMap<String, Arc<RgbaImage>>>,
 }
 
 impl<'a> Tx<'a> {
@@ -708,8 +738,25 @@ impl<'a> Tx<'a> {
         self.view().json(path)
     }
 
+    /// 解码贴图（**本事务内缓存**，见 [`Tx::image_cache`] 的说明）。
+    ///
+    /// **写后读的正确性**：若本事务已写过该路径，`view().resolve()` 指向新的 blob，
+    /// 此时候选图与缓存的**不是同一份内容**，因此层里有该路径时直接解码、不入缓存，
+    /// 避免读到过期图。
     pub fn image(&self, path: &str) -> Result<Arc<RgbaImage>, AromError> {
-        self.view().image(path)
+        let in_layer = self.layer.writes().contains_key(path);
+        if !in_layer {
+            if let Some(hit) = self.image_cache.borrow().get(path) {
+                return Ok(hit.clone());
+            }
+        }
+        let img = self.view().image(path)?;
+        if !in_layer {
+            self.image_cache
+                .borrow_mut()
+                .insert(path.to_string(), img.clone());
+        }
+        Ok(img)
     }
 
     pub fn put(&mut self, path: &str, bytes: Vec<u8>) -> Result<(), AromError> {
