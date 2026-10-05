@@ -2271,6 +2271,118 @@ mod tests {
         );
     }
 
+    /// **②-a 冻结基线**：把真实包产物的**内容**钉死（§9.115）。
+    ///
+    /// **为什么必须有它**（§9.112/§9.114 的结论）：第 ② 项"移除旧闭包路径"的**真正阻塞
+    /// 不是功能，而是验证依赖**——闸门一直靠"与旧管线 `legacy` 对照"来定义正确性，
+    /// 因此**旧闭包不能删**（删了就是拆掉自己的尺子）。
+    ///
+    /// 本用例给出**独立于旧实现**的判据：把产物 zip 的
+    /// `(条目名, 长度, 内容 FNV-1a)` 排序后聚合成**一个 u64 指纹**，与冻结常量比较。
+    /// 有了它，将来删掉旧闭包后**仍能判定"产物有没有变"**。
+    ///
+    /// **它比 §9.91 的绝对契约强在哪**：绝对契约只钉 `files` / `bytes` 两个**计数**——
+    /// 若某次改动让两个文件互换内容（计数不变），绝对契约**看不见**，而本用例会红。
+    ///
+    /// 指纹变化时用 `AROM_BASELINE_DUMP=<路径>` 导出**逐条目清单**，
+    /// 与仓库内 `tools/arom-baseline.txt` 逐行 diff 即可定位是哪些文件变了。
+    #[test]
+    #[ignore]
+    fn real_pack_content_baseline_is_frozen() {
+        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
+            println!("AROM_REAL_PACK 未设置，跳过");
+            return;
+        };
+        let input = PathBuf::from(&src);
+        assert!(input.is_file(), "不是文件：{}", input.display());
+        let target: u32 = std::env::var("AROM_TARGET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(97);
+        let source = {
+            let pack = Pack::open_zip(&input, &SafeLimits::preserving_current(), None)
+                .expect("open for source format");
+            pack.view()
+                .mcmeta()
+                .ok()
+                .and_then(|m| m.effective_format())
+                .unwrap_or(34)
+        };
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let (mixed, _report) = mixed_output(&input, tmp.path(), target, source);
+
+        // 逐条目 (名, 长度, 内容 hash) → 排序 → 聚合成一个 u64
+        let entries = zip_entry_digests(&mixed);
+        let mut agg: u64 = 0xcbf2_9ce4_8422_2325;
+        for (name, len, h) in &entries {
+            for b in name.as_bytes() {
+                agg ^= *b as u64;
+                agg = agg.wrapping_mul(0x1000_0000_01b3);
+            }
+            for b in len.to_le_bytes().iter().chain(h.to_le_bytes().iter()) {
+                agg ^= *b as u64;
+                agg = agg.wrapping_mul(0x1000_0000_01b3);
+            }
+        }
+
+        println!(
+            "内容基线：{} 个条目，聚合指纹 = 0x{agg:016x}",
+            entries.len()
+        );
+
+        // 可选：导出逐条目清单（用于与 tools/arom-baseline.txt 做 diff）
+        if let Ok(path) = std::env::var("AROM_BASELINE_DUMP") {
+            let mut text = String::new();
+            for (name, len, h) in &entries {
+                text.push_str(&format!("{h:016x}  {len:>9}  {name}\n"));
+            }
+            std::fs::write(&path, text).expect("dump baseline");
+            println!("已导出逐条目清单到 {path}");
+        }
+
+        // **冻结值**：TapL 16x → 97（2026-10-05 测得，4018 个条目）。
+        // 改动此处前**必须先解释产物为何变化**。
+        const FROZEN: u64 = 0x75bb_3260_e7f5_78a6;
+        if FROZEN == 0 {
+            println!("⚠️ 冻结值尚未填入；本次读数为 0x{agg:016x}");
+            return;
+        }
+        assert_eq!(
+            agg, FROZEN,
+            "真实包产物的**内容**指纹偏离冻结基线（实际 0x{agg:016x}）——\n\
+             这比 §9.91 的计数契约更强：即使文件数/字节数不变，内容变化也会在此报红。\n\
+             用 AROM_BASELINE_DUMP 导出清单并与 tools/arom-baseline.txt 逐行 diff 定位。"
+        );
+    }
+
+    /// 读 zip 的全部条目，返回排序后的 `(名字, 长度, 内容 FNV-1a)`。
+    fn zip_entry_digests(zip_path: &Path) -> Vec<(String, u64, u64)> {
+        use std::io::Read as _;
+        let f = std::fs::File::open(zip_path).expect("open zip");
+        let mut ar = zip::ZipArchive::new(f).expect("zip");
+        let mut out = Vec::new();
+        for i in 0..ar.len() {
+            let Ok(mut e) = ar.by_index(i) else { continue };
+            if e.is_dir() {
+                continue;
+            }
+            let name = e.name().to_string();
+            let mut bytes = Vec::new();
+            if e.read_to_end(&mut bytes).is_err() {
+                continue;
+            }
+            let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+            for b in &bytes {
+                hash ^= *b as u64;
+                hash = hash.wrapping_mul(0x1000_0000_01b3);
+            }
+            out.push((name, bytes.len() as u64, hash));
+        }
+        out.sort();
+        out
+    }
+
     /// 真实包上的三种配置对照（默认忽略）：
     /// `AROM_REAL_PACK=<包> [AROM_TARGET=97] cargo test --lib native_switch -- --ignored --nocapture`
     #[test]
