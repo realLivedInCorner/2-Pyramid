@@ -133,58 +133,7 @@ pub struct MixedRunReport {
     pub stats: SerializeStats,
 }
 
-/// 用 A-ROM 接管读入与写出，任务由 `legacy_run` 在 `workdir` 上执行。
-///
-/// `legacy_run` 的签名刻意与旧管线一致：**给它一个目录，它自己跑完所有任务**
-/// （例如 `invoke_conversion_ex(...)` + 收尾的 `pack.mcmeta` 改写）。
-pub fn run_with_legacy_tasks<F>(
-    input: &Path,
-    workdir: &Path,
-    output: &Path,
-    opts: &MixedRunOptions,
-    legacy_run: F,
-) -> Result<MixedRunReport, AromError>
-where
-    F: FnOnce(&Path) -> Result<(), String>,
-{
-    use crate::arom::engine::scheduler::Scheduler;
 
-    ensure_empty_dir(workdir)?;
-
-    let mut pack = Pack::open_zip(input, &opts.limits, opts.blob_limit)?;
-
-    // 1) 落盘（含空目录——旧执行器在磁盘上看到的目录必须完整）
-    let baseline = {
-        let view = pack.view();
-        materialize(&view, workdir)?
-    };
-
-    // 2) 旧任务照常读写目录
-    legacy_run(workdir).map_err(AromError::internal)?;
-
-    // 3) 收成一层
-    let harvested = harvest(&pack, workdir, &baseline, None)?;
-
-    let report = MixedRunReport {
-        materialized_files: baseline.file_count(),
-        materialized_dirs: baseline.dir_count(),
-        harvested_changes: harvested.changed(),
-        added: harvested.added.len(),
-        modified: harvested.modified.len(),
-        removed: harvested.removed.len(),
-        undeclared: harvested.undeclared.clone(),
-        ..MixedRunReport::default()
-    };
-    pack.commit(harvested.layer);
-
-    // 4) A-ROM 序列化
-    let stats = {
-        let view = pack.view();
-        write_zip(&pack, &view, output, &opts.serialize)?
-    };
-
-    Ok(MixedRunReport { stats, ..report })
-}
 
 /// **产物去向**（§9.117）。
 ///
@@ -1478,24 +1427,6 @@ mod tests {
         assert!(work.join("assets/minecraft/new.txt").exists(), "写入照旧");
     }
 
-    fn work_dir_must_be_empty() {
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let input = tmp.path().join("fixture.zip");
-        fixture(&input);
-        let work = tmp.path().join("dirty");
-        std::fs::create_dir_all(&work).expect("mkdir");
-        std::fs::write(work.join("leftover.txt"), b"x").expect("write");
-
-        let err = run_with_legacy_tasks(
-            &input,
-            &work,
-            &tmp.path().join("out.zip"),
-            &MixedRunOptions::default(),
-            |_| Ok(()),
-        )
-        .expect_err("must reject dirty work dir");
-        assert_eq!(err.kind(), "io");
-    }
 
     fn native_output_v2(
         input: &Path,
