@@ -393,8 +393,10 @@ where
         if mirror {
             materialize(&view, workdir)?
         } else {
-            // 只算指纹表，不落盘。
-            crate::arom::pathview::baseline_of(&view)?
+            // **§9.147**：Zip 路径不需要变更检测基线（没有 harvest），只数条目与目录。
+            // 原先这里调 `baseline_of`，它对全部 3631 条做 read + SHA256（实测 0.222s，
+            // 即整包解压一遍），而那份指纹在这条路径上**没有任何读者**。
+            crate::arom::pathview::baseline_counts_only(&view)?
         }
     };
     phases.materialize_s = clock.elapsed().as_secs_f32();

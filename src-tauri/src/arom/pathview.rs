@@ -90,6 +90,32 @@ pub fn decl_any(name: &str, tier: Tier) -> TaskDecl {
         .writes(ScopeSet::any())
 }
 
+/// **只数条目与目录，不读字节**（§9.147）。
+///
+/// `baseline_of` 会对全部条目做 `read` + SHA256，实测（debug 口径）**0.222s**——
+/// 那是整包解压一遍。而那份指纹的唯一用途是 `harvest` 的变更检测。
+///
+/// Zip 输出路径**已经不需要 harvest**（§9.144：视图直接从 `pack` 序列化），
+/// 该路径下基线**只有两个读者**：报告里的条目数与目录数。为两个计数把整包解压一遍
+/// 是纯浪费。真实包实测：重复读 712 次共 0.021s（可忽略），而首次读全部 3631 条 0.222s。
+///
+/// 与 `baseline_of` 的**计数完全一致**（同源的 `entries()` 与 `effective_dirs()`），
+/// 只是不做哈希。`files` 的值置零表示"内容未知"——Zip 路径上没有任何代码会读它，
+/// 因为 `harvest` 与 `sync_baseline_with_layer` 都不在该路径运行。
+pub fn baseline_counts_only(view: &PackView<'_>) -> Result<Materialized, AromError> {
+    let mut baseline = Materialized::default();
+    for dir in view.effective_dirs()? {
+        baseline.dirs.insert(dir);
+    }
+    for res in view.entries()? {
+        if res.is_dir {
+            continue;
+        }
+        baseline.files.insert(res.path, (0, String::new()));
+    }
+    Ok(baseline)
+}
+
 /// 只算**基线**（包内容的指纹表），**不落盘**（§9.144）。
 ///
 /// `materialize` 做两件事：把视图写成磁盘树、并算出这份指纹表。而 §9.144 之后
