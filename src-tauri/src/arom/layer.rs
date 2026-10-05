@@ -1002,6 +1002,46 @@ fn ancestors_of(path: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
+
+    /// **§9.155 前置**：证明「`DynamicImage::write_to(Png)`」与「`PngEncoder` 直写 `as_raw()`」
+    /// 产出**逐字节相同**的 PNG。只有相等才能用它替掉 `put_image` 里的整图克隆。
+    #[test]
+    fn png_encode_paths_are_byte_identical() {
+        use image::ImageEncoder;
+        // 覆盖几种典型尺寸与内容：1x1、奇数尺寸、带透明、渐变（压缩率差异敏感）
+        let cases: Vec<image::RgbaImage> = vec![
+            image::RgbaImage::from_pixel(1, 1, image::Rgba([1, 2, 3, 4])),
+            image::RgbaImage::from_pixel(9, 9, image::Rgba([255, 0, 0, 128])),
+            image::RgbaImage::from_pixel(7, 13, image::Rgba([0, 0, 0, 0])),
+            image::RgbaImage::from_fn(64, 64, |x, y| {
+                image::Rgba([(x * 4) as u8, (y * 4) as u8, ((x + y) * 2) as u8, (x % 2 * 255) as u8])
+            }),
+            image::RgbaImage::from_fn(256, 256, |x, y| {
+                image::Rgba([(x ^ y) as u8, (x / 3) as u8, (y / 5) as u8, 255])
+            }),
+        ];
+        for (i, img) in cases.iter().enumerate() {
+            // 路径 A：现有写法（克隆整图 → DynamicImage → write_to）
+            let mut a = Vec::new();
+            image::DynamicImage::ImageRgba8(img.clone())
+                .write_to(&mut std::io::Cursor::new(&mut a), image::ImageFormat::Png)
+                .expect("A");
+            // 路径 B：直写（不克隆）
+            let mut b = Vec::new();
+            image::codecs::png::PngEncoder::new(&mut b)
+                .write_image(
+                    img.as_raw(),
+                    img.width(),
+                    img.height(),
+                    image::ColorType::Rgba8,
+                )
+                .expect("B");
+            assert_eq!(a, b, "case {i}（{}x{}）两条编码路径产出不同字节", img.width(), img.height());
+        }
+        println!("两条 PNG 编码路径逐字节相同（5 个用例）");
+    }
+
+
     use super::*;
     use crate::arom::source::MemSource;
 
