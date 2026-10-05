@@ -151,11 +151,7 @@ impl Scheduler {
     ///
     /// 注册表与 segment 是两份独立的清单，原本没有任何交叉检查——§9.88 的
     /// `convert_animated_textures` 就是「注册了却不在任何段里」，因此永不执行。
-    pub fn registered_task_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.task_registry.keys().cloned().collect();
-        names.sort();
-        names
-    }
+    // §9.132：`registered_task_names` **已删除**——全库 0 个调用者（含测试）。
 
     pub fn calculate_path(&self, source: u32, target: u32) -> EngineResult<Vec<(u32, u32)>> {
         let maps = if target >= source {
@@ -314,25 +310,13 @@ impl Scheduler {
     // `TaskTier` 合并进 A-ROM 的 `Tier` 之后，驱动与测试都直接调
     // `crate::task_registry::tier_of`，这条间接层就只剩"看起来有两个数据源"的误导。
 
-    /// 按名字执行已注册的任务。
-    ///
-    /// 复用 [`Self::execute_tasks`]，因此**执行顺序与生产一致**：阶段顺序固定
-    /// （Eraser → Architect → Surgeon → Closure），阶段内保持传入顺序；计时与
-    /// 纹理池提交也照旧。未注册的名字只记日志、不报错（便于驱动按计划表驱动，
-    /// 而计划表里可能列着本里程碑尚未注册的任务）。
-    pub fn run_named(
-        &self,
-        names: &[String],
-    ) -> EngineResult<()> {
-        let mut tasks: Vec<Task> = Vec::with_capacity(names.len());
-        for name in names {
-            match self.task_registry.get(name) {
-                Some(task) => tasks.push(task.clone()),
-                None => log_warn!("run_named: task not registered, skipped: {}", name),
-            }
-        }
-        self.execute_tasks(&tasks, None)
-    }
+    // §9.132：`Scheduler::run_named` **已删除**。
+    //
+    // 它是"按名字跑一批任务"的入口，曾是驱动执行旧批次的唯一途径。§9.128 送走旧闭包后
+    // 它**没有任何生产调用者**——驱动按 `plan` 顺序自己派发 `Tx`，Bedrock 边任务走
+    // `execute_version_conversion`。它唯一的使用者是一个只验证自身的用例，而那个用例
+    // 已改写成 [`Self::execution_buckets_by_tier_not_by_plan_or_registration_order`]
+    // ——去钉住本引擎真正在生产里被依赖的语义（阶段分桶）。
 
     fn execute_tasks(
         &self,
@@ -741,30 +725,89 @@ mod tests {
         assert_ne!(forward, reverse, "正向与反向的计划不应相同");
     }
 
-    /// `run_named()` 只跑被点名的任务，且对未注册的名字宽容。
+    /// **执行引擎的正题**（§9.132）：`execute_version_conversion` 必须按**阶段分桶**执行，
+    /// 而不是按计划顺序、也不是按注册顺序。
     ///
-    /// **§9.130**：任务闭包不再接收 `HurrayContext`（`workdir`/`pack_name` 改为**注册期捕获**），
-    /// 因此本用例不再构造 ctx / TexturePool。
+    /// 这条断言是 `Scheduler` 仍在生产的**唯一理由**：驱动（`native_run`）自己按计划顺序
+    /// 逐任务派发 `Tx`，而 Bedrock 边任务（j2b/b2j）仍走本引擎。因此"分桶语义"必须被钉住——
+    /// 它是本引擎与驱动**不同**的地方，也最容易被无声改掉。
+    ///
+    /// 取 `(1,97)` 计划里阶段不同、且**计划顺序与阶段顺序相反**的三项：
+    /// `generate_tipped_arrow_images`（Architect，计划第 2 位）、
+    /// `fix_ui_survival`（Surgeon，第 3 位）、`convert_animated_textures`（Eraser，第 11 位）。
+    /// 先断言计划顺序确实是 Architect → Surgeon → Eraser，再断言**执行**顺序是
+    /// Eraser → Architect → Surgeon —— 两者相反才说明分桶真的发生了。
+    ///
+    /// 用例里按**计划逆序**注册（Surgeon → Architect → Eraser），于是"注册顺序"这第三种
+    /// 可能也被排除。
     #[test]
-    fn run_named_runs_only_the_named_tasks_and_tolerates_unknown() {
-        let dir = tempfile::tempdir().expect("tempdir");
+    fn execution_buckets_by_tier_not_by_plan_or_registration_order() {
+        let names = [
+            "convert_animated_textures",    // Eraser
+            "generate_tipped_arrow_images", // Architect
+            "fix_ui_survival",              // Surgeon
+        ];
 
-        let path_a = dir.path().join("a.txt");
-        let path_b = dir.path().join("b.txt");
-        let (a, b) = (path_a.clone(), path_b.clone());
+        // ① 先钉住计划顺序：必须是 Architect → Surgeon → Eraser（与阶段顺序相反）
+        let probe = Scheduler::new();
+        let plan = probe.plan(1, 97).expect("plan 1 -> 97");
+        let in_plan: Vec<&str> = plan
+            .iter()
+            .map(String::as_str)
+            .filter(|n| names.contains(n))
+            .collect();
+        assert_eq!(
+            in_plan,
+            vec![
+                "generate_tipped_arrow_images",
+                "fix_ui_survival",
+                "convert_animated_textures"
+            ],
+            "计划顺序变了——本用例的判据依赖它与阶段顺序相反"
+        );
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+
         let mut scheduler = Scheduler::new();
-        scheduler.register_task("task_a", TaskType::Parallel, Tier::Surgeon, move || {
-            std::fs::write(&a, b"a").map_err(|e| e.to_string())
-        });
-        scheduler.register_task("task_b", TaskType::Parallel, Tier::Surgeon, move || {
-            std::fs::write(&b, b"b").map_err(|e| e.to_string())
-        });
+        // ② 按**计划逆序**注册（Surgeon → Architect → Eraser）
+        for (name, tier) in [
+            ("fix_ui_survival", Tier::Surgeon),
+            ("generate_tipped_arrow_images", Tier::Architect),
+            ("convert_animated_textures", Tier::Eraser),
+        ] {
+            let log = std::sync::Arc::clone(&log);
+            let marker = dir.path().join(format!("{name}.done"));
+            scheduler.register_task(name, TaskType::Parallel, tier, move || {
+                std::fs::write(&marker, b"done").map_err(|e| e.to_string())?;
+                log.lock()
+                    .map_err(|_| "log poisoned".to_string())?
+                    .push(name.to_string());
+                Ok(())
+            });
+        }
 
         scheduler
-            .run_named(&["task_a".to_string(), "not_registered".to_string()])
-            .expect("run_named");
-        assert!(path_a.exists(), "被点名的任务必须执行");
-        assert!(!path_b.exists(), "未被点名的任务不得执行");
+            .execute_version_conversion(1, 97, "bucketing-test")
+            .expect("execute_version_conversion");
+
+        // ③ 执行顺序必须是阶段分桶，而不是计划顺序或注册顺序
+        let executed = log.lock().expect("log").clone();
+        assert_eq!(
+            executed,
+            vec![
+                "convert_animated_textures",
+                "generate_tipped_arrow_images",
+                "fix_ui_survival"
+            ],
+            "执行顺序必须是阶段分桶（Eraser → Architect → Surgeon）；实际：{executed:?}"
+        );
+        for name in names {
+            assert!(
+                dir.path().join(format!("{name}.done")).exists(),
+                "`{name}` 在计划里，必须被执行"
+            );
+        }
     }
 
     fn has(map: &VersionMap, key: (u32, u32), task: &str) -> bool {
