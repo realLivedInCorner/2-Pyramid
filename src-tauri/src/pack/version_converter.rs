@@ -1071,10 +1071,11 @@ pub fn process_zip_timed(
     // 这一行把流水线内部的真实构成摆出来：任务只占其中一小部分，大头在容器读写与
     // workdir 往返上——优化的着力点应当据此选择，而不是猜。
     log_info!(
-        "pipeline phases: open={:.2}s materialize={:.2}s tasks={:.2}s harvest={:.2}s tail={:.2}s output={:.2}s other={:.2}s",
+        "pipeline phases: open={:.2}s materialize={:.2}s tasks={:.2}s direct={:.2}s harvest={:.2}s tail={:.2}s output={:.2}s other={:.2}s",
         timing.phases.open_s,
         timing.phases.materialize_s,
         timing.phases.tasks_s,
+        timing.phases.direct_s,
         timing.phases.harvest_s,
         timing.phases.tail_s,
         timing.phases.output_s,

@@ -145,7 +145,8 @@ pub struct MixedRunReport {
 /// * `open_s`   ← 构造 `Pack`（读输入容器并建索引）
 /// * `materialize_s` ← 把 `Pack` 的视图落到 workdir（任务读盘的前提）
 /// * `tasks_s` ← 全部任务（含并行批的落盘与提交）
-/// * `harvest_s` ← 收尾把 workdir 与基线对比、产出并提交一层
+/// * `direct_s` ← `tasks` 之后的直接步骤（`cut_gui_direct`）与延迟删除
+/// * `harvest_s` ← 把 workdir 与基线对比、产出并提交一层（**仅 `Output::Dir`**）
 /// * `tail_s`   ← 调用方传入的收尾步骤（`pack.mcmeta` 改写）
 /// * `output_s` ← 序列化产物（zip 写出或目录物化）
 /// * `other_s`  ← 其余（直接步骤、延迟删除、报告组装等）
@@ -155,6 +156,10 @@ pub struct PipelinePhases {
     pub open_s: f32,
     pub materialize_s: f32,
     pub tasks_s: f32,
+    /// `tasks` 之后的**直接步骤**（`cut_gui_direct` 与延迟删除）。Zip 路径上唯一
+    /// 非零的"收尾前"相位——勿与 `harvest_s` 混为一谈（§9.148）。
+    pub direct_s: f32,
+    /// `harvest`：把 workdir 的磁盘差异收成一层。**仅 `Output::Dir` 非零**。
     pub harvest_s: f32,
     pub tail_s: f32,
     pub output_s: f32,
@@ -166,6 +171,7 @@ impl PipelinePhases {
         self.open_s
             + self.materialize_s
             + self.tasks_s
+            + self.direct_s
             + self.harvest_s
             + self.tail_s
             + self.output_s
@@ -638,7 +644,12 @@ where
     //
     // 删除它是**语义上正确**的：驱动现在每一步都直接提交进 `pack`，pack 的视图
     // 就是最终状态，不存在"只存在于磁盘、尚未进包"的改动需要收获。
-    phases.harvest_s = 0.0;
+    //
+    // **§9.148：这里不要写 `phases.harvest_s = 0.0;`。** 它本来就由
+    // `PipelinePhases::default()` 初始化为 0；而在这个位置写一句会**掩盖计时 bug**：
+    // 紧随其后的"直接步骤 + 延迟删除 + tail"会被算进 `harvest` 相位
+    // （实测 Zip 路径上出现 `harvest 0.07s`，而该路径根本不跑 harvest）。
+    // 计时器 `clock` 在上一段末尾已重置，删掉这句后各相位才各归其位。
 
     // 注册表之外的直接步骤（GuiSurgeon sprite 手术）——生产管线在任务之后、
     // 清理之前执行它；漏掉它会整片丢失 sprite 产物（本步实测：真实包少了 3861 个文件）。
@@ -651,6 +662,7 @@ where
     // "读 gui 子树 → 建内存包 → 写回磁盘"的桥已整体删除）。
     //
     // **保留旧实现的两个门槛**（Bedrock 中间态跳过 sprite 手术，避免干扰 j2b；目标 < 34 也跳过）：
+    let direct_started = std::time::Instant::now();
     if opts.run_gui_surgeon && opts.target_version >= 34 {
         let (outcome, layer) = {
             let mut tx = pack.tx("cut_gui_direct");
@@ -724,7 +736,18 @@ where
         report.undeclared = harvested.undeclared.clone();
         pack.commit(harvested.layer);
     }
-    phases.harvest_s += clock.elapsed().as_secs_f32();
+    // **§9.148：诚实的相位归属。**
+    //
+    // 这一段（`tasks` 之后到 `tail` 之前）实际包含两件事：
+    //   1. **直接步骤**（`cut_gui_direct`）与延迟删除——Zip 路径上也会跑；
+    //   2. **`harvest`**——只有 `Output::Dir` 会跑。
+    //
+    // 原先只记一个 `harvest_s`，且赋值在 `if mirror` 之外，于是 **Zip 路径会报出
+    // 一个它根本没执行过的 `harvest 0.07s`**（那其实是直接步骤的时间）。相位名撒谎，
+    // 比没有相位更糟——它会让下一步优化找错目标。因此拆成两个独立相位：
+    // `direct_s` 与 `harvest_s`。
+    phases.direct_s = direct_started.elapsed().as_secs_f32();
+    phases.harvest_s = (clock.elapsed().as_secs_f32() - phases.direct_s).max(0.0);
     clock = std::time::Instant::now();
 
     // 收尾步骤：**§9.144 起直接在包上工作**（原先读 workdir 的 `pack.mcmeta`）。
