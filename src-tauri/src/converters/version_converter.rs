@@ -506,8 +506,17 @@ pub fn build_output_path(
     Ok(output_path)
 }
 
+/// **已解压目录**上的转换（**仅测试使用**，§9.119）。
+///
+/// 注意 `input_zip` 这个名字是**历史遗留的误称**——实际传进来的只是一个 `pack.mcmeta` 路径
+/// （唯一的调用点传的是 `<rp_root>/pack.mcmeta`）。因此**不能**把它当 zip 交给新驱动，
+/// 否则会把一个文本文件当压缩包解析。
+///
+/// §9.119：**改走 A-ROM 原生管线**（与生产入口 §9.118 同源）。做法是把已解压的目录
+/// 打成一个临时 zip，交给 `run_mixed`，再把产物解回原目录——即
+/// 「目录 → zip → A-ROM → 目录」这一圈，**只为让测试与生产走同一条引擎**。
 pub fn process_extracted_dir_only(
-    input_zip: &Path,
+    _input_zip: &Path,
     temp_dir: &Path,
     target_version: u32,
 ) -> Result<(), String> {
@@ -517,14 +526,62 @@ pub fn process_extracted_dir_only(
         .unwrap_or_else(|| temp_dir.join("pack.mcmeta"));
     let source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
 
-    crate::invoke_conversion::invoke_conversion(
-        input_zip,
-        temp_dir,
-        target_version,
-        source_version,
+    // ① 已解压目录 → 临时 zip（`run_mixed` 的输入形态是 zip）
+    let staged = tempfile::Builder::new()
+        .prefix("2pyr_stage_")
+        .tempdir()
+        .map_err(|e| format!("create staging dir failed: {e}"))?;
+    let staged_zip = staged.path().join("staged.zip");
+    crate::converters::zip::repack_resource_pack(
+        &temp_dir.to_string_lossy(),
+        &staged_zip.to_string_lossy(),
+    )?;
+
+    // ② 跑 A-ROM 原生管线（与生产入口同一条路径）
+    let scratch = tempfile::Builder::new()
+        .prefix("2pyr_pipeline_")
+        .tempdir()
+        .map_err(|e| format!("create pipeline scratch failed: {e}"))?;
+    let out_dir = staged.path().join("out");
+    let mut mopts = crate::mixed_run::MixedRunOptions::default();
+    mopts.source_version = source_version;
+    mopts.target_version = target_version;
+    mopts.run_gui_surgeon = true;
+    mopts.native = crate::mixed_run::NativeSwitches::all();
+    crate::mixed_run::run_mixed(
+        &staged_zip,
+        scratch.path(),
+        &crate::mixed_run::Output::Dir(out_dir.clone()),
+        &mopts,
+        |dir| {
+            let m = dir.join("pack.mcmeta");
+            if m.exists() {
+                write_pack_format(&m, target_version).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        },
     )
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
 
+    // ③ 产物解回原目录（保持本函数"就地改写 temp_dir"的契约不变）
+    crate::converters::zip::repack_resource_pack(
+        &out_dir.to_string_lossy(),
+        &staged_zip.to_string_lossy(),
+    )?;
+    for entry in fs::read_dir(temp_dir).map_err(|e| e.to_string())? {
+        let p = entry.map_err(|e| e.to_string())?.path();
+        if p.is_dir() {
+            let _ = fs::remove_dir_all(&p);
+        } else {
+            let _ = fs::remove_file(&p);
+        }
+    }
+    crate::converters::zip::extract_resource_pack(
+        &staged_zip.to_string_lossy(),
+        &temp_dir.to_string_lossy(),
+    )?;
+
+    // 与改动前逐字一致：最后把 pack_format 再写一次（幂等）
     write_pack_format(&pack_meta_path, target_version)?;
 
     Ok(())
