@@ -17,6 +17,7 @@ Resource-pack version conversion involves many heuristics for textures, models, 
 - Misaligned textures, color shifts, or UI glitches
 - Shaders that fail or crash the client on the target version
 - Output structure that does not match your expectations
+- **Java <-> Bedrock conversion is experimental**, incomplete and known to be broken (selecting that target shows a warning). **Do not use its output in a release or any live environment** -- it is for testing only.
 
 **Back up important packs first and verify in a test environment.** The authors are not responsible for file corruption, data loss, broken saves, or other losses from using the software.
 

@@ -98,8 +98,7 @@
     "ready": "Ready",
     "resourcePackFilter": "Resource Pack",
     "allFilesFilter": "All Files",
-    "mcpackRejected": ".mcpack import is not supported yet (Bedrock conversion is still in progress, testing only)",
-    "bedrockWarn": {
+        "bedrockWarn": {
       "title": "Bedrock Conversion (Experimental)",
       "body": "Bedrock conversion is still experimental and may have visual or compatibility issues. Prefer a test pack first. Continue?",
       "confirm": "Continue Testing"
@@ -426,7 +425,7 @@
       "author2Name": "亚克力",
       "author2Note": "Provided Skybox conversion source",
       "author3Name": "我小张7272635",
-      "author3Note": "Provided the mirror update source"
+      "author3Note": "Provided the mirror update source (retired and removed in 2026-10)"
     },
     "checkUpdate": {
       "label": "Check for Updates",
