@@ -4628,9 +4628,8 @@ cargo test --lib --features legacy-oracle
    再测一次，结果一样（说明不是 `--to bedrock` 分支特有）。
    产物字节数与输入**完全相等**，指向 Bedrock 路径的**重打包/取树**环节，而不是转换函数本身。
 
-   **状态：未修**。它是**独立于恒等映射**的第二个缺陷（前者已修并验收），
-   需要单独一轮：从 `process_zip_timed` 的 Bedrock 分支（b2j 之后走哪棵树、
-   `run_native` 与 `run_bedrock_edge_task` 的先后与产物归属）查起。
+   **状态：已在 §9.127 修复**（两个独立缺陷：b2j 的转换结果被管线覆盖、`read_pack_format`
+   不认现代 bundle 字段）。下面是当时（未修时）的定位记录，保留以便追溯。
    **这也解释了为什么 bench 值可能一直没被发现**：b2j 以前是**直接报错**，
    根本走不到"产物对不对"这一步。
 
@@ -4641,3 +4640,98 @@ cargo test --lib --features legacy-oracle
 **M3 的目标（生产二进制不含旧转换器代码 + 保留基线重生成能力）已达成**，
 并在收口过程中修掉两个**长期不可观测**的生产缺陷（j2b 恒等映射中止、反向 chest 语义）。
 **遗留**：b2j 的重打包缺陷（上面第 5 条）、j2b/b2j 缺端到端用例、`pilots/` 改名。
+
+### 9.127 三项遗留一次做完：b2j 重打包 + 端到端用例 + `pilots/` 拆分（2026-10-05）
+
+按用户指示把 §9.126 列的**三项遗留一起做掉**。
+
+#### ① b2j「产物就是输入」——两个独立缺陷（`d3979ac`）
+
+**缺陷 A：b2j 的转换结果被管线覆盖。**
+
+`process_zip_timed` 里 `run_native(…, Output::Dir(temp_dir))` 会**先清空 `temp_dir`**，
+再从**它自己的输入**（`input_zip` = 原始 Bedrock 包）物化。于是 b2j 辛苦产出的 Java 树
+被整棵丢掉 —— 与输入 `.mcpack` 的条目名差异恰好 **= 0**。
+
+定位手段是把 temp_dir 的形状打出来（临时诊断，已移除）：
+
+```
+[诊断] 重打包前 temp_dir：files=1354 顶层={font, manifest.json, pack_icon.png, textures}
+        pack.mcmeta=false manifest.json=true assets/=false
+```
+
+**1354 个条目 + 顶层是 Bedrock 形状 + `pack.mcmeta` 不存在** —— 这就是"原始解压树"，
+而 b2j 明明已经把 `pack_icon.png → pack.png`、`textures → assets/minecraft/textures` 都做了。
+
+**修法**：b2j 之后把转换好的树**打成临时 zip**，让管线以它为输入
+（「目录 → 临时 zip → A-ROM」这套在 `process_extracted_dir_only` 里已是成熟用法）。
+这样 `Output::Dir` 清空 `temp_dir` 之后物化出来的，才是**转换后的**树。
+
+**缺陷 B：`read_pack_format` 不认现代 bundle 字段。**
+
+26.x 的 `pack.mcmeta` **不写 `pack_format`**，只写 `min_format` / `max_format`（数组）；
+而该函数只认前者，其余**一律回落成 1**。于是 b2j 刚转成 format 97，紧接着的复核就读成 1：
+
+```
+OKAY java [pack.mcmeta format=97]
+detected pack_format: 1          ← 修前
+```
+
+管线因此按 "1 → 97" 多跑了一次**多余的升级转换**。修法是依次读
+`min_format[0]`（= 基础层版本，与语义同义）再 `max_format[0]`。
+
+**验收**：
+
+| 判据 | 修前 | 修后 |
+|---|---|---|
+| Bedrock 源 → Java 97 | 产物 = 输入（1354 条目、无 `assets/`） | `[Java 26.3]TapL 16x.zip` **1529 条目**、有 `pack.mcmeta`/`pack.png`/`assets/minecraft/textures/{item,block}` |
+| `detected pack_format` | 1 | **97** |
+| j2b（Java → Bedrock） | 正常 | 正常（未受影响，实测成功 1/失败 0） |
+| Java → Java 97 | 正常 | 正常（未受影响） |
+| 冻结指纹 | 4018 / `0x75bb…` | **4018 / `0x75bb…`**（未受影响） |
+
+新增 `test_read_pack_format_understands_min_max_format`，**实测非空转**：
+把该分支的返回改成 1 即报红（`left: 1, right: 97`）。
+
+#### ② j2b/b2j 的端到端用例：**有 ≠ 覆盖**（`f130c65`）
+
+`j2b.rs` / `b2j.rs` **本来就有**端到端用例，但夹具里只有 `stone.png`（**无映射**），
+所以从没走进"恒等映射"那条分支 —— 而 §9.125 的生产缺陷正是死在那里。
+**"用例存在"不等于"分支被覆盖"**，这是本条最值得记的一句话。
+
+两处夹具各加一个恒等映射文件（`bamboo_block` / `crimson_stem`），并断言它**原样还在**。
+**实测非空转**：去掉 `rename_stems_in_dir` 的 guard 后 `test_j2b_end_to_end` 立刻红，
+报出与生产**逐字相同**的 `os error 2`。
+
+#### ③ `pilots/mod.rs` 拆分：9604 行 → 516 行（`73054a3`）
+
+| | 拆分前 | 拆分后 |
+|---|---|---|
+| `mod.rs` | 9604 行 | **516 行**（共享前导 + `macro_rules!` + 宏调用 + `mod` 声明） |
+| 文件数 | 2 | **48**（44 生产模块 + 2 测试模块 + `mod.rs` + `rename_blocks_tables.rs`） |
+
+**纯结构改动、零内容改动**，靠两条保证：
+
+1. **逐行解析 `{`/`}` 配平**切块，写进 `X.rs` 的是**模块体**（去掉外层 `mod X { … }` 包裹）。
+   **首版踩的坑**：把整块（含包裹）写了进去，于是 `crate::pilots::X::foo` 全部解析失败，
+   编译器报了一屏 `unresolved` —— 记在这里免得再犯。
+2. **`tools/verify-pilots-split.ps1`**：从 `git HEAD` 的原始 `mod.rs` 按同一套规则切出模块体，
+   与磁盘文件**逐行比对**，并反向检查"没有多余文件"。实测输出：
+
+   ```
+   ✅ 校验通过：46 个模块体与 git HEAD 原文逐行一致（零内容改动）
+   ```
+
+共享项（`Outcome` / `defer_remove_if_present` / `remove_if_present` / 4 个 `macro_rules!`）
+**留在 `mod.rs`**：被搬走的模块用 `use super::*` 引用它们，路径与可见性都不变，
+因此**没有改动任何模块内部的代码**。
+
+**验收**：两态测试数与拆分前**逐字相同**（236/6、317/21），`--ignored` 两态全绿，
+`check --bins` 通过，冻结指纹未变。
+
+#### 本轮状态
+
+提交 `d3979ac` / `f130c65` / `73054a3`，工作树干净；默认与 feature 构建双绿，
+冻结指纹 `0x75bb3260e7f578a6`（4018 条目）。
+**§9.126 的三项遗留全部完成。** 仍未做：`pilots/` → `native/` **改名**（§9.115 的用户指示，
+与本次"拆分"是两件事；改名只动标识符，建议单独一轮）。
