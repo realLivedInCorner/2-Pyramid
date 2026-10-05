@@ -128,6 +128,11 @@ _LICENSE_FILE_RE = re.compile(
     r"^(licen[cs]e|copying|notice|copyright)(\.(md|txt|rst|html?))?$", re.IGNORECASE
 )
 
+# 收集到的许可证文件统一的修改时间（1980-01-01 UTC，ZIP 能表达的最早时刻）。
+# 见 `_copy_license_files` 的说明：crates.io 上部分文件的原始时间戳早于 1980，
+# 会让 `zipfile.write` 直接抛错，把发布流水线断在生成 payload.zip 这一步。
+_LICENSE_MTIME = 315532800.0
+
 # 无许可证文件时的兜底：许可证标识符 → 完整文本来源。
 _LICENSE_URLS = {
     "Apache-2.0": "https://www.apache.org/licenses/LICENSE-2.0.txt",
@@ -141,7 +146,14 @@ _LICENSE_URLS = {
 
 
 def _copy_license_files(src_dir: Path, dest_dir: Path, label: str) -> int:
-    """把一个依赖目录里的 LICENSE/COPYING/NOTICE 复制到 dest_dir。返回复制数。"""
+    """把一个依赖目录里的 LICENSE/COPYING/NOTICE 复制到 dest_dir。返回复制数。
+
+    时间戳统一到 `_LICENSE_MTIME`：**必须**，不是洁癖——
+    crates.io 上若干包（`zstd`、`zip`、`winreg`、`option-ext`…）的许可证文件带着
+    1970/1973 的时间戳，`zipfile.write` 会对 1980 年前的时间直接抛
+    `ValueError: ZIP does not support timestamps before 1980`，整个发布流水线会断在
+    生成 `payload.zip` 这一步。统一之后顺带让产物可复现（同样的输入 → 同样的 zip）。
+    """
     copied = 0
     try:
         entries = list(src_dir.iterdir())
@@ -150,7 +162,10 @@ def _copy_license_files(src_dir: Path, dest_dir: Path, label: str) -> int:
     for f in entries:
         if f.is_file() and _LICENSE_FILE_RE.match(f.name):
             dest_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(f, dest_dir / f.name)
+            dst = dest_dir / f.name
+            # copyfile 而非 copy2：不带走源文件的元数据（时间戳/权限），随后统一设置。
+            shutil.copyfile(f, dst)
+            os.utime(dst, (_LICENSE_MTIME, _LICENSE_MTIME))
             copied += 1
     return copied
 
@@ -269,10 +284,23 @@ def make_payload_zip() -> Path:
     payload = INSTALLER_APP / "src-tauri" / "payload.zip"
     if payload.exists():
         payload.unlink()
+    # 防御：ZIP 时间戳的合法下界是 1980，早于它的文件会让 `zf.write` 抛
+    # `ValueError: ZIP does not support timestamps before 1980`。许可证收集已统一时间戳
+    # （见 `_LICENSE_MTIME`），但 staging 里任何一个来源都可能带入这种时间，所以在写入前
+    # 统一夹一次——发布流水线不该因为一个文件的元数据而中断。
+    floor = 315532800.0  # 1980-01-01 UTC
+    clamped = 0
     with zipfile.ZipFile(payload, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in sorted(STAGING.rglob("*")):
-            if path.is_file():
-                zf.write(path, path.relative_to(STAGING))
+            if not path.is_file():
+                continue
+            st = path.stat()
+            if st.st_mtime < floor:
+                os.utime(path, (floor, floor))
+                clamped += 1
+            zf.write(path, path.relative_to(STAGING))
+    if clamped:
+        print(f"    [info] 已把 {clamped} 个早于 1980 的时间戳夹到 1980-01-01")
     print(f"    {payload} ({payload.stat().st_size} bytes)")
     return payload
 
