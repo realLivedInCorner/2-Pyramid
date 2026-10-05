@@ -67,8 +67,6 @@ pub struct HurrayContext {
     /// 只有一个写入点（转换入口）与一个读取点（Bedrock 的 `convert_java_to_bedrock`，
     /// 用于决定输出的 `.mcpack` 文件名）。既是只读，就应当是**构造期字段**而不是可变侧信道。
     pack_name: String,
-    /// Arc 共享贴图：并行读取只 clone 指针，不复制整图。
-    texture_cache: RwLock<HashMap<PathBuf, Arc<RgbaImage>>>,
     cleanup: RwLock<CleanupList>,
 }
 
@@ -78,7 +76,6 @@ impl HurrayContext {
         Self {
             temp_dir: PathBuf::from(temp_dir),
             pack_name: pack_name.to_string(),
-            texture_cache: RwLock::new(HashMap::new()),
             cleanup: RwLock::new(CleanupList::new()),
         }
     }
@@ -146,26 +143,10 @@ impl HurrayContext {
     // 它原本只承载两个键：`pack_name`（纯进度显示标签 → 已改为显式传参给调度器）
     // 与 `target_pack_format`（旧 `adapt_java_shaders` 读它 → 原生实现改为直接读
     // `pack.mcmeta`，见 §9.85）。二者都不再需要"任务间共享可变状态"这一机制。
-
-    pub fn cache_texture(&self, path: &Path, texture: RgbaImage) {
-        let mut cache = Self::write_unpoisoned(&self.texture_cache, "context.texture_cache");
-        cache.insert(path.to_path_buf(), Arc::new(texture));
-    }
-
-    pub fn get_cached_texture(&self, path: &Path) -> Option<Arc<RgbaImage>> {
-        let cache = Self::read_unpoisoned(&self.texture_cache, "context.texture_cache");
-        cache.get(path).cloned()
-    }
-
-    pub fn is_texture_cached(&self, path: &Path) -> bool {
-        let cache = Self::read_unpoisoned(&self.texture_cache, "context.texture_cache");
-        cache.contains_key(path)
-    }
-
-    pub fn clear_texture_cache(&self) {
-        let mut cache = Self::write_unpoisoned(&self.texture_cache, "context.texture_cache");
-        cache.clear();
-    }
+    //
+    // §9.128（M3 收官）：`texture_cache` 字段与 4 个访问方法（`cache_texture` /
+    // `get_cached_texture` / `is_texture_cached` / `clear_texture_cache`）**已删除** ——
+    // 它们是旧引擎的纹理缓存，`TexturePool` 取代后**外部调用 0 处**（含 `natives/`）。
 
     fn read_unpoisoned<'a, T>(lock: &'a RwLock<T>, name: &'static str) -> RwLockReadGuard<'a, T> {
         match lock.read() {

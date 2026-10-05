@@ -7,7 +7,6 @@ use std::thread;
 
 use image::RgbaImage;
 
-use crate::hurray::context::HurrayContext;
 use crate::hurray::error::{EngineError, EngineResult};
 use crate::{log_error, log_info, log_warn};
 
@@ -18,7 +17,6 @@ pub enum BusEvent {
 }
 
 pub struct TexturePool {
-    context: Option<Arc<HurrayContext>>,
     textures: HashMap<PathBuf, RgbaImage>,
     dirty_paths: HashSet<PathBuf>,
     bus_sender: Option<mpsc::Sender<BusEvent>>,
@@ -59,7 +57,6 @@ impl TexturePool {
         });
 
         Self {
-            context: None,
             textures: HashMap::new(),
             dirty_paths: HashSet::new(),
             bus_sender: Some(sender),
@@ -67,33 +64,21 @@ impl TexturePool {
         }
     }
 
-    pub fn initialize(&mut self, context: Arc<HurrayContext>) {
-        self.context = Some(context);
-    }
-
     pub fn load_texture(&mut self, path: &Path) -> EngineResult<RgbaImage> {
         if let Some(texture) = self.textures.get(path) {
             return Ok(texture.clone());
         }
 
-        if let Some(context) = &self.context {
-            if let Some(shared) = context.get_cached_texture(path) {
-                // Arc 解引用克隆一次，比再从磁盘 decode 便宜；池内仍持有副本供脏写。
-                let texture = (*shared).clone();
-                self.textures.insert(path.to_path_buf(), texture.clone());
-                return Ok(texture);
-            }
-        }
-
+        // §9.128：原先这里还有一段"先查 `HurrayContext` 的跨任务纹理缓存"的回退 ——
+        // **已删除**。依据：`TexturePool::initialize()`（唯一给 `self.context` 赋值的地方）
+        // **外部调用 0 处**，因此 `self.context` 恒为 `None`，那段分支**根本不可达**；
+        // 它依赖的 `HurrayContext::{cache,get_cached,is_cached,clear_cache}_texture`
+        // 同样外部 0 处，一并删除。纹理缓存现在只有本池自己这一份（`self.textures`）。
         let texture = image::open(path)
             .map_err(|e| EngineError::image("load_texture", path, e))?
             .to_rgba8();
 
         self.textures.insert(path.to_path_buf(), texture.clone());
-        if let Some(context) = &self.context {
-            context.cache_texture(path, texture.clone());
-        }
-
         Ok(texture)
     }
 

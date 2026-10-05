@@ -6,7 +6,6 @@ use rayon::prelude::*;
 
 use crate::hurray::context::HurrayContext;
 use crate::hurray::error::{EngineError, EngineResult};
-use crate::hurray::resolution::ResolutionTransducer;
 use crate::hurray::texture::TexturePool;
 use crate::{log_error, log_info, log_warn};
 
@@ -254,14 +253,6 @@ impl Scheduler {
         }
 
         ordered
-    }
-    pub fn execute(
-        &mut self,
-        context: &HurrayContext,
-        texture_pool: &mut TexturePool,
-        _resolution: &ResolutionTransducer,
-    ) -> EngineResult<()> {
-        self.execute_tasks(&self.tasks.clone(), context, texture_pool, None)
     }
 
     pub fn execute_version_conversion(
