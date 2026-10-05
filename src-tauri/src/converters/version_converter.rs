@@ -721,20 +721,58 @@ pub fn process_zip_timed(
     let preflight_elapsed = engine_start.elapsed();
 
     // Bedrock 目标时 Java 中间态跳过 GuiSurgeon，避免 sprite 手术干扰 j2b
+    //
+    // **§9.118（M3 ②-b）：生产入口改走 A-ROM 原生管线。**
+    //
+    // 原先是 `invoke_conversion::invoke_conversion_ex(input_zip, temp_dir, …)`——即
+    // "注册全部旧闭包 → 旧调度器逐任务执行"，其中每个任务名再经 A-ROM 派发表改派到原生实现。
+    // 现在直接调用 `mixed_run::run_mixed`：**不再经过旧调度器**，已迁移的任务本来就是原生执行，
+    // 未迁移的仍可在 workdir 上跑旧闭包（当前为 0 个）。
+    //
+    // **为什么输出到目录而不是 zip**：本函数在管线之后**还要继续改这棵树**
+    // （写 `pack.mcmeta` 的 `pack_format`、可选的 Bedrock 边任务），最后才重打包。
+    // `Output::Dir` 把 A-ROM 的最终视图直接物化回 `temp_dir`，**省掉一次 zip 往返**；
+    // 它内部会先清空目标（原 `temp_dir` 里是解压出的源树，不清空会留下陈旧条目）。
+    //
+    // **为什么另开一个 workdir**：`run_mixed` 要求 workdir 为空（它自己会从输入 zip 落盘），
+    // 而 `temp_dir` 此刻已被预检阶段解压占用；因此另建一个临时目录作它的工作区。
+    let _pipeline_scratch = tempfile::Builder::new()
+        .prefix("2pyr_pipeline_")
+        .tempdir()
+        .map_err(|e| format!("create pipeline scratch dir failed: {}", e))?;
     let pipeline_start = std::time::Instant::now();
-    crate::invoke_conversion::invoke_conversion_ex(
-        input_zip,
-        temp_dir.path(),
-        java_target,
-        source_version,
-        !is_bedrock_target,
-        fix_alpha_layers,
-        adapt_shaders,
-    )
-    .map_err(|e| format!("conversion pipeline failed: {}", e))?;
+    {
+        let mut mopts = crate::mixed_run::MixedRunOptions::default();
+        mopts.source_version = source_version;
+        mopts.target_version = java_target;
+        mopts.run_gui_surgeon = !is_bedrock_target;
+        mopts.fix_alpha_layers = fix_alpha_layers;
+        mopts.adapt_shaders = adapt_shaders;
+        mopts.native = crate::mixed_run::NativeSwitches::all();
+        // `tail`：把 `pack.mcmeta` 的 `pack_format` 改写到目标版本。
+        // `run_mixed` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
+        let java_target_for_tail = java_target;
+        let _report = crate::mixed_run::run_mixed(
+            input_zip,
+            _pipeline_scratch.path(),
+            &crate::mixed_run::Output::Dir(temp_dir.path().to_path_buf()),
+            &mopts,
+            |dir| {
+                let m = dir.join("pack.mcmeta");
+                if m.exists() {
+                    write_pack_format(&m, java_target_for_tail).map_err(|e| e.to_string())?;
+                }
+                Ok(())
+            },
+        )
+        .map_err(|e| format!("conversion pipeline failed: {}", e))?;
+    }
     let pipeline_elapsed = pipeline_start.elapsed();
 
     // 收尾阶段：mcmeta 改写 + 可选 j2b
+    //
+    // `pack.mcmeta` 已由上面的 `tail` 写好（§9.118）；此处保留一次"幂等复核"，
+    // 使行为与改动前**逐字相同**——若 `pack.mcmeta` 存在而版本不符，这里会再写一次。
     let post_start = std::time::Instant::now();
     let pack_meta_path = temp_dir.path().join("pack.mcmeta");
     if pack_meta_path.exists() {
@@ -935,6 +973,43 @@ mod tests {
             timing.extract_s >= 0.0 && timing.pack_s >= 0.0,
             "IO breakdown must be non-negative"
         );
+
+        // **§9.118：产物结构断言**——生产入口改走 A-ROM 原生管线（`run_mixed` + `Output::Dir`）后，
+        // 这里直接检查**输出 zip 的内容**。原先本用例只断言耗时，**改道后产物若有问题它抓不到**；
+        // 补上结构断言才能让这条"唯一覆盖生产入口的用例"真正起到把关作用。
+        let out_zip = Path::new(&_path);
+        assert!(out_zip.is_file(), "输出 zip 不存在：{}", out_zip.display());
+        {
+            use std::io::Read as _;
+            let f = fs::File::open(out_zip).expect("open out zip");
+            let mut ar = zip::ZipArchive::new(f).expect("read out zip");
+            let names: Vec<String> = (0..ar.len())
+                .filter_map(|i| ar.by_index(i).ok().map(|e| e.name().to_string()))
+                .collect();
+            assert!(
+                names.iter().any(|n| n == "pack.mcmeta"),
+                "产物缺少 pack.mcmeta：{names:?}"
+            );
+            assert!(
+                names.iter().any(|n| n == "pack.png"),
+                "产物缺少 pack.png（输入里有，说明落盘/序列化漏了条目）：{names:?}"
+            );
+            assert!(
+                names.iter().any(|n| n.starts_with("assets/minecraft/textures/")),
+                "产物缺少 assets/minecraft/textures/**：{names:?}"
+            );
+            // 目标版本必须被写进 mcmeta（原先由 `invoke_conversion_ex` 之后的收尾步骤负责，
+            // 改道后由 `run_mixed` 的 `tail` 负责——这条断言同时守住那条路径）
+            let mut mc = String::new();
+            ar.by_name("pack.mcmeta")
+                .expect("by_name")
+                .read_to_string(&mut mc)
+                .expect("read mcmeta");
+            assert!(
+                mc.contains("\"pack_format\": 34") || mc.contains("\"pack_format\":34"),
+                "pack.mcmeta 未写入目标版本 34：{mc}"
+            );
+        }
     }
 
     /// End-to-end smoke test: copy the Pika 5K 16x resource pack's container
