@@ -4341,3 +4341,73 @@ encode png `.../gui/sprites/title/realms.png`: Zero height not allowed
 
 **教训**：**"某文件不再引用" ≠ "没人引用"**。删除前必须做**全库**检查，
 且**最终以编译 + 测试为准**。
+### 9.124 M3 收口进展：`pilots/` **生产段对旧转换器零依赖**（2026-10-05）
+
+按用户指示（选「存档」路线）执行收口。本轮把**原生实现与旧转换器之间的藕断丝连**清干净了。
+
+#### 为什么原生实现还在调旧转换器
+
+勘察发现 `pilots/mod.rs` 的生产段有 **4 处**在调旧 converter 的辅助函数：
+
+| 位置 | 内容 | 性质 |
+|---|---|---|
+| 行 181 | `color::utils::{hsv_to_rgba, rgb_to_hsv}` | 颜色工具，**通用**，只是恰好放在 converters 下 |
+| 行 621/634 | `reverse::chest_folder::swap_and_mirror` / `ui::process_chest_folder::mirror_region` | 箱子贴图区域变换 |
+| 行 506+ | `ui::process_chest_folder as legacy`（4 个函数） | 同上 |
+
+**原生实现反过来调它替代掉的模块** —— 这正是 M3 要消除的残留。
+
+#### 交付 1：`crate::chest_region`（`c7c0ef1`）
+
+把 4 个区域变换函数 + `generate_double_chest_images`（共约 500 行）**逐字搬**到
+`src-tauri/src/chest_region.rs`，两侧**调用同一份代码**：
+
+- 旧转换器改为 `pub(crate) use crate::chest_region::{…}`；
+- 原生实现 `use crate::chest_region as legacy;`（保持原别名，调用点不动）。
+
+**为什么是「搬运」而不是「重写」**：这些函数直接决定像素。整段搬过来让两侧共用一份，
+**「产物不变」是构造上成立的**，而不是靠测试碰运气。实测指纹**逐字节不变**。
+
+#### 交付 2：`crate::color`（`4aa215a`）
+
+`converters/color`（`rgb_to_hsv` / `hsv_to_rgba` / `adjust_hue_brightness` / `force_hue_saturation`
+等）从来不是旧转换器专有 —— 它是**通用颜色工具**，原生实现与多个旧模块都在用。
+移到 crate 根后，两侧同样共用一份。
+
+#### 验收
+
+| 判据 | 结果 |
+|---|---|
+| **内容基线** | `0x75bb3260e7f578a6`（4018 条目）——**两次改动后均未变** |
+| 单测 | **309 passed / 22 ignored** |
+| `cargo check --lib` | 0 error |
+| **`pilots/mod.rs` 生产段对 `converters::` 的引用** | **0 处** ✅ |
+| `native_run.rs` / `arom/pathview.rs` / `version_converter.rs` 生产段 | 各 **0 处** ✅ |
+
+**⇒ 原生实现（`pilots/`）已完全不再依赖旧转换器树。**
+
+#### 唯一剩余：`invoke_conversion.rs` 的注册表
+
+`invoke_conversion.rs`（512 行）仍保留 **71 个 `use crate::converters`** 与 **88 个闭包**。
+它是生产对旧转换器树的**最后一处**依赖。**但不能简单删**，原因有二（两条都是实测得出）：
+
+1. **元数据是生产必需的**：驱动的 `native_placements()` 用 `scheduler.task_tier(name)` 决定
+   每个任务的**放置侧**（早/晚阶段），而阶段来自这 88 个注册项。删掉注册表 ⇒ 放置计算失效。
+2. **闭包体同时是基线的实现**（§9.123 实测）：删掉它们，`off` 配置失去实现，
+   冻结基线从 4018 条目掉到 3792。
+
+#### 下一步（已想清，未执行）
+
+把**元数据**与**闭包体**拆开：
+
+1. 新建 `src-tauri/src/task_registry.rs`：纯元数据表（88 行的 `(name, TaskType, TaskTier)`），
+   **不依赖 `converters`**；
+2. `Scheduler` 从它取名字与阶段（生产路径）；
+3. `invoke_conversion.rs` 的闭包版本保留，但用 **Cargo feature `legacy-oracle`（默认关闭）** 门控 ——
+   它与 `NativeSwitches::none()` 一起只服务 `off`/`legacy` 基线；
+4. 至此 `cargo build` 不含任何旧转换器代码，`cargo test --features legacy-oracle` 仍能重生成基线。
+
+**收益**：生产二进制不再包含 1.6 万行旧转换器；**风险**：动的是驱动取阶段的数据源，
+必须**两道闸门同时守住**（相对对照 + 冻结指纹）。
+
+**本轮状态**：仓库 `4aa215a`，绿色，工作树干净。
