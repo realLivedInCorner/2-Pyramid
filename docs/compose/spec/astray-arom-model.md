@@ -4594,10 +4594,50 @@ cargo test --lib --features legacy-oracle
    **为什么一直没暴露**：`bedrock_convert` 的 j2b/b2j **没有走完整管线的测试**
    （各子模块单测只覆盖局部函数），因此这条生产路径**长期不可观测**——
    与 §9.125 主题（让不可观测变可观测）是同一类问题。
-   **仍缺**：j2b/b2j 的**端到端夹具正题**（本轮只做了真实包手工实测，未把它固化成用例）；
-   b2j 方向（Bedrock → Java）本轮**未验证**。
+   **仍缺**：j2b/b2j 的**端到端夹具正题**（本轮只做了真实包手工实测，未把它固化成用例）。
+
+5. **b2j（Bedrock → Java）还有一个**独立的**缺陷：转换做对了，但打包出来的是输入本身**（§9.126 补充实测）。
+
+   **先给结论**：那个 identity guard 让 b2j **不再中止**了——而它在纯净 `aeaecb2` 上
+   **同样是中止的**（同一个 `bamboo_block` 恒等映射，只是这次撞在反向映射表上）：
+
+   ```
+   [纯净 aeaecb2] Task `bedrock_bedrock_to_java` failed: rename id failed: ... (os error 2)
+                  汇总：资源包 1 个（成功 0，失败 1）      ← 0 个产物
+   ```
+
+   打上 guard 之后 b2j **跑完了，而且每一步都真的做了**（真实包实测日志）：
+
+   ```
+   OKAY java [pack_icon.png -> pack.png]
+   OKAY java [textures -> assets/minecraft/textures]
+   OKAY java [item 反向改名 51 个]
+   OKAY java [block 反向改名 27 个]
+   OKAY java [font/ -> textures/font/]
+   OKAY java [textures/ui -> textures/gui/container]
+   OKAY java [strip bedrock-only]
+   OKAY java [pack.mcmeta format=97]
+   ```
+
+   **但是产物是错的**：`[Java 26.3]TapL 16x.zip`（3414583 字节）
+   - **条目名与输入 `.mcpack` 完全相同**（`Compare-Object` 差异 = **0**）；
+   - 没有 `pack.mcmeta`、没有 `assets/`、没有 `pack.png`；
+   - 顶层仍是 `font/ manifest.json pack_icon.png textures`（= Bedrock 形状）。
+
+   即：**转换树是对的，但重打包拿到的还是输入**。用「Bedrock 输入 + 目标 Java 97」
+   再测一次，结果一样（说明不是 `--to bedrock` 分支特有）。
+   产物字节数与输入**完全相等**，指向 Bedrock 路径的**重打包/取树**环节，而不是转换函数本身。
+
+   **状态：未修**。它是**独立于恒等映射**的第二个缺陷（前者已修并验收），
+   需要单独一轮：从 `process_zip_timed` 的 Bedrock 分支（b2j 之后走哪棵树、
+   `run_native` 与 `run_bedrock_edge_task` 的先后与产物归属）查起。
+   **这也解释了为什么 bench 值可能一直没被发现**：b2j 以前是**直接报错**，
+   根本走不到"产物对不对"这一步。
 
 #### 本轮状态
 
-仓库 `02a1089`，工作树干净；默认构建与 feature 构建**双绿**，冻结指纹 `0x75bb3260e7f578a6`（4018 条目）。
-**M3 的目标（生产二进制不含旧转换器代码 + 保留基线重生成能力）已达成。**
+仓库 `eb8035e`，工作树干净；默认构建与 feature 构建**双绿**，
+`--ignored` 两态均全绿（6 / 21），冻结指纹 `0x75bb3260e7f578a6`（4018 条目）。
+**M3 的目标（生产二进制不含旧转换器代码 + 保留基线重生成能力）已达成**，
+并在收口过程中修掉两个**长期不可观测**的生产缺陷（j2b 恒等映射中止、反向 chest 语义）。
+**遗留**：b2j 的重打包缺陷（上面第 5 条）、j2b/b2j 缺端到端用例、`pilots/` 改名。
