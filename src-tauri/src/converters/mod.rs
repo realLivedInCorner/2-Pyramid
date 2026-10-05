@@ -14,8 +14,6 @@ pub mod audio;
 pub mod bedrock;
 pub mod blockstate_adapter;
 pub mod color;
-pub mod legacy_eraser;
-pub mod legacy_processor;
 pub mod main_converter;
 pub mod pack_analysis;
 pub mod pack_diff;
