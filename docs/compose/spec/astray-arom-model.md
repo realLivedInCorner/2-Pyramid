@@ -4917,3 +4917,81 @@ detected pack_format: 1          ← 修前
 逐条定位是哪几个 sprite 分叉。
 
 **建议一次只做一格**（先第 1 格），每格都以冻结指纹收口 —— 这与用户"逐步取代"的指示一致。
+
+---
+
+### §9.129 让 A-ROM 取代 hurray：驱动按 plan 逐任务派发，`cut_gui` 并入派发表，`ctx`/`pool`/注册闭包退场
+
+用户指示：**让 A-ROM 或其他组件逐步取代 hurray 的功能**（不要一次性推倒）。
+
+#### 一、先查清是什么钉住了 `HurrayContext`（§9.128 第一步，提交 `350c756`）
+
+三条实测事实：
+
+1. `natives/` 的 **46 个原生任务全部是 `Tx` 形态**，`HurrayContext` 在 `natives/` 里出
+   现 **1 次** —— 就是 `surgeon_cut_gui::run_in_workdir` 的形参；
+2. 而它用 ctx 只做**一件事**：`ctx.defer_remove_file(...)`（`ctx.` 在该文件只出现 1 处）；
+3. 其余 **43 个**原生任务早就用 `Outcome.deferred_removals` 把移除项**回给驱动**，
+   且驱动里两个清理点**本来就相邻**（`ctx.execute_cleanup()` 之后紧跟
+   `report.deferred_removals` 的 tombstone）⇒ 时机等价，"经 ctx 转一手"是冗余的。
+
+⇒ `run_in_workdir` 改成 `Result<Outcome, String>`，移除项回传驱动。
+指纹 `0x75bb3260e7f578a6` 不变。
+
+#### 二、这一格：驱动按 `plan` 逐任务派发 `Tx`（提交 `efbed19`）
+
+| 退场物 | 依据 |
+|---|---|
+| `cut_gui` 的注册闭包（`install_native_defaults`） | 驱动现在能在**计划槽位内部**派发 `Tx` |
+| 旧任务**一次性批次**（`run_named` 调用、`batch` 闭包、两侧分段） | 46 个任务全部原生 ⇒ 批次里一个名字都不剩，"不可拆分"约束（§9.42）消失 |
+| `ctx.execute_cleanup()` / `pool.clear_unused()` | `cut_gui` 是最后一个往 ctx 登记清理的东西；没有旧闭包会再登记 |
+| 驱动里的 `HurrayContext` / `TexturePool` | 上面两项之后恒为空转 |
+| `legacy_one_by_one` 诊断分支 | 逐任务收层已成为**生产路径本身** |
+
+`cut_gui` 进派发表用的是 **纯 `Tx`**（`gui_surgeon_tx::run`），不再走
+`run_in_workdir` 的内存包往返。**前提（已核实）**：`gui_surgeon_tx` 用**包内全路径**
+（`assets/minecraft/textures/gui/...`），因此能直接对整包跑；那层往返存在的唯一理由是
+「`cut_gui` 的槽位在批次内部，而批次只能整体喂给旧引擎」。
+
+行数：`invoke_conversion.rs` 95 → **60**；`native_run.rs` 1964 → **1850**。
+验收：指纹 **4018 / `0x75bb3260e7f578a6`**、单测 **234**、`--ignored` **6**、`check --bins` 通过。
+
+#### 三、撞到的真回归，以及它暴露的**计划顺序本身有问题**
+
+把前置阶段一起删掉、改成纯计划顺序后：
+
+```
+条目 4018 → 4117      指纹 0x75bb3260e7f578a6 → 0xbbbf2f19b473817c
+```
+
+逐条 diff：**多 105 条** `textures/item/*`（`clock_00..63`、`acacia_boat.png` …）、
+**少 6 条**原图（`clock.png`、`clock.png.mcmeta`、`compass.png`、`compass.png.mcmeta`、
+`entity/equipment/humanoid{,_leggings}/copper.png`）。
+
+**根因（用 `trace_stepwise_on_a_real_pack` 的 47 步读数定位）**：在 `ConversionMaps` 的
+第 1 步 `(1,2)` 里，`convert_animated_textures` 排**第一个**（Eraser 级），而
+`fix_clock_compass` 排**最后**：
+
+```
+forward.insert((1, 2), vec!["convert_animated_textures", …, "fix_clock_compass", "overlay_icons"]);
+```
+
+于是按计划顺序跑时，`convert_animated_textures` **先把 `clock.png` 拆成 `clock_00..63`
+并删掉原图**，随后 `fix_clock_compass` 再也找不到源文件。
+旧引擎之所以没暴露这件事：它按 **tier 分桶**执行（`execute_tasks` 把任务分成
+Eraser/Architect/Surgeon/Closure 四组），实际执行顺序与计划列表顺序**不同**；
+而驱动的 `native_placements` 又把 Eraser 级 + `EARLY_NATIVES`（10 项）提到最前，
+无意中兜住了这个差。
+
+**⇒ 这是一处真实的计划顺序缺陷**：`convert_animated_textures` 的删除语义破坏了
+`fix_clock_compass` 的输入。当前靠"前置"绕过（前置集合 = Eraser 级 + `EARLY_NATIVES`，
+本包实测 20 项）。
+
+**待办（下一格）**：把 `(1,2)` 里 `convert_animated_textures` 挪到消费它的任务**之后**
+（或让 `fix_clock_compass` 先前置），使**计划顺序本身就正确**；
+届时 `native_placements` / `Side` / `EARLY_NATIVES` 可以整体退场，
+"驱动在计划槽位内部派发"才真正没有近似。判据仍是冻结指纹 + 逐条目 diff。
+
+**操作失误留档**：我第一次做"缩小前置名单"的实验时，替换文本没匹配上（脚本静默没改到文件），
+于是连续三次实验都"通过"，我一度据此以为前置集合可以缩小。**用更大的替换目标重做后才暴露出
+真实结果**（纯计划顺序 4117）。教训与 §9.127 的三条同源：**验证脚本本身必须先证明它改到了东西**。
