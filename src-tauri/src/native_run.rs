@@ -226,7 +226,7 @@ where
     };
 
     let mut scheduler = Scheduler::new();
-    crate::invoke_conversion::register_legacy_tasks(
+    crate::invoke_conversion::register_tasks(
         &mut scheduler,
         input,
         opts.target_version,
@@ -1233,6 +1233,10 @@ mod tests {
     /// **为什么这仍有意义**：`legacy` 与 `off`/`on` 的对照不再是"两套驱动器"的对照，
     /// 但它仍能抓住"某个任务的**原生实现**与**旧实现**不一致"——那正是闸门要守的东西。
     /// 而"驱动器自身对不对"由 §9.115 的**冻结内容基线**独立守住（它不依赖任何配置）。
+    ///
+    /// **§9.125**：`NativeSwitches::none()` 跑的是**旧闭包**，因此本函数随 `legacy-oracle` 门控；
+    /// 默认构建里 `off` 配置没有任何实现，对照它等于自我比较（`rel` 与 `aba` 两份读数无信息量）。
+    #[cfg(feature = "legacy-oracle")]
     fn legacy_output(input: &Path, tmp: &Path, target: u32, source: u32) -> PathBuf {
         let work = tmp.join("legacy_work");
         let out = tmp.join("legacy.zip");
@@ -1255,6 +1259,9 @@ mod tests {
     ///
     /// 原先这里用 `invoke_conversion_ex` 当闭包体（即"旧入口整条管线"）。生产已不经旧入口（§9.118），
     /// 故改为 `NativeSwitches::none()`：跑的是**同一批旧闭包**，但由 `run_native` 派发。
+    ///
+    /// **§9.125**：与 [`legacy_output`] 同理——全关配置在默认构建里没有实现，故同门控。
+    #[cfg(feature = "legacy-oracle")]
     fn native_output(input: &Path, tmp: &Path, target: u32, source: u32) -> (PathBuf, MixedRunReport) {
         let work = tmp.join("mixed_work");
         let out = tmp.join("mixed.zip");
@@ -1292,6 +1299,13 @@ mod tests {
         report
     }
 
+    /// **驱动自检**：A-ROM 接管一次真实转换的读入/写出后，夹具上的产物与「全旧基线」逐项一致。
+    ///
+    /// §9.125：本用例需要**旧闭包**（`legacy_output` / `native_output` 都是全关配置），
+    /// 因此随 `legacy-oracle` 门控。默认构建下同一件事由
+    /// `native_switch_keeps_the_output_identical_on_a_fixture`（`on` 内部一致性）与
+    /// `real_pack_content_baseline_is_frozen`（与冻结基线对照）覆盖。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     fn a_rom_owns_io_of_a_real_conversion_on_a_fixture() {
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -1329,7 +1343,10 @@ mod tests {
         fixture(&input);
 
         let mut scheduler = Scheduler::new();
-        crate::invoke_conversion::register_legacy_tasks(
+        // §9.125：**不需要旧闭包**——本用例只用 `plan()`（来自 `ConversionMaps`）与
+        // `task_tier()`（元数据表）。因此默认构建下它照样守得住「Eraser → 前阶段」这条
+        // 最贵的教训（这正是「元数据与闭包拆开」的直接收益）。
+        crate::invoke_conversion::register_tasks(
             &mut scheduler, &input, 97, 1, true, false, true,
         );
         let plan = scheduler.plan(1, 97).expect("plan");
@@ -1457,13 +1474,9 @@ mod tests {
 
     /// **`adapt_java_shaders` 的三分支正题**（默认忽略，§9.77 建议①）。
     ///
-    /// 为什么必须单独测：真实包里 `shaders` 相关条目为 **0**，该函数在第一个判断
-    /// （`!shaders.is_dir()`）就返回——**真实包闸门对它给的是假绿灯**（§9.77）。
-    ///
-    /// 本用例造一份含 `shaders/{core,post,post_effect,include}` 的夹具，对三个版本分支
-    /// 各跑一次**旧实现** `adapt_java_shaders_at`，把结果落成**逐文件快照**并打印，
-    /// 同时钉住每个分支的可观测语义（删了什么、改了什么）。它既是"旧行为"的基线记录，
-    /// 也是后续原生移植的**对照标准**（移植后应能对同一夹具产出同样的快照）。
+    /// §9.125：整个用例正面测试的是**旧实现** `adapt_java_shaders_at`（它随
+    /// `legacy-oracle` 门控），因此同门控。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn adapt_java_shaders_three_branches_on_a_fixture() {
@@ -1608,6 +1621,7 @@ mod tests {
 
     /// **`shader_adapt` 的逐函数对照**（默认忽略，§9.79）。
     ///
+    #[cfg(feature = "legacy-oracle")]
     /// 移植 `adapt_java_shaders` 时，最便宜也最硬的验证不是"跑一遍看差异"，
     /// 而是**逐函数在同一语料上比对**：本用例把四种真实写法的导入行/入口文件喂给
     /// 「原生移植版」与「旧实现」，逐字节比较输出与计数。
@@ -1692,6 +1706,9 @@ mod tests {
     /// 移植的四张表是**纯数据**，但一个字符之差就会静默改变「删哪些 / 改成什么名」——
     /// 因此这里在**多个 target** 上把「原生表」与「旧表」排序后逐项比对
     /// （包括里程碑边界 7/32/46/63/84/97 的两侧）。
+    ///
+    /// §9.125：对照物是旧表（`converters/shaders/java.rs`）⇒ 随 `legacy-oracle` 门控。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn shader_adapt_tables_match_the_legacy_implementation() {
@@ -1753,6 +1770,9 @@ mod tests {
     /// `remove_json_key` 是**粗粒度**实现（按括号深度找值尾、吃掉后随逗号或删前导逗号），
     /// 边界多，因此语料刻意覆盖：值在中间/末尾、后随空白、无逗号、嵌套对象/数组、
     /// 字符串值、布尔/数字值、键不存在、只有键没有冒号。
+    ///
+    /// §9.125：对照物是旧实现 ⇒ 随 `legacy-oracle` 门控。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn shader_adapt_json_ops_match_the_legacy_implementation() {
@@ -1811,6 +1831,9 @@ mod tests {
     /// `has_globals_import`（**逐行**判定，不是子串）、`inject_globals_import`（插到第一个
     /// 非空非注释行之前，全注释则追加）、`count_args_likely_three`（按括号深度数顶层逗号）
     /// 与 `fog_note_if_needed`（在文件开头插一行标记）。
+    ///
+    /// §9.125：对照物是旧实现 ⇒ 随 `legacy-oracle` 门控。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn shader_adapt_globals_and_fog_ops_match_the_legacy() {
@@ -1902,6 +1925,7 @@ mod tests {
         assert!(problems.is_empty(), "globals/fog 对照差异：{problems:#?}");
     }
 
+    #[cfg(feature = "legacy-oracle")]
     /// **`shader_adapt` 骨架在夹具上与旧实现对照**（默认忽略，§9.83）。
     ///
     /// 骨架（改名组 / include 结尾空行 / 源码遍历）没有纯函数可逐例比对，
@@ -2222,6 +2246,10 @@ mod tests {
 
     /// **8c 的第一批验收**：把 textures 已迁移任务改为原生执行，产物必须与「全走适配层」
     /// 以及旧管线都逐项一致；开关关闭时行为必须与打开前完全相同。
+    ///
+    /// §9.125：`off` / `legacy` 两配置的实现是**旧闭包**，默认构建里不存在，因此
+    /// 「与旧实现对照」的部分随 `legacy-oracle` 门控；默认构建保留 **`on` 自身的一致性**
+    /// （每个计划任务恰好执行一次、原生数 ≥ 1），它与冻结基线一起构成默认闸门。
     #[test]
     fn native_switch_keeps_the_output_identical_on_a_fixture() {
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -2229,7 +2257,9 @@ mod tests {
         fixture(&input);
 
         // 1 → 97 会经过 (5,6)/(7,8) 两段，因此能选中已迁移的 Eraser 任务
+        #[cfg(feature = "legacy-oracle")]
         let legacy = legacy_output(&input, tmp.path(), 97, 1);
+        #[cfg(feature = "legacy-oracle")]
         let (off, off_report) =
             native_output_v2(&input, tmp.path(), 97, 1, NativeSwitches::none(), false, "off");
         let (on, on_report) =
@@ -2238,16 +2268,19 @@ mod tests {
         // §9.102：`cut_gui` 的实现**无条件**是原生模块（§9.101，由注册闭包直接调用），
         // 不受 `NativeSwitches` 影响；而本夹具（1→97）的计划里**确实含** `cut_gui`，
         // 因此「开关全关」时原生数为 **1**（就是它）、适配层为 `plan_len - 1`。
-        assert_eq!(
-            off_report.native_tasks, 1,
-            "开关全关时唯一仍走原生实现的应当是 cut_gui，实际：{:?}",
-            off_report.native_names
-        );
-        assert_eq!(
-            off_report.legacy_tasks,
-            off_report.plan_len - 1,
-            "关闭时除 cut_gui 外应全走适配层"
-        );
+        #[cfg(feature = "legacy-oracle")]
+        {
+            assert_eq!(
+                off_report.native_tasks, 1,
+                "开关全关时唯一仍走原生实现的应当是 cut_gui，实际：{:?}",
+                off_report.native_names
+            );
+            assert_eq!(
+                off_report.legacy_tasks,
+                off_report.plan_len - 1,
+                "关闭时除 cut_gui 外应全走适配层"
+            );
+        }
         assert_eq!(
             on_report.native_tasks + on_report.legacy_tasks,
             on_report.plan_len,
@@ -2259,9 +2292,12 @@ mod tests {
             on_report.native_names
         );
 
-        assert_equivalent(&legacy, &off);
-        assert_equivalent(&legacy, &on);
-        assert_equivalent(&off, &on);
+        #[cfg(feature = "legacy-oracle")]
+        {
+            assert_equivalent(&legacy, &off);
+            assert_equivalent(&legacy, &on);
+            assert_equivalent(&off, &on);
+        }
     }
 
     /// **真实包上的绝对产物契约**（默认忽略，§9.91）。
@@ -2297,7 +2333,12 @@ mod tests {
         };
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let (_mixed, report) = native_output(&input, tmp.path(), target, source);
+        // §9.125：本用例原先用 `native_output`（= 开关全关 `off`）。默认构建里 `off` 没有实现
+        // （旧闭包被 `legacy-oracle` 门控），因此改为**生产口径 `on`**——这正好落实
+        // 交接文档第 4 步：「默认（无 feature）时，`on` 配置改与冻结基线对照」。
+        // 判据强度不变：绝对计数是**独立于任何配置**的产物契约。
+        let (_mixed, report) =
+            native_output_v2(&input, tmp.path(), target, source, NativeSwitches::all(), false, "abs");
         let stats = &report.stats;
 
         println!(
@@ -2359,7 +2400,15 @@ mod tests {
         };
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let (mixed, _report) = native_output(&input, tmp.path(), target, source);
+        // §9.125（交接文档第 4 步的落点）：**默认构建下本用例与 `on` 配置对照**，
+        // 而不是与 `off` 对照——`off` 的实现（88 个旧闭包）已被 `legacy-oracle` 门控，
+        // 默认构建里没有它。`on` 正是**生产配置**，所以这条对照反而更贴近真实产物。
+        //
+        // 打开 `--features legacy-oracle` 后，`on` 与 `off` 仍产出同一份内容（由
+        // `native_switch_keeps_the_output_identical_on_a_real_pack` 把关），
+        // 因此本指纹在两种构建下必须一致——这本身就是一条额外约束。
+        let (mixed, _report) =
+            native_output_v2(&input, tmp.path(), target, source, NativeSwitches::all(), false, "frozen");
 
         // 逐条目 (名, 长度, 内容 hash) → 排序 → 聚合成一个 u64
         let entries = zip_entry_digests(&mixed);
@@ -2462,6 +2511,9 @@ mod tests {
         };
 
         let tmp = tempfile::tempdir().expect("tempdir");
+        // §9.125：`legacy_output` 需要旧闭包 ⇒ 默认构建下不做「旧管线 ↔ 两个形态」的三方对照，
+        // 改为 **Zip 形态 ↔ Dir 形态** 两方对照——生产改道（②-b）关心的正是这一条。
+        #[cfg(feature = "legacy-oracle")]
         let legacy = legacy_output(&input, tmp.path(), target, source);
 
         // ① Zip 形态 → 解到目录
@@ -2504,14 +2556,22 @@ mod tests {
             .expect("run_native into dir");
         }
 
-        // 三方对照：旧管线 ↔ Zip 形态 ↔ Dir 形态
+        // 对照：Zip 形态 ↔ Dir 形态（开 feature 时另加旧管线一侧）
+        #[cfg(feature = "legacy-oracle")]
         let _ = assert_equivalent(&legacy, &zip_dir);
+        #[cfg(feature = "legacy-oracle")]
         let _ = assert_equivalent(&legacy, &dir_out);
-        println!("Output::Zip 与 Output::Dir 都与旧管线逐项一致");
+        let _ = assert_equivalent(&zip_dir, &dir_out);
+        println!("Output::Zip 与 Output::Dir 逐项一致");
     }
 
     /// 真实包上的三种配置对照（默认忽略）：
     /// `AROM_REAL_PACK=<包> [AROM_TARGET=97] cargo test --lib native_switch -- --ignored --nocapture`
+    ///
+    /// §9.125：本用例整条都是**相对对照**（`legacy` / `off` / `on` / `one_by_one`），
+    /// 前两者的实现是旧闭包 ⇒ 随 `legacy-oracle` 门控。默认构建的对应闸门是
+    /// `real_pack_content_baseline_is_frozen`（与冻结指纹对照，不依赖任何配置）。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn native_switch_keeps_the_output_identical_on_a_real_pack() {
@@ -2581,6 +2641,10 @@ mod tests {
     /// （现代命名 `item/`、`block/`），而基准包本身是旧命名，反向任务在它身上大多会跳过。
     ///
     /// `AROM_REAL_PACK=<包> cargo test --lib reverse_whole_pack -- --ignored --nocapture`
+    ///
+    /// §9.125：本用例的核心判据是「反向也与**旧管线**一致」，旧闭包被门控后该判据不存在，
+    /// 因此整条随 `legacy-oracle` 门控（默认构建里它剩下的只是两个配置的自我比较）。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn reverse_whole_pack_matches_the_old_pipeline() {
@@ -2647,6 +2711,10 @@ mod tests {
 
     /// 真实包上的等价性（默认忽略）：
     /// `AROM_REAL_PACK=<包> [AROM_TARGET=97] cargo test --lib mixed_run -- --ignored --nocapture`
+    ///
+    /// §9.125：唯一判据是「与旧管线 `legacy` 对照」⇒ 随 `legacy-oracle` 门控；
+    /// 同一份产物在默认构建里由 `real_pack_content_baseline_is_frozen` 用**冻结指纹**守住。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     #[ignore]
     fn a_rom_owns_io_of_a_real_conversion_on_a_real_pack() {

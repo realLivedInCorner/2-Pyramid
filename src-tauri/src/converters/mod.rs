@@ -1,68 +1,48 @@
-// Converter modules grouped by domain.
-// ui/       GUI & HUD fixes
-// textures/ block/item texture generation, rename, delete
-// reverse/  undo counterparts of forward converters
-// color/    HSV helpers
-// audio/    sound conversion
-// shaders/  Java shader adaptation
-// bedrock/  Java <-> Bedrock pipeline
+// Converter modules.
+//
+// §9.125（M3 收口）：本模块现在**只装生产需要的部分**——
+//
+// | 子模块 | 性质 |
+// |---|---|
+// | `pack_analysis` | 只读结构分析（Tauri 命令 / CLI `--analyze` 在用） |
+// | `pack_diff` | 产物对比（CLI `--pack-diff`、闸门在用） |
+// | `version_converter` | **生产转换入口**（`process_zip_timed`） |
+// | `zip` | 解压 / 重打包 / 工作目录清理 |
+//
+// 旧转换器树（`audio` / `blockstate_adapter` / `main_converter` / `reverse` /
+// `shaders` / `textures` / `ui`）由 `legacy-oracle` feature 门控，**默认不编译**；
+// Bedrock 结构转换是生产功能，已移到 `crate::bedrock_convert`；
+// UImage 路径解析与缩放因子是两边共用的工具，已移到 `crate::image_utils` / `crate::scale_factor`。
 
-pub use ui::sign_entities::fix_sign_entities;
-pub use textures::mcpatcher_to_optifine::rename_mcpatcher_to_optifine;
-
-pub mod audio;
-pub mod bedrock;
-pub mod blockstate_adapter;
-pub mod main_converter;
 pub mod pack_analysis;
 pub mod pack_diff;
-pub mod reverse;
-pub mod scale_factor;
-pub mod shaders;
-pub mod textures;
-pub mod ui;
 pub mod version_converter;
 pub mod zip;
 
-// ── UImage 路径解析（委托给 resource_resolver）───────────────────────
+// ── 旧转换器树：仅 `legacy-oracle`（`legacy` / `off` 对照配置与基线重生成）──
+#[cfg(feature = "legacy-oracle")]
+pub mod audio;
+#[cfg(feature = "legacy-oracle")]
+pub mod blockstate_adapter;
+#[cfg(feature = "legacy-oracle")]
+pub mod main_converter;
+#[cfg(feature = "legacy-oracle")]
+pub mod reverse;
+#[cfg(feature = "legacy-oracle")]
+pub mod shaders;
+#[cfg(feature = "legacy-oracle")]
+pub mod textures;
+#[cfg(feature = "legacy-oracle")]
+pub mod ui;
 
-/// 通过 Tauri 资源 API 解析 UImage 路径并缓存（委托 resource_resolver）
-pub fn set_uimage_path_from_app(app: &tauri::AppHandle) {
-    crate::resource_resolver::cache_resource_from_app(app, "UImage");
-}
-
-/// 获取 UImage 资源目录（多策略查找，找不到则在用户文档创建默认目录）
-pub fn get_uimage_path() -> Result<std::path::PathBuf, String> {
-    // 1. 优先通过 resource_resolver 的多策略解析
-    match crate::resource_resolver::resolve_resource_dir("UImage", crate::resource_resolver::uimage_validator()) {
-        Ok(p) => return Ok(p),
-        Err(e) => crate::log_info!("UImage resolve_resource_dir failed: {}", e),
-    }
-
-    // 2. 回退到用户文档目录
-    if let Ok(user_dir) = crate::overlay::user_data_root_dir() {
-        let fallback = user_dir.join("UImage");
-        if fallback.exists() {
-            crate::log_info!("UImage found in user data dir: {}", fallback.display());
-            return Ok(fallback);
-        }
-    }
-
-    // 3. 最后手段：在用户文档目录创建默认 UImage
-    let default_path = crate::overlay::user_data_root_dir()
-        .map(|dir| dir.join("UImage"))
-        .unwrap_or_else(|_| {
-            std::env::current_dir()
-                .map(|dir| dir.join("UImage"))
-                .unwrap_or_else(|_| std::path::PathBuf::from("UImage"))
-        });
-
-    crate::log_info!("creating default UImage in user data: {}", default_path.display());
-    std::fs::create_dir_all(&default_path).map_err(|e| {
-        format!("UImage directory is missing and default directory creation failed: {}", e)
-    })?;
-    let _ = std::fs::write(default_path.join("README.txt"),
-        "UImage directory for Resource Pack Converter.\nPut required UI image assets here.\n");
-    Ok(default_path)
-}
-
+// ── 兼容转发（§9.125）：两个**两边共用**的工具已移到 crate 根（它们不是旧转换器的一部分，
+/// 见 `image_utils` / `scale_factor` 的模块注释）。旧转换器树里仍写 `crate::converters::X`，
+/// 这里保留同名转发，使**被忽略的旧源码不必改动**——
+/// 少改一个文件就少一次「用局部证据推断全局」的机会（§9.123 的教训）。
+#[cfg(feature = "legacy-oracle")]
+pub use crate::image_utils::get_uimage_path;
+/// 旧代码里写的是 `crate::converters::scale_factor::determine_scale_factor`（模块路径），
+/// 因此这里再挂一个同文件模块别名（与 crate 根的 `scale_factor` 指向同一份源码）。
+#[cfg(feature = "legacy-oracle")]
+#[path = "scale_factor.rs"]
+pub mod scale_factor;

@@ -316,6 +316,9 @@ mod tests {
 
     /// 适配层验收：旧任务经 `PathView` 跑出来的产物，与「旧管线（解压 → 旧任务 → 重打包）」
     /// 逐项一致，并过容器级闸门。
+    ///
+    /// §9.125：两侧都用旧转换器 ⇒ 随 `legacy-oracle` 门控（默认构建里没有旧实现可跑）。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     fn legacy_task_via_pathview_matches_the_old_pipeline() {
         let tmp = tempfile::tempdir().expect("tempdir");

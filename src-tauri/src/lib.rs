@@ -85,6 +85,8 @@ use self::commands::{
 };
 
 pub mod arom;
+/// 基岩 ↔ Java 结构转换（生产功能：Bedrock 目标 / Bedrock 源预检，§9.125 移出 `converters/`）。
+mod bedrock_convert;
 mod commands;
 mod converters;
 mod foray;
@@ -101,13 +103,21 @@ mod resource_resolver;
 /// 颜色/HSV 工具（共享：原生实现与旧转换器用同一份，§9.124）
 mod color;
 mod chest_region;
+/// 缩放因子（`determine_scale_factor`）：旧转换器与测试共用；`#[path]` 保持文件物理位置，§9.125。
+#[path = "converters/scale_factor.rs"]
+mod scale_factor;
+/// **任务元数据表**（名字 / 并发类型 / 阶段）——生产驱动取阶段的唯一来源，§9.125。
+mod task_registry;
 
 mod updater;
 pub mod hurray;
 
 // §9.121（M3 ②-c）：`invoke_conversion::invoke_conversion` 与其 `_ex` 变体已删除——
 // 生产入口改走 `native_run`（§9.118），旧入口不再有任何调用者。
-// 本模块现在只保留 `register_legacy_tasks`（旧闭包注册表，供闸门的全旧基线使用）。
+//
+// §9.125（M3 收口）：本模块只剩 `register_tasks`：**元数据段总是注册**（生产取阶段要用），
+// 88 个旧闭包体移到 `#[cfg(feature = "legacy-oracle")]`（默认关闭）——
+// 那 71 个 `use crate::converters::…` 与闭包体一起被门控，因此默认构建不含旧转换器代码。
 
 /// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
 pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};

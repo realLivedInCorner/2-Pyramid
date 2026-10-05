@@ -14,6 +14,10 @@ default-run = "2-pyramid"
 # Microsoft Store / MSIX：不编译会启动外部进程的 updater / 资源管理器调用，
 # 以通过 WACK「已阻止的可执行文件」检查。GitHub Releases 构建不要开此 feature。
 store = []
+# M3 收口（§9.125）：旧转换器树（`crate::converters` 下的 legacy 模块 + 88 个旧闭包）。
+# **默认关闭** —— 生产二进制不含这些代码。打开后 `legacy` / `off` 两个对照配置可用，
+# 冻结基线（`tools/arom-baseline.txt`）也才能重生成。见 docs/compose/spec/astray-arom-model.md §9.123。
+legacy-oracle = []
 
 [lib]
 name = "two_pyramid_lib"

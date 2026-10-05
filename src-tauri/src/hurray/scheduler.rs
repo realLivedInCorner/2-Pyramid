@@ -319,8 +319,16 @@ impl Scheduler {
     ///
     /// 供混合运行驱动校验：原生任务声明的阶段必须与这里一致——驱动目前把原生任务放在
     /// 同一个前阶段，只有 Eraser 级的位置与生产一致，声明写错会静默改变执行顺序。
+    ///
+    /// **§9.125：活注册表查不到时回落到 [`crate::task_registry`]**（元数据表）。
+    /// 理由：默认构建里旧闭包被 `legacy-oracle` 门控，88 个任务的**实现**不存在，
+    /// 但**阶段**是生产必需的（`native_placements` 据此决定放置侧）。回落保证
+    /// 「驱动取阶段的数据源」在两种构建下都答得出来，且答案同源。
     pub fn task_tier(&self, name: &str) -> Option<TaskTier> {
-        self.task_registry.get(name).map(|task| task.tier)
+        self.task_registry
+            .get(name)
+            .map(|task| task.tier)
+            .or_else(|| crate::task_registry::tier_of(name))
     }
 
     /// 按名字执行已注册的任务。
@@ -848,9 +856,13 @@ mod tests {
     /// **已知且点名在案的例外**（测试里显式放行，避免它变成"改测试就绿"的噪音）：
     /// - `delete_shaders_folder`：只在 `adapt_shaders = false` 时注册（本测试开关全开，故它不在注册表里）；
     /// - `convert_animated_textures`：**曾经**是孤儿，§9.88 已补进 `(1,2)` 段。
+    /// §9.125（M3 收口）：本用例检查的是**注册表的完整性**——而「段里的名字都能被执行」
+    /// 这件事只在 `legacy-oracle` 下才由注册表决定（默认构建里任务走 `native_run` 的原生派发，
+    /// 段里的名字不需要在 Scheduler 注册）。因此随 `legacy-oracle` 门控。
+    #[cfg(feature = "legacy-oracle")]
     #[test]
     fn registry_and_segments_agree_in_both_directions() {
-        use crate::invoke_conversion::register_legacy_tasks;
+        use crate::invoke_conversion::register_tasks;
         use std::collections::BTreeSet;
 
         // 与生产一致的注册条件：开关全开（`adapt_shaders=true` 时注册的是 `adapt_java_shaders`）。
@@ -858,7 +870,7 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let input = tmp.path().join("registry_probe.zip");
         let mut scheduler = Scheduler::new();
-        register_legacy_tasks(&mut scheduler, &input, 97, 1, true, false, true);
+        register_tasks(&mut scheduler, &input, 97, 1, true, false, true);
 
         let maps = ConversionMaps::new();
         let mut in_segments: BTreeSet<String> = BTreeSet::new();

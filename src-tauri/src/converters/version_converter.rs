@@ -592,7 +592,7 @@ pub fn convert_resource_pack(file_path: &str, target_version: u32) -> Result<Str
 }
 
 /// 仅执行 Bedrock 结构转换边任务（j2b: 84→1000 / b2j: 1000→84）。
-/// 任务注册与逻辑均在 converters/bedrock；此处只驱动 Scheduler。
+/// 任务注册与逻辑均在 bedrock_convert；此处只驱动 Scheduler。
 fn run_bedrock_edge_task(
     work_dir: &Path,
     source_version: u32,
@@ -604,7 +604,7 @@ fn run_bedrock_edge_task(
     use crate::hurray::texture::TexturePool;
 
     let mut scheduler = Scheduler::new();
-    crate::converters::bedrock::register_tasks(&mut scheduler);
+    crate::bedrock_convert::register_tasks(&mut scheduler);
 
     let work_dir_str = work_dir.to_str().unwrap_or("");
     // §9.93（M3）：包名走只读构造期字段。
@@ -687,7 +687,7 @@ pub fn process_zip_timed(
     }
 
     // 目标为 Bedrock（1000）或输入为 Bedrock 包时的编排。
-    // 结构转换逻辑在 converters/bedrock/*；此处只调度 Scheduler 边任务。
+    // 结构转换逻辑在 bedrock_convert/*；此处只调度 Scheduler 边任务。
     let is_bedrock_target = pack_format2 == 1000;
     // Bedrock 中间态统一到最新 Java 26.3（pack_format 97），再经边 (97→1000) 重组
     let java_target = if is_bedrock_target { 97 } else { pack_format2 };
@@ -720,7 +720,7 @@ pub fn process_zip_timed(
     let engine_start = std::time::Instant::now();
 
     let mut source_version: u32;
-    if crate::converters::bedrock::is_bedrock_resource_pack(temp_dir.path()) {
+    if crate::bedrock_convert::is_bedrock_resource_pack(temp_dir.path()) {
         log_info!("detected Bedrock resource pack source; running b2j first");
         // b2j 产出 Java 26.3（97）树
         run_bedrock_edge_task(temp_dir.path(), 1000, 97, "Converted Pack")?;

@@ -1937,7 +1937,10 @@ pub mod reverse_defer_ui {
     }
 }
 
-#[cfg(test)]
+/// §9.125（M3 收口）：以下两个测试模块里的**对照 oracle 就是旧转换器**（`crate::converters::*`），
+/// 因此随 `legacy-oracle` 门控——默认构建不含旧代码，这些对照也无法存在。
+/// 原生实现自身的正题（不含旧侧对照）仍在上面各任务模块里，默认构建照跑。
+#[cfg(all(test, feature = "legacy-oracle"))]
 mod tests {
     use super::*;
     use crate::arom::{write_zip, Pack, SafeLimits, SerializeOptions};
@@ -2467,7 +2470,7 @@ mod tests {
         assert!(real.is_file(), "不是文件：{}", real.display());
 
         // ① UImage 必须可用，否则这四个任务在两边都会跳过，用例失去意义
-        let uimage = crate::converters::get_uimage_path().expect("UImage 必须可解析");
+        let uimage = crate::image_utils::get_uimage_path().expect("UImage 必须可解析");
         for probe in [
             "crossbow/crossbow_16.png",
             "crossbow/crossbow_firework_16.png",
@@ -3282,7 +3285,9 @@ mod tests {
 
 /// §9.34 的实验（旧实现那一半）：单独串起两个任务，逐步打印目标文件是否存在。
 /// 只调用旧的转换器函数，不涉及任何原生实现——先确定**旧侧**的真实语义。
-#[cfg(test)]
+///
+/// §9.125：整块只调旧转换器 ⇒ 随 `legacy-oracle` 门控。
+#[cfg(all(test, feature = "legacy-oracle"))]
 mod legacy_armor_semantics_tests {
     use std::io::Write as _;
 
@@ -4030,7 +4035,7 @@ pub mod arch_gen2 {
 
     /// `UImage` 目录：与旧实现同一个解析函数（含「找不到就在用户文档建默认目录」的副作用）。
     fn uimage_dir() -> Option<std::path::PathBuf> {
-        match crate::converters::get_uimage_path() {
+        match crate::image_utils::get_uimage_path() {
             Ok(p) => Some(p),
             // 旧实现这里只打日志、**不中止**；调用方各自决定「没有覆盖图时怎么办」。
             Err(e) => {
@@ -5383,7 +5388,7 @@ pub mod arch_gen3 {
 
     /// 与 `arch_gen2` 同一个解析函数（含「找不到就在用户文档建默认目录」的副作用）。
     fn uimage_dir() -> Option<std::path::PathBuf> {
-        match crate::converters::get_uimage_path() {
+        match crate::image_utils::get_uimage_path() {
             Ok(p) => Some(p),
             Err(e) => {
                 crate::log_info!("UImage path not available: {}", e);
@@ -5701,7 +5706,7 @@ pub mod arch_gen3 {
 ///   然后**删掉原图与其 `.mcmeta`**。
 pub mod surgeon_early {
     use super::*;
-    use crate::converters::scale_factor::determine_scale_factor;
+    use crate::scale_factor::determine_scale_factor;
 
     const ITEMS_LEGACY: &str = "assets/minecraft/textures/items";
 
@@ -5862,7 +5867,7 @@ pub mod surgeon_early2 {
 
     /// `UImage` 目录（与其它试点同一个解析函数）。
     fn uimage_dir() -> Option<std::path::PathBuf> {
-        match crate::converters::get_uimage_path() {
+        match crate::image_utils::get_uimage_path() {
             Ok(p) => Some(p),
             Err(e) => {
                 crate::log_info!("UImage path not available: {}", e);
@@ -6215,7 +6220,7 @@ pub mod surgeon_mid2 {
 
     /// `UImage` 目录（与其它试点同一个解析函数）。
     fn uimage_dir() -> Option<std::path::PathBuf> {
-        match crate::converters::get_uimage_path() {
+        match crate::image_utils::get_uimage_path() {
             Ok(p) => Some(p),
             Err(e) => {
                 crate::log_info!("UImage path not available: {}", e);
@@ -6472,7 +6477,7 @@ pub mod surgeon_mid3 {
 /// 因此源区与目标区重叠时不会自我污染，且**越界写入跳过**、**越界读取留透明**。
 pub mod surgeon_mid4 {
     use super::*;
-    use crate::converters::scale_factor::determine_scale_factor;
+    use crate::scale_factor::determine_scale_factor;
 
     const TABS: &str =
         "assets/minecraft/textures/gui/container/creative_inventory/tabs.png";
@@ -6678,7 +6683,7 @@ pub mod surgeon_late {
 ///   再把 (53,5) 起 18×18 拷到 (34,19)（**同理，源取自被第一步改过的图**）。
 pub mod surgeon_ui {
     use super::*;
-    use crate::converters::scale_factor::determine_scale_factor;
+    use crate::scale_factor::determine_scale_factor;
 
     const WIDGETS: &str = "assets/minecraft/textures/gui/widgets.png";
     const TAB_INVENTORY: &str =
@@ -6837,7 +6842,7 @@ pub mod surgeon_machinery {
 
     /// `UImage` 目录（与其它试点同一个解析函数）。
     fn uimage_dir() -> Option<std::path::PathBuf> {
-        match crate::converters::get_uimage_path() {
+        match crate::image_utils::get_uimage_path() {
             Ok(p) => Some(p),
             Err(e) => {
                 crate::log_info!("UImage path not available: {}", e);
@@ -8274,7 +8279,7 @@ pub mod surgeon_survival {
             _ => None,
         };
         if let Some(name) = template_name {
-            if let Ok(dir) = crate::converters::get_uimage_path() {
+            if let Ok(dir) = crate::image_utils::get_uimage_path() {
                 let template = dir.join("inventory").join(name);
                 if template.exists() {
                     let overlay = image::open(&template)
@@ -8349,7 +8354,7 @@ pub mod surgeon_smithing2 {
 
     /// `UImage` 目录（与其它试点同一个解析函数）。
     fn uimage_dir() -> Option<std::path::PathBuf> {
-        match crate::converters::get_uimage_path() {
+        match crate::image_utils::get_uimage_path() {
             Ok(p) => Some(p),
             Err(e) => {
                 crate::log_info!("UImage path not available: {}", e);
