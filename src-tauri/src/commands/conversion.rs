@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use rayon::prelude::*;
 
-use crate::converters::version_converter::{
+use crate::pack::version_converter::{
     process_zip,
     pack_format_label_for_output,
     build_output_path_for_batch,
@@ -146,7 +146,7 @@ pub async fn convert_resource_pack(
     let _running = RunningGuard::new();
 
     let result = task::spawn_blocking(move || {
-        crate::converters::version_converter::convert_resource_pack(
+        crate::pack::version_converter::convert_resource_pack(
             &file_path,
             target_format,
         )
@@ -249,7 +249,7 @@ pub async fn convert_resource_packs_batch(
                 .cloned()
                 .and_then(|s| if s.is_empty() { None } else { Some(s) });
 
-            match crate::converters::version_converter::process_zip_timed(
+            match crate::pack::version_converter::process_zip_timed(
                 file_path,
                 target_format,
                 None,

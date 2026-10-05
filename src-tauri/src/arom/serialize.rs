@@ -201,7 +201,7 @@ fn sibling_tmp(out: &Path) -> std::path::PathBuf {
 mod tests {
     use super::*;
     use crate::arom::source::MemSource;
-    use crate::converters::pack_diff::diff_containers;
+    use crate::pack::diff::diff_containers;
     use std::io::Write;
 
     struct Spec {
@@ -295,13 +295,13 @@ mod tests {
         // 旧管线：解压到临时目录 → 重新打包
         let work = tmp.path().join("work");
         std::fs::create_dir_all(&work).expect("mkdir");
-        crate::converters::zip::extract_resource_pack(
+        crate::pack::io::extract_resource_pack(
             src.to_str().expect("utf8"),
             work.to_str().expect("utf8"),
         )
         .expect("extract");
         let old_out = tmp.path().join("old.zip");
-        crate::converters::zip::repack_resource_pack(
+        crate::pack::io::repack_resource_pack(
             work.to_str().expect("utf8"),
             old_out.to_str().expect("utf8"),
         )
@@ -363,7 +363,7 @@ mod tests {
         // 「运行时刻」（`FileOptions::default()` → `OffsetDateTime::now_utc()`，DOS 2 秒精度），
         // 两次独立运行必然可能不同（详见细则 §9.6 F 与闸门的 `container_mtime_only`）。
         // 确定性应当断言在「内容 + 条目集合 + 压缩方法 / 压缩字节」上。
-        let report = crate::converters::pack_diff::diff_containers(&a, &b).expect("diff");
+        let report = crate::pack::diff::diff_containers(&a, &b).expect("diff");
         assert_eq!(report.blocking, 0, "同输入的内容必须相同：{:?}", report.diffs);
         assert_eq!(
             report.container_entry_set_blocking, 0,
@@ -510,13 +510,13 @@ mod tests {
 
         let work = tmp.path().join("work");
         std::fs::create_dir_all(&work).expect("mkdir");
-        crate::converters::zip::extract_resource_pack(
+        crate::pack::io::extract_resource_pack(
             src.to_str().expect("utf8"),
             work.to_str().expect("utf8"),
         )
         .expect("extract");
         let old_out = tmp.path().join("old.zip");
-        crate::converters::zip::repack_resource_pack(
+        crate::pack::io::repack_resource_pack(
             work.to_str().expect("utf8"),
             old_out.to_str().expect("utf8"),
         )
@@ -530,7 +530,7 @@ mod tests {
         let stats = write_zip(&pack, &view, &new_out, &SerializeOptions::default()).expect("write");
 
         let report = diff_containers(&old_out, &new_out).expect("diff");
-        println!("{}", crate::converters::pack_diff::render_report(&report, true));
+        println!("{}", crate::pack::diff::render_report(&report, true));
         println!("source = {}", src.display());
         println!("stats  = {stats:?}");
 

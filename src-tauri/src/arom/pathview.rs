@@ -232,7 +232,7 @@ mod tests {
     use super::*;
     use crate::arom::serialize::{write_zip, SerializeOptions};
     use crate::arom::{Pack, SafeLimits};
-    use crate::converters::pack_diff::diff_containers;
+    use crate::pack::diff::diff_containers;
     use std::io::Write as _;
 
     fn fixture(path: &Path) {
@@ -314,67 +314,6 @@ mod tests {
         assert!(view.resolve("assets/minecraft/lang/zh_cn.json").is_none());
     }
 
-    /// 适配层验收：旧任务经 `PathView` 跑出来的产物，与「旧管线（解压 → 旧任务 → 重打包）」
-    /// 逐项一致，并过容器级闸门。
-    ///
-    /// §9.125：两侧都用旧转换器 ⇒ 随 `legacy-oracle` 门控（默认构建里没有旧实现可跑）。
-    #[cfg(feature = "legacy-oracle")]
-    #[test]
-    fn legacy_task_via_pathview_matches_the_old_pipeline() {
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let zip_path = tmp.path().join("fixture.zip");
-        fixture(&zip_path);
-
-        // 旧管线
-        let old_work = tmp.path().join("old_work");
-        std::fs::create_dir_all(&old_work).expect("mkdir");
-        crate::converters::zip::extract_resource_pack(
-            zip_path.to_str().expect("utf8"),
-            old_work.to_str().expect("utf8"),
-        )
-        .expect("extract");
-        crate::converters::textures::mcpatcher_to_optifine::rename_mcpatcher_to_optifine(&old_work)
-            .expect("rename");
-        let old_out = tmp.path().join("old.zip");
-        crate::converters::zip::repack_resource_pack(
-            old_work.to_str().expect("utf8"),
-            old_out.to_str().expect("utf8"),
-        )
-        .expect("repack");
-
-        // 新管线：PathView 适配层
-        let mut pack = open(&zip_path);
-        let work = tmp.path().join("new_work");
-        // 目录改名的**目标**在源前缀之外：读声明源、写声明两者的共同父前缀。
-        // 首版只声明了 `.../mcpatcher`，适配层当场把 `.../optifine` 整片报成越界写入。
-        let decl = decl_scopes(
-            "rename_mcpatcher_to_optifine",
-            Tier::Eraser,
-            ScopeSet::prefix("assets/minecraft/mcpatcher"),
-            ScopeSet::prefix("assets/minecraft"),
-        );
-        let harvest = run_legacy(&pack, &work, &decl, |dir| {
-            crate::converters::textures::mcpatcher_to_optifine::rename_mcpatcher_to_optifine(dir)
-        })
-        .expect("run_legacy");
-        assert!(harvest.undeclared.is_empty(), "越界写入：{:?}", harvest.undeclared);
-        assert!(harvest.changed() > 0, "重命名必须产生变更");
-        pack.commit(harvest.layer);
-
-        let new_out = tmp.path().join("new.zip");
-        let view = pack.view();
-        write_zip(&pack, &view, &new_out, &SerializeOptions::default()).expect("serialize");
-
-        let report = diff_containers(&old_out, &new_out).expect("diff");
-        assert_eq!(report.blocking, 0, "内容差异：{:?}", report.diffs);
-        assert_eq!(
-            report.container_entry_set_blocking, 0,
-            "条目集合差异：{:?}",
-            report.container
-        );
-        assert_eq!(report.container_byte_only, 0, "{:?}", report.container);
-        assert!(report.passed(true), "{:?}", report.container);
-    }
 
     #[test]
     fn undeclared_writes_are_reported() {

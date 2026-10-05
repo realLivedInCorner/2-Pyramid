@@ -88,7 +88,8 @@ pub mod arom;
 /// 基岩 ↔ Java 结构转换（生产功能：Bedrock 目标 / Bedrock 源预检，§9.125 移出 `converters/`）。
 mod bedrock_convert;
 mod commands;
-mod converters;
+/// 资源包 I/O 与分析工具（原 converters/，§9.128 只保留生产必需的四块）。
+mod pack;
 mod foray;
 pub mod native_run;
 /// **原生实现主体**：46 个任务的 A-ROM 实现（原 `pilots/`，§9.127 改名 `natives/` 并分组）。
@@ -104,12 +105,14 @@ mod logger;
 mod overlay;
 pub mod perf;
 mod resource_resolver;
-/// 箱子贴图区域变换（共享：原生实现与旧转换器用同一份，§9.124）
-/// 颜色/HSV 工具（共享：原生实现与旧转换器用同一份，§9.124）
+/// 箱子贴图区域变换（供原生实现使用，§9.124）
+/// 颜色/HSV 工具（供原生实现使用，§9.124）
 mod color;
 mod chest_region;
-/// 缩放因子（`determine_scale_factor`）：旧转换器与测试共用；`#[path]` 保持文件物理位置，§9.125。
-#[path = "converters/scale_factor.rs"]
+/// 缩放因子（`determine_scale_factor`）：原生实现与测试共用，§9.125。
+///
+/// §9.128：文件已从 `converters/` 移到 crate 根（旧转换器树送走后，`converters/`
+/// 只剩生产四块，这个共享工具不该再挂在那里）。
 mod scale_factor;
 /// **任务元数据表**（名字 / 并发类型 / 阶段）——生产驱动取阶段的唯一来源，§9.125。
 mod task_registry;
@@ -122,21 +125,21 @@ pub mod hurray;
 //
 // §9.125（M3 收口）：本模块只剩 `register_tasks`：**元数据段总是注册**（生产取阶段要用），
 // 88 个旧闭包体移到 `#[cfg(feature = "legacy-oracle")]`（默认关闭）——
-// 那 71 个 `use crate::converters::…` 与闭包体一起被门控，因此默认构建不含旧转换器代码。
+// 那 71 个 `use crate::pack::…` 与闭包体一起被门控，因此默认构建不含旧转换器代码。
 
 /// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
-pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};
+pub use pack::analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};
 
 /// 输出对比 / 质量闸门（CLI `--pack-diff`）。
-pub use converters::pack_diff;
+pub use pack::diff as pack_diff;
 
 /// 无界面转换 CLI 所需的管线入口与版本解析。
-pub use converters::version_converter::{
+pub use pack::version_converter::{
     pack_format_label_for_output, process_zip_timed, resolve_target_format, ConversionTiming,
 };
 
 /// 后台临时目录清理的等待接口（CLI 退出前调用）。
-pub use converters::zip::{
+pub use pack::io::{
     pending_cleanups, set_cleanup_mode, wait_for_cleanups, CleanupMode,
 };
 

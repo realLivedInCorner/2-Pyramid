@@ -104,29 +104,52 @@
         Ok(outcome)
     }
 
-    /// **回归守卫（§9.126）**：反向的 `swap_and_mirror` **必须逐句照抄**旧反向实现，
+    /// **回归守卫（§9.126 / §9.128）**：反向的 `swap_and_mirror` **必须照抄旧反向实现的语义**，
     /// 不能"顺手换成看起来等价的写法"。
     ///
-    /// 旧反向实现（`converters/reverse/chest_folder.rs`）的两个阶段**本身就不一致**：
+    /// 旧反向实现（原 `converters/reverse/chest_folder.rs`，§9.128 送走后存于
+    /// `archive/legacy-converters/reverse/chest_folder.rs`）的两个阶段**本身就不一致**：
     /// **交换**用 `paste_region`（原样覆写），**两处翻转**用 `overlay`（按 alpha 混合）。
-    /// 本模块首版把翻转也写成了 `paste_region`——那看起来"更一致"、也更容易过测试，
-    /// 但它是**错的**：真实素材上单次交换即分叉 **522** 像素（本用例抓到的）。
+    /// 本模块首版把翻转也写成了 `paste_region`——那看起来"更一致"，但它是**错的**：
+    /// 真实素材上单次交换即分叉 **522** 像素（当年就是本用例抓到的）。
     ///
     /// 为什么"看着等价"却不等价：`overlay` 按 alpha 混合，而真实 chest 图正是
     /// 16384 像素里 **9776 个 `alpha=0`、其中 9491 个 RGB 非零**。
     ///
-    /// **本用例只比"交换"这一步**：镜像那一步（8 组）两侧都是 `overlay`，与要守的差异无关。
+    /// **§9.128 起旧实现已不在构建里**，因此判据改为：与**内联冻结的旧语义**逐像素一致
+    /// （见本函数里的 `frozen_reference_swap`，逐句照抄归档源码）。
     /// 夹具的 `(3x+7y) mod 251` / `(11x+5y) mod 241` 保证**颜色两两不同**，
     /// 否则「像素相等」可能只是巧合。
     ///
     /// **判据边界（如实标注）**：本条只覆盖两个区域**不相交**时的交换语义
-    /// （真实任务用的 4 组区域都是不相交的）。区域重叠时两版仍有差异
-    /// （"重裁后的图" vs "最初裁下的 r1/r2"），**本用例覆盖不到**——
-    /// 那一路由整包对照 `reverse_whole_pack_matches_the_old_pipeline` 兜底（3952 个条目）。
-    #[cfg(all(test, feature = "legacy-oracle"))]
+    /// （真实任务用的 4 组区域都不相交）。区域重叠时两版仍有差异
+    /// （"重裁后的图" vs "最初裁下的 r1/r2"），**本用例覆盖不到**。
     #[test]
-    fn reverse_swap_matches_the_legacy_pixel_for_pixel() {
-        // 128×128、s=2 的夹具：alpha 只有 0 / 255，且 alpha=0 处 RGB 非零
+    fn reverse_swap_matches_the_frozen_legacy_semantics() {
+        /// 旧反向实现的交换语义（逐句照抄归档源码，冻结在测试里）：
+        /// 交换用 `paste_region`，两处翻转**重裁后再 `overlay`**。
+        fn frozen_reference_swap(
+            img: &mut image::RgbaImage,
+            b1: (u32, u32, u32, u32),
+            b2: (u32, u32, u32, u32),
+        ) {
+            use image::imageops;
+            let (w1, h1) = (b1.2 - b1.0, b1.3 - b1.1);
+            let (w2, h2) = (b2.2 - b2.0, b2.3 - b2.1);
+            let r1 = imageops::crop_imm(img, b1.0, b1.1, w1, h1).to_image();
+            let r2 = imageops::crop_imm(img, b2.0, b2.1, w2, h2).to_image();
+            crate::image_utils::paste_region(img, &r2, b1.0, b1.1).expect("paste r2");
+            crate::image_utils::paste_region(img, &r1, b2.0, b2.1).expect("paste r1");
+            let r1f = imageops::flip_horizontal(&imageops::flip_vertical(
+                &imageops::crop_imm(img, b1.0, b1.1, w1, h1).to_image(),
+            ));
+            let r2f = imageops::flip_horizontal(&imageops::flip_vertical(
+                &imageops::crop_imm(img, b2.0, b2.1, w2, h2).to_image(),
+            ));
+            imageops::overlay(img, &r1f, b1.0 as i64, b1.1 as i64);
+            imageops::overlay(img, &r2f, b2.0 as i64, b2.1 as i64);
+        }
+
         let mut orig = image::RgbaImage::new(128, 128);
         for y in 0..128u32 {
             for x in 0..128u32 {
@@ -150,9 +173,8 @@
         let p1 = sb(14, 0, 28, 14);
         let p2 = sb(28, 0, 42, 14);
 
-        let mut legacy = orig.clone();
-        crate::converters::reverse::chest_folder::swap_and_mirror(&mut legacy, p1, p2)
-            .expect("legacy swap");
+        let mut reference = orig.clone();
+        frozen_reference_swap(&mut reference, p1, p2);
         let mut native = orig.clone();
         swap_and_mirror_reverse(&mut native, p1, p2).expect("native swap");
         let mut shared = orig.clone();
@@ -169,21 +191,19 @@
             }
             n
         };
-        let vs_legacy = count(&legacy, &native);
-        let shared_vs_legacy = count(&legacy, &shared);
+        let vs_reference = count(&reference, &native);
+        let shared_vs_reference = count(&reference, &shared);
 
-        // ① 本模块实现必须与旧实现逐像素一致（**这是唯一判据**）
+        // ① 本模块实现必须与冻结的旧语义逐像素一致（**这是唯一判据**）
         assert_eq!(
-            vs_legacy, 0,
-            "反向 swap 与旧实现不一致：分叉 {vs_legacy} 像素（应当为 0）"
+            vs_reference, 0,
+            "反向 swap 与冻结的旧语义不一致：分叉 {vs_reference} 像素（应当为 0）"
         );
-
-        // ② 诊断读数（**刻意不断言**）：两个区域不相交时，"重裁后的图"与"最初裁下的 r1/r2"
-        //    数学上等价，因此共享助手在这里**也可能**与旧实现一致（实测：本项目当前为
-        //    {shared_vs_legacy} 像素）。把这条写成断言会是**错的判据**——它会把一次
-        //    "恰好等价"误判成回归，或反过来给出虚假的安全感。真正能分开两版的是
-        //    **区域重叠**与整包对照，见本用例文档的"判据边界"。
-        println!(
-            "反向 swap 对照：本模块 vs 旧 = {vs_legacy} 像素；共享助手 vs 旧 = {shared_vs_legacy} 像素"
+        // ② 反向夹具必须**能区分**「反向语义」与「正向共享助手」——否则本用例是空转的。
+        //    §9.126 实测：这一对在真实素材上分叉 968 像素、在本夹具上分叉 1568 像素。
+        assert!(
+            shared_vs_reference > 0,
+            "夹具已无法区分「反向语义」与「正向共享助手」（分叉 {shared_vs_reference} 像素）——\
+             请更换夹具（真实素材 alpha=0 且 RGB 非零的像素约占 58%）"
         );
     }

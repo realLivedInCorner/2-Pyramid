@@ -7,7 +7,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 use walkdir::WalkDir;
 
-use crate::converters::zip::{extract_resource_pack, repack_resource_pack};
+use crate::pack::io::{extract_resource_pack, repack_resource_pack};
 use crate::{log_info, log_warn};
 
 const PACK_FORMAT_LABELS: [&str; 27] = [
@@ -562,7 +562,7 @@ pub fn process_extracted_dir_only(
         .tempdir()
         .map_err(|e| format!("create staging dir failed: {e}"))?;
     let staged_zip = staged.path().join("staged.zip");
-    crate::converters::zip::repack_resource_pack(
+    crate::pack::io::repack_resource_pack(
         &temp_dir.to_string_lossy(),
         &staged_zip.to_string_lossy(),
     )?;
@@ -594,7 +594,7 @@ pub fn process_extracted_dir_only(
     .map_err(|e| format!("conversion pipeline failed: {}", e))?;
 
     // ③ 产物解回原目录（保持本函数"就地改写 temp_dir"的契约不变）
-    crate::converters::zip::repack_resource_pack(
+    crate::pack::io::repack_resource_pack(
         &out_dir.to_string_lossy(),
         &staged_zip.to_string_lossy(),
     )?;
@@ -606,7 +606,7 @@ pub fn process_extracted_dir_only(
             let _ = fs::remove_file(&p);
         }
     }
-    crate::converters::zip::extract_resource_pack(
+    crate::pack::io::extract_resource_pack(
         &staged_zip.to_string_lossy(),
         &temp_dir.to_string_lossy(),
     )?;
@@ -727,14 +727,14 @@ pub fn process_zip_timed(
     let total_start = std::time::Instant::now();
 
     let temp_dir = tempfile::Builder::new()
-        .prefix(crate::converters::zip::WORK_DIR_PREFIX)
+        .prefix(crate::pack::io::WORK_DIR_PREFIX)
         .tempdir()
         .map_err(|e| format!("failed to create temp dir: {}", e))?;
     let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
 
     // 启动时顺手清理陈旧残留（异常退出/后台删除未完成的 .2pyr-work-*）；
     // 只删超过 2 小时的目录，避免误伤正在并发的其他转换。
-    let swept = crate::converters::zip::sweep_stale_work_dirs(
+    let swept = crate::pack::io::sweep_stale_work_dirs(
         &std::env::temp_dir(),
         std::time::Duration::from_secs(2 * 60 * 60),
     );
@@ -803,7 +803,7 @@ pub fn process_zip_timed(
     // 结构分析（只读、只记录，不改变本次转换行为）：
     // 多版本包（overlays / supported_formats / 版本折叠目录 / 一包多根）目前
     // 只转换基础层，覆盖层原样保留——先把真实结构打进日志，便于据此定语义。
-    match crate::converters::pack_analysis::analyze_dir(temp_dir.path()) {
+    match crate::pack::analysis::analyze_dir(temp_dir.path()) {
         Ok(report) => {
             log_info!("pack structure: {}", report.summary());
             for layer in &report.layers {
@@ -926,7 +926,7 @@ pub fn process_zip_timed(
     // `2PYR_SYNC_CLEANUP=1` 可强制同步删除以便基准测试。
     let cleanup_start = std::time::Instant::now();
     let work_path = temp_dir.into_path();
-    let cleanup_done_inline = crate::converters::zip::dispatch_cleanup(&work_path);
+    let cleanup_done_inline = crate::pack::io::dispatch_cleanup(&work_path);
     let cleanup_elapsed = if cleanup_done_inline {
         cleanup_start.elapsed()
     } else {

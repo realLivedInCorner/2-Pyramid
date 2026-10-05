@@ -3,7 +3,7 @@
 //! 设计依据 `astray-arom-model.md` §7 与 D18：L3 在 M0 的交付范围是**多根 + overlays 只读**，
 //! 写路径留 M1。因此本模块**只回答结构问题**，不产生层、不写字节、不改变任何输入。
 //!
-//! 为什么存在：现状 [`crate::converters::pack_analysis`] 已经把这些问题答对了一遍，
+//! 为什么存在：现状 [`crate::pack::analysis`] 已经把这些问题答对了一遍，
 //! 但它建立在「自己遍历一遍目录/zip」之上（`pack_analysis.rs:165` `analyze_zip` /
 //! `pack_analysis.rs:197` `analyze_dir`），与 A-ROM 的容器视图**互为第二真相**。
 //! 本模块改为只吃 [`PackView`]：条目集合来自 `BasePack` + 已提交层（`view.entries()`），
@@ -649,7 +649,7 @@ mod tests {
     use super::*;
     use crate::arom::layer::Pack;
     use crate::arom::source::MemSource;
-    use crate::converters::pack_analysis::analyze_zip;
+    use crate::pack::analysis::analyze_zip;
     use std::io::Write;
     use std::path::Path;
 
@@ -681,7 +681,7 @@ mod tests {
     fn analyze_both(
         name: &str,
         files: &[(&str, &str)],
-    ) -> (PackStructure, crate::converters::pack_analysis::PackAnalysis, tempfile::TempDir) {
+    ) -> (PackStructure, crate::pack::analysis::PackAnalysis, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("tempdir");
         let zip_path = dir.path().join(name);
         write_zip(&zip_path, files);
@@ -1078,7 +1078,7 @@ mod tests {
         assert_eq!(mine.roots.len(), 2);
         assert_eq!(mine.roots.len(), 1 + theirs.multi_roots.len(), "根数量一致");
         assert!(
-            theirs.shapes.contains(&crate::converters::pack_analysis::PackShape::MultiRootPack)
+            theirs.shapes.contains(&crate::pack::analysis::PackShape::MultiRootPack)
         );
 
         // 主根一致：现状 PackA（层级最浅、路径序最小），L3 必须给出同一个

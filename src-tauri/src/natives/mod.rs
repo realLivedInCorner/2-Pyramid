@@ -187,20 +187,7 @@ pub mod reverse_defer_metal;
 #[path = "reverse/reverse_defer_ui.rs"]
 pub mod reverse_defer_ui;
 
-/// §9.125（M3 收口）：以下两个测试模块里的**对照 oracle 就是旧转换器**（`crate::converters::*`），
-/// 因此随 `legacy-oracle` 门控——默认构建不含旧代码，这些对照也无法存在。
-/// 原生实现自身的正题（不含旧侧对照）仍在上面各任务模块里，默认构建照跑。
-#[cfg(all(test, feature = "legacy-oracle"))]
-#[path = "tests/tests.rs"]
-pub mod tests;
 
-/// §9.34 的实验（旧实现那一半）：单独串起两个任务，逐步打印目标文件是否存在。
-/// 只调用旧的转换器函数，不涉及任何原生实现——先确定**旧侧**的真实语义。
-///
-/// §9.125：整块只调旧转换器 ⇒ 随 `legacy-oracle` 门控。
-#[cfg(all(test, feature = "legacy-oracle"))]
-#[path = "tests/legacy_armor_semantics_tests.rs"]
-pub mod legacy_armor_semantics_tests;
 /// 反向「像素回退」批次：`brewing_stand_ui` 与 `ui_creative`。
 ///
 /// 两者都是对 GUI 贴图做像素级回退（填色 + 区域搬移），逐行照抄旧实现的坐标与缩放表；
