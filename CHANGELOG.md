@@ -1,3 +1,46 @@
+## [Unreleased]
+
+> 本次主题：**转换内核整体重写（A-ROM）**。把转换从「解压到临时目录 + 逐文件读写」换成单一对象模型
+> （`Pack` / `Tx` / `Layer` / `PackView`），**产物字节零变化**，同时把 debug 口径的纯转换从 **6.01s 降到 3.55s**。
+> 真实包实测（`TapL 16x.zip`，3631 文件 / 18.41 MB / Java 1 → 26.3），冻结内容基线全程保持
+> **4018 条目 / 聚合指纹 `0x75bb3260e7f578a6`**。
+
+### Changed
+
+- **转换内核替换为 A-ROM 单一对象模型**：旧引擎（`hurray/`：`HurrayContext` / `TexturePool` / 按 context 注册的任务闭包）与旧转换器树（`converters/`）**全部删除**，`src-tauri/src/` 现在只有一套执行路径。设计目标是对用户可见行为与**产物字节零变化**——由冻结内容基线（逐条目路径 + 长度 + 内容哈希 → 聚合指纹）守住，而不是只对条目数/体积。
+  - 46 个转换任务全部改为原生实现，按角色分目录：`natives/{eraser,architect,surgeon,reverse}/`（每个任务一个模块）。
+  - 任务**元数据**（名字 / 类型 / 阶段）独立到 `task_registry.rs`（88 项），不再与实现闭包耦合；`tools/gen-task-registry.ps1` 校验它不被格式化改动。
+  - 引擎与调度移到 `arom/engine/`（版本映射 + 按阶段分桶），调度是标准 BFS（`VecDeque`）。
+  - 基岩互转移到 `bedrock_convert/`（`j2b` / `b2j` / `mapping` / `textures` / `ui` / `potions` / `metadata` / `shaders` / `skybox`）。
+  - **输出不再先物化到临时目录再重新打包**：Java 目标直接序列化成 zip。这同时消掉了"解压 → 转换 → 重新压缩"双份写盘。
+  - **`legacy-oracle` 对照与基线重生成能力已移除**：旧实现在本次重写中删除，`off`/`legacy` 两个对照配置不再存在（`Cargo.toml` 里从未落地的 `legacy-oracle` feature 已从注释中清理）。基线的**冻结值**仍由 `tools/arom-baseline.txt` + 指纹用例守住，但**无法再重新生成**。
+  - **测试数从 309 降到 237**（忽略用例 22 → 6）：消失的用例绝大多数是"拿旧引擎当对照"的 oracle 对照测试，旧实现删除后它们既无法编译也失去意义。留下的 6 个忽略用例是真实包级的端到端闸门（冻结指纹、绝对产物、Zip↔Dir 逐项一致等）。
+
+### Added
+
+- **性能档位（平衡 / 性能）**：见 `2.7.0` 段——本版把它的**执行语义修正为设计本意**：rayon 池按**线程预算**（CPU）建，并发**包数**由独立闸门限制。此前池大小取自"并发包数"，导致 24 核机器上单包只用 6 个线程、18 核闲置。日志新增 `rayon pool=` 便于确认。
+- **`--convert --fast`**：关闭 GUI sprite 手术，用于隔离该步骤耗时（默认完整转换）。
+- **管线相位计时**：`--report` 与日志新增 `pipeline phases: open / materialize / tasks / direct / harvest / tail / output / other`，`other = 总计 − 各相之和` 自校验。此前"调度开销"是把多个步骤混在一个残差里，会把优化引向错误目标。
+- **`docs/compose/spec/perf-verification.md`**：可复现的性能测量与验收规范，含各相位的含义、三条验收命令、**已证伪方向的实测数字**（避免重走），以及一个反复出现的陷阱：`PackView` 的类型化缓存都以 `!is_pending()` 为条件，而 `Tx` 的视图恒为 pending，因此**所有包级缓存对任务内部一律失效**。
+
+### Fixed
+
+- **性能回归（用户可感知）**：修复三处"绕过了缓存/重复劳动"的缺陷，三者合计把 debug 纯转换从 6.01s 降到约 3.5s：
+  - `Tx` 内的**图片解码无缓存**——同一张 PNG 在一次转换里最多被解码 **18 次**（262 次打开 / 仅 75 个不同路径，重复解码累计 1.35s，占全流程 23%）。
+  - `Tx` 内的**条目表每次从零重建**——`gui_surgeon` 一次运行里 20 次 `has_prefix` 各自遍历全部层重建整表（46 层下约 143ms/次）。
+  - **Zip 路径上无人读取的内容基线**仍被逐条维护（每次写入都要克隆字节 + SHA256），以及 `direct` 步骤的同类同步遗漏。
+- **`harvest` 相位的错误归属**：该相位在 Zip 路径上为 0，但先前会把"第二个 `cut_gui` + 延迟删除"的时间记到它名下，导致读数误导。
+- **外部计时陷阱的记录**：PowerShell `Start-Process -Wait` 会让每次测量虚增 **2.4–2.7s**（在 CLI 输出与文档中显式提示）。此前曾据此做过一次错误的取舍。
+- **`.gitignore` 的 `test*` / `thumb*` 规则**误吞源码目录（`src-tauri/src/natives/tests/`），已改为锚定根目录。
+- **`ConversionMaps` 静默覆盖**、**26.x 改写 `pack.mcmeta` 丢失顶层字段**（见 `2.6.0` 段）等既有修复在本版保持。
+
+### Removed
+
+- `src-tauri/src/hurray/`（旧引擎：`HurrayContext` / `TexturePool` / 注册表闭包）与 `src-tauri/src/converters/`（旧转换器树）。
+- `invoke_conversion.rs` 中的 88 个任务实现闭包——该文件现在**只做元数据登记**。
+- **基线重生成能力**与 `off` / `legacy` 对照配置（见上）。
+- 旧转换器完整快照保留在本地 `archive/legacy-converters/`（107 文件 / 16634 行），**不参与构建、不入版本控制**。
+
 ## [2.7.0] - 2026-10-03（BUILD 20055）
 
 > 本次发布主题：**无损提速 + 质量闸门**。真实包实测（`TapL 16x.zip`，3631 文件 / 18.41 MB / Java 1 → 26.3）

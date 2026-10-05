@@ -122,3 +122,9 @@ tools/store/*.png
 /docs/compose/spec/astray-arom-model.md
 /docs/compose/spec/astray.md
 /docs/compose/spec/HANDOVER-m3-final.md
+# ── 例外：这两份是**给用户的**文档，不是设计过程日志 ──
+# 它们被 024bf6d「stop tracking docs/」一并扫掉，导致 CHANGELOG 的引用变成死链。
+# 内容对 master 有价值：前者是 Editor Mode 工作台的唯一文档，后者是 2.4.0 发版说明。
+!docs/compose/spec/foray.md
+!docs/compose/releases/
+!docs/compose/releases/2.4.0.md
