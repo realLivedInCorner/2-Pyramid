@@ -2709,43 +2709,4 @@ mod tests {
         assert_equivalent(&off, &on);
     }
 
-    /// 真实包上的等价性（默认忽略）：
-    /// `AROM_REAL_PACK=<包> [AROM_TARGET=97] cargo test --lib mixed_run -- --ignored --nocapture`
-    ///
-    /// §9.125：唯一判据是「与旧管线 `legacy` 对照」⇒ 随 `legacy-oracle` 门控；
-    /// 同一份产物在默认构建里由 `real_pack_content_baseline_is_frozen` 用**冻结指纹**守住。
-    #[cfg(feature = "legacy-oracle")]
-    #[test]
-    #[ignore]
-    fn a_rom_owns_io_of_a_real_conversion_on_a_real_pack() {
-        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
-            println!("AROM_REAL_PACK 未设置，跳过");
-            return;
-        };
-        let input = PathBuf::from(&src);
-        assert!(input.is_file(), "不是文件：{}", input.display());
-        let target: u32 = std::env::var("AROM_TARGET")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(97);
-
-        // 源格式从包里读（L2 视图）
-        let source = {
-            let pack = Pack::open_zip(&input, &SafeLimits::preserving_current(), None)
-                .expect("open for source format");
-            pack.view()
-                .mcmeta()
-                .ok()
-                .and_then(|m| m.effective_format())
-                .unwrap_or(34)
-        };
-        println!("source format = {source}, target = {target}");
-
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let legacy = legacy_output(&input, tmp.path(), target, source);
-        let (mixed, report) = native_output(&input, tmp.path(), target, source);
-        let diff = assert_equivalent(&legacy, &mixed);
-        println!("mixed run = {report:?}");
-        println!("diff = {}", diff.summary());
-    }
 }

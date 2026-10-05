@@ -4462,12 +4462,12 @@ encode png `.../gui/sprites/title/realms.png`: Zero height not allowed
 
 | 判据 | 默认构建（无 feature） | `--features legacy-oracle` |
 |---|---|---|
-| `cargo test --lib` | **235 passed / 0 failed / 6 ignored** | **315 passed / 0 failed / 22 ignored** |
+| `cargo test --lib` | **235 passed / 0 failed / 6 ignored** | **316 passed / 0 failed / 21 ignored** |
 | `cargo check --bins` | 通过（57 警告） | 通过（83 警告） |
 | **冻结指纹** | **4018 条目 / `0x75bb3260e7f578a6`** ✅ | 同左 ✅ |
 | 绝对产物契约 | files=4018 bytes=19294735 ✅ | 同左 ✅ |
-| 相对闸门（`legacy`/`off`/`on`） | 不适用（旧实现已门控） | 21/22 通过（见下） |
-| `--ignored` | **6 passed** | 21 passed / 1 failed |
+| 相对闸门（`legacy`/`off`/`on`） | 不适用（旧实现已门控） | **21/21 通过**（§9.126 修好反向 chest 后） |
+| `--ignored` | **6 passed** | **21 passed** |
 | `--to bedrock`（真实包 CLI） | **成功 1 / 失败 0**（修复后）✅ | — |
 
 **忽略用例数从 22 降到 6 是刻意的**：默认构建里没有旧实现可对照，
@@ -4497,21 +4497,46 @@ cargo test --lib --features legacy-oracle
 
 #### 未验证 / 已知问题（如实记录）
 
-1. **`reverse_whole_pack_matches_the_old_pipeline` 预先就是红的**（**不是本轮引入**）。
-   在**纯净 `aeaecb2`**（另开 worktree + `archive/legacy-converters` 恢复源码）上实测：
+1. **`reverse_whole_pack_matches_the_old_pipeline` 曾长期红着——根因已定位并修复**（§9.126）。
+   **先更正 §9.125 里我写错的一处**：当时我写「`legacy`（第一对）本身就不确定」，
+   **那是错的**。逐对量过之后事实是：
 
-   ```
-   test result: FAILED. 21 passed; 1 failed
-   内容差异：entity/chest/{christmas,ender,normal,trapped}.png
-     像素不同：3746/16384、4288/16384、2084/16384、2072/16384
-   ```
+   | 对照 | 结果 |
+   |---|---|
+   | `legacy` vs `off` | **0 项不同**——两者本就是**同一个配置**（都是 `NativeSwitches::none()`），逐字节一致 |
+   | `legacy` vs `on` | **4 项不同**（全是 chest） |
+   | `off` vs `on` | 同样那 4 项 |
 
-   与本轮改动后的读数**逐字相同**。⇒ 反向整包链路里 `chest` 系贴图与旧实现有差距，
-   **在之前某轮就已如此**，只是**从未在提交状态跑过 `--ignored`**（每次只跑非 ignored 集）
-   才没被发现。**未修复**，也**未定位**到具体是哪个任务的移植误差；
-   `chest_region` 提取（§9.124）只覆盖正向的 `process_chest_folder`。
-   **建议单独一轮**：先 `AROM_BASELINE_DUMP` 出反向清单，再看是 `reverse_process_chest_folder`
-   还是 `reverse_*` 的哪一步（§9.125 的「逐步读数」工具可直接用）。
+   即红的其实是 `assert_equivalent(&legacy, &on)`（测试里排在第二条），**不是第一条**。
+   我先前从"两行 compare 输出"推断配对时**用局部证据推断了全局**——正是交接文档点名的那个坑。
+
+   **真正的根因**：反向任务 `reverse_process_chest_folder` 的原生实现**用错了共享助手**。
+   它调了 `crate::chest_region::swap_and_mirror`（**正向** `process_chest_folder` 用的那版），
+   而模块自己的文档注释写着「交换用**反向模块自己的** `swap_and_mirror`」——注释与代码不符。
+
+   两者差在**收尾用哪个 API**：
+
+   | | 交换 | 两处翻转的收尾 |
+   |---|---|---|
+   | `chest_region`（正向版） | `paste_region`（原样覆写） | `overlay`（**按 alpha 混合**） |
+   | `reverse/chest_folder`（反向版） | `paste_region` | **也是 `overlay`**，但**翻转用「重裁后的图」** |
+
+   实测定量（真实 `normal.png`，128×128）：
+   **16384 像素里 9776 个 `alpha=0`，其中 9491 个 RGB 非零**——
+   `overlay` 会把 `alpha=0` 的像素混成 `(0,0,0,0)`。单次交换即分叉：共享版 **1568** 像素、
+   错写收尾 **261/522** 像素。
+
+   **修法**：在 `pilots::chest_reverse` 内**逐句照抄**反向模块的语义（局部函数
+   `swap_and_mirror_reverse`，刻意不依赖 `converters`，因此默认构建也能用）。
+   期间我自己踩了一次坑并靠测试抓回：首版把两处翻转写成 `paste_region`（"看起来更一致"），
+   回归用例当场报 **261** 像素不一致 —— **照抄就得连"旧实现自己两个阶段不一致"一起照抄**。
+
+   **验收**：`--features legacy-oracle` 下该用例 **通过**；
+   逐对探针 `legacy vs on` / `off vs on` 由 4 项不同变为 **0 项**；
+   新增回归用例 `reverse_swap_matches_the_legacy_pixel_for_pixel`
+   （夹具颜色两两不同、alpha 只有 0/255 且 `alpha=0` 处 RGB 非零），
+   并**实测非空转**（把收尾改回 `paste_region` 即报红）。
+   冻结指纹不受影响（正向路径未动）：两态仍 `0x75bb3260e7f578a6`（4018 条目）。
 2. **`archive/legacy-converters/` 与 `tools/legacy-oracle/` 仍保留**：它们现在是
    `legacy-oracle` 的**唯一源码来源**（全新 clone 里旧树根本不存在），因此**不能删**——
    §9.124 收尾清单第 1 条的前提（「基线的重生成能力已由 feature 保留」）**尚未成立**：
