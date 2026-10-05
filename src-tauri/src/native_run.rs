@@ -365,7 +365,19 @@ where
     let pipeline_clock = std::time::Instant::now();
     let mut clock = pipeline_clock;
 
-    let mut pack = Pack::open_zip(input, &opts.limits, opts.blob_limit)?;
+    // **§9.145：输入可以是 zip，也可以是已解压的目录树。**
+    //
+    // 判据是文件类型而不是新参数：调用方本来就同时在用两种形态，类型判断可以避免
+    // 每个调用点都要多传一个"我这是目录"的布尔。`Pack::open_dir` 走 `DirSource`。
+    //
+    // **注意：生产入口目前仍传 zip**，因为实测"直接吃预检解压好的树"在本包上**更慢**
+    // （纯转换 0.44 → 0.63s），详见 `version_converter.rs` 里 §9.145 的实测记录。
+    // 这个分支仍有价值：单测与第三方调用方可以用目录形态，且 `DirSource` 有单测覆盖。
+    let mut pack = if input.is_dir() {
+        Pack::open_dir(input, &opts.limits, opts.blob_limit)?
+    } else {
+        Pack::open_zip(input, &opts.limits, opts.blob_limit)?
+    };
     phases.open_s = clock.elapsed().as_secs_f32();
     clock = std::time::Instant::now();
     // **§9.144：workdir 只在 `Output::Dir` 时才是真源。**

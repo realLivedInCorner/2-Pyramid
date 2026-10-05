@@ -803,7 +803,20 @@ pub fn process_zip_timed(
         source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
         staged_input = None;
     }
-    // 管线要读的输入：Bedrock 源走 b2j 产物的 zip，其余走原始输入
+    // 管线要读的输入：
+    // * Bedrock 源：b2j 已经把树转好，走那份 zip；
+    // * 其余：走**原始输入 zip**。
+    //
+    // **§9.145 试过并撤回**：让管线直接吃预检解压好的 `temp_dir` 那棵树（`DirSource`），
+    // 本意是省掉"把树重新打包成 zip 再读回"（`pack=0.8s`）。release 实测**更慢**：
+    //
+    //     走 zip（原样）      纯 0.44-0.45s  墙钟 4.08-4.67s
+    //     走目录（DirSource） 纯 0.63-0.64s  墙钟 4.25-4.89s
+    //
+    // 三次全部更慢，且 `open`+`materialize` 的涨幅超过省下的 `pack`。原因：`DirSource::open`
+    // 要 `walkdir` 扫全树建索引（`open` 0.03s → 0.08s），而 zip 的中央目录是一次顺序读；
+    // 并且预检刚写下的文件此时多在系统缓存里，直接读树反而每次都要经文件系统。
+    // `DirSource` 本身保留（已实现并有单测覆盖），只是这条路径上无收益。
     let converted_zip_path: Option<PathBuf> = staged_input
         .as_ref()
         .map(|dir| dir.path().join("converted.zip"));
