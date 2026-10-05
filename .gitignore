@@ -35,8 +35,7 @@ installer-app/src-tauri/gen/
 tools/*.cjs
 tools/*.js.bak
 
-# Local docs only (do not track)
-docs/
+# 设计文档与 specs **正常入库**；草稿见下方 docs/compose/_*/ 规则
 
 # compose scratch only（specs / releases 正常入库）
 docs/compose/_*/
