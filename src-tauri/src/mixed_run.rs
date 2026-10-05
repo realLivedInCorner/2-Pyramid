@@ -434,14 +434,21 @@ where
 
     // 注册表之外的直接步骤（GuiSurgeon sprite 手术）——生产管线在任务之后、
     // 清理之前执行它；漏掉它会整片丢失 sprite 产物（本步实测：真实包少了 3861 个文件）。
-    crate::invoke_conversion::run_direct_steps(
-        &ctx,
-        &mut pool,
-        workdir,
-        opts.target_version,
-        opts.run_gui_surgeon,
-    )
-    .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
+    //
+    // **§9.120（M3 ②-c）：改走 `Tx` 形态。** 原先调 `invoke_conversion::run_direct_steps`，它内部是
+    // `GuiSurgeon::execute_transformation`（旧磁盘实现）。现在调 `surgeon_cut_gui::run_in_workdir`，
+    // 它内部是 `gui_surgeon_tx::run`——与批次内的 `cut_gui` **同一份 `Tx` 实现**（§9.113）。
+    //
+    // 注意它**依然执行**（不是被 `cut_gui` 取代）：§9.90/§9.91 实测过，
+    // 批次内的 `cut_gui` 与批次后的这步**各自都是必需的**，删任何一个都会丢 sprite。
+    // 两者产出的 sprite 集合随后由延迟清理统一收拾（`run_in_workdir` 会把 20 项清理
+    // 登记到 `ctx`，而 `ctx` 正是本驱动收尾时执行清理所用的那个）。
+    //
+    // **保留旧实现的两个门槛**（Bedrock 中间态跳过 sprite 手术，避免干扰 j2b；目标 < 34 也跳过）：
+    if opts.run_gui_surgeon && opts.target_version >= 34 {
+        crate::pilots::surgeon_cut_gui::run_in_workdir(&ctx, workdir)
+            .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
+    }
     trace_step("after-direct-steps", &mut trace);
 
     // 旧任务的删除是**延迟清理**（`defer_remove_dir` 等），生产管线在
