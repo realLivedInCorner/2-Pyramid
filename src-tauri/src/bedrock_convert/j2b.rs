@@ -62,6 +62,13 @@ mod tests {
         fs::create_dir_all(root.join("assets/minecraft/blockstates")).unwrap();
         fs::write(tex.join("item/golden_apple.png"), b"g").unwrap();
         fs::write(tex.join("block/stone.png"), b"s").unwrap();
+        // **§9.127 回归**：映射表里有**恒等项**（`bamboo_block → bamboo_block`、
+        // `crimson_stem → crimson_stem`，见 `mapping.rs`）。它们的作用是声明"这个名字在
+        // 覆盖范围内"，不是要改名。修 `rename_stems_in_dir` 之前，这类文件会让
+        // 「先删目标（= 源自身）、再 rename」把文件删掉并报 `NotFound`，**整条 j2b 中止**。
+        // 本用例此前只放了 `stone.png`（无映射），所以三年没碰到这个分支。
+        fs::write(tex.join("block/bamboo_block.png"), b"bb").unwrap();
+        fs::write(tex.join("block/crimson_stem.png"), b"cs").unwrap();
         fs::write(tex.join("gui/icons.png"), b"i").unwrap();
         fs::write(tex.join("models/armor/iron_layer_1.png"), b"a").unwrap();
         fs::write(root.join("pack.png"), b"p").unwrap();
@@ -84,6 +91,15 @@ mod tests {
         assert!(!root.join("pack.mcmeta").exists());
         assert!(root.join("textures/items/apple_golden.png").exists());
         assert!(root.join("textures/blocks/stone.png").exists());
+        // 恒等映射的文件必须**原样还在**（此前会被删掉并中止整条转换）
+        assert!(
+            root.join("textures/blocks/bamboo_block.png").exists(),
+            "恒等映射的 bamboo_block.png 被删掉了 —— rename_stems_in_dir 的 guard 失效"
+        );
+        assert!(
+            root.join("textures/blocks/crimson_stem.png").exists(),
+            "恒等映射的 crimson_stem.png 被删掉了 —— rename_stems_in_dir 的 guard 失效"
+        );
         assert!(root.join("textures/ui/icons.png").exists());
         assert!(!root.join("textures/container").exists(), "textures/container 应并入 ui");
         assert!(root.join("textures/gui/icons.png").exists(), "Bedrock 需要 gui/icons.png");

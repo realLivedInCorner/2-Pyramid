@@ -61,6 +61,10 @@ mod tests {
         fs::create_dir_all(root.join("attachables")).unwrap();
         fs::write(root.join("textures/items/apple_golden.png"), b"g").unwrap();
         fs::write(root.join("textures/blocks/stone.png"), b"s").unwrap();
+        // **§9.127 回归**：`bedrock_to_java_stem` 里同样有**恒等项**（`bamboo_block` 等）。
+        // 修 `rename_stems_in_dir` 之前，"block 反向改名"这一步会因恒等项把源文件删掉并报
+        // `NotFound`，**整条 b2j 中止**（纯净 aeaecb2 上实测：0 产物）。
+        fs::write(root.join("textures/blocks/bamboo_block.png"), b"bb").unwrap();
         fs::write(root.join("textures/ui/widgets.png"), b"w").unwrap();
         fs::write(root.join("attachables/x.json"), b"{}").unwrap();
 
@@ -71,6 +75,11 @@ mod tests {
         assert!(!root.join("manifest.json").exists());
         assert!(root.join("assets/minecraft/textures/item/golden_apple.png").exists());
         assert!(root.join("assets/minecraft/textures/block/stone.png").exists());
+        // 恒等映射的文件必须**原样还在**（此前会被删掉并中止整条转换）
+        assert!(
+            root.join("assets/minecraft/textures/block/bamboo_block.png").exists(),
+            "恒等映射的 bamboo_block.png 在 b2j 里被删掉了 —— rename_stems_in_dir 的 guard 失效"
+        );
         assert!(root.join("assets/minecraft/textures/gui/container/widgets.png").exists());
         assert!(!root.join("attachables").exists());
         let mc: serde_json::Value =
