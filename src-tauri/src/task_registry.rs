@@ -10,7 +10,8 @@
 //!
 //! 生成：`pwsh tools/gen-task-registry.ps1`（从 `invoke_conversion.rs` 机械提取）。
 
-use crate::hurray::scheduler::{TaskTier, TaskType};
+use crate::arom::Tier;
+use crate::hurray::scheduler::TaskType;
 
 /// 一个任务的名字、并发类型与阶段。
 ///
@@ -19,99 +20,99 @@ use crate::hurray::scheduler::{TaskTier, TaskType};
 pub struct TaskMeta {
     pub name: &'static str,
     pub task_type: TaskType,
-    pub tier: TaskTier,
+    pub tier: Tier,
 }
 
 /// 88 个任务的元数据，**顺序与旧注册表逐字一致**（勿排序、勿插入）。
 pub const REGISTRY: &[TaskMeta] = &[
-    TaskMeta { name: "rename_blocks_items", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "convert_animated_textures", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "delete_blockstates_models", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "delete_horse_folder", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "delete_enchanted_item_glint", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "delete_shaders_folder", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "delete_font_folder", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "process_chest_folder", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "rename_mcpatcher_to_optifine", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_rename_blocks_items", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_process_chest_folder", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "generate_tipped_arrow_images", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_boat", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_potion_lingering", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_shulker_box_ui", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_furnace", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_fish_bucket", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_crossbow", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_netherite_block", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_netherite_ingot", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_netherite_tools", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_netherite_armor_models", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_copper_ingot", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_copper_block", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_copper_tools", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_copper_armor_models", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_snow_bucket", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_smithing_ui", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_redwood_cherry_bamboo_planks", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_pale_planks", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_poplar_planks", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "generate_tricky_trials_breeze", task_type: TaskType::Parallel, tier: TaskTier::Architect },
-    TaskMeta { name: "fix_clock_compass", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_brewing_stand_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_particles", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_sign", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_sign_entities", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_ui_creative", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_ui_sub_hand", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_ui_survival", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_armor_models", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_horse_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix2_horse_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_machinery_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_tabs", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_slider", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_smithing2_villager2_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "overlay_icons", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "cut_gui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_armor_models", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_brewing_stand_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_clock_compass", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_particles", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_ui_creative", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_ui_survival", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_generate_boat", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_potion_lingering", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_shulker_box_ui", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_furnace", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_netherite_block", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_netherite_ingot", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_netherite_tools", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_netherite_armor_models", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_copper_ingot", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_copper_block", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_copper_tools", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_copper_armor_models", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_smithing_ui", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_crossbow", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_fish_bucket", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_snow_bucket", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_tipped_arrow_images", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_redwood_cherry_bamboo_planks", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_pale_planks", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_poplar_planks", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_generate_tricky_trials_breeze", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_rename_mcpatcher_to_optifine", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_fix_sign", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_fix_sign_entities", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_fix_slider", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_fix_tabs", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_horse_ui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix2_horse_ui", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_fix_machinery_ui", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_fix_ui_sub_hand", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_fix_smithing2_villager2_ui", task_type: TaskType::Exclusive, tier: TaskTier::Eraser },
-    TaskMeta { name: "reverse_overlay_icons", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
-    TaskMeta { name: "reverse_cut_gui", task_type: TaskType::Hybrid, tier: TaskTier::Surgeon },
+    TaskMeta { name: "rename_blocks_items", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "convert_animated_textures", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "delete_blockstates_models", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "delete_horse_folder", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "delete_enchanted_item_glint", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "delete_shaders_folder", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "delete_font_folder", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "process_chest_folder", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "rename_mcpatcher_to_optifine", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_rename_blocks_items", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_process_chest_folder", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "generate_tipped_arrow_images", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_boat", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_potion_lingering", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_shulker_box_ui", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_furnace", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_fish_bucket", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_crossbow", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_netherite_block", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_netherite_ingot", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_netherite_tools", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_netherite_armor_models", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_copper_ingot", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_copper_block", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_copper_tools", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_copper_armor_models", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_snow_bucket", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_smithing_ui", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_redwood_cherry_bamboo_planks", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_pale_planks", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_poplar_planks", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "generate_tricky_trials_breeze", task_type: TaskType::Parallel, tier: Tier::Architect },
+    TaskMeta { name: "fix_clock_compass", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_brewing_stand_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_particles", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_sign", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_sign_entities", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_ui_creative", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_ui_sub_hand", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_ui_survival", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_armor_models", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_horse_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix2_horse_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_machinery_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_tabs", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_slider", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_smithing2_villager2_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "overlay_icons", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "cut_gui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_armor_models", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_brewing_stand_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_clock_compass", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_particles", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_ui_creative", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_ui_survival", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_generate_boat", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_potion_lingering", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_shulker_box_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_furnace", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_netherite_block", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_netherite_ingot", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_netherite_tools", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_netherite_armor_models", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_copper_ingot", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_copper_block", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_copper_tools", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_copper_armor_models", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_smithing_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_crossbow", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_fish_bucket", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_snow_bucket", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_tipped_arrow_images", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_redwood_cherry_bamboo_planks", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_pale_planks", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_poplar_planks", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_generate_tricky_trials_breeze", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_rename_mcpatcher_to_optifine", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_fix_sign", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_fix_sign_entities", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_fix_slider", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_fix_tabs", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_horse_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix2_horse_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_fix_machinery_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_fix_ui_sub_hand", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_fix_smithing2_villager2_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    TaskMeta { name: "reverse_overlay_icons", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    TaskMeta { name: "reverse_cut_gui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
 ];
 
 /// **不在** [`REGISTRY`] 里、但会出现在计划中的任务的阶段。
@@ -121,10 +122,10 @@ pub const REGISTRY: &[TaskMeta] = &[
 /// 但 `native_placements` 仍需要它们的阶段来决定放置侧（§9.52/§9.76）。
 /// **注意**：这张表只提供**查询兜底**，不改变任何注册条件（尤其不改变 `adapt_shaders` 开关）。
 pub const AUXILIARY: &[TaskMeta] = &[
-    TaskMeta { name: "adapt_java_shaders", task_type: TaskType::Exclusive, tier: TaskTier::Surgeon },
-    TaskMeta { name: "fix_alpha_layers_in_textures", task_type: TaskType::Exclusive, tier: TaskTier::Surgeon },
-    TaskMeta { name: "bedrock_java_to_bedrock", task_type: TaskType::Exclusive, tier: TaskTier::Surgeon },
-    TaskMeta { name: "bedrock_bedrock_to_java", task_type: TaskType::Exclusive, tier: TaskTier::Surgeon },
+    TaskMeta { name: "adapt_java_shaders", task_type: TaskType::Exclusive, tier: Tier::Surgeon },
+    TaskMeta { name: "fix_alpha_layers_in_textures", task_type: TaskType::Exclusive, tier: Tier::Surgeon },
+    TaskMeta { name: "bedrock_java_to_bedrock", task_type: TaskType::Exclusive, tier: Tier::Surgeon },
+    TaskMeta { name: "bedrock_bedrock_to_java", task_type: TaskType::Exclusive, tier: Tier::Surgeon },
 ];
 
 /// 名字 → 元数据（表很小，线性查找足够，且**不引入顺序以外的假设**）。
@@ -135,7 +136,7 @@ pub fn lookup(name: &str) -> Option<&'static TaskMeta> {
 /// 某个任务名登记的阶段：先查 [`REGISTRY`]，再查 [`AUXILIARY`]。
 ///
 /// `None` = 两张表都没登记。`Scheduler::task_tier` 在活注册表查不到时回落到这里。
-pub fn tier_of(name: &str) -> Option<TaskTier> {
+pub fn tier_of(name: &str) -> Option<Tier> {
     lookup(name)
         .or_else(|| AUXILIARY.iter().find(|m| m.name == name))
         .map(|m| m.tier)
@@ -144,7 +145,6 @@ pub fn tier_of(name: &str) -> Option<TaskTier> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hurray::scheduler::Scheduler;
     use std::collections::BTreeSet;
 
     /// **表形状守卫**（§9.125）：88 项、无重名，且三个阶段/三种并发类型都有实例。
@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(names.len(), 88, "出现重名：表里每个任务名必须唯一");
 
         // 三种阶段都必须有实例，否则「阶段」这个维度事实上没被覆盖
-        for tier in [TaskTier::Eraser, TaskTier::Architect, TaskTier::Surgeon] {
+        for tier in [Tier::Eraser, Tier::Architect, Tier::Surgeon] {
             assert!(
                 REGISTRY.iter().any(|m| m.tier == tier),
                 "没有 {tier:?} 级的任务，阶段维度失去覆盖"
@@ -184,19 +184,23 @@ mod tests {
         assert_eq!(tier_of("no_such_task_at_all"), None);
     }
 
-    /// **驱动真正读的那条路**（§9.125）：`Scheduler::task_tier` 在**空调度器**上
-    /// （= 默认构建里没有任何任务的实现被注册）也必须给出表里的阶段。
+    /// **驱动真正读的那条路**（§9.125 / §9.131）：`native_run` 用 `tier_of` 决定每个任务的
+    /// 放置侧，**没有任何任务实现被注册**（默认构建就是这样：旧闭包已随 §9.128 送走）
+    /// 也必须给出表里的阶段。
     ///
-    /// 这是「元数据是生产必需」这句话的可执行版本：若哪天有人把这张表从 `task_tier`
-    /// 的回落链里摘掉，本用例会红——而不是等到真实包产物分叉。
+    /// 这是「元数据是生产必需」这句话的可执行版本：若哪天有人让阶段改成从"已注册的实现"
+    /// 推导，本用例会红——而不是等到真实包产物分叉。
+    ///
+    /// §9.131 之前本用例走的是 `Scheduler::task_tier`（它在活注册表查不到时回落到本表）；
+    /// `TaskTier` 合并进 `Tier` 之后，驱动直接读本表，因此改成直接验证 `tier_of`——
+    /// **被测对象就是生产路径本身**，而不再是一条同义反复的回落链。
     #[test]
-    fn empty_scheduler_still_knows_the_tier() {
-        let scheduler = Scheduler::new();
+    fn tier_lookup_works_without_any_registered_implementation() {
         for m in REGISTRY.iter().chain(AUXILIARY.iter()) {
             assert_eq!(
-                scheduler.task_tier(m.name),
+                tier_of(m.name),
                 Some(m.tier),
-                "空调度器上查不到 `{}` 的阶段——回落链断了",
+                "查不到 `{}` 的阶段——元数据表不完整",
                 m.name
             );
         }

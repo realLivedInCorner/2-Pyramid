@@ -8,7 +8,7 @@
     pub fn decl() -> TaskDecl {
         let scope = ScopeSet::prefix(DIRS[0]).union(&ScopeSet::prefix(DIRS[1]));
         // 阶段与活注册表一致：`invoke_conversion.rs` 把 `convert_animated_textures`
-        // 登记为 `TaskType::Exclusive` / `TaskTier::Eraser`。
+        // 登记为 `TaskType::Exclusive` / `Tier::Eraser`。
         TaskDecl::new("convert_animated_textures", Tier::Eraser)
             .reads(scope.clone())
             .writes(scope)

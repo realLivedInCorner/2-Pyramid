@@ -31,7 +31,8 @@ pub mod ui;
 
 use std::path::Path;
 
-use crate::hurray::scheduler::{Scheduler, TaskTier, TaskType};
+use crate::arom::Tier;
+use crate::hurray::scheduler::{Scheduler, TaskType};
 
 pub use b2j::convert_bedrock_to_java;
 pub use j2b::convert_java_to_bedrock;
@@ -61,7 +62,7 @@ pub fn register_tasks(scheduler: &mut Scheduler, workdir: &Path, pack_name: &str
     scheduler.register_task(
         "bedrock_java_to_bedrock",
         TaskType::Exclusive,
-        TaskTier::Surgeon,
+        Tier::Surgeon,
         move || {
             // §9.93（M3）：包名是**只读构造期值**，此处由注册期捕获。
             convert_java_to_bedrock(&temp, &name_for_j2b).map_err(|e| e)
@@ -70,7 +71,7 @@ pub fn register_tasks(scheduler: &mut Scheduler, workdir: &Path, pack_name: &str
     scheduler.register_task(
         "bedrock_bedrock_to_java",
         TaskType::Exclusive,
-        TaskTier::Surgeon,
+        Tier::Surgeon,
         move || convert_bedrock_to_java(&workdir).map(|_| ()).map_err(|e| e),
     );
 }

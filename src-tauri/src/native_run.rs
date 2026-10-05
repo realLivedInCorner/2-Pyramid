@@ -28,10 +28,8 @@ use std::path::{Path, PathBuf};
 
 use crate::arom::pathview::{harvest, materialize};
 use crate::arom::serialize::{write_zip, SerializeOptions, SerializeStats};
-use crate::arom::task::TaskDecl;
+use crate::arom::task::{TaskDecl, Tier};
 use crate::arom::{AromError, Body, Layer, Materialized, Pack, SafeLimits, Slot};
-use crate::hurray::scheduler::Scheduler;
-use crate::natives::Outcome;
 
 /// 逐模块迁移开关（**编译期**：默认全关，行为与旧管线逐字一致）。
 ///
@@ -149,6 +147,8 @@ pub fn run_with_legacy_tasks<F>(
 where
     F: FnOnce(&Path) -> Result<(), String>,
 {
+    use crate::hurray::scheduler::Scheduler;
+
     ensure_empty_dir(workdir)?;
 
     let mut pack = Pack::open_zip(input, &opts.limits, opts.blob_limit)?;
@@ -214,7 +214,6 @@ fn dispatch_native_into_pack(
     workdir: &Path,
     baseline: &mut Materialized,
     report: &mut MixedRunReport,
-    scheduler: &Scheduler,
     name: &str,
     switches: &NativeSwitches,
     strict_scopes: bool,
@@ -226,13 +225,11 @@ fn dispatch_native_into_pack(
             .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
         (outcome, tx.into_layer())
     };
-    if let Some(live) = scheduler.task_tier(name) {
-        let live_str = match live {
-            crate::hurray::scheduler::TaskTier::Eraser => "eraser",
-            crate::hurray::scheduler::TaskTier::Architect => "architect",
-            crate::hurray::scheduler::TaskTier::Surgeon => "surgeon",
-            crate::hurray::scheduler::TaskTier::Closure => "closure",
-        };
+    // §9.131：阶段从 `task_registry`（A-ROM 的 `Tier`）取，不再经 `Scheduler::task_tier`。
+    // 两者本来就是同一份数据（`Scheduler::task_tier` 在活注册表查不到时回落到同一张表），
+    // 而驱动从不往自己的 scheduler 注册任务，因此那条路径一直就是回落分支。
+    if let Some(live) = crate::task_registry::tier_of(name) {
+        let live_str = live.as_str();
         if live_str != decl.tier.as_str() {
             return Err(AromError::internal(format!(
                 "native task `{label}` ({name}) declares tier `{}` but the live registry says `{live_str}`",
@@ -285,16 +282,7 @@ where
         materialize(&view, workdir)?
     };
 
-    let mut scheduler = Scheduler::new();
-    crate::invoke_conversion::register_tasks(
-        &mut scheduler,
-        input,
-        opts.target_version,
-        opts.source_version,
-        opts.run_gui_surgeon,
-        opts.fix_alpha_layers,
-        opts.adapt_shaders,
-    );
+    let scheduler = Scheduler::new();
     let plan = scheduler
         .plan(opts.source_version, opts.target_version)
         .map_err(|e| AromError::internal(format!("scheduler plan: {e}")))?;
@@ -349,7 +337,7 @@ where
     // **多 105 条** `textures/item/*`（`clock_00..63`、`acacia_boat.png` …）、
     // **少 6 条**原图（`clock.png`、`clock.png.mcmeta`、`compass.png`、`compass.png.mcmeta`、
     // `entity/equipment/humanoid{,_leggings}/copper.png`）。恢复前置后指纹回到冻结值。
-    let native_placements = native_placements(&plan, &opts.native, &scheduler);
+    let native_placements = native_placements(&plan, &opts.native);
     let early_natives: Vec<String> = plan
         .iter()
         .filter(|name| matches!(native_placements.get(*name), Some(Side::Early)))
@@ -367,7 +355,6 @@ where
             workdir,
             &mut baseline,
             &mut report,
-            &scheduler,
             name,
             &opts.native,
             opts.strict_scopes,
@@ -409,7 +396,6 @@ where
             workdir,
             &mut baseline,
             &mut report,
-            &scheduler,
             name,
             &opts.native,
             opts.strict_scopes,
@@ -527,35 +513,6 @@ where
     Ok(report)
 }
 
-/// **必须放在旧批次之前**的原生任务（显式名单，不许靠推断）。
-///
-/// 为什么需要名单而不是一条判据：旧批次不可拆分（§9.42），原生任务只能在「整批之前/之后」
-/// 二选一；而哪一侧正确取决于**它在计划里的槽位与后续旧任务的关系**，这一点无法只从阶段名
-/// 推出——同一阶段里两侧都有实例（实测，§9.52/§9.53）：
-///
-/// | 任务 | 正确侧 | 证据 |
-/// |---|---|---|
-/// | `generate_boat` | **后** | 提前则真实包立刻分叉：旧批次里的 `generate_boat` 随后在**已被改名**的 `boat.png` 上重跑，`acacia/birch/dark_oak/jungle_boat.png` 全部消失 |
-/// | `generate_potion_lingering` | **后** | 同一次实测（`lingering_potion.png` OnlyInB） |
-/// | `rename_blocks_items` | **后** | 它对旧批次改过的 426 个路径做**后置**改名，提前会改变旧任务读到的文件名 |
-/// | `generate_smithing_ui` | **前** | 计划顺序是 `generate_smithing_ui` → Surgeon 的 `fix_smithing2_villager2_ui`，后者会**重新派生并覆盖** `container/smithing.png`；放后阶段等于被它覆盖回去，`cut_gui` 切出的 4 个 sprite 随之分叉 |
-/// | `generate_{copper,netherite}_armor_models` | **前** | 旧任务 `fix_armor_models`（Surgeon）会把 `models/armor/{copper,netherite}_layer_*.png` **改名搬走**到 `entity/equipment/humanoid(_leggings)/`；放后阶段时源已被搬走 → 整任务跳过 → 新路径下 4 个文件消失（OnlyInA） |
-/// | `generate_poplar_planks` | **前** | 它的「优先 jungle、缺失回退 oak」判据依赖**当时**磁盘上还有哪些源；放后阶段时更早的删除类旧任务已经把 jungle 源搬走 → 单个 `item/poplar_sign.png` 走了 oak 回退链 → 132/256 像素不同（实测） |
-/// | `generate_tricky_trials_breeze` | **前** | 它的状态图标源 `mob_effect/{speed,jump_boost,absorption}.png` **是旧任务 `fix_ui_survival` 造出来的**；放后阶段时这三个源"凭空出现" → 多生成 `mob_effect/wind_charged.png`（OnlyInB，实测） |
-/// | ~~`fix_clock_compass`~~ | **后**（实测后从名单撤回） | 旧实现读 `textures/items/{clock,compass}.png`，但计划里 `rename_blocks_items`（阶段 3–4）**已经把它们改名到 `item/`**——所以它在生产管线里是**空操作**。提前到前阶段会让"源又存在了"，于是真的拆出 `clock_00..63.png`（实测 100 项差异）→ **必须留在后面**才能复刻这个空操作 |
-/// | `fix_horse_ui` | **前** | 它**原位改写** `gui/container/horse.png`，而该图随后被 GUI 切片链消费成 `gui/sprites/container/slot/*`；放后阶段会让 `fix2_horse_ui` 用**旧图切出的槽位**覆盖正确产物（实测 `llama_armor.png` 88/324、`saddle.png` 118/324 像素不同） |
-/// | `fix_ui_sub_hand` / `fix_ui_creative` | **前** | 同为「原位改写 GUI 图」，且计划槽位在阶段 1–2（最前）；放前阶段与生产顺序一致（`fix_slider` 读 `widgets.png`，两者区域不重叠但顺序仍应正确） |
-///
-/// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
-/// §9.101/§9.102：`cut_gui` 的名字。
-///
-/// 它的**实现是原生模块**（`natives::surgeon_cut_gui`，由注册闭包直接调用），但**配置上**
-/// 仍留在旧批次的 `(15,18)` 位置——§9.100 实测：把它挪出批次就少 3 个 sprite
-/// （`sprites/container/slot/{horse_armor,llama_armor,saddle}.png`），
-/// 因为它的输入 `gui/container/*.png` 在那些时刻状态不同（§9.50 的同一规律）。
-///
-/// 因此它既不属于 Tx 形态的两个阶段块，也不应算作「未迁移」——报告里单独处理。
-const CUT_GUI: &str = "cut_gui";
 
 const EARLY_NATIVES: [&str; 10] = [
     "generate_smithing_ui",
@@ -604,7 +561,6 @@ enum Side {
 fn native_placements(
     plan: &[String],
     switches: &NativeSwitches,
-    scheduler: &crate::hurray::scheduler::Scheduler,
 ) -> std::collections::HashMap<String, Side> {
     // **Eraser 级原生任务必须最先跑**——它们是删除/改名类，生产顺序里就排在最前（阶段 1–12 之前）。
     //
@@ -621,10 +577,7 @@ fn native_placements(
         if native_for(name, switches).is_none() {
             continue;
         }
-        let is_eraser = matches!(
-            scheduler.task_tier(name),
-            Some(crate::hurray::scheduler::TaskTier::Eraser)
-        );
+        let is_eraser = matches!(crate::task_registry::tier_of(name), Some(Tier::Eraser));
         let side = if is_eraser || EARLY_NATIVES.contains(&name.as_str()) {
             Side::Early
         } else {
@@ -1296,7 +1249,7 @@ mod tests {
         let plan = scheduler.plan(1, 97).expect("plan");
 
         // 只在本夹具能覆盖到这些任务时才断言（夹具的任务集合可能随版本映射变化）
-        let placements = native_placements(&plan, &NativeSwitches::all(), &scheduler);
+        let placements = native_placements(&plan, &NativeSwitches::all());
         if placements.is_empty() {
             println!("夹具计划里没有已派发的原生任务，跳过");
             return;
@@ -1329,10 +1282,8 @@ mod tests {
             if native_for(name, &NativeSwitches::all()).is_none() {
                 continue;
             }
-            let is_eraser = matches!(
-                scheduler.task_tier(name),
-                Some(crate::hurray::scheduler::TaskTier::Eraser)
-            );
+            // §9.131：与生产路径同源——驱动现在直接读 `task_registry`，不再经 `Scheduler`。
+            let is_eraser = matches!(crate::task_registry::tier_of(name), Some(Tier::Eraser));
             if is_eraser {
                 saw_eraser = true;
                 assert_eq!(

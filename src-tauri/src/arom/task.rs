@@ -9,15 +9,20 @@
 //! * 未迁移任务声明 [`ScopeSet::any`]（读写整包）→ 自动退化为串行，**兼容期不会悄悄并行**；
 //! * [`TaskDecl::check_write`] 供调试模式断言「写了自己没声明的路径」。
 //!
-//! 分层注意：本模块**不依赖**旧引擎（`hurray::*`）。阶段用 A-ROM 自己的 [`Tier`] 表达，
-//! 集成层负责把 `TaskTier` 映射进来。
+//! 分层注意：本模块**不依赖**旧引擎（`hurray::*`）。阶段用 A-ROM 自己的 [`Tier`] 表达。
+//!
+//! **§9.131**：旧引擎那份重复的阶段枚举 `TaskTier` 已删除，[`Tier`] 现在是唯一的阶段类型
+//! （`task_registry` / `native_run` / `bedrock_convert` 都用它），因此不再需要"集成层做映射"。
 
 use std::collections::BTreeSet;
 
 use super::error::AromError;
 
-/// 执行阶段。取值与现状 `TaskTier`（`hurray/scheduler.rs:19–25`）一一对应。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// 执行阶段。取值与原 `TaskTier`（`hurray/scheduler.rs`）一一对应。
+///
+/// **§9.131**：`TaskTier` 已删除，本类型成为唯一的阶段类型。为此补上了 `Hash`
+/// （原 `TaskTier` 有而本类型漏了——那正是同一概念写两遍的代价）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Tier {
     Eraser = 10,
     Architect = 20,

@@ -205,7 +205,7 @@ pub mod reverse_survival;
 /// 反向 `reverse_fix_armor_models`：把 `entity/equipment/humanoid(_leggings)/*.png` 改名回
 /// `models/armor/*_layer_{1,2}.png`（8+8 条，**覆盖**语义，与旧实现逐条对应）。
 ///
-/// 阶段是 **Surgeon**（活注册表：`TaskType::Hybrid` / `TaskTier::Surgeon`）——§9.40 的教训：
+/// 阶段是 **Surgeon**（注册表：`TaskType::Hybrid` / `Tier::Surgeon`）——§9.40 的教训：
 /// 声明错阶段会让它被放到 Eraser 段之前，从而被清理点的延迟删除一并带走。
 /// 它与仍为旧实现的 `adapt_java_shaders`（同属 Surgeon）在驱动里位置相同，
 /// 但两者作用路径不相交（armor 贴图 vs shaders）；安全性由反向整包对照实测。

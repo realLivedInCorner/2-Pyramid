@@ -1,3 +1,4 @@
+use crate::arom::Tier;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -14,21 +15,13 @@ pub enum TaskType {
     Hybrid,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub enum TaskTier {
-    Eraser = 10,
-    Architect = 20,
-    Surgeon = 30,
-    Closure = 40,
-}
-
 type TaskFn = Arc<dyn Fn() -> Result<(), String> + Send + Sync>;
 
 #[derive(Clone)]
 struct Task {
     name: Arc<str>,
     task_type: TaskType,
-    tier: TaskTier,
+    tier: Tier,
     task: TaskFn,
 }
 
@@ -139,7 +132,7 @@ impl Scheduler {
         }
     }
 
-    pub fn register_task<F>(&mut self, name: &str, task_type: TaskType, tier: TaskTier, task: F)
+    pub fn register_task<F>(&mut self, name: &str, task_type: TaskType, tier: Tier, task: F)
     where
         F: Fn() -> Result<(), String> + Send + Sync + 'static,
     {
@@ -313,21 +306,13 @@ impl Scheduler {
         Ok(self.get_tasks_for_path_with_rules(&path, target_version))
     }
 
-    /// 某个已注册任务的**阶段**（活注册表是阶段声明的唯一来源）。
-    ///
-    /// 供混合运行驱动校验：原生任务声明的阶段必须与这里一致——驱动目前把原生任务放在
-    /// 同一个前阶段，只有 Eraser 级的位置与生产一致，声明写错会静默改变执行顺序。
-    ///
-    /// **§9.125：活注册表查不到时回落到 [`crate::task_registry`]**（元数据表）。
-    /// 理由：默认构建里旧闭包被 `legacy-oracle` 门控，88 个任务的**实现**不存在，
-    /// 但**阶段**是生产必需的（`native_placements` 据此决定放置侧）。回落保证
-    /// 「驱动取阶段的数据源」在两种构建下都答得出来，且答案同源。
-    pub fn task_tier(&self, name: &str) -> Option<TaskTier> {
-        self.task_registry
-            .get(name)
-            .map(|task| task.tier)
-            .or_else(|| crate::task_registry::tier_of(name))
-    }
+    // §9.131：`Scheduler::task_tier` **已删除**。
+    //
+    // 它返回活注册表里的阶段，查不到时回落到 `crate::task_registry`（元数据表）。但驱动
+    // **从不往自己的 scheduler 注册任务**（§9.128 起旧闭包全没了），因此那条"活注册表"
+    // 分支恒不命中——**每一次调用都走在回落分支上**，等价于直接读元数据表。
+    // `TaskTier` 合并进 A-ROM 的 `Tier` 之后，驱动与测试都直接调
+    // `crate::task_registry::tier_of`，这条间接层就只剩"看起来有两个数据源"的误导。
 
     /// 按名字执行已注册的任务。
     ///
@@ -362,10 +347,10 @@ impl Scheduler {
 
         for task in tasks {
             match task.tier {
-                TaskTier::Eraser => eraser.push(task),
-                TaskTier::Architect => architect.push(task),
-                TaskTier::Surgeon => surgeon.push(task),
-                TaskTier::Closure => closure.push(task),
+                Tier::Eraser => eraser.push(task),
+                Tier::Architect => architect.push(task),
+                Tier::Surgeon => surgeon.push(task),
+                Tier::Closure => closure.push(task),
             }
         }
 
@@ -768,10 +753,10 @@ mod tests {
         let path_b = dir.path().join("b.txt");
         let (a, b) = (path_a.clone(), path_b.clone());
         let mut scheduler = Scheduler::new();
-        scheduler.register_task("task_a", TaskType::Parallel, TaskTier::Surgeon, move || {
+        scheduler.register_task("task_a", TaskType::Parallel, Tier::Surgeon, move || {
             std::fs::write(&a, b"a").map_err(|e| e.to_string())
         });
-        scheduler.register_task("task_b", TaskType::Parallel, TaskTier::Surgeon, move || {
+        scheduler.register_task("task_b", TaskType::Parallel, Tier::Surgeon, move || {
             std::fs::write(&b, b"b").map_err(|e| e.to_string())
         });
 

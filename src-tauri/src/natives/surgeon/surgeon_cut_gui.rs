@@ -7,7 +7,7 @@
     #[allow(dead_code)]
     pub fn decl() -> TaskDecl {
         // 阶段与活注册表一致：`invoke_conversion.rs` 把 `cut_gui` 登记为
-        // `TaskType::Hybrid` / `TaskTier::Surgeon`。
+        // `TaskType::Hybrid` / `Tier::Surgeon`。
         // 范围覆盖 gui 子树（读 `container/*.png`、写 `sprites/**`）。
         TaskDecl::new("cut_gui", Tier::Surgeon)
             .reads(ScopeSet::prefix("assets/minecraft/textures/gui"))
