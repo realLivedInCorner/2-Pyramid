@@ -94,3 +94,16 @@ tools/store/*.png
 /_*.png
 /_*.md
 /_*.json
+
+# ── 旧转换器：移出版本控制的参考实现（见 tools/legacy-oracle/README.md）──
+# M3 期间本地保留，作为验证对照；M3 收口后删除或归档。
+# 恢复：pwsh tools/legacy-oracle/restore.ps1
+src-tauri/src/converters/audio/
+src-tauri/src/converters/shaders/
+src-tauri/src/converters/reverse/*.rs
+src-tauri/src/converters/textures/*.rs
+src-tauri/src/converters/ui/*.rs
+!src-tauri/src/converters/ui/process_chest_folder.rs
+src-tauri/src/converters/blockstate_adapter.rs
+src-tauri/src/converters/main_converter.rs
+src-tauri/src/converters/ui/gui_surgeon.rs
