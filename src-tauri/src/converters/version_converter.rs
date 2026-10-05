@@ -296,9 +296,10 @@ fn read_pack_format(pack_meta_path: &Path) -> Result<u32, String> {
     let data: Value = serde_json::from_str(&content)
         .map_err(|e| format!("failed to parse {}: {}", pack_meta_path.display(), e))?;
 
-    let pack_value = data.get("pack").and_then(|p| p.get("pack_format"));
+    let pack = data.get("pack");
 
-    if let Some(value) = pack_value {
+    // ① 经典字段：`pack_format`（标量，或能被解析成数字的字符串）
+    if let Some(value) = pack.and_then(|p| p.get("pack_format")) {
         if let Some(num) = value.as_u64() {
             return Ok(num as u32);
         }
@@ -307,6 +308,35 @@ fn read_pack_format(pack_meta_path: &Path) -> Result<u32, String> {
                 return Ok(num);
             }
         }
+    }
+
+    // ② **现代 bundle 字段**：`min_format` / `max_format`（数组 `[主, 次]`）。
+    //
+    // §9.127：26.x 的 `pack.mcmeta` **不再写 `pack_format`**，
+    // 而 `bedrock_convert::write_pack_mcmeta` 正是这种写法（`{min_format:[97,0], max_format:[97,1]}`）。
+    // 修这里之前，本函数对这类文件**一律回落成 1** ⇒ b2j 明明把树转成了 format 97，
+    // 紧接着的复核却把它读回 1（实测日志：`OKAY java [pack.mcmeta format=97]` 之后一行就是
+    // `detected pack_format: 1`），随后管线按 "1 → 97" 跑成一次**多余的升级转换**。
+    //
+    // 取 `min_format[0]`（主版本）：它表示"这份包**至少**是哪个版本"，
+    // 与"基础层是哪个版本"同义；`max_format` 只说明它还兼容到哪。
+    let major_of = |key: &str| -> Option<u32> {
+        let v = pack.and_then(|p| p.get(key))?;
+        if let Some(n) = v.as_u64() {
+            return Some(n as u32);
+        }
+        if let Some(arr) = v.as_array() {
+            if let Some(first) = arr.first().and_then(|x| x.as_u64()) {
+                return Some(first as u32);
+            }
+        }
+        None
+    };
+    if let Some(major) = major_of("min_format") {
+        return Ok(major);
+    }
+    if let Some(major) = major_of("max_format") {
+        return Ok(major);
     }
 
     Ok(1)
@@ -720,6 +750,17 @@ pub fn process_zip_timed(
     let engine_start = std::time::Instant::now();
 
     let mut source_version: u32;
+    // **§9.127：b2j 预转换的结果必须成为管线的「输入」**，否则会被管线覆盖掉。
+    //
+    // 症状（实测）：Bedrock 源包转换后产物**就是输入本身**——1354 个条目、`manifest.json`、
+    // 没有 `pack.mcmeta`/`assets/`。原因：`run_native(…, Output::Dir(temp_dir))` 会**先清空
+    // `temp_dir`**，再从**它自己的输入**（`input_zip`，即原始 Bedrock 包）物化——
+    // 于是 b2j 辛苦产出的 Java 树被整棵丢掉，`source_version` 也随之读成 1。
+    //
+    // 修法：b2j 之后把转换好的树**打成临时 zip**，让管线以它为输入（`Input::Dir` 那套
+    // 在 `process_extracted_dir_only` 里已是成熟用法）。这样 `Output::Dir` 清空 `temp_dir`
+    // 后物化出来的是**转换后的**树，语义才自洽。
+    let staged_input: Option<tempfile::TempDir>;
     if crate::bedrock_convert::is_bedrock_resource_pack(temp_dir.path()) {
         log_info!("detected Bedrock resource pack source; running b2j first");
         // b2j 产出 Java 26.3（97）树
@@ -731,6 +772,14 @@ pub fn process_zip_timed(
                 source_version = v;
             }
         }
+        // 把已转换的树落成 zip，供管线当作输入
+        let staging = tempfile::Builder::new()
+            .prefix("2pyr_b2j_")
+            .tempdir()
+            .map_err(|e| format!("create b2j staging dir failed: {e}"))?;
+        let converted_zip = staging.path().join("converted.zip");
+        repack_resource_pack(&temp_dir_path, &converted_zip.to_string_lossy())?;
+        staged_input = Some(staging);
     } else {
         let pack_meta_path = normalize_pack_structure(temp_dir.path())
             .or_else(|| find_pack_mcmeta(temp_dir.path()))
@@ -739,7 +788,16 @@ pub fn process_zip_timed(
             log_warn!("pack.mcmeta not found, creating a new one at {}", pack_meta_path.display());
         }
         source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
+        staged_input = None;
     }
+    // 管线要读的输入：Bedrock 源走 b2j 产物的 zip，其余走原始输入
+    let converted_zip_path: Option<PathBuf> = staged_input
+        .as_ref()
+        .map(|dir| dir.path().join("converted.zip"));
+    let pipeline_input: &Path = match &converted_zip_path {
+        Some(p) => p.as_path(),
+        None => input_zip,
+    };
     log_info!("detected pack_format: {}", source_version);
 
     // 结构分析（只读、只记录，不改变本次转换行为）：
@@ -810,7 +868,7 @@ pub fn process_zip_timed(
         // `run_native` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
         let java_target_for_tail = java_target;
         let _report = crate::native_run::run_native(
-            input_zip,
+            pipeline_input,
             _pipeline_scratch.path(),
             &crate::native_run::Output::Dir(temp_dir.path().to_path_buf()),
             &mopts,
@@ -1284,5 +1342,61 @@ mod tests {
 
         assert_eq!(out["pack"]["pack_format"], 15);
         assert!(out.get("filter").is_some(), "顶层 filter 被丢弃");
+    }
+
+    /// **§9.127 回归**：26.x 的 `pack.mcmeta` **不写 `pack_format`**，只写
+    /// `min_format` / `max_format`（数组 `[主, 次]`）。`read_pack_format` 曾经只认前者、
+    /// 其余一律回落成 `1`——于是 b2j 刚把树转成 format 97，紧接着的复核就读成 1
+    /// （实测日志：`OKAY java [pack.mcmeta format=97]` 的下一行就是 `detected pack_format: 1`），
+    /// 管线因此按 "1 → 97" 多跑一次升级转换。
+    #[test]
+    fn test_read_pack_format_understands_min_max_format() {
+        let temp = tempfile::tempdir().expect("tempdir");
+
+        // ① 现代写法：只有 min/max_format（= `bedrock_convert::write_pack_mcmeta` 的产物形状）
+        let modern = temp.path().join("modern.json");
+        fs::write(
+            &modern,
+            r#"{"pack":{"description":"x","min_format":[97,0],"max_format":[97,1]}}"#,
+        )
+        .expect("write");
+        assert_eq!(
+            read_pack_format(&modern).expect("read modern"),
+            97,
+            "min_format 的主版本必须被读到（此前回落成 1）"
+        );
+
+        // ② 经典写法优先：同时存在时以 pack_format 为准
+        let both = temp.path().join("both.json");
+        fs::write(
+            &both,
+            r#"{"pack":{"pack_format":34,"min_format":[97,0],"max_format":[97,1]}}"#,
+        )
+        .expect("write");
+        assert_eq!(
+            read_pack_format(&both).expect("read both"),
+            34,
+            "pack_format 存在时必须优先用它"
+        );
+
+        // ③ 只有 max_format 时退而求其次
+        let only_max = temp.path().join("max.json");
+        fs::write(&only_max, r#"{"pack":{"max_format":[46,0]}}"#).expect("write");
+        assert_eq!(read_pack_format(&only_max).expect("read max"), 46);
+
+        // ④ 真什么都没有时才回落 1（保持原兜底语义）
+        let none = temp.path().join("none.json");
+        fs::write(&none, r#"{"pack":{"description":"x"}}"#).expect("write");
+        assert_eq!(read_pack_format(&none).expect("read none"), 1);
+
+        // ⑤ 与 write_pack_format 往返：97 写出去、读回来仍是 97
+        let rt = temp.path().join("rt.json");
+        fs::write(&rt, r#"{"pack":{"pack_format":34,"description":"x"}}"#).expect("write");
+        write_pack_format(&rt, 97).expect("write_pack_format");
+        assert_eq!(
+            read_pack_format(&rt).expect("read rt"),
+            97,
+            "write_pack_format(97) 的产物必须能被读回 97"
+        );
     }
 }
