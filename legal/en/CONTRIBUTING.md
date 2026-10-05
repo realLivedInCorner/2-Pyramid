@@ -35,7 +35,12 @@ Requires: Node.js, Rust stable, Windows (Windows desktop is the only officially 
 
 - Run `cargo fmt` (or match nearby style if no rustfmt config is enforced)
 - Prefer passing `cargo clippy`; avoid new `unwrap()` on non-test paths
-- Put conversion logic under `src-tauri/src/converters/` domain modules (`ui/` / `textures/` / `reverse/`, etc.) and register it on the Scheduler—**do not** put business logic in `invoke_conversion.rs`
+- Put conversion logic under `src-tauri/src/natives/` (grouped by role: `eraser/` / `architect/` /
+  `surgeon/`), one module per task; the engine and scheduler live in `src-tauri/src/arom/`
+  (`engine/scheduler.rs` plans and buckets by tier)
+- Task **metadata** (name / type / tier) is registered in `src-tauri/src/task_registry.rs`; after
+  changing it run `pwsh tools/gen-task-registry.ps1` to verify—**do not** put business logic in
+  `invoke_conversion.rs` (it now only registers metadata and contains no task implementations)
 - Add `#[cfg(test)]` tests when changing image or path logic
 
 ### Frontend / Vue

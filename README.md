@@ -87,7 +87,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `npm run betabuild` | Beta 渠道构建（输出 `-beta.{BUILD}.exe`，与正式版可并存） |
 | `npm run buildrelease:nobump` / `npm run betabuild:nobump` | 同上但不递增 BUILD 构建号 |
 | `npm run test` / `npm run test:offline` | 运行 Rust 单测（`test:offline` 强制离线） |
-| `npm run buildrelease:noinstaller` | 只构建主程序，跳过安装器（更快） |
+| `npm run buildrelease:noinstaller` | 跳过自研安装器 EXE；**但默认仍会为 MSIX 再编译一次**（`--features store`）并打包，所以想真正只构建主程序需同时跳过 MSIX：`python tools/build_release.py --skip-installer --skip-msix` |
 | `python tools/build_release.py --skip-msix` / `--sign-msix` | 跳过 MSIX / 签名 MSIX（sideload 测试） |
 | `npm run bump:build:show` / `bump:build:set` | 查看 / 手动设置 BUILD 构建号 |
 
@@ -160,7 +160,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 | 命令 | 作用 |
 |---|---|
-| `2-pyramid.exe --convert <包\|目录> [--to 26.3] [--out <目录>] [--report <报告.json>]` | 跑**完整转换管线**并输出结构化报告：结构分析 + 纯转换/总时间（含 IO 分解）+ 逐任务耗时 + 体积变化。目录会递归处理其中所有 `.zip`/`.mcpack`。 |
+| `2-pyramid.exe --convert <包\|目录> [--to 26.3] [--out <目录>] [--report <报告.json>] [--fast]` | 跑**完整转换管线**并输出结构化报告：结构分析 + 纯转换/总时间（含 IO 分解）+ 逐任务耗时 + 体积变化。目录会递归处理其中所有 `.zip`/`.mcpack`。`--fast` 关闭 GUI sprite 手术（`run_gui_surgeon`），用于隔离"手术"那部分的耗时。 |
 | `2-pyramid.exe --analyze <包\|目录>` | 只读**结构分析**：官方分层（overlays）、`supported_formats` 区间、非标准版本折叠目录、一包多根，含每层文件数与覆盖计数。 |
 | `2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <报告>]` | **质量闸门**：PNG 像素级、JSON 语义级、其余字节级比对；默认允许"像素相同仅编码不同"，`--strict` 要求字节一致。退出码 0/1，可用于提速改动的回归验证。 |
 
@@ -210,7 +210,15 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   ├── overlay/               Overlay 模板（模型 / shader / lang）
 │   └── tauri.conf.json
 ├── installer-app/             自研安装器项目（内嵌 payload.zip，HKCU 注册表）
-├── tools/                     发布流水线 / 构建号 / Logo 生成
+├── tools/                     构建与发布工具（见下）
+│   ├── build_release.py       发布流水线（版本校验 / 安装器 / MSIX / .sha256）
+│   ├── set_version.py         版本号 10 处统一设置与 --check 守门
+│   ├── convert-report.bat/.ps1 拖放即转换的启动器与逻辑
+│   ├── benchmark/             性能基准页（单文件 HTML，零依赖）
+│   ├── release/  store/       发布清单 / 商店提交文案
+│   ├── msi/  msix/            MSI 与 MSIX 打包资源与包身份
+│   ├── gen-task-registry.ps1  校验 task_registry 的 88 项元数据不被格式化改动
+│   └── arom-baseline.txt      冻结内容基线的逐条目清单（4018 行）
 ├── BUILD                      构建号（release 编译自动递增）
 ├── CHANGELOG.md               更新日志
 └── release/                   构建产物（已 gitignore）
@@ -358,7 +366,15 @@ The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**, built 
 │   ├── overlay/               Overlay templates
 │   └── tauri.conf.json
 ├── installer-app/             Self-owned installer (embeds payload.zip)
-├── tools/                     Release pipeline / build number / logo generation
+├── tools/                     Build & release tooling (see below)
+│   ├── build_release.py       Release pipeline (version check / installer / MSIX / .sha256)
+│   ├── set_version.py         Sets all 10 version sites; `--check` gate
+│   ├── convert-report.bat/.ps1 Drag-and-drop convert launcher and its logic
+│   ├── benchmark/             Perf baseline page (single-file HTML, zero deps)
+│   ├── release/  store/       Release checklist / Store listing copy
+│   ├── msi/  msix/            MSI & MSIX packaging resources and package identity
+│   ├── gen-task-registry.ps1  Guards the 88 registry entries against format churn
+│   └── arom-baseline.txt      Per-entry list of the frozen content baseline (4018 lines)
 ├── BUILD                      Build number (auto-incremented on release builds)
 ├── CHANGELOG.md               Changelog
 ├── legal/                     EULA / Privacy / Disclaimer / Notices / Security / Contributing

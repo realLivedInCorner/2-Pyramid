@@ -37,7 +37,7 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 
 - Converting **arbitrary** user zip/packs parses many PNG / JSON / text files; bad input may be slow or fail; pack code is generally not executed
 - Shader work rewrites GLSL sources and **does not** compile untrusted binaries on your GPU
-- Installers from unofficial channels may bypass the SHA chain; trust only GitHub Releases and documented mirrors
+- Installers from unofficial channels may bypass the SHA chain; trust only this repository's GitHub Releases
 
 ## 5. Credit
 
