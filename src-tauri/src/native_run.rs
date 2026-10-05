@@ -185,29 +185,6 @@ fn dispatch_native_into_pack(
             .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
         (outcome, tx.into_layer())
     };
-    // §9.131：阶段从 `task_registry`（A-ROM 的 `Tier`）取，不再经 `Scheduler::task_tier`。
-    // 两者本来就是同一份数据（`Scheduler::task_tier` 在活注册表查不到时回落到同一张表），
-    // 而驱动从不往自己的 scheduler 注册任务，因此那条路径一直就是回落分支。
-    if let Some(live) = crate::task_registry::tier_of(name) {
-        let live_str = live.as_str();
-        if live_str != decl.tier.as_str() {
-            return Err(AromError::internal(format!(
-                "native task `{label}` ({name}) declares tier `{}` but the live registry says `{live_str}`",
-                decl.tier.as_str()
-            )));
-        }
-    }
-    let violations = scope_violations(&decl, &layer);
-    if !violations.is_empty() {
-        if strict_scopes {
-            return Err(AromError::internal(format!(
-                "native task `{label}` ({name}) wrote outside its declared scope: {:?} (declared writes: {})",
-                violations,
-                decl.writes.describe()
-            )));
-        }
-        report.undeclared.extend(violations);
-    }
     apply_layer_to_workdir(pack, workdir, &layer)?;
     check_layer_materialized(pack, workdir, &layer, name)?;
     sync_baseline_with_layer(pack, &layer, baseline)?;
@@ -220,6 +197,102 @@ fn dispatch_native_into_pack(
         started.elapsed(),
         false,
     );
+    finish_dispatch(report, name, outcome)
+}
+
+/// **§9.140：只跑任务体、产出层**——供并行批次使用。
+///
+/// 与 [`dispatch_native_into_pack`] 的区别：它**不碰** workdir / 基线 / pack 的提交，
+/// 因此只需 `&Pack`，可以在同一波次里被多个任务**并发**调用（`Tx` 本就为此设计，
+/// 见 `arom::layer` 的 `into_layer` 文档）。作用域契约检查也在这一步完成——
+/// 它只读层与声明，不依赖任何可变状态。
+fn build_layer_for_task(
+    pack: &Pack,
+    name: &str,
+    switches: &NativeSwitches,
+    strict_scopes: bool,
+) -> Result<(crate::natives::Outcome, Layer, bool), AromError> {
+    let (label, decl, run) = native_for(name, switches).expect("dispatched from the plan");
+    let (outcome, layer) = {
+        let mut tx = pack.tx(name);
+        let outcome = run(&mut tx)
+            .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
+        (outcome, tx.into_layer())
+    };
+    // §9.131：阶段核对（与串行路径同一套判据）
+    if let Some(live) = crate::task_registry::tier_of(name) {
+        if live.as_str() != decl.tier.as_str() {
+            return Err(AromError::internal(format!(
+                "native task `{label}` ({name}) declares tier `{}` but the live registry says `{}`",
+                decl.tier.as_str(),
+                live.as_str()
+            )));
+        }
+    }
+    let violations = scope_violations(&decl, &layer);
+    if !violations.is_empty() && strict_scopes {
+        return Err(AromError::internal(format!(
+            "native task `{label}` ({name}) wrote outside its declared scope: {:?} (declared writes: {})",
+            violations,
+            decl.writes.describe()
+        )));
+    }
+    // **打点不在这里做。** 并行批次的任务体是并发跑的，这里记的是"墙钟占用"而非该任务
+    // 的真实成本；收尾（落盘/校验/基线/提交）由 `apply_parallel_layers` 串行完成并**统一打点**
+    // 一次。若这里也记一次，同一任务会出现两条记录（实测 46 个任务被记成 61 条），
+    // 让 `task profile` 失去解释力。
+    Ok((outcome, layer, violations.is_empty()))
+}
+
+/// 把一批**已算好的层**按给定顺序落盘并提交（并行批次结束后调用）。
+///
+/// 顺序是计划顺序：并行只发生在"算层"阶段，**提交仍然串行且确定**，
+/// 这样产物与逐任务串行执行完全一致。
+///
+/// **打点口径**：这里记**整批**一条（名字形如 `<tier> 并行批 N 项`），而不是逐任务记。
+/// 原因是并行批的"算层"是并发墙钟、落盘是串行墙钟，两者无法干净地拆到单个任务名下；
+/// 逐任务记会把同一批的时间重复计入每个任务，让 `task profile` 求和**超过**流水线总时长
+/// （实测曾把 46 个任务记成 61 条）。整批一条既准确又可解释。
+/// 逐任务成本仍可从 `--report` 的 profile 与冻结指纹的对比中间接验证。
+fn apply_parallel_layers(
+    pack: &mut Pack,
+    workdir: &Path,
+    baseline: &mut Materialized,
+    report: &mut MixedRunReport,
+    batches: Vec<(String, crate::natives::Outcome, Layer, Vec<String>)>,
+    tier_name: &'static str,
+    batch_started: std::time::Instant,
+) -> Result<(), AromError> {
+    let n = batches.len();
+    for (name, outcome, layer, violations) in batches {
+        report.undeclared.extend(violations);
+        apply_layer_to_workdir(pack, workdir, &layer)?;
+        check_layer_materialized(pack, workdir, &layer, &name)?;
+        sync_baseline_with_layer(pack, &layer, baseline)?;
+        pack.commit(layer);
+        finish_dispatch(report, &name, outcome)?;
+    }
+    if n > 0 {
+        crate::arom::engine::scheduler::record_task_time(
+            &format!("{tier_name} 并行批（{n} 项，含落盘）"),
+            tier_name,
+            batch_started.elapsed(),
+            true,
+        );
+    }
+    Ok(())
+}
+
+/// 派发收尾：把 `Outcome` 的延迟删除与任务名记进报告（串行与并行两条路径共用），
+/// 并把 `Outcome` 交回调用方。
+fn finish_dispatch(
+    report: &mut MixedRunReport,
+    name: &str,
+    outcome: crate::natives::Outcome,
+) -> Result<crate::natives::Outcome, AromError> {
+    report
+        .deferred_removals
+        .extend(outcome.deferred_removals.iter().cloned());
     report.native_tasks += 1;
     report.native_names.push(name.to_string());
     Ok(outcome)
@@ -347,31 +420,121 @@ where
     // （前置那一批已在 ① 跑过，这里跳过）。
     //
     // 判据是冻结指纹（§9.129 实测：4018 条目 / `0x75bb3260e7f578a6`）。
-    for name in &plan {
-        if early_natives.contains(name) {
-            continue;
-        }
-        // 契约检查：计划里的每个名字都必须有原生实现。计划表由 `task_registry` 驱动，
-        // 若它列出一个没有实现的名字，说明"未迁移"状态回归了——必须显式失败而不是跳过。
+    //
+    // **§9.140：恢复并行（按阶段分批）。**
+    //
+    // 旧引擎在同一 tier 内把 `TaskType::Parallel` 的任务用 `rayon` 并发跑，`Hybrid`/`Exclusive`
+    // 仍然串行（`engine/scheduler.rs` 的 `execute_parallel_capable_tier`：先并行批、后串行）。
+    // §9.129 改逐任务派发后这层并行**丢失**了，实测真实包 46 个任务体从 1.48s 涨到 3.48s。
+    //
+    // 这里按同一套语义恢复：`plan` 已按 tier 有序，因此连续切出「同 tier 段」，
+    // 段内再按类型分成并行批与串行批。
+    //
+    // **关键在于并行只作用于"算层"**：`Tx` 只持 `&Pack`（`into_layer` 的文档明说
+    // "同一波次的任务可以并发持事务"），因此批内任务可以并发产出各自的 `Layer`；
+    // 而**落盘与提交仍然串行、且顺序 = 计划顺序**，产物与逐任务串行执行一致。
+    // 判据同前：冻结指纹。
+    let plan_rest: Vec<String> = plan
+        .iter()
+        .filter(|n| !early_natives.contains(n))
+        .cloned()
+        .collect();
+
+    // 契约检查：计划里的每个名字都必须有原生实现。计划表由 `task_registry` 驱动，
+    // 若它列出一个没有实现的名字，说明"未迁移"状态回归了——必须显式失败而不是跳过。
+    for name in &plan_rest {
         if native_for(name, &opts.native).is_none() {
             return Err(AromError::internal(format!(
                 "plan lists task `{name}` but no native implementation is registered \
                  (legacy execution has been removed, §9.129)"
             )));
         }
-        let outcome = dispatch_native_into_pack(
-            &mut pack,
-            workdir,
-            &mut baseline,
-            &mut report,
-            name,
-            &opts.native,
-            opts.strict_scopes,
-        )?;
-        report
-            .deferred_removals
-            .extend(outcome.deferred_removals.iter().cloned());
-        trace_step(name, &mut trace);
+    }
+
+    // 切成「同 tier 段」——`plan` 按 tier 有序，因此只需比较相邻任务的 tier。
+    let mut tiers: Vec<(Tier, Vec<String>)> = Vec::new();
+    for name in plan_rest {
+        let tier = crate::task_registry::tier_of(&name).unwrap_or(Tier::Eraser);
+        match tiers.last_mut() {
+            Some((t, v)) if *t == tier => v.push(name),
+            _ => tiers.push((tier, vec![name])),
+        }
+    }
+
+    for (tier, names) in tiers {
+        // 段内分桶：`Parallel` 并发，其余串行；并行的先跑（与旧引擎一致）。
+        let (parallel, serial): (Vec<String>, Vec<String>) = names
+            .into_iter()
+            .partition(|n| {
+                matches!(
+                    crate::task_registry::lookup(n).map(|m| m.task_type),
+                    Some(crate::arom::engine::scheduler::TaskType::Parallel)
+                )
+            });
+
+        if !parallel.is_empty() {
+            let batch_started = std::time::Instant::now();
+            // 并发算层（只读 `&Pack`）
+            let built: Vec<Result<(String, crate::natives::Outcome, Layer, Vec<String>), AromError>> =
+                {
+                    use rayon::prelude::*;
+                    parallel
+                        .par_iter()
+                        .map(|name| {
+                            let (outcome, layer, clean) = build_layer_for_task(
+                                &pack,
+                                name,
+                                &opts.native,
+                                opts.strict_scopes,
+                            )?;
+                            let violations = if clean {
+                                Vec::new()
+                            } else {
+                                // 非严格模式：把越界写入记进报告（与串行路径同一语义）
+                                scope_violations(
+                                    &native_for(name, &opts.native).expect("checked above").1,
+                                    &layer,
+                                )
+                            };
+                            Ok((name.clone(), outcome, layer, violations))
+                        })
+                        .collect()
+                };
+            let mut batches = Vec::with_capacity(built.len());
+            for r in built {
+                batches.push(r?);
+            }
+            // 串行落盘 + 提交（顺序 = 计划顺序，即 `parallel` 的原有次序）
+            apply_parallel_layers(
+                &mut pack,
+                workdir,
+                &mut baseline,
+                &mut report,
+                batches,
+                tier.as_str(),
+                batch_started,
+            )?;
+            for name in &parallel {
+                trace_step(name, &mut trace);
+            }
+        }
+
+        for name in &serial {
+            let outcome = dispatch_native_into_pack(
+                &mut pack,
+                workdir,
+                &mut baseline,
+                &mut report,
+                name,
+                &opts.native,
+                opts.strict_scopes,
+            )?;
+            report
+                .deferred_removals
+                .extend(outcome.deferred_removals.iter().cloned());
+            trace_step(name, &mut trace);
+        }
+        let _ = tier;
     }
     report.legacy_tasks = 0;
 
@@ -1047,16 +1210,49 @@ fn sha256_hex(bytes: &[u8]) -> String {
 ///
 /// 逐条规则处理：`from` 是文件时按单条移动（旧实现里文件级改名很常见，早先这里漏了分支、
 /// 直接 `read_dir` 会 panic）；是目录时先深后浅移动，最后清掉空的源目录。
+///
+/// **§9.141：`Move` 且目标不存在时，整目录一次 `fs::rename`。**
+///
+/// 原实现把目录改名展开成**逐条目移动**：先 `collect_paths` 遍历整棵树、按深度排序，
+/// 再对每个文件调一次 `move_or_copy`（其中还各带一次 `create_dir_all`）。
+/// 真实包实测：`rename_mcpatcher_to_optifine`（mcpatcher → optifine，约 1600 个文件）
+/// **2.16s**——这是全流水线最贵的单步，而它在语义上只是**一次同卷目录改名**。
+///
+/// `Move` + 目标不存在 ⇒ 两者等价（含子目录结构），因此走快路径；
+/// 目标已存在时仍需逐条合并，故保留原路径。
 fn apply_renames_to_workdir(workdir: &Path, layer: &Layer) -> Result<(), AromError> {
     use crate::arom::RenameMode;
+
+    // 与 `apply_layer_to_workdir` 同样的目录缓存：逐条目路径下避免重复 `create_dir_all`。
+    let mut ensured: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::with_capacity(32);
+    let mut ensure_dir = |dir: &std::path::Path| -> Result<(), AromError> {
+        if ensured.insert(dir.to_path_buf()) {
+            std::fs::create_dir_all(dir)
+                .map_err(|e| AromError::io(format!("mkdir {}: {e}", dir.display())))?;
+        }
+        Ok(())
+    };
 
     for rule in layer.renames() {
         let from = workdir.join(&rule.from);
         if !from.exists() {
             continue;
         }
+        let to = workdir.join(&rule.to);
         if from.is_file() {
-            move_or_copy(&from, &workdir.join(&rule.to), rule.mode)?;
+            move_or_copy(&from, &to, rule.mode, &mut ensure_dir)?;
+            continue;
+        }
+
+        // 快路径：同卷整目录改名（目标不存在时与逐条目移动等价）。
+        if rule.mode == RenameMode::Move && !to.exists() {
+            if let Some(parent) = to.parent() {
+                ensure_dir(parent)?;
+            }
+            std::fs::rename(&from, &to).map_err(|e| {
+                AromError::io(format!("rename dir {}: {e}", from.display()))
+            })?;
             continue;
         }
 
@@ -1067,7 +1263,7 @@ fn apply_renames_to_workdir(workdir: &Path, layer: &Layer) -> Result<(), AromErr
             let rest = path
                 .strip_prefix(&from)
                 .map_err(|e| AromError::io(format!("strip {}: {e}", path.display())))?;
-            move_or_copy(&path, &workdir.join(&rule.to).join(rest), rule.mode)?;
+            move_or_copy(&path, &to.join(rest), rule.mode, &mut ensure_dir)?;
         }
         if rule.mode == RenameMode::Move && from.exists() {
             std::fs::remove_dir_all(&from)
@@ -1081,10 +1277,10 @@ fn move_or_copy(
     from: &Path,
     to: &Path,
     mode: crate::arom::RenameMode,
+    ensure_dir: &mut dyn FnMut(&std::path::Path) -> Result<(), AromError>,
 ) -> Result<(), AromError> {
     if let Some(parent) = to.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| AromError::io(format!("mkdir {}: {e}", parent.display())))?;
+        ensure_dir(parent)?;
     }
     if mode == crate::arom::RenameMode::Move {
         if to.exists() {

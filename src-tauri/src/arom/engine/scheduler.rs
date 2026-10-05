@@ -10,7 +10,8 @@ use rayon::prelude::*;
 use crate::arom::engine::error::{EngineError, EngineResult};
 use crate::{log_error, log_info, log_warn};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// 任务类型：`Parallel` 允许同阶段内并发，`Exclusive`/`Hybrid` 串行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskType {
     Parallel,
     Exclusive,
