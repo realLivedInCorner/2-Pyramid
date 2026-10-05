@@ -1,6 +1,6 @@
 # Disclaimer
 
-**Effective date:** 2026-10-01
+**Effective date:** 2026-10-06
 
 Please read this carefully before using 2-Pyramid. Installing or using the software means you have read the following. If you do not agree, stop using the official builds (you may still obtain the source under MIT and build it yourself).
 

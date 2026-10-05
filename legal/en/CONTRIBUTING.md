@@ -27,7 +27,7 @@ Common commands:
 | `npm run build` | Frontend build only |
 | `npm run buildrelease` | Full stable release build (bumps BUILD) |
 
-Requires: Node.js, Rust stable, Windows (Windows desktop is the only officially supported target today).
+Requires: Node.js, Rust stable, Python 3 (the release script `tools/build_release.py`), Windows (Windows desktop is the only officially supported target today).
 
 ## 3. Code standards
 

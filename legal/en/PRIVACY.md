@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** 2026-10-01  
+**Effective date:** 2026-10-06  
 **Product:** 2-Pyramid (Windows desktop app and first-party installer)
 
 2-Pyramid is designed as **fully local: no account, no telemetry**. This document describes what we do and do not collect.
@@ -50,7 +50,7 @@ Logs may include **file paths** and error messages for troubleshooting. **Both e
 
 Beyond update check/download (GitHub only), the software **does not send data to third parties by default**.
 
-**Sole exception: Foray AI analysis** (only if you enable it and configure a service): requests go to your **OpenAI-compatible** `baseURL`. They may include: directory tree and extension stats, `pack.mcmeta`, copies of JSON/shaders you select, and texture **summaries** (size / average color / histogram, **not pixels**), depending on your data tier. The API key is stored only in local config for authenticating to that service. That service’s privacy policy is set by its provider and is unrelated to the 2-Pyramid authors.
+**Sole exception: Foray AI analysis** (only if you enable it and configure a service): requests go to your **OpenAI-compatible** `baseURL`. They may include: **directory tree and extension stats (included from data tier 1, which is the default tier)**, `pack.mcmeta`, **copies** of the JSON (≤64 KB) / shaders (≤128 KB) you select, and texture **summaries** (size / average color / histogram, **not pixels**), depending on the data tier you choose; **tier 0 sends nothing and calls no external service**. The API key is stored only in the local config file (`~/.2pyr/foray-ai.json`) to authenticate to that service; **on Windows that file is stored as plain text readable by the current user, so do not keep a key there on a shared account**. That service’s privacy policy is set by its provider and is unrelated to the 2-Pyramid authors.
 
 ## 5. Share codes
 
@@ -79,7 +79,7 @@ This section covers the **GitHub repository**, not the installed application:
 
 ## 9. Install / uninstall (EXE / MSIX / silent)
 
-Silent install (`--silent`) uploads nothing extra. Uninstall removes program files; `~/.2pyr` and other user data are kept by default. The GitHub Releases exe installer and the Microsoft Store MSIX package behave the same: they only write the install directory (or package location) and uninstall registry entries on this machine.
+Silent install (`--silent`) uploads nothing extra. Uninstall removes program files; `~/.2pyr` and other user data are kept by default. The GitHub Releases exe installer and the Microsoft Store MSIX package write to the **same logical paths**, but under MSIX (a packaged app) Windows **redirects writes** to `%APPDATA%` / `%LOCALAPPDATA%` / `%TEMP%` into a **package-specific virtualised location**, so the files land somewhere different than with the exe build (and uninstall behaviour is governed by the Store terms).
 
 ---
 

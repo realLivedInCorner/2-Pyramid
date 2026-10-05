@@ -27,7 +27,7 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 | `npm run build` | 仅前端构建 |
 | `npm run buildrelease` | 正式版完整构建（会递增 BUILD） |
 
-依赖：Node.js、Rust stable、Windows（当前仅官方支持 Windows 桌面目标）。
+依赖：Node.js、Rust stable、Python 3（发布脚本 `tools/build_release.py`）、Windows（当前仅官方支持 Windows 桌面目标）。
 
 ## 3. 代码规范
 

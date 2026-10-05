@@ -1,6 +1,6 @@
 # Security Policy
 
-**Effective date:** 2026-10-01  
+**Effective date:** 2026-10-06  
 **Scope:** 2-Pyramid main app, first-party installer, and installers from official release channels.
 
 ---
