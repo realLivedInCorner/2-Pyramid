@@ -24,7 +24,7 @@
 //! 迁移期往后，本驱动会逐步把注册表里的任务换成原生实现（`arom::task::plan` 负责排序与并行），
 //! 未迁移的继续走适配层；编译期开关按模块控制（已裁决：D6 按模块）。
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::arom::pathview::{harvest, materialize};
 use crate::arom::serialize::{write_zip, SerializeOptions, SerializeStats};
@@ -184,6 +184,29 @@ where
     Ok(MixedRunReport { stats, ..report })
 }
 
+/// **产物去向**（§9.117）。
+///
+/// 存在的理由：生产入口（`version_converter::process_zip_timed`）在管线跑完之后**还要继续
+/// 改工作目录**（写 `pack.mcmeta` 的 `pack_format`、可选的 Bedrock 边任务），最后才重打包。
+/// 因此不能只给生产一个 zip —— 它需要的是**填好的工作目录**。
+///
+/// `Zip` 仍是默认形态（测试与 CLI 走它）；`Dir` 供生产入口使用，
+/// 让 A-ROM 的最终视图**直接物化回工作目录**，从而免掉一次 zip 往返。
+#[derive(Debug, Clone)]
+pub enum Output {
+    Zip(PathBuf),
+    Dir(PathBuf),
+}
+
+impl Output {
+    fn as_zip(&self) -> Option<&Path> {
+        match self {
+            Output::Zip(p) => Some(p.as_path()),
+            Output::Dir(_) => None,
+        }
+    }
+}
+
 /// **驱动 v2**：按 `Scheduler::plan` 的顺序逐任务执行——已迁移的走 A-ROM 原生实现，
 /// 未迁移的在 `workdir` 上跑旧闭包并 `harvest` 成层；两者交替时把原生写入同步回 workdir，
 /// 让「目录镜像」与「对象模型」始终一致。`tail` 用于收尾步骤（例如 `pack.mcmeta` 改写），
@@ -191,7 +214,7 @@ where
 pub fn run_mixed<F>(
     input: &Path,
     workdir: &Path,
-    output: &Path,
+    output: &Output,
     opts: &MixedRunOptions,
     tail: F,
 ) -> Result<MixedRunReport, AromError>
@@ -464,9 +487,20 @@ where
     pack.commit(harvested.layer);
 
     report.step_trace = trace;
-    report.stats = {
-        let view = pack.view();
-        write_zip(&pack, &view, output, &opts.serialize)?
+    report.stats = match output {
+        Output::Zip(path) => {
+            let view = pack.view();
+            write_zip(&pack, &view, path, &opts.serialize)?
+        }
+        Output::Dir(dir) => {
+            // §9.117：把 A-ROM 的最终视图**直接物化回目录**——生产入口拿到的就是
+            // 「跑完整条 A-ROM 管线之后的工作目录」，随后它照旧改 `pack.mcmeta` / 跑 Bedrock /
+            // 重打包。序列化统计（`SerializeStats`）是 zip 特有的，这里留默认值；
+            // 需要"产物规模"的判据请用 §9.91/§9.115 的内容契约（它们比这组统计更强）。
+            let view = pack.view();
+            materialize(&view, dir)?;
+            SerializeStats::default()
+        }
     };
     Ok(report)
 }
@@ -1387,7 +1421,7 @@ mod tests {
             step_trace: true,
             ..MixedRunOptions::default()
         };
-        let report = run_mixed(&input, &work, &out, &opts, |dir| {
+        let report = run_mixed(&input, &work, &Output::Zip(out.clone()), &opts, |dir| {
             let mcmeta = dir.join("pack.mcmeta");
             if mcmeta.exists() {
                 write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
@@ -2160,7 +2194,7 @@ mod tests {
             legacy_one_by_one,
             ..MixedRunOptions::default()
         };
-        let report = run_mixed(input, &work, &out, &opts, |dir| {
+        let report = run_mixed(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
             let mcmeta = dir.join("pack.mcmeta");
             if mcmeta.exists() {
                 write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
@@ -2381,6 +2415,75 @@ mod tests {
         }
         out.sort();
         out
+    }
+
+    /// **`Output::Dir` 与 `Output::Zip` 必须产出同一份内容**（默认忽略，§9.117）。
+    ///
+    /// 这是生产入口改道（②-b）的**前置判据**：生产要的不是 zip，而是
+    /// 「跑完整条 A-ROM 管线之后的**工作目录**」（它随后还要写 `pack.mcmeta`、跑 Bedrock、重打包）。
+    /// 因此必须先证明"物化回目录"与"序列化成 zip"两者内容一致——
+    /// 否则改道会在**每一次真实转换**上改变产物。
+    #[test]
+    #[ignore]
+    fn mixed_output_dir_matches_zip_on_a_real_pack() {
+        let Ok(src) = std::env::var("AROM_REAL_PACK") else {
+            println!("AROM_REAL_PACK 未设置，跳过");
+            return;
+        };
+        let input = PathBuf::from(&src);
+        assert!(input.is_file(), "不是文件：{}", input.display());
+        let target: u32 = std::env::var("AROM_TARGET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(97);
+        let source = {
+            let pack = Pack::open_zip(&input, &SafeLimits::preserving_current(), None)
+                .expect("open for source format");
+            pack.view()
+                .mcmeta()
+                .ok()
+                .and_then(|m| m.effective_format())
+                .unwrap_or(34)
+        };
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let legacy = legacy_output(&input, tmp.path(), target, source);
+
+        // ① Zip 形态 → 解到目录
+        let (zip_path, _r1) = mixed_v2_output(
+            &input, tmp.path(), target, source, NativeSwitches::all(), false, "zip",
+        );
+        let zip_dir = tmp.path().join("zip_extracted");
+        std::fs::create_dir_all(&zip_dir).expect("mkdir");
+        crate::converters::zip::extract_resource_pack(
+            zip_path.to_str().expect("utf8"),
+            zip_dir.to_str().expect("utf8"),
+        )
+        .expect("extract zip output");
+
+        // ② Dir 形态
+        let dir_out = tmp.path().join("dir_out");
+        std::fs::create_dir_all(&dir_out).expect("mkdir");
+        {
+            let work = tmp.path().join("v2dir_work");
+            let mut opts = MixedRunOptions::default();
+            opts.source_version = source;
+            opts.target_version = target;
+            opts.native = NativeSwitches::all();
+            let _ = run_mixed(&input, &work, &Output::Dir(dir_out.clone()), &opts, |dir| {
+                let m = dir.join("pack.mcmeta");
+                if m.exists() {
+                    write_pack_format(&m, target).map_err(|e| e.to_string())?;
+                }
+                Ok(())
+            })
+            .expect("run_mixed into dir");
+        }
+
+        // 三方对照：旧管线 ↔ Zip 形态 ↔ Dir 形态
+        let _ = assert_equivalent(&legacy, &zip_dir);
+        let _ = assert_equivalent(&legacy, &dir_out);
+        println!("Output::Zip 与 Output::Dir 都与旧管线逐项一致");
     }
 
     /// 真实包上的三种配置对照（默认忽略）：
