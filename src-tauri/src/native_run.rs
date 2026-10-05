@@ -203,7 +203,7 @@ pub enum Output {
 /// 未迁移的在 `workdir` 上跑旧闭包并 `harvest` 成层；两者交替时把原生写入同步回 workdir，
 /// 让「目录镜像」与「对象模型」始终一致。`tail` 用于收尾步骤（例如 `pack.mcmeta` 改写），
 /// 它仍然在 workdir 上跑一次、随后被收获（保持与旧管线同一套逻辑，不重复实现）。
-pub fn run_mixed<F>(
+pub fn run_native<F>(
     input: &Path,
     workdir: &Path,
     output: &Output,
@@ -1227,7 +1227,7 @@ mod tests {
     /// **全旧基线**：所有任务都走旧闭包（`NativeSwitches::none()`）——§9.121。
     ///
     /// 原先这里手写「解压 → `invoke_conversion_ex` → 重打包」，用旧入口当基线。
-    /// 生产已经不再经过旧入口（§9.118），因此改为**用同一个 `run_mixed` 驱动、
+    /// 生产已经不再经过旧入口（§9.118），因此改为**用同一个 `run_native` 驱动、
     /// 但把原生开关全关**：跑的是同一批旧闭包，走的是同一个驱动器。
     ///
     /// **为什么这仍有意义**：`legacy` 与 `off`/`on` 的对照不再是"两套驱动器"的对照，
@@ -1240,7 +1240,7 @@ mod tests {
         opts.source_version = source;
         opts.target_version = target;
         opts.native = NativeSwitches::none();
-        let _ = run_mixed(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
+        let _ = run_native(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
             let mcmeta = dir.join("pack.mcmeta");
             if mcmeta.exists() {
                 write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
@@ -1254,15 +1254,15 @@ mod tests {
     /// **全旧基线·经 `run_with_legacy_tasks`**（§9.121）——与 `legacy_output` 的差别只在驱动器。
     ///
     /// 原先这里用 `invoke_conversion_ex` 当闭包体（即"旧入口整条管线"）。生产已不经旧入口（§9.118），
-    /// 故改为 `NativeSwitches::none()`：跑的是**同一批旧闭包**，但由 `run_mixed` 派发。
-    fn mixed_output(input: &Path, tmp: &Path, target: u32, source: u32) -> (PathBuf, MixedRunReport) {
+    /// 故改为 `NativeSwitches::none()`：跑的是**同一批旧闭包**，但由 `run_native` 派发。
+    fn native_output(input: &Path, tmp: &Path, target: u32, source: u32) -> (PathBuf, MixedRunReport) {
         let work = tmp.join("mixed_work");
         let out = tmp.join("mixed.zip");
         let mut opts = MixedRunOptions::default();
         opts.source_version = source;
         opts.target_version = target;
         opts.native = NativeSwitches::none();
-        let report = run_mixed(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
+        let report = run_native(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
             let mcmeta = dir.join("pack.mcmeta");
             if mcmeta.exists() {
                 write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
@@ -1299,7 +1299,7 @@ mod tests {
         fixture(&input);
 
         let legacy = legacy_output(&input, tmp.path(), 97, 34);
-        let (mixed, report) = mixed_output(&input, tmp.path(), 97, 34);
+        let (mixed, report) = native_output(&input, tmp.path(), 97, 34);
 
         assert_equivalent(&legacy, &mixed);
         assert!(report.materialized_files >= 8, "{report:?}");
@@ -1417,7 +1417,7 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
 
         // 生产口径
-        let (prod, _) = mixed_v2_output(
+        let (prod, _) = native_output_v2(
             &input,
             tmp.path(),
             target,
@@ -1436,7 +1436,7 @@ mod tests {
             step_trace: true,
             ..MixedRunOptions::default()
         };
-        let report = run_mixed(&input, &work, &Output::Zip(out.clone()), &opts, |dir| {
+        let report = run_native(&input, &work, &Output::Zip(out.clone()), &opts, |dir| {
             let mcmeta = dir.join("pack.mcmeta");
             if mcmeta.exists() {
                 write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
@@ -2191,7 +2191,7 @@ mod tests {
         assert_eq!(err.kind(), "io");
     }
 
-    fn mixed_v2_output(
+    fn native_output_v2(
         input: &Path,
         tmp: &Path,
         target: u32,
@@ -2209,7 +2209,7 @@ mod tests {
             legacy_one_by_one,
             ..MixedRunOptions::default()
         };
-        let report = run_mixed(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
+        let report = run_native(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
             let mcmeta = dir.join("pack.mcmeta");
             if mcmeta.exists() {
                 write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
@@ -2231,9 +2231,9 @@ mod tests {
         // 1 → 97 会经过 (5,6)/(7,8) 两段，因此能选中已迁移的 Eraser 任务
         let legacy = legacy_output(&input, tmp.path(), 97, 1);
         let (off, off_report) =
-            mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::none(), false, "off");
+            native_output_v2(&input, tmp.path(), 97, 1, NativeSwitches::none(), false, "off");
         let (on, on_report) =
-            mixed_v2_output(&input, tmp.path(), 97, 1, NativeSwitches::all(), false, "on");
+            native_output_v2(&input, tmp.path(), 97, 1, NativeSwitches::all(), false, "on");
 
         // §9.102：`cut_gui` 的实现**无条件**是原生模块（§9.101，由注册闭包直接调用），
         // 不受 `NativeSwitches` 影响；而本夹具（1→97）的计划里**确实含** `cut_gui`，
@@ -2297,7 +2297,7 @@ mod tests {
         };
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let (_mixed, report) = mixed_output(&input, tmp.path(), target, source);
+        let (_mixed, report) = native_output(&input, tmp.path(), target, source);
         let stats = &report.stats;
 
         println!(
@@ -2359,7 +2359,7 @@ mod tests {
         };
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let (mixed, _report) = mixed_output(&input, tmp.path(), target, source);
+        let (mixed, _report) = native_output(&input, tmp.path(), target, source);
 
         // 逐条目 (名, 长度, 内容 hash) → 排序 → 聚合成一个 u64
         let entries = zip_entry_digests(&mixed);
@@ -2440,7 +2440,7 @@ mod tests {
     /// 否则改道会在**每一次真实转换**上改变产物。
     #[test]
     #[ignore]
-    fn mixed_output_dir_matches_zip_on_a_real_pack() {
+    fn native_output_dir_matches_zip_on_a_real_pack() {
         let Ok(src) = std::env::var("AROM_REAL_PACK") else {
             println!("AROM_REAL_PACK 未设置，跳过");
             return;
@@ -2465,7 +2465,7 @@ mod tests {
         let legacy = legacy_output(&input, tmp.path(), target, source);
 
         // ① Zip 形态 → 解到目录
-        let (zip_path, _r1) = mixed_v2_output(
+        let (zip_path, _r1) = native_output_v2(
             &input, tmp.path(), target, source, NativeSwitches::all(), false, "zip",
         );
         let zip_dir = tmp.path().join("zip_extracted");
@@ -2494,14 +2494,14 @@ mod tests {
             opts.source_version = source;
             opts.target_version = target;
             opts.native = NativeSwitches::all();
-            let _ = run_mixed(&input, &work, &Output::Dir(dir_out.clone()), &opts, |dir| {
+            let _ = run_native(&input, &work, &Output::Dir(dir_out.clone()), &opts, |dir| {
                 let m = dir.join("pack.mcmeta");
                 if m.exists() {
                     write_pack_format(&m, target).map_err(|e| e.to_string())?;
                 }
                 Ok(())
             })
-            .expect("run_mixed into dir");
+            .expect("run_native into dir");
         }
 
         // 三方对照：旧管线 ↔ Zip 形态 ↔ Dir 形态
@@ -2539,11 +2539,11 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let legacy = legacy_output(&input, tmp.path(), target, source);
         let (off, off_report) =
-            mixed_v2_output(&input, tmp.path(), target, source, NativeSwitches::none(), false, "off");
+            native_output_v2(&input, tmp.path(), target, source, NativeSwitches::none(), false, "off");
         let (on, on_report) =
-            mixed_v2_output(&input, tmp.path(), target, source, NativeSwitches::all(), false, "on");
+            native_output_v2(&input, tmp.path(), target, source, NativeSwitches::all(), false, "on");
         // 实验模式：旧任务逐个执行并在每个之后收层——用来判定「同阶段内交错」是否等价。
-        let (one_by_one, obb_report) = mixed_v2_output(
+        let (one_by_one, obb_report) = native_output_v2(
             &input,
             tmp.path(),
             target,
@@ -2606,7 +2606,7 @@ mod tests {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         // 第一步：正向转换（全适配层，等价性已由另一个用例覆盖），产物作为反向输入
-        let (forward_out, forward_report) = mixed_v2_output(
+        let (forward_out, forward_report) = native_output_v2(
             &input,
             tmp.path(),
             forward_target,
@@ -2619,7 +2619,7 @@ mod tests {
 
         // 第二步：反向 97 → 1，三种配置对照
         let legacy = legacy_output(&forward_out, tmp.path(), source, forward_target);
-        let (off, off_report) = mixed_v2_output(
+        let (off, off_report) = native_output_v2(
             &forward_out,
             tmp.path(),
             source,
@@ -2628,7 +2628,7 @@ mod tests {
             false,
             "rev_off",
         );
-        let (on, on_report) = mixed_v2_output(
+        let (on, on_report) = native_output_v2(
             &forward_out,
             tmp.path(),
             source,
@@ -2675,7 +2675,7 @@ mod tests {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let legacy = legacy_output(&input, tmp.path(), target, source);
-        let (mixed, report) = mixed_output(&input, tmp.path(), target, source);
+        let (mixed, report) = native_output(&input, tmp.path(), target, source);
         let diff = assert_equivalent(&legacy, &mixed);
         println!("mixed run = {report:?}");
         println!("diff = {}", diff.summary());

@@ -340,7 +340,7 @@ fn pack_format_major_minor(target: u32) -> (u32, u32) {
 
 /// 收尾改写 `pack.mcmeta` 的版本字段（≥69 只写 `min_format`/`max_format`，且只改 `pack` 对象内部）。
 ///
-/// M2 起由 [`crate::mixed_run`] 在 A-ROM 接管序列化后调用，因此放开可见性
+/// M2 起由 [`crate::native_run`] 在 A-ROM 接管序列化后调用，因此放开可见性
 /// （仅扩大可见范围，行为不变）。
 pub fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), String> {
     let content = if pack_meta_path.exists() {
@@ -513,7 +513,7 @@ pub fn build_output_path(
 /// 否则会把一个文本文件当压缩包解析。
 ///
 /// §9.119：**改走 A-ROM 原生管线**（与生产入口 §9.118 同源）。做法是把已解压的目录
-/// 打成一个临时 zip，交给 `run_mixed`，再把产物解回原目录——即
+/// 打成一个临时 zip，交给 `run_native`，再把产物解回原目录——即
 /// 「目录 → zip → A-ROM → 目录」这一圈，**只为让测试与生产走同一条引擎**。
 pub fn process_extracted_dir_only(
     _input_zip: &Path,
@@ -526,7 +526,7 @@ pub fn process_extracted_dir_only(
         .unwrap_or_else(|| temp_dir.join("pack.mcmeta"));
     let source_version = read_pack_format(&pack_meta_path).unwrap_or(1);
 
-    // ① 已解压目录 → 临时 zip（`run_mixed` 的输入形态是 zip）
+    // ① 已解压目录 → 临时 zip（`run_native` 的输入形态是 zip）
     let staged = tempfile::Builder::new()
         .prefix("2pyr_stage_")
         .tempdir()
@@ -543,15 +543,15 @@ pub fn process_extracted_dir_only(
         .tempdir()
         .map_err(|e| format!("create pipeline scratch failed: {e}"))?;
     let out_dir = staged.path().join("out");
-    let mut mopts = crate::mixed_run::MixedRunOptions::default();
+    let mut mopts = crate::native_run::MixedRunOptions::default();
     mopts.source_version = source_version;
     mopts.target_version = target_version;
     mopts.run_gui_surgeon = true;
-    mopts.native = crate::mixed_run::NativeSwitches::all();
-    crate::mixed_run::run_mixed(
+    mopts.native = crate::native_run::NativeSwitches::all();
+    crate::native_run::run_native(
         &staged_zip,
         scratch.path(),
-        &crate::mixed_run::Output::Dir(out_dir.clone()),
+        &crate::native_run::Output::Dir(out_dir.clone()),
         &mopts,
         |dir| {
             let m = dir.join("pack.mcmeta");
@@ -783,7 +783,7 @@ pub fn process_zip_timed(
     //
     // 原先是 `invoke_conversion::invoke_conversion_ex(input_zip, temp_dir, …)`——即
     // "注册全部旧闭包 → 旧调度器逐任务执行"，其中每个任务名再经 A-ROM 派发表改派到原生实现。
-    // 现在直接调用 `mixed_run::run_mixed`：**不再经过旧调度器**，已迁移的任务本来就是原生执行，
+    // 现在直接调用 `native_run::run_native`：**不再经过旧调度器**，已迁移的任务本来就是原生执行，
     // 未迁移的仍可在 workdir 上跑旧闭包（当前为 0 个）。
     //
     // **为什么输出到目录而不是 zip**：本函数在管线之后**还要继续改这棵树**
@@ -791,7 +791,7 @@ pub fn process_zip_timed(
     // `Output::Dir` 把 A-ROM 的最终视图直接物化回 `temp_dir`，**省掉一次 zip 往返**；
     // 它内部会先清空目标（原 `temp_dir` 里是解压出的源树，不清空会留下陈旧条目）。
     //
-    // **为什么另开一个 workdir**：`run_mixed` 要求 workdir 为空（它自己会从输入 zip 落盘），
+    // **为什么另开一个 workdir**：`run_native` 要求 workdir 为空（它自己会从输入 zip 落盘），
     // 而 `temp_dir` 此刻已被预检阶段解压占用；因此另建一个临时目录作它的工作区。
     let _pipeline_scratch = tempfile::Builder::new()
         .prefix("2pyr_pipeline_")
@@ -799,20 +799,20 @@ pub fn process_zip_timed(
         .map_err(|e| format!("create pipeline scratch dir failed: {}", e))?;
     let pipeline_start = std::time::Instant::now();
     {
-        let mut mopts = crate::mixed_run::MixedRunOptions::default();
+        let mut mopts = crate::native_run::MixedRunOptions::default();
         mopts.source_version = source_version;
         mopts.target_version = java_target;
         mopts.run_gui_surgeon = !is_bedrock_target;
         mopts.fix_alpha_layers = fix_alpha_layers;
         mopts.adapt_shaders = adapt_shaders;
-        mopts.native = crate::mixed_run::NativeSwitches::all();
+        mopts.native = crate::native_run::NativeSwitches::all();
         // `tail`：把 `pack.mcmeta` 的 `pack_format` 改写到目标版本。
-        // `run_mixed` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
+        // `run_native` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
         let java_target_for_tail = java_target;
-        let _report = crate::mixed_run::run_mixed(
+        let _report = crate::native_run::run_native(
             input_zip,
             _pipeline_scratch.path(),
-            &crate::mixed_run::Output::Dir(temp_dir.path().to_path_buf()),
+            &crate::native_run::Output::Dir(temp_dir.path().to_path_buf()),
             &mopts,
             |dir| {
                 let m = dir.join("pack.mcmeta");
@@ -1031,7 +1031,7 @@ mod tests {
             "IO breakdown must be non-negative"
         );
 
-        // **§9.118：产物结构断言**——生产入口改走 A-ROM 原生管线（`run_mixed` + `Output::Dir`）后，
+        // **§9.118：产物结构断言**——生产入口改走 A-ROM 原生管线（`run_native` + `Output::Dir`）后，
         // 这里直接检查**输出 zip 的内容**。原先本用例只断言耗时，**改道后产物若有问题它抓不到**；
         // 补上结构断言才能让这条"唯一覆盖生产入口的用例"真正起到把关作用。
         let out_zip = Path::new(&_path);
@@ -1056,7 +1056,7 @@ mod tests {
                 "产物缺少 assets/minecraft/textures/**：{names:?}"
             );
             // 目标版本必须被写进 mcmeta（原先由 `invoke_conversion_ex` 之后的收尾步骤负责，
-            // 改道后由 `run_mixed` 的 `tail` 负责——这条断言同时守住那条路径）
+            // 改道后由 `run_native` 的 `tail` 负责——这条断言同时守住那条路径）
             let mut mc = String::new();
             ar.by_name("pack.mcmeta")
                 .expect("by_name")

@@ -25,7 +25,7 @@ pub struct Outcome {
     pub skipped: usize,
     pub notes: Vec<String>,
     /// **延迟删除**：旧实现用 `defer_remove_file/dir` 登记、在全局清理点统一执行；
-    /// 原生任务同样只登记，由驱动在清理点应用（见 `mixed_run`）。
+    /// 原生任务同样只登记，由驱动在清理点应用（见 `native_run`）。
     pub deferred_removals: Vec<String>,
 }
 
@@ -2566,7 +2566,7 @@ mod tests {
                 "generate_fish_bucket",
                 "generate_shulker_box_ui",
             ] {
-                let (_, _, run) = crate::mixed_run::native_for_probe(name)
+                let (_, _, run) = crate::native_run::native_for_probe(name)
                     .unwrap_or_else(|| panic!("{name} 未在派发表里"));
                 let mut tx = pack.tx(name);
                 run(&mut tx).expect("native run");
@@ -2748,7 +2748,7 @@ mod tests {
             {
                 let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
                     .expect("open fixture");
-                let (_, _, run) = crate::mixed_run::native_for_probe("fix_tabs")
+                let (_, _, run) = crate::native_run::native_for_probe("fix_tabs")
                     .expect("native fix_tabs");
                 let mut tx = pack.tx("fix_tabs");
                 run(&mut tx).expect("native run");
@@ -2846,7 +2846,7 @@ mod tests {
             {
                 let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
                     .expect("open fixture");
-                let (_, _, run) = crate::mixed_run::native_for_probe("fix_smithing2_villager2_ui")
+                let (_, _, run) = crate::native_run::native_for_probe("fix_smithing2_villager2_ui")
                     .expect("native fix_smithing2_villager2_ui");
                 let mut tx = pack.tx("fix_smithing2_villager2_ui");
                 run(&mut tx).expect("native run");
@@ -3229,7 +3229,7 @@ mod tests {
         {
             let mut pack = Pack::open_zip(&fixture, &SafeLimits::preserving_current(), None)
                 .expect("open fixture");
-            let (_, _, run) = crate::mixed_run::native_for_probe("fix_clock_compass")
+            let (_, _, run) = crate::native_run::native_for_probe("fix_clock_compass")
                 .expect("native fix_clock_compass");
             let mut tx = pack.tx("fix_clock_compass");
             run(&mut tx).expect("native run");

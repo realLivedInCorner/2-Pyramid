@@ -91,7 +91,7 @@ use crate::converters::reverse::mcpatcher_to_optifine as rev_mcpatcher_to_optifi
 /// 注册全部转换任务。
 ///
 /// **这是「谁跑什么」的单一来源**：旧执行器（`invoke_conversion_ex`）与 M2 的混合运行驱动
-/// （`crate::mixed_run`）都从这里构建同一份注册；驱动再按 [`Scheduler::plan`] 给出的顺序，
+/// （`crate::native_run`）都从这里构建同一份注册；驱动再按 [`Scheduler::plan`] 给出的顺序，
 /// 决定每个名字走 A-ROM 原生实现，还是走适配层的旧闭包。
 ///
 /// 参数即闭包会捕获的全部上下文——注册发生在 `HurrayContext` 创建之前，因此不含 context。
