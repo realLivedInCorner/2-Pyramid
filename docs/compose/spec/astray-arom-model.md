@@ -4882,7 +4882,7 @@ detected pack_format: 1          ← 修前
 批次内那一路（注册闭包签名固定为 `Result<(), String>`、拿不到驱动 report）仍转交 `ctx`，
 **时机等价**（已核实）。
 
-#### 五、下一步（尚未做）：让驱动在计划槽位内部派发 `Tx` 任务
+#### 五、下一步（**已于 §9.129 完成**）：让驱动在计划槽位内部派发 `Tx` 任务
 
 路线图与已核实的前提：
 
@@ -4987,11 +4987,65 @@ Eraser/Architect/Surgeon/Closure 四组），实际执行顺序与计划列表�
 `fix_clock_compass` 的输入。当前靠"前置"绕过（前置集合 = Eraser 级 + `EARLY_NATIVES`，
 本包实测 20 项）。
 
-**待办（下一格）**：把 `(1,2)` 里 `convert_animated_textures` 挪到消费它的任务**之后**
-（或让 `fix_clock_compass` 先前置），使**计划顺序本身就正确**；
-届时 `native_placements` / `Side` / `EARLY_NATIVES` 可以整体退场，
-"驱动在计划槽位内部派发"才真正没有近似。判据仍是冻结指纹 + 逐条目 diff。
+**§9.130 实测结论：这条路走不通，`native_placements` / `Side::Early` 是必要机制。**
+
+做了两件事，结论都是反的：
+
+1. **顺序重排**（已提交）：把 `(1,2)` 里 `convert_animated_textures` 从**首位**挪到
+   `fix_clock_compass` 之后 —— 它只是**原位改写** `item/*.png.mcmeta`、不产生新文件，
+   而 `fix_clock_compass` 要读 `clock.png` / `compass.png` 的原尺寸切帧。
+   重排后指纹**仍然冻结**（`4018` / `0x75bb3260e7f578a6`），计划顺序更贴近真实数据依赖；
+2. **但重排不足以取消前置**：把 `early_natives` 强制为空后，指纹仍偏离为
+   `4117` / `0xbbbf2f19b473817c`（多 105 条 `textures/item/*`、少 6 条原图）。
+
+于是又做了**逐个试**：把 10 个 `EARLY_NATIVES` **一个一个**单独作为前置集合跑真实包 ——
+**没有任何一个能单独保持冻结**（全部 4117）。只有「Eraser 级全部 + `EARLY_NATIVES` 全部」
+一起前置才正确。
+
+⇒ 那套前置**不是**"批次边界的权宜之计"，而是真实的执行顺序语义（旧引擎按 tier 分桶执行，
+本驱动用 `Side::Early` 复刻它）。**退场清单第 5 项据此判定为「不该退」**，而非「未做」。
 
 **操作失误留档**：我第一次做"缩小前置名单"的实验时，替换文本没匹配上（脚本静默没改到文件），
 于是连续三次实验都"通过"，我一度据此以为前置集合可以缩小。**用更大的替换目标重做后才暴露出
 真实结果**（纯计划顺序 4117）。教训与 §9.127 的三条同源：**验证脚本本身必须先证明它改到了东西**。
+
+
+---
+
+### §9.130 取代 hurray 第二格：删掉 `HurrayContext` 与 `TexturePool`
+
+#### 一、改法：`workdir` / `pack_name` 改为**注册期捕获**
+
+`bedrock_convert` 的两个任务原先在闭包里取 `ctx.temp_dir()` / `ctx.pack_name()`。
+但这两个值在**注册时就已经确定**（注册发生在转换开始前），而 `ctx` 存在的唯一理由就是
+"任务之间共享可变状态"——§9.93 删了 `shared_data`、§9.128 把 `cut_gui` 的清理改成回传
+`Outcome`。这里成了**最后一个**读 `ctx` 的地方。
+
+改成 `register_tasks(scheduler, workdir, pack_name)` 并在注册期捕获，闭包签名变成 `Fn()`。
+
+#### 二、连带退场
+
+| 退场物 | 规模 |
+|---|---|
+| `hurray/context.rs`（`HurrayContext` 整体） | **170 行** |
+| `hurray/texture.rs`（`TexturePool` 整体） | **231 行** |
+| `execute_version_conversion` / `run_named` / `execute_tasks` / 两个 tier 助手的 `context` 与 `texture_pool` 形参 | 8 处签名 + 全部调用点 |
+| `texture_pool.commit_all()` | 池没了，这句只是空转 |
+| `invoke_conversion::init_meta_tasks` | **它从来没被用到**：bedrock 步骤只在 `target_version == 1000` 时进计划，而那条路走 `run_bedrock_edge_task`（自建 scheduler 直接执行），**从不经过驱动的计划** |
+
+`hurray/` 1819 → **935 行**（只剩 `scheduler.rs` + `error.rs`）。
+
+**验收**：指纹 **4018 / `0x75bb3260e7f578a6`**、绝对契约 **files=4018 bytes=19294735**、
+单测 **234**、`--ignored` **6**（含 j2b/b2j 端到端——本格改的就是 bedrock 路径）、
+`check --bins` 通过。
+
+#### 三、取代进度（如实）
+
+| 序 | 退场物 | 状态 |
+|---|---|---|
+| 1 | `cut_gui` 注册闭包 | ✅ §9.129 |
+| 2 | 批次路径 + 驱动里的 `ctx`/`pool` | ✅ §9.129 |
+| 3 | `HurrayContext` / `TexturePool` 本体 | ✅ §9.130 |
+| 4 | `Scheduler::run_named` | 已无生产调用者（仅一个调度器用例在用） |
+| 5 | `native_placements` / `Side` / `EARLY_NATIVES` | **判定不该退**（见上，有反证） |
+| — | `Scheduler::plan` / `task_tier` | **保留**：计划与阶段是生产必需，与"旧引擎"无关 |
