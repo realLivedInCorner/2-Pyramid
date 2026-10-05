@@ -4780,3 +4780,140 @@ detected pack_format: 1          ← 修前
 
 `tools/group-natives.ps1`（分组规则）与 `tools/verify-natives-grouping.ps1`（可复跑凭证）
 一并入库；拆分期的 `split-pilots.ps1` / `verify-pilots-split.ps1` 已删除（规则已被前者涵盖）。
+---
+
+### §9.128 M3 收官：旧转换器树与兼容层整体送走，`converters/` → `pack/`，并让 A-ROM 开始取代 hurray
+
+用户指示（基于一次**真实包 GUI 实测通过**）：① 在当前目录直接移除 `converters`，只保留必须的
+工具（例如 pack diff）；② 移除兼容层；③ 移除 `hurray` 的壳；④ **让 A-ROM 或其他组件逐步
+取代 hurray 的功能**。
+
+#### 一、删除前的核对（这是唯一的机会）
+
+删掉旧实现之后就再没有"正确参照物"。因此先跑一遍并**与入库清单逐行比对**：
+
+```
+内容基线：4018 个条目，聚合指纹 = 0x75bb3260e7f578a6
+与 tools/arom-baseline.txt 逐行 diff：4018/4018 完全一致
+```
+
+⇒ 这一路（元数据拆分 / 反向 chest 修复 / b2j / natives 分组）**没有让产物分叉**，可以安全删除。
+提交：`abe1995`。
+
+#### 二、送走了什么
+
+| 删除 | 规模 |
+|---|---|
+| `legacy-oracle` feature | — |
+| `invoke_conversion.rs` 的 88 个旧闭包 | 538 → **95 行** |
+| `natives/tests/`（22 条对照用例） | 3 文件 / 1401 行 |
+| `native_run.rs` 里 18 处门控块 | 2712 → **1831 行** |
+| `pathview.rs` / `scheduler.rs` 的门控用例 | −61 / −74 行 |
+| `converters/` 旧树（工作树 92 文件） | 剩 **4 文件** |
+| `tools/legacy-oracle/` | 3 文件 |
+
+`converters/` → **`pack/`**，文件名改成直白名字：`io.rs`（解压/重打包/清理）、
+`diff.rs`（产物对比，用户点名保留）、`analysis.rs`（只读结构分析）、
+`version_converter.rs`（生产转换入口）。`scale_factor.rs` 移到 crate 根。
+
+**保住一条最有价值的回归用例**：`reverse_swap_matches_the_frozen_legacy_semantics`
+（原 `..._pixel_for_pixel`）—— 它当年抓出"顺手把翻转写成 `paste_region`"的移植错误
+（真实素材分叉 522 像素）。旧实现送走后，判据改为与**内联冻结的旧语义**
+（`frozen_reference_swap`，逐句照抄归档源码）逐像素一致，并**升级**为双向断言：
+既要与冻结语义一致，也要求夹具**能区分**「反向语义」与「正向共享助手」（实测分叉 1568 像素），
+否则用例空转。
+
+**代价（如实记录）**：冻结基线不再可重生成——以后指纹变了只能看到"变了"，
+无法再生成新的正确参照物。唯一剩下的判据是 `tools/arom-baseline.txt`（4018 行）+ 冻结指纹
+常量 + 人工实测。归档 `archive/legacy-converters/`（106 文件 / 16,580 行）按用户选择
+**保留在库里**，仅作历史参考（`restore.ps1` 已退场，见下）。
+
+#### 三、`hurray` 的壳：先查清是什么钉住了它（提交 `f0858f6`）
+
+**不能整体删。** 实测：`Scheduler` **73 处**在用（`run_named` 跑 `cut_gui`、
+`execute_version_conversion` 跑 Bedrock 边任务、`plan`、`task_tier`、`register_task`
+全是生产活路径）；`HurrayContext` 的 `temp_dir()` / `pack_name()` / `execute_cleanup()` /
+`defer_remove_file()` 也在用。压平成顶层模块要改 73 处路径，收益不抵改错风险。
+
+**真正的"壳"（旧引擎残留，已删）**：
+
+| 删除 | 规模 | 证据 |
+|---|---|---|
+| `Scheduler::execute` | 8 行 | 改后全库 0 调用 |
+| `hurray/resolution.rs`（含 `ResolutionTransducer`） | **349 行** | 唯一用途是 `execute` 的签名（该参数写作 `_resolution`，**从未被读**）；14 个公开方法外部 0 调用 |
+| `Context::{cache,get_cached,is_cached,clear_cache}_texture` | 4 方法 | 外部 0 调用 |
+| `Context::take_cleanup_paths` | 1 方法 | 外部 0 调用 |
+| `Context::texture_cache` 字段 | 1 字段 | 只服务上面 4 个方法 |
+| `TexturePool::initialize` + `context` 字段 + 不可达回退 | 1 方法 + 1 字段 | **`initialize()` 外部 0 处** ⇒ `self.context` 恒为 `None` ⇒ 那段回退**根本不可达** |
+
+**过程中被编译器纠正一次**：先用 `grep '\.cache_texture\('` 判定"外部 0 调用"，
+删了 `context.rs` 的方法——**编译立刻报错**：`texture.rs` 是通过 `Arc<HurrayContext>` 调的，
+模式没匹配到。**"grep 读数不等于全局"** 又一次被实证；顺编译器的指引查下去，
+才发现那个调用点本身也不可达（`initialize()` 从未被调用），于是连根拔掉。
+
+**测试数 237 → 234 是预期的**：删掉的 3 个用例（`mode_picks_majority` /
+`default_scales_one` / `injected_and_disk_entries_agree`）测的全是 `ResolutionTransducer`
+自己的内部函数，**不覆盖任何生产行为**（`natives/` 完全不做分辨率探测，已实测确认）。
+`scheduler.rs` 的 6 个用例原样保留。
+
+#### 四、让 A-ROM 开始取代 hurray：第一步（提交 `350c756`）
+
+**先查清是什么钉住了 `HurrayContext`**（三条实测事实）：
+
+1. `natives/` 的 **46 个原生任务全部是 `Tx` 形态**，`HurrayContext` 在 `natives/` 里
+   只出现 **1 次** —— 就是 `surgeon_cut_gui::run_in_workdir` 的形参；
+2. 而它用 ctx 只做**一件事**：`ctx.defer_remove_file(...)` 登记延迟删除
+   （`ctx.` 在该文件只出现 1 处）；
+3. 其余 **43 个**原生任务早就用 `Outcome.deferred_removals` 把移除项**回给驱动**统一应用，
+   且驱动里两个清理点**本来就相邻**：
+
+```
+457:  ctx.execute_cleanup()                       ← 旧引擎的清理（cut_gui 登记在这里）
+463:  if !report.deferred_removals.is_empty() {   ← 驱动自己的 tombstone
+```
+
+⇒ 时机等价，「经 ctx 转一手」是**冗余**的。于是把 `run_in_workdir` 改成
+`Result<Outcome, String>`（移除项原样返回，包内相对路径，与其余原生任务一致），
+驱动收下并 `extend` 到 `report.deferred_removals`。
+
+**验收**（触及清理时机，产物必须一字不差）：指纹 **4018 / `0x75bb3260e7f578a6`**、
+单测 **234**、`--ignored` **6**、`check --bins` 通过。
+
+批次内那一路（注册闭包签名固定为 `Result<(), String>`、拿不到驱动 report）仍转交 `ctx`，
+**时机等价**（已核实）。
+
+#### 五、下一步（尚未做）：让驱动在计划槽位内部派发 `Tx` 任务
+
+路线图与已核实的前提：
+
+**前提①（已验证）**：`gui_surgeon_tx` 用**包内全路径**
+（`assets/minecraft/textures/gui/...`，见其 `CONTAINER` / `SPRITES` 常量与
+`tx.put_image("assets/minecraft/textures/gui/sprites/...")`），因此它能**直接对整包跑 `Tx`** ——
+`run_in_workdir` 那层"读 gui 子树 → 建内存包 → 写回"的往返是**多余的**，
+存在的唯一理由是「`cut_gui` 的槽位在批次内部，而批次只能整体喂给旧引擎」。
+
+**前提②（已验证）**：46 个任务**全部**已是原生 `Tx` 形态 ⇒ `legacy_names` 里
+只剩 `cut_gui` 一个 ⇒ 所谓"旧批次"已经是**退化情形**。
+
+**因此下一步的形态**：驱动按 `Scheduler::plan` 的顺序**逐任务**跑 `Tx`，
+在每个任务的**精确计划槽位**收层/写回。这会顺带回答一个悬着的问题：
+`EARLY_NATIVES`（§9.52 的显式名单）是否**只是因为批次不可拆分**才需要 ——
+若计划顺序本身就正确，那份名单连同 `native_placements` 的 `Side::Early/Late` 判定
+可以一起退场。
+
+**退场清单（按依赖顺序）**：
+
+| 序 | 退场物 | 前置条件 |
+|---|---|---|
+| 1 | `invoke_conversion::install_native_defaults`（注册闭包） | 驱动能在槽位内部派发 `Tx` ⇒ 批次内那次 `cut_gui` 由驱动承担 |
+| 2 | `Scheduler::run_named` + `execute_tasks` 的 tier 分桶 | 同上（`run_named` 只剩这一个调用者） |
+| 3 | `TexturePool` | 旧批次退场后无人使用（实测它的 context 回退已不可达） |
+| 4 | `HurrayContext` | 依赖 3；`temp_dir()`/`pack_name()` 两个读取点要改成显式传参（`bedrock_convert` 三处） |
+| 5 | `task_registry` 的注册闭包字段 | 依赖 1；元数据表本身要留（驱动取阶段仍用它） |
+
+**风险与判据**：第 1 步会改变 `cut_gui` 的**执行路径**（不再经内存包往返），
+而 §9.90/§9.91 的教训是"两者各自必需"。因此这一步必须**先只改路径、不动顺序**，
+并以**冻结指纹 + 逐条目 diff（4018 行）**作判据；若指纹变化，用 `AROM_BASELINE_DUMP`
+逐条定位是哪几个 sprite 分叉。
+
+**建议一次只做一格**（先第 1 格），每格都以冻结指纹收口 —— 这与用户"逐步取代"的指示一致。
