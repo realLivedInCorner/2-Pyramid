@@ -419,11 +419,274 @@ impl Source for MemSource {
     }
 }
 
+/// **目录来源**（§9.139）：把一棵**已解压的目录树**当作 `Source`。
+///
+/// ## 为什么需要它
+///
+/// 生产入口（`pack::version_converter`）在预检阶段**已经把输入 zip 解压到 `temp_dir`**
+/// （日志里的 `extracting zip`）。但 A-ROM 驱动只吃 zip（`Pack::open_zip`），于是旧路径被迫
+/// 把刚解开的那棵树**重新打包成 zip 再读回来**（实测 `pack=0.56s`，还要多写一份全量 zip）。
+///
+/// 有了 `DirSource`，管线可以直接吃那棵**已经在磁盘上的树**，省掉这趟往返。
+/// 这不是权宜之计：`arom/mod.rs` 的 L0 源类型本来就写着
+/// 「`ZipSource` · `BlobSource` · `DirSource`」——**`DirSource` 此前从未实现**，
+/// 这里是把它补上。
+///
+/// ## 语义
+///
+/// * **路径**：目录相对路径（posix 分隔符），与 zip 源同一套规范化；
+/// * **顺序**：**按路径排序**。zip 的顺序来自容器，而目录树没有天然顺序；
+///   排序是这里唯一确定的契约，也是产物可复现的来源（调用方不应依赖 zip 的偶然顺序——
+///   真实包实测两者产物指纹一致）；
+/// * **`method` = `"stored"`**：目录里的字节本来就是未压缩的，因此
+///   `copy_raw_to` 与 `copy_to` 等价（这正是 D23 允许零解压透传的情形）；
+/// * **`crc32`**：按内容实算，与 zip 条目同一定义（产物写出时用它填 CRC 字段）；
+/// * **空目录保留**：与 zip 源一致，目录条目是一等公民。
+pub struct DirSource {
+    root: PathBuf,
+    entries: Vec<SourceEntry>,
+}
+
+impl DirSource {
+    /// 扫描并校验目录树（**不驻留字节**，只读元数据；字节按需读取）。
+    pub fn open(root: &Path, limits: &SafeLimits) -> Result<Self, AromError> {
+        let mut found: Vec<(String, bool, u64, bool)> = Vec::new();
+        let mut total_bytes: u64 = 0;
+
+        for entry in walkdir::WalkDir::new(root)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            let entry_path = entry.path();
+            if entry_path == root {
+                continue;
+            }
+            let rel = entry_path
+                .strip_prefix(root)
+                .map_err(|e| AromError::internal(e.to_string()))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            if rel.is_empty() {
+                continue;
+            }
+            let is_dir = entry.file_type().is_dir();
+            let size = if is_dir {
+                0
+            } else {
+                entry.metadata().map(|m| m.len()).unwrap_or(0)
+            };
+            if !is_dir {
+                limits.check_file_bytes(size, &rel)?;
+                total_bytes = total_bytes.saturating_add(size);
+                limits.check_total_bytes(total_bytes)?;
+            }
+            found.push((rel, is_dir, size, entry_is_symlink(entry_path)));
+        }
+
+        limits.check_entries(found.len())?;
+
+        // 顺序契约：按路径排序（目录树没有容器顺序，排序是唯一确定的契约）。
+        found.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let entries = found
+            .into_iter()
+            .enumerate()
+            .map(|(i, (name, is_dir, size, symlink))| SourceEntry {
+                name,
+                meta: SourceMeta {
+                    is_dir,
+                    // 目录里的字节是未压缩的：标记 `stored` 使 D23 的零解压透传成立。
+                    method: "stored".to_string(),
+                    compressed_size: size,
+                    uncompressed_size: size,
+                    // 目录源不预扫内容：CRC 是**按需**算的（见 `DirSource::crc32`）。
+                    // 唯一读 `meta.crc32` 的消费者是单测与 `pack::diff` 的**输入包**比较，
+                    // 序列化器不读它（zip 的 CRC 由写出时的实际字节决定）。
+                    crc32: 0,
+                    mtime: None,
+                    unix_mode: None,
+                },
+                src_index: i as u32,
+                duplicate: false,
+                symlink,
+            })
+            .collect();
+
+        Ok(Self {
+            root: root.to_path_buf(),
+            entries,
+        })
+    }
+
+    /// 条目的绝对路径。
+    pub fn path_of(&self, idx: u32) -> Result<PathBuf, AromError> {
+        let e = self
+            .entries
+            .get(idx as usize)
+            .ok_or_else(|| AromError::internal(format!("entry index out of range: {idx}")))?;
+        Ok(self.root.join(&e.name))
+    }
+
+    /// 按需算条目内容的 CRC32（与 zip 条目同一定义）。
+    ///
+    /// `meta.crc32` 在目录源里恒为 `0`：扫描阶段只读元数据、**不读内容**，
+    /// 而 CRC 必须读内容才能得到（19 MB 的真实包上白白多读一遍）。需要 CRC 的调用方
+    /// 走这里。序列化器不需要它——zip 写出的 CRC 由其实际写入的字节决定，
+    /// 唯一读 `meta.crc32` 的是单测与 `pack::diff` 的**输入包**比较。
+    pub fn crc32(&self, idx: u32) -> Result<u32, AromError> {
+        let bytes = self.read(idx)?;
+        let mut crc = flate2::Crc::new();
+        crc.update(&bytes);
+        Ok(crc.sum())
+    }
+}
+
+fn entry_is_symlink(path: &Path) -> bool {
+    std::fs::symlink_metadata(path)
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+}
+
+impl Source for DirSource {
+    fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    fn entry(&self, idx: u32) -> Result<&SourceEntry, AromError> {
+        self.entries
+            .get(idx as usize)
+            .ok_or_else(|| AromError::internal(format!("entry index out of range: {idx}")))
+    }
+
+    fn read(&self, idx: u32) -> Result<Vec<u8>, AromError> {
+        let path = self.path_of(idx)?;
+        if self.entry(idx)?.meta.is_dir {
+            return Ok(Vec::new());
+        }
+        std::fs::read(&path).map_err(|e| AromError::io(format!("read {}: {e}", path.display())))
+    }
+
+    fn copy_to(&self, idx: u32, out: &mut dyn Write) -> Result<(), AromError> {
+        // 流式拷贝：大条目不必整体驻留内存。
+        let path = self.path_of(idx)?;
+        if self.entry(idx)?.meta.is_dir {
+            return Ok(());
+        }
+        let mut f = File::open(&path)
+            .map_err(|e| AromError::io(format!("open {}: {e}", path.display())))?;
+        std::io::copy(&mut f, out)
+            .map_err(|e| AromError::io(format!("copy {}: {e}", path.display())))?;
+        Ok(())
+    }
+
+    fn copy_raw_to(&self, idx: u32, out: &mut dyn Write) -> Result<(), AromError> {
+        // 目录源没有压缩层：原始字节 == 解压后字节，因此与 `copy_to` 同义。
+        self.copy_to(idx, out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
 
+
+    /// **§9.139**：目录源与 zip 源必须给出**同一份视图**（同样的路径集合与内容）。
+    ///
+    /// 这是 `DirSource` 的唯一正确性契约：它存在的理由是省掉"把已解压的树重新打包成 zip"，
+    /// 若两者视图不一致，省下的时间就是拿正确性换的。
+    #[test]
+    fn dir_source_matches_zip_source_for_same_tree() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path().join("tree");
+        // 目录、嵌套文件、空文件、二进制内容、需转义的路径分隔
+        std::fs::create_dir_all(root.join("assets/minecraft/textures/item")).expect("mkdir");
+        std::fs::write(root.join("pack.mcmeta"), br#"{"pack":{"pack_format":1}}"#).expect("w");
+        std::fs::write(root.join("assets/minecraft/textures/item/a.png"), b"\x89PNG\r\n").expect("w");
+        std::fs::write(root.join("assets/minecraft/textures/item/empty.bin"), b"").expect("w");
+        std::fs::create_dir_all(root.join("assets/minecraft/empty_dir")).expect("mkdir");
+
+        // 同一棵树打包成 zip，再分别用两个源打开
+        let zip_path = tmp.path().join("t.zip");
+        crate::pack::io::repack_resource_pack(
+            &root.to_string_lossy(),
+            &zip_path.to_string_lossy(),
+        )
+        .expect("repack");
+
+        let limits = SafeLimits::preserving_current();
+        let zip_src = ZipSource::open(&zip_path, &limits).expect("zip src");
+        let dir_src = DirSource::open(&root, &limits).expect("dir src");
+
+        let mut zip_entries: Vec<(String, bool, usize)> = (0..zip_src.len())
+            .map(|i| {
+                let e = zip_src.entry(i as u32).expect("e");
+                (
+                    e.name.clone(),
+                    e.meta.is_dir,
+                    if e.meta.is_dir { 0 } else { zip_src.read(i as u32).expect("read").len() },
+                )
+            })
+            .collect();
+        let mut dir_entries: Vec<(String, bool, usize)> = (0..dir_src.len())
+            .map(|i| {
+                let e = dir_src.entry(i as u32).expect("e");
+                (
+                    e.name.clone(),
+                    e.meta.is_dir,
+                    if e.meta.is_dir { 0 } else { dir_src.read(i as u32).expect("read").len() },
+                )
+            })
+            .collect();
+        zip_entries.sort();
+        dir_entries.sort();
+        assert_eq!(zip_entries, dir_entries, "目录源与 zip 源的条目集合/类型/大小必须一致");
+
+        // 内容逐字节一致（含空文件）
+        for i in 0..dir_src.len() {
+            let name = dir_src.name(i as u32).expect("name").to_string();
+            let is_dir = dir_src.meta(i as u32).expect("meta").is_dir;
+            if is_dir {
+                continue;
+            }
+            let zi = (0..zip_src.len())
+                .find(|k| zip_src.name(*k as u32).map(|n| n == name).unwrap_or(false))
+                .expect("zip has same path");
+            assert_eq!(
+                dir_src.read(i as u32).expect("dir read"),
+                zip_src.read(zi as u32).expect("zip read"),
+                "内容不一致: {name}"
+            );
+        }
+        // 空目录被保留（与 zip 源同一契约）
+        assert!(
+            (0..dir_src.len()).any(|i| dir_src.name(i as u32).expect("n") == "assets/minecraft/empty_dir"),
+            "空目录必须保留"
+        );
+    }
+
+    /// 目录源的 `copy_raw_to` 必须等于 `copy_to`（无压缩层，D23 透传前提）。
+    #[test]
+    fn dir_source_raw_copy_equals_plain_copy() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path().join("t");
+        std::fs::create_dir_all(&root).expect("mkdir");
+        std::fs::write(root.join("f.bin"), b"raw-bytes-here").expect("w");
+        let limits = SafeLimits::preserving_current();
+        let src = DirSource::open(&root, &limits).expect("open");
+        let mut plain = Vec::new();
+        let mut raw = Vec::new();
+        src.copy_to(0, &mut plain).expect("copy");
+        src.copy_raw_to(0, &mut raw).expect("raw");
+        assert_eq!(plain, raw);
+        assert_eq!(plain, b"raw-bytes-here");
+        assert_eq!(src.crc32(0).expect("crc"), {
+            let mut c = flate2::Crc::new();
+            c.update(b"raw-bytes-here");
+            c.sum()
+        });
+    }
     /// 可控夹具：目录条目、压缩方法、符号链接、重复路径、任意条目名（含 Zip Slip）。
     struct Spec {
         name: String,

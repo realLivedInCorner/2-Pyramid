@@ -48,7 +48,7 @@ pub use pathview::{
 pub use serialize::{
     method_for_path, write_zip, write_zip_atomic, OrderPolicy, SerializeOptions, SerializeStats,
 };
-pub use source::{MemSource, Source, SourceEntry, SourceMeta, ZipSource};
+pub use source::{DirSource, MemSource, Source, SourceEntry, SourceMeta, ZipSource};
 pub use store::{BaseEntry, BasePack, EntryId, PathId, PathInterner};
 pub use structure::{
     format_write_rule, FoldedDir, OverlayLayer, PackRoot, PackStructure,

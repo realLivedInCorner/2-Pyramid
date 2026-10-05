@@ -22,7 +22,7 @@ use image::RgbaImage;
 
 use super::error::AromError;
 use super::limits::SafeLimits;
-use super::source::{Source, ZipSource};
+use super::source::{DirSource, Source, ZipSource};
 use super::store::BasePack;
 
 pub type BlobId = u32;
@@ -266,6 +266,15 @@ impl Pack {
 
     pub fn open_zip(path: &Path, limits: &SafeLimits, blob_limit: Option<u64>) -> Result<Self, AromError> {
         let source = Box::new(ZipSource::open(path, limits)?);
+        Self::from_source(source, blob_limit)
+    }
+
+    /// **§9.139：以一棵已解压的目录树为源。**
+    ///
+    /// 生产入口在预检阶段已经把输入 zip 解压到磁盘；此前驱动只吃 zip，于是被迫把那棵树
+    /// 重新打包成 zip 再读回来。走这条路可以直接吃现成的树，省掉一趟往返。
+    pub fn open_dir(path: &Path, limits: &SafeLimits, blob_limit: Option<u64>) -> Result<Self, AromError> {
+        let source = Box::new(DirSource::open(path, limits)?);
         Self::from_source(source, blob_limit)
     }
 
