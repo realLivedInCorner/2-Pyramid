@@ -629,29 +629,16 @@ fn run_bedrock_edge_task(
     target_version: u32,
     pack_name: &str,
 ) -> Result<(), String> {
-    use crate::hurray::context::HurrayContext;
     use crate::hurray::scheduler::Scheduler;
-    use crate::hurray::texture::TexturePool;
 
     let mut scheduler = Scheduler::new();
-    crate::bedrock_convert::register_tasks(&mut scheduler);
+    // §9.130：`work_dir` 与 `pack_name` 在**注册期捕获**，因此不再需要构造 `HurrayContext`；
+    // `execute_version_conversion` 也不再需要 context / texture_pool。
+    crate::bedrock_convert::register_tasks(&mut scheduler, work_dir, pack_name);
 
-    let work_dir_str = work_dir.to_str().unwrap_or("");
-    // §9.93（M3）：包名走只读构造期字段。
-    let context = HurrayContext::with_pack_name(work_dir_str, pack_name);
-    let mut texture_pool = TexturePool::new();
     scheduler
-        .execute_version_conversion(
-            &context,
-            &mut texture_pool,
-            source_version,
-            target_version,
-            pack_name,
-        )
+        .execute_version_conversion(source_version, target_version, pack_name)
         .map_err(|e| format!("bedrock edge task failed: {}", e))?;
-    context
-        .execute_cleanup()
-        .map_err(|e| format!("bedrock cleanup failed: {}", e))?;
     Ok(())
 }
 

@@ -4,9 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 
-use crate::hurray::context::HurrayContext;
 use crate::hurray::error::{EngineError, EngineResult};
-use crate::hurray::texture::TexturePool;
 use crate::{log_error, log_info, log_warn};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,7 +22,7 @@ pub enum TaskTier {
     Closure = 40,
 }
 
-type TaskFn = Arc<dyn Fn(&HurrayContext) -> Result<(), String> + Send + Sync>;
+type TaskFn = Arc<dyn Fn() -> Result<(), String> + Send + Sync>;
 
 #[derive(Clone)]
 struct Task {
@@ -131,7 +129,7 @@ impl Scheduler {
 
     pub fn register_task<F>(&mut self, name: &str, task_type: TaskType, tier: TaskTier, task: F)
     where
-        F: Fn(&HurrayContext) -> Result<(), String> + Send + Sync + 'static,
+        F: Fn() -> Result<(), String> + Send + Sync + 'static,
     {
         let task = Task {
             name: Arc::from(name),
@@ -257,8 +255,6 @@ impl Scheduler {
 
     pub fn execute_version_conversion(
         &mut self,
-        context: &HurrayContext,
-        texture_pool: &mut TexturePool,
         source_version: u32,
         target_version: u32,
         pack_name: &str,
@@ -285,8 +281,7 @@ impl Scheduler {
         // 它只是一个**进度显示用**的标签（`ProgressTracker::new`），没有任何任务读它。
         let progress = Arc::new(ProgressTracker::new(total_tasks, pack_name.to_string()));
         // 用引用执行，避免再 clone 一整份 Task 列表
-        self.execute_tasks(&filtered_tasks, context, texture_pool, Some(progress))?;
-        texture_pool.clear_unused();
+        self.execute_tasks(&filtered_tasks, Some(progress))?;
 
         Ok(())
     }
@@ -331,8 +326,6 @@ impl Scheduler {
     pub fn run_named(
         &self,
         names: &[String],
-        context: &HurrayContext,
-        texture_pool: &mut TexturePool,
     ) -> EngineResult<()> {
         let mut tasks: Vec<Task> = Vec::with_capacity(names.len());
         for name in names {
@@ -341,14 +334,12 @@ impl Scheduler {
                 None => log_warn!("run_named: task not registered, skipped: {}", name),
             }
         }
-        self.execute_tasks(&tasks, context, texture_pool, None)
+        self.execute_tasks(&tasks, None)
     }
 
     fn execute_tasks(
         &self,
         tasks: &[Task],
-        context: &HurrayContext,
-        texture_pool: &mut TexturePool,
         progress: Option<Arc<ProgressTracker>>,
     ) -> EngineResult<()> {
         // 只按 tier 分桶保存引用；Arc<TaskFn>/Arc<str> 保证并行阶段廉价克隆
@@ -366,12 +357,11 @@ impl Scheduler {
             }
         }
 
-        self.execute_serial_tier("Eraser", &eraser, context, progress.clone())?;
-        self.execute_parallel_capable_tier("Architect", &architect, context, false, progress.clone())?;
-        self.execute_parallel_capable_tier("Surgeon", &surgeon, context, true, progress.clone())?;
-        self.execute_serial_tier("Closure", &closure, context, progress.clone())?;
+        self.execute_serial_tier("Eraser", &eraser, progress.clone())?;
+        self.execute_parallel_capable_tier("Architect", &architect, false, progress.clone())?;
+        self.execute_parallel_capable_tier("Surgeon", &surgeon, true, progress.clone())?;
+        self.execute_serial_tier("Closure", &closure, progress.clone())?;
 
-        texture_pool.commit_all()?;
         Ok(())
     }
 
@@ -379,7 +369,6 @@ impl Scheduler {
         &self,
         tier_name: &'static str,
         tasks: &[&Task],
-        context: &HurrayContext,
         progress: Option<Arc<ProgressTracker>>,
     ) -> EngineResult<()> {
         if tasks.is_empty() {
@@ -393,7 +382,7 @@ impl Scheduler {
             if let Some(progress) = &progress {
                 progress.start_task(&task.name);
             }
-            if let Err(reason) = (task.task)(context) {
+            if let Err(reason) = (task.task)() {
                 let wrapped = EngineError::Task {
                     task: task.name.to_string(),
                     reason,
@@ -422,7 +411,6 @@ impl Scheduler {
         &self,
         tier_name: &'static str,
         tasks: &[&Task],
-        context: &HurrayContext,
         use_pool_guard: bool,
         progress: Option<Arc<ProgressTracker>>,
     ) -> EngineResult<()> {
@@ -448,7 +436,7 @@ impl Scheduler {
             .par_iter()
             .filter_map(|task| {
                 let started = std::time::Instant::now();
-                let run = || (task.task)(context).map_err(|reason| EngineError::Task {
+                let run = || (task.task)().map_err(|reason| EngineError::Task {
                     task: task.name.to_string(),
                     reason,
                 });
@@ -481,11 +469,11 @@ impl Scheduler {
             let started = std::time::Instant::now();
             let result = if use_pool_guard {
                 match pool_guard.write() {
-                    Ok(_guard) => (task.task)(context),
+                    Ok(_guard) => (task.task)(),
                     Err(_) => Err(EngineError::LockPoisoned("scheduler.texture_pool_guard").to_string()),
                 }
             } else {
-                (task.task)(context)
+                (task.task)()
             };
             record_task_time(task_name, tier_name, started.elapsed(), false);
 
@@ -756,29 +744,27 @@ mod tests {
         assert_ne!(forward, reverse, "正向与反向的计划不应相同");
     }
 
-    /// `run_named()` 只跑被点名的任务，且对未注册的名字宽容（驱动按计划表驱动时需要）。
+    /// `run_named()` 只跑被点名的任务，且对未注册的名字宽容。
+    ///
+    /// **§9.130**：任务闭包不再接收 `HurrayContext`（`workdir`/`pack_name` 改为**注册期捕获**），
+    /// 因此本用例不再构造 ctx / TexturePool。
     #[test]
     fn run_named_runs_only_the_named_tasks_and_tolerates_unknown() {
-        use crate::hurray::context::HurrayContext;
-        use crate::hurray::texture::TexturePool;
-
         let dir = tempfile::tempdir().expect("tempdir");
-        let ctx = HurrayContext::new(dir.path().to_str().expect("utf8"));
-        let mut pool = TexturePool::new();
 
         let path_a = dir.path().join("a.txt");
         let path_b = dir.path().join("b.txt");
         let (a, b) = (path_a.clone(), path_b.clone());
         let mut scheduler = Scheduler::new();
-        scheduler.register_task("task_a", TaskType::Parallel, TaskTier::Surgeon, move |_| {
+        scheduler.register_task("task_a", TaskType::Parallel, TaskTier::Surgeon, move || {
             std::fs::write(&a, b"a").map_err(|e| e.to_string())
         });
-        scheduler.register_task("task_b", TaskType::Parallel, TaskTier::Surgeon, move |_| {
+        scheduler.register_task("task_b", TaskType::Parallel, TaskTier::Surgeon, move || {
             std::fs::write(&b, b"b").map_err(|e| e.to_string())
         });
 
         scheduler
-            .run_named(&["task_a".to_string(), "not_registered".to_string()], &ctx, &mut pool)
+            .run_named(&["task_a".to_string(), "not_registered".to_string()])
             .expect("run_named");
         assert!(path_a.exists(), "被点名的任务必须执行");
         assert!(!path_b.exists(), "未被点名的任务不得执行");

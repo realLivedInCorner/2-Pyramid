@@ -42,26 +42,35 @@ pub fn is_bedrock_resource_pack(root: &Path) -> bool {
 }
 
 /// 注册 j2b / b2j 到调度器（Exclusive + Surgeon）。
-/// 由 invoke_conversion 调用一次；具体转换逻辑在 j2b/b2j 模块内。
-pub fn register_tasks(scheduler: &mut Scheduler) {
+///
+/// **§9.130：`workdir` 与 `pack_name` 改为注册期捕获**，不再经 `HurrayContext`。
+///
+/// 原先闭包从 `ctx.temp_dir()` / `ctx.pack_name()` 取值。但这两个值在**注册时就已经确定**
+/// （注册发生在转换开始前，`workdir` 与包名都不会再变），而 `ctx` 存在的唯一理由就是
+/// "任务之间共享可变状态"——§9.93 已经把 `shared_data` 删掉、§9.128 又把 `cut_gui` 的
+/// 清理登记改成回传 `Outcome`。于是这里成了**最后一个**读 `ctx` 的地方。
+///
+/// 改成捕获之后，`Scheduler` 执行任务时**不再需要 context**，
+/// `HurrayContext` 与 `TexturePool` 随之可以整体退场。
+pub fn register_tasks(scheduler: &mut Scheduler, workdir: &Path, pack_name: &str) {
+    let workdir = workdir.to_path_buf();
+    let pack_name = pack_name.to_string();
+
+    let temp = workdir.clone();
+    let name_for_j2b = pack_name.clone();
     scheduler.register_task(
         "bedrock_java_to_bedrock",
         TaskType::Exclusive,
         TaskTier::Surgeon,
-        |ctx| {
-            let temp = Path::new(ctx.temp_dir());
-            // §9.93（M3）：包名改为**只读构造期字段**，不再经 `shared_data`。
-            let pack_name = ctx.pack_name();
-            convert_java_to_bedrock(temp, pack_name).map_err(|e| e)
+        move || {
+            // §9.93（M3）：包名是**只读构造期值**，此处由注册期捕获。
+            convert_java_to_bedrock(&temp, &name_for_j2b).map_err(|e| e)
         },
     );
     scheduler.register_task(
         "bedrock_bedrock_to_java",
         TaskType::Exclusive,
         TaskTier::Surgeon,
-        |ctx| {
-            let temp = Path::new(ctx.temp_dir());
-            convert_bedrock_to_java(temp).map(|_| ()).map_err(|e| e)
-        },
+        move || convert_bedrock_to_java(&workdir).map(|_| ()).map_err(|e| e),
     );
 }

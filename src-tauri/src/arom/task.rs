@@ -1,6 +1,6 @@
 //! M1：任务契约与冲突感知调度。
 //!
-//! 现状的任务是**裸闭包** `Fn(&HurrayContext) -> Result<(), String>`（`hurray/scheduler.rs:28`），
+//! 背景：旧引擎的任务是**裸闭包**（`hurray/scheduler.rs` 的 `TaskFn`），
 //! 并行与否由 `TaskType`（Parallel / Exclusive / Hybrid）加注册顺序隐含决定，没人能回答
 //! 「这两个任务能不能同时跑」。本模块把这件事变成**可计算**的：
 //!

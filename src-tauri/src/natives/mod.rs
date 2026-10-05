@@ -463,8 +463,8 @@ pub mod shader_adapt;
 /// 4. **可选叠加** `UImage/inventory/inventory_{width}.png`（尺寸不符时按 `Lanczos3` 缩放整张）；
 ///    再抽出两张 1.21 药水背景 sprite 写到 `gui/sprites/container/inventory/`。
 ///
-/// **不复刻 `HurrayContext` 的纹理缓存**（`cache_texture`）——那是旧执行器的内存优化，
-/// 与产物无关；原生实现从 `Tx` 读、写回 `Tx`。
+/// **不复刻旧执行器的纹理缓存**——那是内存优化，与产物无关；
+/// 原生实现从 `Tx` 读、写回 `Tx`（缓存类型本身已在 §9.130 随 `hurray` 退场）。
 #[path = "surgeon/surgeon_survival.rs"]
 pub mod surgeon_survival;
 /// **Surgeon 阶段**：`fix_smithing2_villager2_ui` —— 铁砧/村民 GUI 的第二步重排。
