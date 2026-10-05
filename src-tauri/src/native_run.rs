@@ -29,7 +29,9 @@ use std::path::{Path, PathBuf};
 use crate::arom::pathview::{harvest, materialize};
 use crate::arom::serialize::{write_zip, SerializeOptions, SerializeStats};
 use crate::arom::task::TaskDecl;
-use crate::arom::{AromError, Body, Layer, Pack, SafeLimits, Slot};
+use crate::arom::{AromError, Body, Layer, Materialized, Pack, SafeLimits, Slot};
+use crate::hurray::scheduler::Scheduler;
+use crate::natives::Outcome;
 
 /// 逐模块迁移开关（**编译期**：默认全关，行为与旧管线逐字一致）。
 ///
@@ -199,6 +201,66 @@ pub enum Output {
 }
 
 
+/// **原生任务派发**（§9.129）：跑一个原生 `Tx` 任务、把层落进 `pack`、并做契约检查。
+///
+/// 抽出来是为了让**同一个任务能在不同的计划槽位执行**：`cut_gui` 必须在批次内的
+/// `(15,18)` 槽位跑（§9.100），而驱动原先只能在「整批旧任务之前/之后」二选一，
+/// 因此它被迫绕道 `Scheduler::run_named` + 注册闭包。
+///
+/// 阶段一致性检查放在这里（原先只在前阶段做）：`decl().tier` 必须与活注册表一致 ——
+/// 阶段决定相对位置，写错会**静默**改变执行顺序（§9.40 的谜题正是这样来的）。
+fn dispatch_native_into_pack(
+    pack: &mut Pack,
+    workdir: &Path,
+    baseline: &mut Materialized,
+    report: &mut MixedRunReport,
+    scheduler: &Scheduler,
+    name: &str,
+    switches: &NativeSwitches,
+    strict_scopes: bool,
+) -> Result<crate::natives::Outcome, AromError> {
+    let (label, decl, run) = native_for(name, switches).expect("dispatched from the plan");
+    let (outcome, layer) = {
+        let mut tx = pack.tx(name);
+        let outcome = run(&mut tx)
+            .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
+        (outcome, tx.into_layer())
+    };
+    if let Some(live) = scheduler.task_tier(name) {
+        let live_str = match live {
+            crate::hurray::scheduler::TaskTier::Eraser => "eraser",
+            crate::hurray::scheduler::TaskTier::Architect => "architect",
+            crate::hurray::scheduler::TaskTier::Surgeon => "surgeon",
+            crate::hurray::scheduler::TaskTier::Closure => "closure",
+        };
+        if live_str != decl.tier.as_str() {
+            return Err(AromError::internal(format!(
+                "native task `{label}` ({name}) declares tier `{}` but the live registry says `{live_str}`",
+                decl.tier.as_str()
+            )));
+        }
+    }
+    let violations = scope_violations(&decl, &layer);
+    if !violations.is_empty() {
+        if strict_scopes {
+            return Err(AromError::internal(format!(
+                "native task `{label}` ({name}) wrote outside its declared scope: {:?} (declared writes: {})",
+                violations,
+                decl.writes.describe()
+            )));
+        }
+        report.undeclared.extend(violations);
+    }
+    apply_layer_to_workdir(pack, workdir, &layer)?;
+    check_layer_materialized(pack, workdir, &layer, name)?;
+    sync_baseline_with_layer(pack, &layer, baseline)?;
+    pack.commit(layer);
+    report.native_tasks += 1;
+    report.native_names.push(name.to_string());
+    Ok(outcome)
+}
+
+
 /// **驱动 v2**：按 `Scheduler::plan` 的顺序逐任务执行——已迁移的走 A-ROM 原生实现，
 /// 未迁移的在 `workdir` 上跑旧闭包并 `harvest` 成层；两者交替时把原生写入同步回 workdir，
 /// 让「目录镜像」与「对象模型」始终一致。`tail` 用于收尾步骤（例如 `pack.mcmeta` 改写），
@@ -213,9 +275,7 @@ pub fn run_native<F>(
 where
     F: FnOnce(&Path) -> Result<(), String>,
 {
-    use crate::hurray::context::HurrayContext;
     use crate::hurray::scheduler::Scheduler;
-    use crate::hurray::texture::TexturePool;
 
     ensure_empty_dir(workdir)?;
 
@@ -246,8 +306,6 @@ where
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("resource_pack");
-    let ctx = HurrayContext::with_pack_name(workdir.to_str().unwrap_or_default(), pack_name);
-    let mut pool = TexturePool::new();
     let mut report = MixedRunReport {
         materialized_files: baseline.file_count(),
         materialized_dirs: baseline.dir_count(),
@@ -278,6 +336,19 @@ where
     // > 与某原生任务**有重叠**的旧任务，若在计划里排在它**之后**，该原生任务必须放前阶段
     // > （否则那一步会读到原生改动后的内容）；若排在它**之前**，则必须放后阶段
     // > （它自己必须读到旧任务的改动）。两侧都要求时属**歧义**，放后阶段并记录待裁决。
+    // **① 前置原生任务**（`Side::Early`）：这一批必须**先于**计划里的自然位置执行。
+    //
+    // 这不是历史包袱，而是 §9.52/§9.100 实测出来的**必要前置**：名单里的任务都是
+    // 「原位改写 GUI 图」或「生成 GUI 图」，而计划中消费它们的任务在计划里排得更早 ——
+    // 若按计划顺序跑，`convert_animated_textures` 会**先于** `fix_clock_compass`，
+    // 于是它把 `clock.png` 拆成 `clock_00..63` 并删掉原图，随后 `fix_clock_compass`
+    // 再也找不到 `clock.png`。
+    //
+    // **这是 §9.129 实测到的**：把前置删掉、改成纯计划顺序后，产物条目 4018 → **4117**，
+    // 指纹 `0x75bb3260e7f578a6` → `0xbbbf2f19b473817c`；逐条 diff 显示
+    // **多 105 条** `textures/item/*`（`clock_00..63`、`acacia_boat.png` …）、
+    // **少 6 条**原图（`clock.png`、`clock.png.mcmeta`、`compass.png`、`compass.png.mcmeta`、
+    // `entity/equipment/humanoid{,_leggings}/copper.png`）。恢复前置后指纹回到冻结值。
     let native_placements = native_placements(&plan, &opts.native, &scheduler);
     let early_natives: Vec<String> = plan
         .iter()
@@ -285,146 +356,71 @@ where
         .cloned()
         .collect();
     for name in &early_natives {
-        let (label, decl, run) = native_for(name, &opts.native).expect("checked above");
-        let (outcome, layer) = {
-            let mut tx = pack.tx(name);
-            let outcome = run(&mut tx)
-                .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
-            (outcome, tx.into_layer())
-        };
-        // **阶段一致性检查**：`decl().tier` 必须与活注册表登记的阶段一致。
-        // 阶段不是装饰：驱动目前把所有原生任务放在同一个「前阶段」，只有 Eraser 级任务的
-        // 位置才与生产一致；写错阶段会静默改变执行顺序（§9.40 的谜题正是这样来的）。
-        if let Some(live) = scheduler.task_tier(name) {
-            let live_str = match live {
-                crate::hurray::scheduler::TaskTier::Eraser => "eraser",
-                crate::hurray::scheduler::TaskTier::Architect => "architect",
-                crate::hurray::scheduler::TaskTier::Surgeon => "surgeon",
-                crate::hurray::scheduler::TaskTier::Closure => "closure",
-            };
-            if live_str != decl.tier.as_str() {
-                return Err(AromError::internal(format!(
-                    "native task `{label}` ({name}) declares tier `{}` but the live registry says `{live_str}`",
-                    decl.tier.as_str()
-                )));
-            }
+        if native_for(name, &opts.native).is_none() {
+            return Err(AromError::internal(format!(
+                "plan lists task `{name}` but no native implementation is registered \
+                 (legacy execution has been removed, §9.129)"
+            )));
         }
-        // 契约检查：原生任务只能写它声明过的路径
-        let violations = scope_violations(&decl, &layer);
-        if !violations.is_empty() {
-            if opts.strict_scopes {
-                return Err(AromError::internal(format!(
-                    "native task `{label}` ({name}) wrote outside its declared scope: {:?} (declared writes: {})",
-                    violations,
-                    decl.writes.describe()
-                )));
-            }
-            report.undeclared.extend(violations);
-        }
-        apply_layer_to_workdir(&pack, workdir, &layer)?;
-        check_layer_materialized(&pack, workdir, &layer, name)?;
-        sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
-        pack.commit(layer);
-        report.native_tasks += 1;
-        report.deferred_removals.extend(outcome.deferred_removals.iter().cloned());
-        report.native_names.push(name.clone());
+        let outcome = dispatch_native_into_pack(
+            &mut pack,
+            workdir,
+            &mut baseline,
+            &mut report,
+            &scheduler,
+            name,
+            &opts.native,
+            opts.strict_scopes,
+        )?;
+        report
+            .deferred_removals
+            .extend(outcome.deferred_removals.iter().cloned());
         trace_step(&format!("pre:{name}"), &mut trace);
     }
 
-    // ② 旧任务：**一次性**批量执行（与 `execute_version_conversion` 完全同构）
-    let native_names: Vec<String> = plan
-        .iter()
-        .filter(|name| native_for(name, &opts.native).is_some())
-        .cloned()
-        .collect();
-    let legacy_names: Vec<String> = plan
-        .iter()
-        .filter(|name| !native_names.contains(name))
-        .cloned()
-        .collect();
-    report.legacy_tasks = legacy_names.len();
-    // §9.102：`cut_gui` 的实现**已经是原生模块**（§9.101 起，由注册闭包直接调用
-    // `surgeon_cut_gui::run_in_workdir`），只是在**配置层面**走适配层而不是 Tx 形态——
-    // 它必须留在旧批次的 `(15,18)` 位置（§9.100 实测：挪出去就少 3 个 sprite）。
-    // 因此报告的「适配层」计数里**应把它减掉**，否则读数会把一件已完成的事显示成未完成。
-    let cut_gui_in_batch = legacy_names.iter().any(|n| n == CUT_GUI);
-    if cut_gui_in_batch {
-        report.legacy_tasks -= 1;
-    }
-
-    trace_step("before-legacy", &mut trace);
-    if opts.legacy_one_by_one || opts.step_trace {
-        // `legacy_one_by_one`：实验模式，逐个任务执行并在每个之后收层（§9.18 的结论即出自它）。
-        // `step_trace`：**诊断模式**也走这条，只为拿到「旧批次里是**哪一步**先偏离」的读数——
-        // 它不改变产物（收层粒度比生产细，但产物由最终 harvest 决定）。
-        for name in &legacy_names {
-            scheduler
-                .run_named(std::slice::from_ref(name), &ctx, &mut pool)
-                .map_err(|e| AromError::internal(format!("legacy task `{name}`: {e}")))?;
-            let one = harvest(&pack, workdir, &baseline, None)?;
-            report.harvested_changes += one.changed();
-            report.added += one.added.len();
-            report.modified += one.modified.len();
-            report.removed += one.removed.len();
-            sync_baseline_with_layer(&pack, &one.layer, &mut baseline)?;
-            pack.commit(one.layer);
-            trace_step(&format!("legacy:{name}"), &mut trace);
-        }
-    } else {
-        scheduler
-            .run_named(&legacy_names, &ctx, &mut pool)
-            .map_err(|e| AromError::internal(format!("legacy tasks: {e}")))?;
-
-        let harvested = harvest(&pack, workdir, &baseline, None)?;
-        report.harvested_changes += harvested.changed();
-        report.added += harvested.added.len();
-        report.modified += harvested.modified.len();
-        report.removed += harvested.removed.len();
-        sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
-        pack.commit(harvested.layer);
-    }
-    trace_step("after-legacy", &mut trace);
-
-    // **后阶段**：放依赖关系要求「晚于旧批次」的原生任务，位置在旧批次之后、GuiSurgeon 之前。
-    // 依据（§9.42 实测）：旧批次不能被拆分（它只有一次提交 + 一次清理）；而「必须早于全部
-    // 旧任务」的（见前阶段的判据）走前阶段，两段各自都保持「原生在旧批次的一侧」。
-    for name in &native_names {
-        if matches!(native_placements.get(name), Some(Side::Early)) {
+    // **② 逐任务执行**（§9.129）。
+    //
+    // 历史上这里分三段：原生「前阶段」→ 旧任务**一次性批次**（`Scheduler::run_named`）
+    // → 原生「后阶段」。批次之所以整体喂给旧引擎，是因为 §9.42 实测「旧批次不可拆分」
+    // （一次提交 + 一次清理），于是每个原生任务只能在批次**之前或之后**二选一
+    // （`native_placements` 的 `Side::Early/Late`）。
+    //
+    // §9.128 送走旧转换器后，46 个任务**全部**是原生 `Tx`；
+    // §9.129 又把 `cut_gui` 也并入派发表（它原先绕道注册闭包，就为了能跑在批次内部）。
+    // 于是批次里**一个名字都不剩**，"不可拆分"这个约束随之消失 ——
+    // 现在按 `plan` 顺序**逐任务**执行即可，每个任务都跑在它的**精确计划槽位**上
+    // （前置那一批已在 ① 跑过，这里跳过）。
+    //
+    // 判据是冻结指纹（§9.129 实测：4018 条目 / `0x75bb3260e7f578a6`）。
+    for name in &plan {
+        if early_natives.contains(name) {
             continue;
         }
-        let (label, decl, run) = native_for(name, &opts.native).expect("dispatched above");
-        let (outcome, layer) = {
-            let mut tx = pack.tx(name);
-            let outcome = run(&mut tx)
-                .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
-            (outcome, tx.into_layer())
-        };
-        let violations = scope_violations(&decl, &layer);
-        if !violations.is_empty() && opts.strict_scopes {
+        // 契约检查：计划里的每个名字都必须有原生实现。计划表由 `task_registry` 驱动，
+        // 若它列出一个没有实现的名字，说明"未迁移"状态回归了——必须显式失败而不是跳过。
+        if native_for(name, &opts.native).is_none() {
             return Err(AromError::internal(format!(
-                "native task `{label}` ({name}) wrote outside its declared scope: {violations:?}"
+                "plan lists task `{name}` but no native implementation is registered \
+                 (legacy execution has been removed, §9.129)"
             )));
         }
-        // **必须**把层落到 workdir：GuiSurgeon / cut_gui 是「注册表之外的直接步骤」，
-        // 它们与旧批次一样**直接读写磁盘**。只把层提交进 Pack 会让这一步读到旧内容，
-        // 产物随之分叉（实测：`generate_smithing_ui` 的 4 个 sprite 就是这样丢的——
-        // 原生与旧 Architect 产物逐像素相同，是 Surgeon 的 `process_smithing2` 没生效，§9.52）。
-        apply_layer_to_workdir(&pack, workdir, &layer)?;
-        check_layer_materialized(&pack, workdir, &layer, name)?;
-        sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
-        pack.commit(layer);
-        report.deferred_removals.extend(outcome.deferred_removals);
-        // 后阶段的原生任务同样计入（否则报告与断言都会少算）
-        report.native_tasks += 1;
-        report.native_names.push(name.clone());
-        trace_step(&format!("post:{name}"), &mut trace);
+        let outcome = dispatch_native_into_pack(
+            &mut pack,
+            workdir,
+            &mut baseline,
+            &mut report,
+            &scheduler,
+            name,
+            &opts.native,
+            opts.strict_scopes,
+        )?;
+        report
+            .deferred_removals
+            .extend(outcome.deferred_removals.iter().cloned());
+        trace_step(name, &mut trace);
     }
-    // §9.102：`cut_gui` 的实现是原生模块（§9.101），但配置上留在旧批次内，
-    // 因此前面两个 Tx 阶段块都不会把它计入——这里补记，使报告与「实现来源」一致。
-    if cut_gui_in_batch {
-        report.native_tasks += 1;
-        report.native_names.push(CUT_GUI.to_string());
-    }
+    report.legacy_tasks = 0;
+
     {
         let harvested = harvest(&pack, workdir, &baseline, None)?;
         report.harvested_changes += harvested.changed();
@@ -454,12 +450,19 @@ where
     }
     trace_step("after-direct-steps", &mut trace);
 
-    // 旧任务的删除是**延迟清理**（`defer_remove_dir` 等），生产管线在
-    // `invoke_conversion_ex` 末尾统一执行；驱动必须做同样的事，否则删不掉的目录
-    // 会在最终产物里复活（本步实测：`assets/minecraft/font` 曾因此残留）。
-    ctx.execute_cleanup()
-        .map_err(|e| AromError::internal(format!("execute_cleanup: {e}")))?;
-    pool.clear_unused();
+    // **§9.129：`ctx.execute_cleanup()` / `pool.clear_unused()` 已删除。**
+    //
+    // 原先这里调用旧引擎的清理：旧任务的 `defer_remove_*` 登记在 `HurrayContext` 的清单里，
+    // 生产管线在 `invoke_conversion_ex` 末尾统一执行（漏掉会让 `assets/minecraft/font`
+    // 之类的目录在产物里复活）。
+    //
+    // 现在两件事都不需要了：
+    //   * `cut_gui` 是**最后一个**往 `ctx` 登记清理的东西（§9.128 已改成回传 `Outcome`）；
+    //   * 计划里的 46 个任务**全部**是原生 `Tx`，没有旧闭包会去 `ctx.defer_remove_*`；
+    //   * `TexturePool` 也只被旧闭包用过。
+    //
+    // 于是 `ctx` 恒为空、`pool` 恒为空转 —— 保留它们只会让"这里还有旧引擎在做事"的假象留存。
+    // 所有延迟删除现在只有一条路径：下方 `report.deferred_removals` 的 tombstone。
 
     // 原生任务登记的**延迟删除**：与旧实现的 `defer_remove_*` **同一时机**（清理点）统一应用。
     // 早删会让更晚的任务看不到文件（实测：反向改名搬不动已被删的源，§9.23）。
@@ -940,6 +943,19 @@ fn native_for(
             "animated",
             crate::natives::animated::decl(),
             crate::natives::animated::run,
+        )),
+        // **`cut_gui`（§9.129）**：以前它**不在本表里** —— 因为驱动只能在「整批旧任务之前/之后」
+        // 二选一，而它的槽位在批次**内部**（`(15,18)`，§9.100 实测：挪出去就少 3 个 sprite）。
+        // 于是它绕道 `Scheduler::run_named` + 注册闭包，闭包里调 `run_in_workdir`
+        // （读 gui 子树 → 内存包 → 跑 `Tx` → 写回 workdir 的一层往返桥）。
+        //
+        // 现在 46 个任务全部是原生 `Tx`，驱动改按 `plan` 顺序**逐任务**执行，因此
+        // `cut_gui` 可以直接以 `Tx` 形态跑在它的精确槽位上，那层往返桥随之取消。
+        // 派发**与 `NativeSwitches` 无关**（§9.102：它的实现无条件就是原生模块）。
+        "cut_gui" => Some((
+            "surgeon_cut_gui",
+            crate::natives::surgeon_cut_gui::decl(),
+            crate::natives::gui_surgeon_tx::run,
         )),
         _ => None,
     }
