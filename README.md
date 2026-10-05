@@ -198,9 +198,12 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   └── locales/               zh-CN.json / en-US.json
 ├── src-tauri/                 Rust 后端（主程序）
 │   ├── src/
-│   │   ├── converters/        版本转换模块（各含 reverse）+ bedrock/ 子模块 + 目录规整 / 打包
+│   │   ├── arom/              A-ROM 对象模型 + 执行引擎（engine/：版本映射与按阶段调度）
+│   │   ├── natives/           46 个任务的**原生实现**（eraser / architect / surgeon / reverse 分组）
+│   │   ├── pack/              资源包 I/O 与分析工具（io / diff / analysis / version_converter）
+│   │   ├── bedrock_convert/   基岩 ↔ Java 结构转换（j2b / b2j）
 │   │   ├── commands/          Tauri 命令（config / background / overlay / misc …）
-│   │   ├── hurray/            调度器与纹理池
+│   │   ├── foray/             资源包结构分析与轻量编辑（只读侧）
 │   │   ├── overlay/           Overlay 模板生成
 │   │   └── lib.rs             入口：窗口创建 / 单实例 / 退出策略
 │   ├── UImage/                内置贴图模板
@@ -338,9 +341,12 @@ The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The ve
 │   └── locales/               zh-CN.json / en-US.json
 ├── src-tauri/                 Rust backend (main app)
 │   ├── src/
-│   │   ├── converters/        Version converters + bedrock/ submodule + directory normalization
+│   │   ├── arom/              A-ROM object model plus the execution engine (engine/: version maps and tier bucketing)
+│   │   ├── natives/           Native implementations of the 46 tasks (eraser / architect / surgeon / reverse)
+│   │   ├── pack/              Pack I/O and analysis tools (io / diff / analysis / version_converter)
+│   │   ├── bedrock_convert/   Bedrock <-> Java structure conversion (j2b / b2j)
 │   │   ├── commands/          Tauri commands
-│   │   ├── hurray/            Scheduler & texture pool
+│   │   ├── foray/             Pack structure analysis and light editing (read-only side)
 │   │   ├── overlay/           Overlay template generation
 │   │   └── lib.rs             Entry: window / single-instance / exit policy
 │   ├── UImage/                Built-in texture templates

@@ -147,7 +147,7 @@ pub fn run_with_legacy_tasks<F>(
 where
     F: FnOnce(&Path) -> Result<(), String>,
 {
-    use crate::hurray::scheduler::Scheduler;
+    use crate::arom::engine::scheduler::Scheduler;
 
     ensure_empty_dir(workdir)?;
 
@@ -272,7 +272,7 @@ pub fn run_native<F>(
 where
     F: FnOnce(&Path) -> Result<(), String>,
 {
-    use crate::hurray::scheduler::Scheduler;
+    use crate::arom::engine::scheduler::Scheduler;
 
     ensure_empty_dir(workdir)?;
 
@@ -1233,7 +1233,7 @@ mod tests {
     /// 两次实验合起来给出现在的显式形式：**Eraser → 前阶段，名单 → 前阶段，其余 → 后阶段**。
     #[test]
     fn native_placement_rule_is_pinned_by_the_real_plan() {
-        use crate::hurray::scheduler::Scheduler;
+        use crate::arom::engine::scheduler::Scheduler;
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let input = tmp.path().join("fixture.zip");

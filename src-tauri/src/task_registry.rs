@@ -11,7 +11,7 @@
 //! 生成：`pwsh tools/gen-task-registry.ps1`（从 `invoke_conversion.rs` 机械提取）。
 
 use crate::arom::Tier;
-use crate::hurray::scheduler::TaskType;
+use crate::arom::engine::scheduler::TaskType;
 
 /// 一个任务的名字、并发类型与阶段。
 ///

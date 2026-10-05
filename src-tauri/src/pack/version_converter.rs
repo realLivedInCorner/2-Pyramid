@@ -629,7 +629,7 @@ fn run_bedrock_edge_task(
     target_version: u32,
     pack_name: &str,
 ) -> Result<(), String> {
-    use crate::hurray::scheduler::Scheduler;
+    use crate::arom::engine::scheduler::Scheduler;
 
     let mut scheduler = Scheduler::new();
     // §9.130：`work_dir` 与 `pack_name` 在**注册期捕获**，因此不再需要构造 `HurrayContext`；
@@ -659,7 +659,7 @@ pub struct ConversionTiming {
     pub post_s: f32,
     /// 逐任务画像（按耗时降序；并行任务含线程争用）。随返回值一起给出，
     /// 便于 CLI/报告使用（全局画像表在日志输出时已被取走）。
-    pub task_profile: Vec<crate::hurray::scheduler::TaskTiming>,
+    pub task_profile: Vec<crate::arom::engine::scheduler::TaskTiming>,
 }
 
 /// 兼容入口：只关心输出路径的调用方（单文件转换、单测）用这个。
@@ -924,7 +924,7 @@ pub fn process_zip_timed(
 
     // 逐任务画像：取走本次转换的任务耗时，输出 top-N（并行任务含线程争用，
     // 属"墙钟占用"而非纯 CPU 时间）。取走的列表随 timing 一起返回，供 CLI 报告。
-    let task_timings = crate::hurray::scheduler::take_task_timings();
+    let task_timings = crate::arom::engine::scheduler::take_task_timings();
     if !task_timings.is_empty() {
         let task_sum: f32 = task_timings.iter().map(|t| t.seconds).sum();
         log_info!(

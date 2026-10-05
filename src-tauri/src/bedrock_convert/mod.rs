@@ -32,7 +32,7 @@ pub mod ui;
 use std::path::Path;
 
 use crate::arom::Tier;
-use crate::hurray::scheduler::{Scheduler, TaskType};
+use crate::arom::engine::scheduler::{Scheduler, TaskType};
 
 pub use b2j::convert_bedrock_to_java;
 pub use j2b::convert_java_to_bedrock;

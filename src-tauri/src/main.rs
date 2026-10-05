@@ -175,7 +175,7 @@ fn main() {
         let build = env!("BUILD_NUMBER");
         let stamp = format!("{}+{}", ver, build);
         eprintln!("[2-Pyramid {}]Checking Environment.....", stamp);
-        eprintln!("[2-Pyramid {}]Checked Successfully, Starting 2-Pyramid Hurray Engine", stamp);
+        eprintln!("[2-Pyramid {}]Checked Successfully, Starting 2-Pyramid Conversion Engine", stamp);
         eprintln!("[2-Pyramid {}]Processing NGUI Conifg", stamp);
         eprintln!("[2-Pyramid {}]Loaded Setting Module", stamp);
         eprintln!("[2-Pyramid {}]Loaded Minecraft ResourcePack Convert Module", stamp);

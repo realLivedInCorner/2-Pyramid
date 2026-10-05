@@ -16,7 +16,7 @@
 
 use std::path::Path;
 
-use crate::hurray::scheduler::Scheduler;
+use crate::arom::engine::scheduler::Scheduler;
 
 /// 注册调度器所需的全部任务。
 ///

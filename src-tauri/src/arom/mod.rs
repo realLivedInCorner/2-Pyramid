@@ -18,6 +18,13 @@
 //! **当前进度：M1（Step 7）进行中**——L0–L3 已在 M0 落地（Step 0–6，见 `astray-arom-model.md` §9），
 //! 现补任务契约与冲突感知调度；调用点仍未替换，因此本模块可以整体删除而不影响现状。
 
+/// **执行引擎**（阶段分桶执行已注册任务 + 版本→任务映射表）。
+///
+/// §9.134：本模块原为 `crate::hurray`（旧引擎）。A-ROM 逐步接手后，
+/// `HurrayContext`/`TexturePool`/`TaskTier`/`TaskFn(&ctx)` 全部退场，
+/// 只剩「计划 + 执行 + 错误」三件事——它已经是 A-ROM 的一部分，
+/// 因此搬进 `arom::engine`，不再单列一个 `hurray` 模块。
+pub mod engine;
 pub mod error;
 pub mod layer;
 pub mod limits;

@@ -118,7 +118,6 @@ mod scale_factor;
 mod task_registry;
 
 mod updater;
-pub mod hurray;
 
 // §9.121（M3 ②-c）：`invoke_conversion::invoke_conversion` 与其 `_ex` 变体已删除——
 // 生产入口改走 `native_run`（§9.118），旧入口不再有任何调用者。
