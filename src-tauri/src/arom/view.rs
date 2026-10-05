@@ -17,7 +17,7 @@ use std::sync::Arc;
 use image::RgbaImage;
 
 use super::error::AromError;
-use super::layer::PackView;
+use super::layer::{PackView, Resolved};
 
 /// 结构化 `pack.mcmeta`。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +105,19 @@ pub struct ViewCache {
     version: u64,
     mcmeta: HashMap<String, Arc<PackMeta>>,
     images: HashMap<String, Arc<RgbaImage>>,
+    /// **条目表缓存**（§9.153）。
+    ///
+    /// `PackView::entries()` 是**从零重建**整张表：把 base 的全部条目插进 `BTreeMap`，
+    /// 再逐层套用改名规则（`map_forward_all`）与写入/墓碑。真实包实测（debug）：
+    /// **19 次调用累计 2.719s，占全流程 4.764s 的 57%**——每次约 143ms。
+    ///
+    /// 而它的结果**只依赖已提交的层**，因此同一包版本内完全可复用。最典型的浪费是
+    /// `gui_surgeon` 的清理循环：一次 `run` 里连调 20 次 `has_prefix` →
+    /// `list` → `entries()`（其中 15 次真的落进全量枚举），把同一张表重建 15 遍。
+    ///
+    /// 缓存键是 `version`（与 mcmeta/images 同一套失效机制）：`Pack::commit` 递增版本，
+    /// 下一次访问即重建一次，随后复用。
+    entries: Option<Arc<Vec<Resolved>>>,
 }
 
 impl ViewCache {
@@ -114,7 +127,16 @@ impl ViewCache {
             self.version = version;
             self.mcmeta.clear();
             self.images.clear();
+            self.entries = None;
         }
+    }
+
+    pub fn get_entries(&self) -> Option<Arc<Vec<Resolved>>> {
+        self.entries.clone()
+    }
+
+    pub fn put_entries(&mut self, entries: Arc<Vec<Resolved>>) {
+        self.entries = Some(entries);
     }
 
     pub fn cached_mcmeta(&self) -> usize {

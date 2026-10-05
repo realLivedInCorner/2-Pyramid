@@ -307,6 +307,20 @@ impl Pack {
         }
     }
 
+    /// 已提交视图的**条目表缓存**读取（§9.153）。
+    pub(crate) fn entries_cached(&self) -> Option<Arc<Vec<Resolved>>> {
+        let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+        cache.sync(self.version);
+        cache.get_entries()
+    }
+
+    /// 写入条目表缓存（§9.153）。
+    pub(crate) fn store_entries(&self, entries: Arc<Vec<Resolved>>) {
+        let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+        cache.sync(self.version);
+        cache.put_entries(entries);
+    }
+
     /// 提交一层（原样保留其改名规则与写入）。
     pub fn commit(&mut self, layer: Layer) {
         if layer.is_empty() {
@@ -562,6 +576,29 @@ impl<'a> PackView<'a> {
 
     /// 物化全部有效条目（顺序：路径排序，确定性）。枚举是 O(条目数)，解析仍是惰性的。
     pub fn entries(&self) -> Result<Vec<Resolved>, AromError> {
+        // **§9.153：已提交视图的条目表按包版本缓存。**
+        //
+        // 只在 `pending` 为空（"纯已提交视图"）时缓存：带在途层的视图结果与版本号
+        // 不是一一对应，缓存它会读到过期结果。`Tx` 的视图恒为 pending，因此任务内部的
+        // 枚举不缓存——它们本来就该看到自己的在途写入。
+        //
+        // 省下的是什么：真实包实测（debug）19 次 `entries()` 累计 **2.719s / 4.764s（57%）**，
+        // 每次都要遍历全部层重建整表。而 `has_prefix` → `list` 每次都会走到这里，
+        // `gui_surgeon` 的清理循环一次 `run` 就有 20 次 `has_prefix`。
+        let cacheable = self.pending.is_none();
+        if cacheable {
+            if let Some(hit) = self.pack.entries_cached() {
+                return Ok((*hit).clone());
+            }
+        }
+        let built = self.entries_uncached()?;
+        if cacheable {
+            self.pack.store_entries(std::sync::Arc::new(built.clone()));
+        }
+        Ok(built)
+    }
+
+    fn entries_uncached(&self) -> Result<Vec<Resolved>, AromError> {
         let mut map: BTreeMap<String, Resolved> = BTreeMap::new();
         for (_, entry) in self.pack.base.unique_entries() {
             let path = self.pack.base.path_str(entry.path)?.to_string();
