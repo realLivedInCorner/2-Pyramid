@@ -909,6 +909,23 @@ pub(crate) fn apply_layer_to_workdir(
 ) -> Result<(), AromError> {
     // 顺序与 `entries()` 一致：先套用本层改名规则，再套用本层写入
     apply_renames_to_workdir(workdir, layer)?;
+
+    // **§9.137：目录缓存。**
+    //
+    // 原先每个写入条目都调一次 `create_dir_all(parent)`。实测一个任务可写 **1614** 个条目
+    // （`rename_blocks_items`，占全部 2096 次写入的 77%），其中绝大多数目录**早就存在**，
+    // 于是这变成 1600+ 次白跑的系统调用。缓存"本次调用里已确认存在的目录"后，同样的
+    // 目录只查一次。
+    let mut ensured: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::with_capacity(64);
+    let mut ensure_dir = |dir: &std::path::Path| -> Result<(), AromError> {
+        if ensured.insert(dir.to_path_buf()) {
+            std::fs::create_dir_all(dir)
+                .map_err(|e| AromError::io(format!("mkdir {}: {e}", dir.display())))?;
+        }
+        Ok(())
+    };
+
     for (path, slot) in layer.writes() {
         let full = workdir.join(path);
         match slot {
@@ -922,13 +939,11 @@ pub(crate) fn apply_layer_to_workdir(
                 }
             }
             Slot::Present(Body::Dir) => {
-                std::fs::create_dir_all(&full)
-                    .map_err(|e| AromError::io(format!("mkdir {}: {e}", full.display())))?;
+                ensure_dir(&full)?;
             }
             Slot::Present(body) => {
                 if let Some(parent) = full.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| AromError::io(format!("mkdir {}: {e}", parent.display())))?;
+                    ensure_dir(parent)?;
                 }
                 let bytes = pack.read_body(body)?;
                 std::fs::write(&full, &bytes)
