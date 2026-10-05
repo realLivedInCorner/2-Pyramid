@@ -129,7 +129,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         Some(v) => v.clone(),
         None => {
             eprintln!(
-                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>]"
+                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>] [--fast]"
             );
             return 2;
         }
@@ -147,6 +147,11 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         None => 97,
     };
 
+    // §9.138：可选处理项。**默认全开**（产物完整）。
+    // `--fast` 关闭 GUI sprite 手术——实测它是唯一能显著缩短耗时的处理项
+    // （两次 `cut_gui`，各约 1.5s）。代价是丢失 GUI 切图产物（血条/护甲槽等）。
+    let fast = args.iter().any(|a| a == "--fast");
+    let run_gui_surgeon = !fast;
     let out_dir = arg_value(args, "--out").map(PathBuf::from);
     let report_path = arg_value(args, "--report").map(PathBuf::from);
 
@@ -206,6 +211,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
             out_dir.as_ref().map(|d| d.to_string_lossy().to_string()).as_deref(),
             false,
             true,
+            run_gui_surgeon,
         ) {
             Ok((output, timing)) => {
                 convert_secs += convert_start.elapsed().as_secs_f32();

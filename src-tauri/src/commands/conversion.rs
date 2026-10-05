@@ -258,6 +258,8 @@ pub async fn convert_resource_packs_batch(
                 output_path.as_deref(),
                 fix_alpha,
                 adapt_shaders,
+                // §9.138：GUI 命令保持「完整转换」语义（GUI 手术开）
+                true,
             ) {
                 Ok((result_path, timing)) => {
                     let elapsed = file_start.elapsed();

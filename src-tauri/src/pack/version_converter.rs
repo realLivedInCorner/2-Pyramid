@@ -576,6 +576,7 @@ pub fn process_extracted_dir_only(
     let mut mopts = crate::native_run::MixedRunOptions::default();
     mopts.source_version = source_version;
     mopts.target_version = target_version;
+    // §9.138：本入口只被测试调用，保持「完整转换」语义（GUI 手术开）
     mopts.run_gui_surgeon = true;
     mopts.native = crate::native_run::NativeSwitches::all();
     crate::native_run::run_native(
@@ -682,12 +683,18 @@ pub fn process_zip(
         output_dir_override,
         fix_alpha_layers,
         adapt_shaders,
+        // 兼容入口保持「完整转换」语义（GUI 手术开）
+        true,
     )
     .map(|(path, _timing)| path)
 }
 
 /// 完整转换：返回 `(输出路径, 耗时)`。日志里同时记录「纯转换时间」与
 /// 「总时间（含 IO）」两个口径。
+///
+/// **§9.138：`run_gui_surgeon` 是唯一能显著缩短耗时的处理开关**——它控制两次 `cut_gui`
+/// （计划内一次 + 收尾直连一次，实测各约 1.5s）。关掉会**丢 sprite 产物**（GUI 里的血条/
+/// 护甲槽等切图），因此默认开；关它是"用产物完整性换时间"的显式选择。
 pub fn process_zip_timed(
     original_file_path: &str,
     pack_format2: u32,
@@ -697,6 +704,7 @@ pub fn process_zip_timed(
     output_dir_override: Option<&str>,
     fix_alpha_layers: bool,
     adapt_shaders: bool,
+    run_gui_surgeon: bool,
 ) -> Result<(String, ConversionTiming), String> {
     let input_zip = Path::new(original_file_path);
     if !input_zip.exists() {
@@ -847,7 +855,7 @@ pub fn process_zip_timed(
         let mut mopts = crate::native_run::MixedRunOptions::default();
         mopts.source_version = source_version;
         mopts.target_version = java_target;
-        mopts.run_gui_surgeon = !is_bedrock_target;
+        mopts.run_gui_surgeon = run_gui_surgeon && !is_bedrock_target;
         mopts.fix_alpha_layers = fix_alpha_layers;
         mopts.adapt_shaders = adapt_shaders;
         mopts.native = crate::native_run::NativeSwitches::all();
@@ -1060,6 +1068,7 @@ mod tests {
             Some(out_dir.to_str().expect("out path")),
             false,
             true,
+            true,   // §9.138：测试保持「完整转换」语义（GUI 手术开）
         )
         .expect("conversion should succeed");
 
