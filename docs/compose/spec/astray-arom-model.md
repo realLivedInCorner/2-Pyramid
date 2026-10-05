@@ -4411,3 +4411,113 @@ encode png `.../gui/sprites/title/realms.png`: Zero height not allowed
 必须**两道闸门同时守住**（相对对照 + 冻结指纹）。
 
 **本轮状态**：仓库 `4aa215a`，绿色，工作树干净。
+### 9.125 M3 **收口完成**：元数据与旧闭包拆开 + 旧转换器树整体按 feature 门控（2026-10-05）
+
+按 §9.124 的「下一步」执行完毕。**默认构建从此不含任何旧转换器代码**，
+而 `legacy` / `off` 两个对照配置与**基线重生成**能力完整保留。
+
+#### 交付（提交 `02a1089`）
+
+| 交付 | 内容 |
+|---|---|
+| `src-tauri/src/task_registry.rs`（新） | 88 项 `(name, TaskType, TaskTier)` 纯元数据，**顺序与旧注册表逐字一致**；另含 `AUXILIARY`（4 个由别处注册、但计划里会出现的任务：`adapt_java_shaders` / `fix_alpha_layers_in_textures` / 两个 bedrock 边任务） |
+| `Scheduler::task_tier` | 活注册表查不到时**回落到元数据表** —— 默认构建里 88 个任务的*实现*不存在，但*阶段*是生产必需的（`native_placements` 据此决定放置侧） |
+| `invoke_conversion::register_tasks`（原 `register_legacy_tasks`） | 元数据段**总是**注册；88 个闭包体 + 71 个 `use crate::converters::…` 移入 `#[cfg(feature = "legacy-oracle")]`。闭包**按元数据表顺序**注册 |
+| `Cargo.toml` | `[features] legacy-oracle = []`（默认关闭）；`converters/` 下旧树同样按它门控 |
+| `converters/bedrock/` → `bedrock_convert/` | Bedrock 结构转换是**生产功能**（Bedrock 目标 / Bedrock 源预检），**不**随旧树门控 |
+| `get_uimage_path` → `image_utils`、`determine_scale_factor` → crate 根 | 两者是原生实现与旧转换器**共用**的工具（§9.124 同类处置）。旧树里保留同名转发，**被忽略的旧源码不必改动** |
+| 测试 | 需要旧闭包的对照用例随 feature 门控；**与冻结基线对照的两条用例改跑 `on`（生产配置）** |
+
+**元数据的提取是机械的**：写脚本从旧 `invoke_conversion.rs` 逐条抽出 `(name, type, tier)`，
+再与原文件**逐条比对**（88/88，含顺序）——`tools/gen-task-registry.ps1` 保留为校验器
+（项数 / 重名 / 分布），另有两个单元用例守卫表形状与「空调度器仍答得出阶段」。
+这一步是刻意的：§9.124 的风险提示说得很清楚，**手抄一行就可能静默改变放置侧**。
+
+#### **一个只有实测才会暴露的坑**（本轮最重要的发现）
+
+把 88 个闭包换成「元数据 + 空实现」后，冻结指纹**立刻**从 4018 掉到 **4015**：
+
+```
+内容基线：4015 个条目，聚合指纹 = 0xc07855d73488424d
+只在冻结清单里（= 现在少了）：
+  68aad99092ead575        446  assets/minecraft/textures/gui/sprites/container/slot/horse_armor.png
+  8171076030e82e15        644  assets/minecraft/textures/gui/sprites/container/slot/llama_armor.png
+  1cb6ab64d7680b33        634  assets/minecraft/textures/gui/sprites/container/slot/saddle.png
+```
+
+**根因**：`cut_gui` 必须留在旧批次 `(15,18)` 槽位（§9.100 实测），因此驱动是把它当
+**「适配层任务」交给注册表闭包**执行的（`run_named` 路径），而**批次后的直连步骤不能替代它**
+（§9.90/§9.91：「两者各自必需，删任一个都丢 sprite」）。
+空实现 ⇒ 批次内那一次 `cut_gui` 什么也没做 ⇒ 少 3 个 sprite。
+
+**修法**：默认构建下把 `cut_gui` 接到**原生实现** `pilots::surgeon_cut_gui::run_in_workdir`
+（§9.101 起闭包体就是它，逐句相同）。于是默认构建**既不缺 sprite，也不含旧转换器代码**。
+
+**这条测试值得记住**：如果没有 §9.115 的冻结指纹，这次改动会**看起来完全成功**——
+编译通过、234 个单测全绿、`on` 配置的其它产物都对，只有 3 个 sprite 悄悄消失。
+这正是 §9.123 说的「基线把『生产没变』与『对照物变了』区分开」的反向用法：
+这次是**指纹抓住了「生产变了」**。
+
+#### 验收（全部实测）
+
+| 判据 | 默认构建（无 feature） | `--features legacy-oracle` |
+|---|---|---|
+| `cargo test --lib` | **234 passed / 0 failed / 6 ignored** | **314 passed / 0 failed / 22 ignored** |
+| `cargo check --bins` | 通过（57 警告） | 通过（83 警告） |
+| **冻结指纹** | **4018 条目 / `0x75bb3260e7f578a6`** ✅ | 同左 ✅ |
+| 绝对产物契约 | files=4018 bytes=19294735 ✅ | 同左 ✅ |
+| 相对闸门（`legacy`/`off`/`on`） | 不适用（旧实现已门控） | 21/22 通过（见下） |
+| `--ignored` | **6 passed**（含两条真实包闸门） | 21 passed / 1 failed |
+
+**忽略用例数从 22 降到 6 是刻意的**：默认构建里没有旧实现可对照，
+「与旧管线逐项一致」类用例**自我比较无信息量**，因此随 feature 门控；
+默认构建的替代闸门是**冻结指纹 + 绝对计数契约**（两者都独立于任何配置）。
+
+#### **全新 clone 现在可以构建**（实测）
+
+`archive/legacy-converters/README.md` 记录的「全新 clone 无法构建」已解除。
+实测方式：`git archive HEAD | tar -x`（**只有 tracked 文件**，没有任何旧转换器源码）：
+
+```
+converters/ 下 rs 文件数: 10
+cargo check --bins  → Finished（57 warnings）      ✅
+cargo test  --lib   → 234 passed / 6 ignored        ✅
+```
+
+**注意**：`--features legacy-oracle` **仍需先取回旧源码**（它本来就是这个 feature 的含义）：
+
+```powershell
+pwsh tools/legacy-oracle/restore.ps1     # 或从 archive/legacy-converters/ 复制
+cargo test --lib --features legacy-oracle
+```
+
+未取回时该构建会报 167 个 `file not found for module`——这是**预期**且信息明确的行为，
+`tools/legacy-oracle/README.md` 已说明。
+
+#### 未验证 / 已知问题（如实记录）
+
+1. **`reverse_whole_pack_matches_the_old_pipeline` 预先就是红的**（**不是本轮引入**）。
+   在**纯净 `aeaecb2`**（另开 worktree + `archive/legacy-converters` 恢复源码）上实测：
+
+   ```
+   test result: FAILED. 21 passed; 1 failed
+   内容差异：entity/chest/{christmas,ender,normal,trapped}.png
+     像素不同：3746/16384、4288/16384、2084/16384、2072/16384
+   ```
+
+   与本轮改动后的读数**逐字相同**。⇒ 反向整包链路里 `chest` 系贴图与旧实现有差距，
+   **在之前某轮就已如此**，只是**从未在提交状态跑过 `--ignored`**（每次只跑非 ignored 集）
+   才没被发现。**未修复**，也**未定位**到具体是哪个任务的移植误差；
+   `chest_region` 提取（§9.124）只覆盖正向的 `process_chest_folder`。
+   **建议单独一轮**：先 `AROM_BASELINE_DUMP` 出反向清单，再看是 `reverse_process_chest_folder`
+   还是 `reverse_*` 的哪一步（§9.125 的「逐步读数」工具可直接用）。
+2. **`archive/legacy-converters/` 与 `tools/legacy-oracle/` 仍保留**：它们现在是
+   `legacy-oracle` 的**唯一源码来源**（全新 clone 里旧树根本不存在），因此**不能删**——
+   §9.124 收尾清单第 1 条的前提（「基线的重生成能力已由 feature 保留」）**尚未成立**：
+   feature 保留的是**开关**，源码仍来自存档。
+3. **`pilots/` 改名**（§9.115 记录的用户指示）仍未做——应单独一轮，只改名不夹带行为改动。
+
+#### 本轮状态
+
+仓库 `02a1089`，工作树干净；默认构建与 feature 构建**双绿**，冻结指纹 `0x75bb3260e7f578a6`（4018 条目）。
+**M3 的目标（生产二进制不含旧转换器代码 + 保留基线重生成能力）已达成。**

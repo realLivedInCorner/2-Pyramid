@@ -36,24 +36,36 @@ pwsh tools/legacy-oracle/restore.ps1
 Copy-Item -Recurse -Force archive/legacy-converters/* src-tauri/src/converters/
 ```
 
-## 当前仓库状态的已知限制
+## 当前仓库状态的已知限制（§9.125 已更新）
 
-**移出后，全新 clone 无法完整构建。** 原因是 `src-tauri/src/` 下仍有引用：
+**默认构建（无 feature）在全新 clone 上可以正常构建与测试** —— 实测
+`git archive HEAD | tar -x`（只有 tracked 文件）后：
 
-| 位置 | 引用内容 | 性质 |
-|---|---|---|
-| `invoke_conversion.rs` | 88 个任务的旧闭包注册表 | **仅测试**用（生产走原生派发） |
-| `pilots/mod.rs` | `mirror_region` / `swap_and_mirror` / `color::utils` | 前两个是原生实现复用，第三个是合法共享 |
-| `pilots/mod.rs`（`#[cfg(test)]` 内） | 约 16 处，作为对照 oracle | 仅测试 |
-| `arom/pathview.rs`（`#[cfg(test)]` 内） | 2 处，作为对照 oracle | 仅测试 |
-| `version_converter.rs` | `bedrock::{register_tasks, is_bedrock_resource_pack}` | **已 tracked**，不受影响 |
+```
+cargo check --bins  → Finished
+cargo test  --lib   → 234 passed / 6 ignored
+```
 
-**M3 收口时二选一**：
+原因是 §9.125 把旧转换器树整体按 `legacy-oracle` feature 门控了：
+`invoke_conversion.rs` 的 88 个旧闭包、`pilots/mod.rs` 的对照测试、`arom/pathview.rs` 的对照用例，
+以及（更早的 §9.124）`pilots/mod.rs` 生产段对 `mirror_region` / `swap_and_mirror` / `color::utils`
+的复用，都已经不再存在于默认构建里。
 
-1. **完成迁移**：把上述引用一并原生化（旧闭包注册表改为「名字+阶段」元数据表、
-   两个图像辅助移入 `crate::image_utils`），然后本存档可以删除；
-2. **保持存档**：把上述引用用 Cargo feature 门控（`legacy-oracle`，默认关闭），
-   使默认构建不含旧代码、测试按需开启。
+**`--features legacy-oracle` 仍需先取回本存档的源码**（它本来就是这个 feature 的含义）：
+
+```powershell
+pwsh tools/legacy-oracle/restore.ps1
+cargo test --lib --features legacy-oracle
+```
+
+未取回时该构建会报一批 `file not found for module` —— **预期**行为，不是故障。
+
+**因此本存档不能删**：它现在是 `legacy-oracle` 的**唯一源码来源**
+（全新 clone 里旧树根本不存在，`restore.ps1` 的 `REF_COMMIT` 是移出时那个提交，
+新 clone 里也未必可达，`archive/` 才是可靠来源）。
+
+§9.124 收尾清单里「第 ③ 步做完后存档可删」的前提**尚未成立**：
+feature 保留的是**开关与门控**，源码仍来自这里。
 
 ## 已知陷阱
 

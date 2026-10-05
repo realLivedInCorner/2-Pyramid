@@ -31,26 +31,27 @@ pwsh tools/legacy-oracle/restore.ps1 -Force   # 覆盖已存在的文件
 恢复源是 `restore.ps1` 里的 `REF_COMMIT`（移出时所在的提交），
 待恢复清单是同目录的 `untracked-files.txt`。
 
-## 重要：当前仓库状态
+## 重要：当前仓库状态（§9.125 已更新）
 
-**移出后，全新 clone 无法构建** —— 因为 `invoke_conversion.rs`（旧闭包注册表）
-与 `pilots/mod.rs` 里的若干原生实现仍引用这些文件。
-
-**这是 M3 进行期间的过渡状态，是刻意的**：
+**默认构建在全新 clone 上可构建、可测试**（实测，见 `archive/legacy-converters/README.md`）。
+旧转换器树已整体按 `legacy-oracle` feature 门控，**默认关闭**：
 
 | 场景 | 是否可构建 |
 |---|---|
 | 本地开发（文件仍在磁盘上） | ✅ 可构建、可测试 |
-| 全新 clone（无这些文件） | ❌ **不可构建，需先跑 `restore.ps1`** |
+| **全新 clone + 默认构建** | ✅ **可构建、可测试**（234 passed / 6 ignored） |
+| 全新 clone + `--features legacy-oracle` | ❌ 需先跑 `restore.ps1`（预期行为） |
 
-**M3 收口时**应当二选一：
+打开 feature 后即可使用 `legacy` / `off` 两个对照配置与**基线的重生成能力**：
 
-1. **完成迁移**：把剩余引用（`invoke_conversion.rs` 的旧闭包注册表、
-   `pilots/mod.rs` 里对 `mirror_region` / `swap_and_mirror` 的复用）一并原生化，
-   然后删除旧转换器目录；
-2. **转为归档**：把旧转换器移入独立目录或独立仓库，仅测试时引用。
+```powershell
+pwsh tools/legacy-oracle/restore.ps1
+cargo test --lib --features legacy-oracle          # 314 passed / 22 ignored
+cargo test --lib --features legacy-oracle -- --ignored
+```
 
-在此之前，**不要把它当成死代码删除**。
+**本目录与 `archive/legacy-converters/` 不能删**：它们是该 feature 的**唯一源码来源**
+（全新 clone 里旧树不存在；`REF_COMMIT` 在新 clone 里也未必可达，`archive/` 才是可靠来源）。
 
 ## 已知陷阱
 
