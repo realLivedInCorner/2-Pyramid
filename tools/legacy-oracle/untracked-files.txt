@@ -80,3 +80,6 @@ src-tauri/src/converters/ui/smithing_villager.rs
 src-tauri/src/converters/ui/sub_hand.rs
 src-tauri/src/converters/ui/survival.rs
 src-tauri/src/converters/ui/tabs.rs
+src-tauri/src/converters/color/hue.rs
+src-tauri/src/converters/color/mod.rs
+src-tauri/src/converters/color/utils.rs

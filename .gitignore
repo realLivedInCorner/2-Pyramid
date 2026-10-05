@@ -112,3 +112,7 @@ src-tauri/src/converters/ui/*.rs
 src-tauri/src/converters/blockstate_adapter.rs
 src-tauri/src/converters/main_converter.rs
 src-tauri/src/converters/ui/gui_surgeon.rs
+# §9.127：`color` 也必须列在这里 —— §9.124 把颜色工具搬到了 crate 根（`crate::color`），
+# 但**旧转换器树里 8 个文件仍写 `crate::converters::color::…`**，因此该目录仍是
+# 「旧转换器参考实现」的一部分，由 restore.ps1 取回（见 `converters/mod.rs` 里的说明）。
+src-tauri/src/converters/color/

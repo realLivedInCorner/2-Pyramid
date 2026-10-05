@@ -35,6 +35,24 @@ pub mod textures;
 #[cfg(feature = "legacy-oracle")]
 pub mod ui;
 
+/// **`color` 也必须在这里声明**（§9.127 实测缺陷）。
+///
+/// §9.124 把颜色工具搬到了 crate 根（`crate::color`），原生实现改用它；
+/// 但**旧转换器树里的 8 个文件仍写 `crate::converters::color::…`**
+/// （`textures/{boat,breeze,copper,netherite,planks,process_blocks}.rs`、
+/// `ui/{sign,sign_entities}.rs`）。原先我把它从本文件删掉了，于是全新 clone 上
+/// `--features legacy-oracle` 直接编译失败：
+///
+/// ```
+/// error[E0433]: failed to resolve: could not find `color` in `converters`   ×8
+/// ```
+///
+/// 这里恢复声明（同目录下的 `color/` 由 `restore.ps1` 取回）。与 `scale_factor` 同源的
+/// 做法：**让被忽略的旧源码不必改动**（§9.123 的教训——少改一个文件就少一次
+/// 「用局部证据推断全局」的机会）。
+#[cfg(feature = "legacy-oracle")]
+pub mod color;
+
 // ── 兼容转发（§9.125）：两个**两边共用**的工具已移到 crate 根（它们不是旧转换器的一部分，
 /// 见 `image_utils` / `scale_factor` 的模块注释）。旧转换器树里仍写 `crate::converters::X`，
 /// 这里保留同名转发，使**被忽略的旧源码不必改动**——
