@@ -19,7 +19,7 @@ The main application license is [`LICENSE`](../LICENSE) (MIT). If a third-party 
 | [zip](https://crates.io/crates/zip) | MIT | Pack zip |
 | [flate2](https://crates.io/crates/flate2) | MIT OR Apache-2.0 | Share-code compression |
 | [base64](https://crates.io/crates/base64) | MIT OR Apache-2.0 | Share-code encoding |
-| [walkdir](https://crates.io/crates/walkdir) | MIT OR Apache-2.0 | Directory walk |
+| [walkdir](https://crates.io/crates/walkdir) | Unlicense OR MIT (crates.io records `Unlicense/MIT`) | Directory walk |
 | [rayon](https://crates.io/crates/rayon) | MIT OR Apache-2.0 | Parallelism |
 | [tokio](https://tokio.rs) | MIT | Async runtime |
 | [reqwest](https://crates.io/crates/reqwest) | MIT OR Apache-2.0 | Update check / download |
@@ -46,10 +46,11 @@ The main application license is [`LICENSE`](../LICENSE) (MIT). If a third-party 
 | [Vite](https://vitejs.dev) | MIT | Build |
 | [TypeScript](https://www.typescriptlang.org) | Apache-2.0 | Types |
 | [@tauri-apps/api](https://github.com/tauri-apps/tauri) | MIT OR Apache-2.0 | Bridge |
-| [Remix Icon](https://remixicon.com) | Apache-2.0 | Icons |
+| @tauri-apps/plugin-dialog / plugin-notification / plugin-opener | MIT OR Apache-2.0 | File dialogs, system notifications, opening links (**shipped**) |
+| [Remix Icon](https://remixicon.com) | Apache-2.0 (see the `license` field in `package-lock.json`) | Icon font |
 | [@vitejs/plugin-vue](https://github.com/vitejs/vite-plugin-vue) | MIT | Vue plugin |
 
-> Authoritative list: `package.json` and lockfiles.
+> Authoritative list: `package.json` and lockfiles. `@tauri-apps/cli`, `vite`, `typescript`, `vue-tsc` and `sharp` are build-time only and are not shipped, so they are not listed individually.
 
 ## 3. Installer (installer-app)
 
@@ -62,8 +63,11 @@ Same stack as the main app (Tauri 2 + Rust); **the installer itself is also MIT-
 
 ## 5. Getting full license texts
 
-- Rust: `cargo license` or each crate’s LICENSE on [crates.io](https://crates.io)  
-- Frontend: `node_modules/<pkg>/LICENSE`  
+- **Inside the installer**: `legal/third-party-licenses/` (licenses and NOTICE texts for every
+  shipped component are collected at build time, including MPL-2.0 / Apache-2.0 components whose
+  terms must accompany the binary)
+- Rust: `cargo license` or each crate's LICENSE on [crates.io](https://crates.io)
+- Frontend: `node_modules/<pkg>/LICENSE`
 - This repository root: `LICENSE` (MIT)
 
 If a required component is missing from this list, open an Issue and we will add it.

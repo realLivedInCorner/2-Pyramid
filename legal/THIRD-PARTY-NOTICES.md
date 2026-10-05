@@ -19,7 +19,7 @@
 | [zip](https://crates.io/crates/zip) | MIT | 资源包打包 |
 | [flate2](https://crates.io/crates/flate2) | MIT OR Apache-2.0 | 分享码压缩 |
 | [base64](https://crates.io/crates/base64) | MIT OR Apache-2.0 | 分享码编码 |
-| [walkdir](https://crates.io/crates/walkdir) | MIT OR Apache-2.0 | 目录遍历 |
+| [walkdir](https://crates.io/crates/walkdir) | Unlicense OR MIT（crates.io 记作 `Unlicense/MIT`） | 目录遍历 |
 | [rayon](https://crates.io/crates/rayon) | MIT OR Apache-2.0 | 并行处理 |
 | [tokio](https://tokio.rs) | MIT | 异步运行时 |
 | [reqwest](https://crates.io/crates/reqwest) | MIT OR Apache-2.0 | 更新检查与下载 |
@@ -46,10 +46,11 @@
 | [Vite](https://vitejs.dev) | MIT | 构建 |
 | [TypeScript](https://www.typescriptlang.org) | Apache-2.0 | 类型 |
 | [@tauri-apps/api](https://github.com/tauri-apps/tauri) | MIT OR Apache-2.0 | 前端桥接 |
-| [Remix Icon](https://remixicon.com) | Remix Icon License v1.0（上游 `package.json` 标为 Apache-2.0，实际许可见 `node_modules/remixicon/License`） | 图标字体 |
+| @tauri-apps/plugin-dialog / plugin-notification / plugin-opener | MIT OR Apache-2.0 | 文件对话框、系统通知、打开链接（**随包分发**） |
+| [Remix Icon](https://remixicon.com) | Apache-2.0（见 `package-lock.json` 的 `license` 字段） | 图标字体 |
 | [@vitejs/plugin-vue](https://github.com/vitejs/vite-plugin-vue) | MIT | Vue 插件 |
 
-> 以 `package.json` 与 lockfile 为准。
+> 以 `package.json` 与 lockfile 为准。`@tauri-apps/cli`、`vite`、`typescript`、`vue-tsc`、`sharp` 等为**构建期**依赖，不随安装包分发，故未逐条列出。
 
 ## 3. 安装器（installer-app）
 
@@ -62,8 +63,10 @@
 
 ## 5. 如何获取完整许可证文本
 
-- Rust：`cargo license` 或各 crate 在 [crates.io](https://crates.io) 的 LICENSE 文件  
-- 前端：`node_modules/<pkg>/LICENSE`  
+- **安装包内**：`legal/third-party-licenses/`（构建时自动收集随包分发组件的许可证与 NOTICE 正文；
+  含 MPL-2.0 / Apache-2.0 这类要求随二进制提供条款的组件）
+- Rust：`cargo license` 或各 crate 在 [crates.io](https://crates.io) 的 LICENSE 文件
+- 前端：`node_modules/<pkg>/LICENSE`
 - 本仓库根目录：`LICENSE`（MIT）
 
 若你认为本声明遗漏了应列组件，请开 Issue，我们会尽快补全。

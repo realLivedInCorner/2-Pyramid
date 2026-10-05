@@ -20,6 +20,7 @@
 
 - **性能档位（平衡 / 性能）**：见 `2.7.0` 段——本版把它的**执行语义修正为设计本意**：rayon 池按**线程预算**（CPU）建，并发**包数**由独立闸门限制。此前池大小取自"并发包数"，导致 24 核机器上单包只用 6 个线程、18 核闲置。日志新增 `rayon pool=` 便于确认。
 - **`--convert --fast`**：关闭 GUI sprite 手术，用于隔离该步骤耗时（默认完整转换）。
+- **第三方许可证正文随安装包分发**：安装包内新增 `legal/third-party-licenses/`，由 `build_release.py` 在打包时自动收集——`rust/` 按 `Cargo.lock` 的 `(name, version)` 精确匹配（126 份），`npm/` 从 `node_modules` 收集直接依赖（59 份），并附一份索引说明缺正文时去哪里取。此前 `THIRD-PARTY-NOTICES.md` 让用户"自行到 `node_modules` 或 `cargo license` 查"，但安装包里**一条正文都没有**——对 Apache-2.0（§4(a) 要求随附副本）与 MPL-2.0（`option-ext`，经 `dirs` → `dirs-sys`）是不合规的。
 - **管线相位计时**：`--report` 与日志新增 `pipeline phases: open / materialize / tasks / direct / harvest / tail / output / other`，`other = 总计 − 各相之和` 自校验。此前"调度开销"是把多个步骤混在一个残差里，会把优化引向错误目标。
 - **`docs/compose/spec/perf-verification.md`**：可复现的性能测量与验收规范，含各相位的含义、三条验收命令、**已证伪方向的实测数字**（避免重走），以及一个反复出现的陷阱：`PackView` 的类型化缓存都以 `!is_pending()` 为条件，而 `Tx` 的视图恒为 pending，因此**所有包级缓存对任务内部一律失效**。
 
