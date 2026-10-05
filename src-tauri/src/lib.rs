@@ -91,7 +91,12 @@ mod commands;
 mod converters;
 mod foray;
 pub mod native_run;
-pub mod pilots;
+/// **原生实现主体**：46 个任务的 A-ROM 实现（原 `pilots/`，§9.127 改名 `natives/` 并分组）。
+///
+/// 名字即身份：这些模块**是生产实现**，不再是"试点"。目录按职责分六组
+/// （`native/` `eraser/` `architect/` `surgeon/` `reverse/` `tests/`），
+/// 模块路径仍是 `crate::natives::<任务名>`（分组用 `#[path]` 声明，不改路径）。
+pub mod natives;
 mod image_utils;
 mod color_utils;
 mod invoke_conversion;

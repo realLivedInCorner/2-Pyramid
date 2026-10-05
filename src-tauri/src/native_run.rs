@@ -446,7 +446,7 @@ where
     //
     // **保留旧实现的两个门槛**（Bedrock 中间态跳过 sprite 手术，避免干扰 j2b；目标 < 34 也跳过）：
     if opts.run_gui_surgeon && opts.target_version >= 34 {
-        crate::pilots::surgeon_cut_gui::run_in_workdir(&ctx, workdir)
+        crate::natives::surgeon_cut_gui::run_in_workdir(&ctx, workdir)
             .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
     }
     trace_step("after-direct-steps", &mut trace);
@@ -543,7 +543,7 @@ where
 /// 阶段判据（严格早于旧批次最小阶段 → 前阶段）继续兜底；本名单只用来**额外**授权提前。
 /// §9.101/§9.102：`cut_gui` 的名字。
 ///
-/// 它的**实现是原生模块**（`pilots::surgeon_cut_gui`，由注册闭包直接调用），但**配置上**
+/// 它的**实现是原生模块**（`natives::surgeon_cut_gui`，由注册闭包直接调用），但**配置上**
 /// 仍留在旧批次的 `(15,18)` 位置——§9.100 实测：把它挪出批次就少 3 个 sprite
 /// （`sprites/container/slot/{horse_armor,llama_armor,saddle}.png`），
 /// 因为它的输入 `gui/container/*.png` 在那些时刻状态不同（§9.50 的同一规律）。
@@ -629,21 +629,21 @@ fn native_placements(
     out
 }
 
-/// 给 `pilots` 的夹具正题用：按名字取**已启用全部开关**时的原生实现。
+/// 给 `natives` 的夹具正题用：按名字取**已启用全部开关**时的原生实现。
 ///
 /// 夹具用例需要在不启动整条驱动的前提下直接跑单个原生任务（真实包覆盖不到那几个跳过分支）。
 #[cfg(test)]
 pub(crate) fn native_for_probe(
     name: &str,
-) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
+) -> Option<(&'static str, TaskDecl, crate::natives::PilotFn)> {
     // `generate_shulker_box_ui` 的实现在闭包里**但不在派发表里**（§9.51：它的正确位置在
     // Architect 旧任务之后、Surgeon 旧任务之前，那个位置要等 Surgeon 原生化后才存在）。
     // 夹具正题可以直接验证它的算法，因此这里额外暴露；生产路径不受影响。
     if name == "generate_shulker_box_ui" {
         return Some((
             "shulker_box_gen",
-            crate::pilots::shulker_box_gen::decl(),
-            crate::pilots::shulker_box_gen::run,
+            crate::natives::shulker_box_gen::decl(),
+            crate::natives::shulker_box_gen::run,
         ));
     }
     native_for(name, &NativeSwitches::all())
@@ -742,134 +742,134 @@ fn digest_scope(workdir: &Path, prefix: &str) -> Vec<(String, u64, u64)> {
 fn native_for(
     name: &str,
     switches: &NativeSwitches,
-) -> Option<(&'static str, TaskDecl, crate::pilots::PilotFn)> {
+) -> Option<(&'static str, TaskDecl, crate::natives::PilotFn)> {
     if switches.reverse {
         if name == "reverse_process_chest_folder" {
             return Some((
                 "chest_reverse",
-                crate::pilots::chest_reverse::decl(),
-                crate::pilots::chest_reverse::run,
+                crate::natives::chest_reverse::decl(),
+                crate::natives::chest_reverse::run,
             ));
         }
         if name == "reverse_rename_mcpatcher_to_optifine" {
             return Some((
                 "mcpatcher_optifine_reverse",
-                crate::pilots::mcpatcher_optifine_reverse::decl(),
-                crate::pilots::mcpatcher_optifine_reverse::run,
+                crate::natives::mcpatcher_optifine_reverse::decl(),
+                crate::natives::mcpatcher_optifine_reverse::run,
             ));
         }
         if name == "reverse_rename_blocks_items" {
             return Some((
                 "rename_blocks_reverse",
-                crate::pilots::rename_blocks_reverse::decl(),
-                crate::pilots::rename_blocks_reverse::run,
+                crate::natives::rename_blocks_reverse::decl(),
+                crate::natives::rename_blocks_reverse::run,
             ));
         }
         if name == "reverse_fix_armor_models" {
             return Some((
                 "reverse_armor",
-                crate::pilots::reverse_armor::decl(),
-                crate::pilots::reverse_armor::run,
+                crate::natives::reverse_armor::decl(),
+                crate::natives::reverse_armor::run,
             ));
         }
         if name == "reverse_fix_ui_survival" {
             return Some((
                 "reverse_survival",
-                crate::pilots::reverse_survival::decl(),
-                crate::pilots::reverse_survival::run,
+                crate::natives::reverse_survival::decl(),
+                crate::natives::reverse_survival::run,
             ));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_compose::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_compose::lookup(name) {
             return Some(("reverse_compose", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_pixels::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_pixels::lookup(name) {
             return Some(("reverse_pixels", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_defer_ui::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_defer_ui::lookup(name) {
             return Some(("reverse_defer_ui", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_defer_metal::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_defer_metal::lookup(name) {
             return Some(("reverse_defer_metal", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_defer_extra::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_defer_extra::lookup(name) {
             return Some(("reverse_defer_extra", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_defer::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_defer::lookup(name) {
             return Some(("reverse_defer", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::reverse_trivial::lookup(name) {
+        if let Some((decl, run)) = crate::natives::reverse_trivial::lookup(name) {
             return Some(("reverse_trivial", decl, run));
         }
     }
     if switches.ui && name == "process_chest_folder" {
         return Some((
             "chest",
-            crate::pilots::chest::decl(),
-            crate::pilots::chest::run,
+            crate::natives::chest::decl(),
+            crate::natives::chest::run,
         ));
     }
     if switches.textures {
         if name == "generate_potion_lingering" {
             return Some((
                 "potion_lingering_gen",
-                crate::pilots::potion_lingering_gen::decl(),
-                crate::pilots::potion_lingering_gen::run,
+                crate::natives::potion_lingering_gen::decl(),
+                crate::natives::potion_lingering_gen::run,
             ));
         }
-        if let Some((decl, run)) = crate::pilots::arch_gen::lookup(name) {
+        if let Some((decl, run)) = crate::natives::arch_gen::lookup(name) {
             return Some(("arch_gen", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::arch_gen2::lookup(name) {
+        if let Some((decl, run)) = crate::natives::arch_gen2::lookup(name) {
             return Some(("arch_gen2", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::arch_gen_metal::lookup(name) {
+        if let Some((decl, run)) = crate::natives::arch_gen_metal::lookup(name) {
             return Some(("arch_gen_metal", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::arch_gen_planks::lookup(name) {
+        if let Some((decl, run)) = crate::natives::arch_gen_planks::lookup(name) {
             return Some(("arch_gen_planks", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::arch_gen_breeze::lookup(name) {
+        if let Some((decl, run)) = crate::natives::arch_gen_breeze::lookup(name) {
             return Some(("arch_gen_breeze", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::arch_gen3::lookup(name) {
+        if let Some((decl, run)) = crate::natives::arch_gen3::lookup(name) {
             return Some(("arch_gen3", decl, run));
         }
         // Surgeon 早期组：槽位在旧批次之前，因此与前阶段原生任务同侧（见 `EARLY_NATIVES`）。
-        if let Some((decl, run)) = crate::pilots::surgeon_early::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_early::lookup(name) {
             return Some(("surgeon_early", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_early2::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_early2::lookup(name) {
             return Some(("surgeon_early2", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_mid::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_mid::lookup(name) {
             return Some(("surgeon_mid", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_mid2::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_mid2::lookup(name) {
             return Some(("surgeon_mid2", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_mid3::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_mid3::lookup(name) {
             return Some(("surgeon_mid3", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_mid4::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_mid4::lookup(name) {
             return Some(("surgeon_mid4", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_late::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_late::lookup(name) {
             return Some(("surgeon_late", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_ui::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_ui::lookup(name) {
             return Some(("surgeon_ui", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_machinery::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_machinery::lookup(name) {
             return Some(("surgeon_machinery", decl, run));
         }
-        if let Some((decl, run)) = crate::pilots::surgeon_survival::lookup(name) {
+        if let Some((decl, run)) = crate::natives::surgeon_survival::lookup(name) {
             return Some(("surgeon_survival", decl, run));
         }
         if name == "generate_shulker_box_ui" {
             return Some((
                 "shulker_box_gen",
-                crate::pilots::shulker_box_gen::decl(),
-                crate::pilots::shulker_box_gen::run,
+                crate::natives::shulker_box_gen::decl(),
+                crate::natives::shulker_box_gen::run,
             ));
         }
     }
@@ -882,61 +882,61 @@ fn native_for(
         // 因此不派发。
         "delete_font_folder" => Some((
             "drop_font",
-            crate::pilots::drop_font::decl(),
-            crate::pilots::drop_font::run,
+            crate::natives::drop_font::decl(),
+            crate::natives::drop_font::run,
         )),
         "delete_blockstates_models" => Some((
             "drop_blockstates",
-            crate::pilots::drop_blockstates::decl(),
-            crate::pilots::drop_blockstates::run,
+            crate::natives::drop_blockstates::decl(),
+            crate::natives::drop_blockstates::run,
         )),
         "delete_horse_folder" => Some((
             "drop_horse",
-            crate::pilots::drop_horse::decl(),
-            crate::pilots::drop_horse::run,
+            crate::natives::drop_horse::decl(),
+            crate::natives::drop_horse::run,
         )),
         "delete_shaders_folder" => Some((
             "drop_shaders",
-            crate::pilots::drop_shaders::decl(),
-            crate::pilots::drop_shaders::run,
+            crate::natives::drop_shaders::decl(),
+            crate::natives::drop_shaders::run,
         )),
         "delete_enchanted_item_glint" => Some((
             "drop_glint",
-            crate::pilots::drop_glint::decl(),
-            crate::pilots::drop_glint::run,
+            crate::natives::drop_glint::decl(),
+            crate::natives::drop_glint::run,
         )),
         // `rename_blocks_items` 的试点已实现，但真实包上仍与旧实现有差异（见细则 §9.13），
-        // 因此**暂不派发**：它留在 `pilots::all()` 里由夹具双轨覆盖。
+        // 因此**暂不派发**：它留在 `natives::all()` 里由夹具双轨覆盖。
         "rename_blocks_items" => Some((
             "rename_blocks",
-            crate::pilots::rename_blocks::decl(),
-            crate::pilots::rename_blocks::run,
+            crate::natives::rename_blocks::decl(),
+            crate::natives::rename_blocks::run,
         )),
         "rename_mcpatcher_to_optifine" => Some((
             "mcpatcher_optifine",
-            crate::pilots::mcpatcher_optifine::decl(),
-            crate::pilots::mcpatcher_optifine::run,
+            crate::natives::mcpatcher_optifine::decl(),
+            crate::natives::mcpatcher_optifine::run,
         )),
         // `adapt_java_shaders`（§9.85）：**目标 pack_format 由任务自己从包里读**
         // （`run_from_pack`），因此不需要改驱动签名——真实包里没有 `shaders/`，
         // 生产路径上它是「源缺失 → 跳过」，与原实现一致。
         "adapt_java_shaders" => Some((
             "shader_adapt",
-            crate::pilots::shader_adapt::decl(),
-            crate::pilots::shader_adapt::run_from_pack,
+            crate::natives::shader_adapt::decl(),
+            crate::natives::shader_adapt::run_from_pack,
         )),
         // `fix_smithing2_villager2_ui`（§9.87）：铁砧/村民 GUI 的第二步重排。
         "fix_smithing2_villager2_ui" => Some((
             "surgeon_smithing2",
-            crate::pilots::surgeon_smithing2::decl(),
-            crate::pilots::surgeon_smithing2::run,
+            crate::natives::surgeon_smithing2::decl(),
+            crate::natives::surgeon_smithing2::run,
         )),
         // `convert_animated_textures`（§9.88）：动画 mcmeta 升级。
         // 它此前**不在任何 plan 段**里（注册了却永不执行，见 §9.88），补段后本包会真的跑到它。
         "convert_animated_textures" => Some((
             "animated",
-            crate::pilots::animated::decl(),
-            crate::pilots::animated::run,
+            crate::natives::animated::decl(),
+            crate::natives::animated::run,
         )),
         _ => None,
     }
@@ -1632,7 +1632,7 @@ mod tests {
     #[ignore]
     fn shader_adapt_text_ops_match_the_legacy_implementation() {
         use crate::converters::shaders::java::legacy_text_ops as legacy;
-        use crate::pilots::shader_adapt as native;
+        use crate::natives::shader_adapt as native;
 
         let corpus: [&str; 12] = [
             "#moj_import <fog.glsl>\nvoid main(){}\n",
@@ -1713,7 +1713,7 @@ mod tests {
     #[ignore]
     fn shader_adapt_tables_match_the_legacy_implementation() {
         use crate::converters::shaders::java::legacy_text_ops as legacy;
-        use crate::pilots::shader_adapt as native;
+        use crate::natives::shader_adapt as native;
 
         let mut problems: Vec<String> = Vec::new();
         let mut checked = 0usize;
@@ -1777,7 +1777,7 @@ mod tests {
     #[ignore]
     fn shader_adapt_json_ops_match_the_legacy_implementation() {
         use crate::converters::shaders::java::legacy_text_ops as legacy;
-        use crate::pilots::shader_adapt as native;
+        use crate::natives::shader_adapt as native;
 
         let corpus: [&str; 14] = [
             "{\n \"uniforms\": [{\"name\":\"A\",\"type\": \"mat3\"}],\n \"blend\": {}\n}\n",
@@ -1838,7 +1838,7 @@ mod tests {
     #[ignore]
     fn shader_adapt_globals_and_fog_ops_match_the_legacy() {
         use crate::converters::shaders::java::legacy_text_ops as legacy;
-        use crate::pilots::shader_adapt as native;
+        use crate::natives::shader_adapt as native;
 
         let corpus: [&str; 10] = [
             "void main(){}\n",
@@ -2029,7 +2029,7 @@ mod tests {
                 .expect("open fixture");
             {
                 let mut tx = pack.tx("adapt_java_shaders");
-                crate::pilots::shader_adapt::run(&mut tx, target).expect("native run");
+                crate::natives::shader_adapt::run(&mut tx, target).expect("native run");
                 pack.commit(tx.into_layer());
             }
             let out_dir = tmp_native.path().join("out");

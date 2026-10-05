@@ -53,7 +53,7 @@ mod legacy {
     use crate::converters::ui::smithing_ui;
 
     // Surgeon 层 —— fix_* / overlay_icons / cut_gui
-    // §9.101：`cut_gui` 的闭包体已换成 `crate::pilots::surgeon_cut_gui`，旧模块不再被本文件引用。
+    // §9.101：`cut_gui` 的闭包体已换成 `crate::natives::surgeon_cut_gui`，旧模块不再被本文件引用。
     use crate::converters::textures::armor as armor_tex;
     use crate::converters::textures::particles as particles_tex;
     use crate::converters::ui::brewing_stand;
@@ -304,7 +304,7 @@ mod legacy {
                     "overlay_icons" => overlay_icons::overlay_icons(ctx)
                         .map_err(|e| e.to_string()),
                     "cut_gui" => {
-                        // **§9.101：闭包体换成原生实现**（`pilots::surgeon_cut_gui`）。
+                        // **§9.101：闭包体换成原生实现**（`natives::surgeon_cut_gui`）。
                         //
                         // 这里只换实现、**不动位置**——仍由 `run_named` 在计划的 `(15,18)` 调用。
                         // §9.100 的实测教训：`cut_gui` 一旦被挪出旧批次（哪怕只是挪到批次末尾）产物就会少
@@ -314,7 +314,7 @@ mod legacy {
                         // 旧闭包体是 `cut_gui::cut_gui(ctx)`——一个 14 行的薄包装，内容与
                         // `surgeon_cut_gui::run_in_workdir` 逐句相同（含 `TexturePool` / `ResolutionTransducer`
                         // 的构造与 `commit_all`），因此**行为等价**；由 `native_switch` 的相对闸门把关。
-                        crate::pilots::surgeon_cut_gui::run_in_workdir(ctx, Path::new(ctx.temp_dir()))
+                        crate::natives::surgeon_cut_gui::run_in_workdir(ctx, Path::new(ctx.temp_dir()))
                             .map_err(|e| e.to_string())
                     }
 
@@ -492,7 +492,7 @@ pub fn register_tasks(
 ///
 /// 旧闭包被门控后，88 个名字仍然要能被执行——因为它们**本来就是生产要跑的任务**。
 /// 绝大多数名字在生产配置（`NativeSwitches::all()`）下由驱动直接派发到
-/// `pilots::*`，**不经过**注册表闭包；唯一例外是
+/// `natives::*`，**不经过**注册表闭包；唯一例外是
 /// [`CUT_GUI`](crate::native_run) `cut_gui`：
 ///
 /// §9.100/§9.102 定下它**必须留在旧批次的 `(15,18)` 槽位**，因此驱动是把它当
@@ -502,7 +502,7 @@ pub fn register_tasks(
 /// 这不是推测：交接文档记录过同样的 3 项缺失，本轮也实测复现（4015 条目 / `0xc07855d73488424d`）。
 /// 批次后的直连步骤**不能**替代它：§9.90/§9.91 实测「两者各自必需」。
 ///
-/// 因此这里把它接到**原生实现** `pilots::surgeon_cut_gui::run_in_workdir`
+/// 因此这里把它接到**原生实现** `natives::surgeon_cut_gui::run_in_workdir`
 /// （§9.101 起闭包体就是它，逐句相同），于是默认构建既不缺 sprite，也不含旧转换器代码。
 #[cfg(not(feature = "legacy-oracle"))]
 fn install_native_defaults(scheduler: &mut Scheduler) {
@@ -516,7 +516,7 @@ fn install_native_defaults(scheduler: &mut Scheduler) {
         task_type,
         meta.tier,
         |ctx: &HurrayContext| {
-            crate::pilots::surgeon_cut_gui::run_in_workdir(ctx, std::path::Path::new(ctx.temp_dir()))
+            crate::natives::surgeon_cut_gui::run_in_workdir(ctx, std::path::Path::new(ctx.temp_dir()))
                 .map_err(|e| e.to_string())
         },
     );

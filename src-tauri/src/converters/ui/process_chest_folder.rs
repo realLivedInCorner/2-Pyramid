@@ -7,7 +7,7 @@ use crate::image_utils::paste_region;
 // ---------- helpers ----------
 
 // ── 区域变换辅助：已移入共享模块 `crate::chest_region`（§9.124）──
-// 本模块与 A-ROM 原生实现（`pilots::chest_folder_gen`）现在**调用同一份代码**，
+// 本模块与 A-ROM 原生实现（`natives::chest_folder_gen`）现在**调用同一份代码**，
 // 因此「产物不变」是构造上成立的，而不是靠测试碰运气。
 pub(crate) use crate::chest_region::{
     generate_double_chest_images, hvflip_region, mirror_region, swap_and_mirror, vflip_region,
