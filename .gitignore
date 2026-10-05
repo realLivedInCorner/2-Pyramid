@@ -24,8 +24,13 @@ Python_Script/
 2pyr-logo.svg
 overlay_projects.json
 src-tauri/overlay_projects.json
-test*
-thumb*
+# **必须锚定到仓库根**（§9.127 实测缺陷）：写成不带 `/` 的 `test*` 时，gitignore 会在
+# **任意层级**匹配，于是 `src-tauri/src/natives/tests/` 这个**源码目录**被整目录忽略、
+# 静默不进版本控制 ⇒ 全新 clone 用 `--features legacy-oracle` 直接编译失败
+# （`couldn't read src\natives\tests\tests.rs`）。这两条规则本意是挡**仓库根的**临时
+# 测试包与缩略图（实测当前没有需要它们挡的东西）。
+/test*
+/thumb*
 
 # Tauri generated schemas (regenerated on build)
 src-tauri/gen/
