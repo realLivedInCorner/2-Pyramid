@@ -206,6 +206,8 @@ fn dispatch_native_into_pack(
     name: &str,
     switches: &NativeSwitches,
     strict_scopes: bool,
+    // §9.144：是否把层镜像到 workdir。仅 `Output::Dir` 需要（Bedrock 边任务与部分单测）。
+    mirror: bool,
 ) -> Result<crate::natives::Outcome, AromError> {
     let (label, decl, run) = native_for(name, switches).expect("dispatched from the plan");
     // **§9.136：逐任务耗时打点。**
@@ -225,8 +227,10 @@ fn dispatch_native_into_pack(
             .map_err(|e| AromError::internal(format!("native task `{label}` ({name}): {e}")))?;
         (outcome, tx.into_layer())
     };
-    apply_layer_to_workdir(pack, workdir, &layer)?;
-    check_layer_materialized(pack, workdir, &layer, name)?;
+    if mirror {
+        apply_layer_to_workdir(pack, workdir, &layer)?;
+        check_layer_materialized(pack, workdir, &layer, name)?;
+    }
     sync_baseline_with_layer(pack, &layer, baseline)?;
     pack.commit(layer);
     // 打点放在**收尾之后**：`started` 起于任务执行前，因此这里记的是该任务在流水线里的
@@ -297,12 +301,15 @@ fn apply_parallel_layers(
     batches: Vec<(String, crate::natives::Outcome, Layer, Vec<String>)>,
     tier_name: &'static str,
     batch_started: std::time::Instant,
+    mirror: bool,
 ) -> Result<(), AromError> {
     let n = batches.len();
     for (name, outcome, layer, violations) in batches {
         report.undeclared.extend(violations);
-        apply_layer_to_workdir(pack, workdir, &layer)?;
-        check_layer_materialized(pack, workdir, &layer, &name)?;
+        if mirror {
+            apply_layer_to_workdir(pack, workdir, &layer)?;
+            check_layer_materialized(pack, workdir, &layer, &name)?;
+        }
         sync_baseline_with_layer(pack, &layer, baseline)?;
         pack.commit(layer);
         finish_dispatch(report, &name, outcome)?;
@@ -346,7 +353,7 @@ pub fn run_native<F>(
     tail: F,
 ) -> Result<MixedRunReport, AromError>
 where
-    F: FnOnce(&Path) -> Result<(), String>,
+    F: FnOnce(&mut crate::arom::Tx<'_>) -> Result<(), String>,
 {
     use crate::arom::engine::scheduler::Scheduler;
 
@@ -361,9 +368,22 @@ where
     let mut pack = Pack::open_zip(input, &opts.limits, opts.blob_limit)?;
     phases.open_s = clock.elapsed().as_secs_f32();
     clock = std::time::Instant::now();
+    // **§9.144：workdir 只在 `Output::Dir` 时才是真源。**
+    //
+    // `Output::Zip` 由 `write_zip` 直接从 `pack` 视图序列化，**从不读 workdir**；
+    // `Output::Dir` 需要一棵可继续被 Bedrock 边任务（与部分单测）使用的磁盘树，
+    // 因此仍保留"逐层镜像到 workdir"的旧行为。
+    //
+    // Zip 路径下因此可以整段省掉：不再物化（1.6s）、不再逐层落盘、不再收获。
+    let mirror = matches!(output, Output::Dir(_));
     let mut baseline = {
         let view = pack.view();
-        materialize(&view, workdir)?
+        if mirror {
+            materialize(&view, workdir)?
+        } else {
+            // 只算指纹表，不落盘。
+            crate::arom::pathview::baseline_of(&view)?
+        }
     };
     phases.materialize_s = clock.elapsed().as_secs_f32();
     clock = std::time::Instant::now();
@@ -444,6 +464,7 @@ where
             name,
             &opts.native,
             opts.strict_scopes,
+            mirror,
         )?;
         report
             .deferred_removals
@@ -561,6 +582,7 @@ where
                 batches,
                 tier.as_str(),
                 batch_started,
+                mirror,
             )?;
             for name in &parallel {
                 trace_step(name, &mut trace);
@@ -576,6 +598,7 @@ where
                 name,
                 &opts.native,
                 opts.strict_scopes,
+                mirror,
             )?;
             report
                 .deferred_removals
@@ -588,14 +611,20 @@ where
     phases.tasks_s = clock.elapsed().as_secs_f32();
     clock = std::time::Instant::now();
 
-    {
-        let harvested = harvest(&pack, workdir, &baseline, None)?;
-        report.harvested_changes += harvested.changed();
-        sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
-        pack.commit(harvested.layer);
-    }
-    phases.harvest_s = clock.elapsed().as_secs_f32();
-    clock = std::time::Instant::now();
+    // **§9.144：这里原本有一次 `harvest`，已删除。**
+    //
+    // `harvest` 的语义是「把 workdir 与基线对比，把磁盘上的差异收成一层」。它存在的前提是
+    // 任务把 workdir 当真源、在磁盘上改文件。而 §9.128/§9.129 之后 46 个任务全是 `Tx`，
+    // 收尾步骤（`cut_gui_direct`、延迟删除、`tail`）也都已改为包原生，workdir 在转换期间
+    // **没有任何读者**，因此本轮不再物化它（见上方 `baseline_of` 的说明）。
+    //
+    // 保留这次 harvest 的后果**实测过**：workdir 是空目录，harvest 把基线里全部文件
+    // 判为"已删除"，产出一个删除层——产物从 4018 条目掉到 **3654**
+    // （指纹 0xeeddcdc1806f7d1a ≠ 0x75bb3260e7f578a6）。
+    //
+    // 删除它是**语义上正确**的：驱动现在每一步都直接提交进 `pack`，pack 的视图
+    // 就是最终状态，不存在"只存在于磁盘、尚未进包"的改动需要收获。
+    phases.harvest_s = 0.0;
 
     // 注册表之外的直接步骤（GuiSurgeon sprite 手术）——生产管线在任务之后、
     // 清理之前执行它；漏掉它会整片丢失 sprite 产物（本步实测：真实包少了 3861 个文件）。
@@ -615,10 +644,12 @@ where
                 .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
             (outcome, tx.into_layer())
         };
-        // 与其它原生任务同一套收尾：层落 workdir（后续步骤仍以 workdir 为真源）
-        // → 契约检查 → 基线同步 → 提交进 pack。
-        apply_layer_to_workdir(&pack, workdir, &layer)?;
-        check_layer_materialized(&pack, workdir, &layer, "cut_gui_direct")?;
+        // 与其它原生任务同一套收尾：基线同步 → 提交进 pack。
+        // §9.144：层落 workdir 只在 `Output::Dir` 时需要（Zip 路径直接从 pack 序列化）。
+        if mirror {
+            apply_layer_to_workdir(&pack, workdir, &layer)?;
+            check_layer_materialized(&pack, workdir, &layer, "cut_gui_direct")?;
+        }
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.deferred_removals.extend(outcome.deferred_removals);
@@ -650,24 +681,49 @@ where
             }
             tx.into_layer()
         };
-        apply_layer_to_workdir(&pack, workdir, &layer)?;
+        if mirror {
+            apply_layer_to_workdir(&pack, workdir, &layer)?;
+        }
         sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
         pack.commit(layer);
         report.deferred_removals = deferred;
     }
 
-    // 收尾步骤：仍在 workdir 上跑一次，然后收获
-    tail(workdir).map_err(AromError::internal)?;
-    phases.tail_s = clock.elapsed().as_secs_f32();
-    clock = std::time::Instant::now();
-    let harvested = harvest(&pack, workdir, &baseline, None)?;
-    report.harvested_changes += harvested.changed();
-    report.added += harvested.added.len();
-    report.modified += harvested.modified.len();
-    report.removed += harvested.removed.len();
-    report.undeclared = harvested.undeclared.clone();
-    pack.commit(harvested.layer);
+    // **§9.144：`harvest` 必须先于 `tail`。**
+    //
+    // `harvest` 的语义是「把 workdir 的磁盘差异收成一层」，它只在 `Output::Dir` 时有意义
+    // （Zip 路径下 workdir 是空的，收获会产出"全部删除"的错误层——实测产物 4018 → 3654）。
+    //
+    // **顺序很关键，而且我一开始放反了**：若 `harvest` 跑在 `tail` 之后，它会拿 workdir 里
+    // **旧**的 `pack.mcmeta`（那是 `materialize` 写进去的原始内容）覆盖 `tail` 刚改好的版本，
+    // 产物退回 `pack_format: 1`。实测由 `native_output_dir_matches_zip_on_a_real_pack` 抓出
+    // （Zip 路径有 `max_format: [97,1]`，Dir 路径却是 `pack_format: 1`）。
+    //
+    // 语义上也应当如此：`harvest` 收的是**任务阶段**在磁盘上留下的差异，
+    // 而 `tail` 是整条流水线的**最后一步**，其结果不该再被任何后续步骤覆盖。
+    if mirror {
+        let harvested = harvest(&pack, workdir, &baseline, None)?;
+        report.harvested_changes += harvested.changed();
+        report.added += harvested.added.len();
+        report.modified += harvested.modified.len();
+        report.removed += harvested.removed.len();
+        report.undeclared = harvested.undeclared.clone();
+        pack.commit(harvested.layer);
+    }
     phases.harvest_s += clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
+
+    // 收尾步骤：**§9.144 起直接在包上工作**（原先读 workdir 的 `pack.mcmeta`）。
+    {
+        let mut tx = pack.tx("tail");
+        tail(&mut tx).map_err(AromError::internal)?;
+        let layer = tx.into_layer();
+        if !layer.writes().is_empty() {
+            sync_baseline_with_layer(&pack, &layer, &mut baseline)?;
+            pack.commit(layer);
+        }
+    }
+    phases.tail_s = clock.elapsed().as_secs_f32();
     clock = std::time::Instant::now();
 
     report.step_trace = trace;
@@ -1402,7 +1458,6 @@ fn ensure_empty_dir(dir: &Path) -> Result<(), AromError> {
 mod tests {
     use super::*;
     use crate::pack::diff::diff_containers;
-    use crate::pack::version_converter::write_pack_format;
     use std::io::Write as _;
     use std::path::PathBuf;
 
@@ -1595,10 +1650,12 @@ mod tests {
             step_trace: true,
             ..MixedRunOptions::default()
         };
-        let report = run_native(&input, &work, &Output::Zip(out.clone()), &opts, |dir| {
-            let mcmeta = dir.join("pack.mcmeta");
-            if mcmeta.exists() {
-                write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
+        let report = run_native(&input, &work, &Output::Zip(out.clone()), &opts, |tx| {
+            if tx.exists("pack.mcmeta") {
+                let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                let next = crate::pack::version_converter::rewrite_pack_mcmeta_text(&cur, target)?;
+                tx.put("pack.mcmeta", next.into_bytes())
+                    .map_err(|e| e.to_string())?;
             }
             Ok(())
         })
@@ -1723,10 +1780,12 @@ mod tests {
             legacy_one_by_one,
             ..MixedRunOptions::default()
         };
-        let report = run_native(input, &work, &Output::Zip(out.clone()), &opts, |dir| {
-            let mcmeta = dir.join("pack.mcmeta");
-            if mcmeta.exists() {
-                write_pack_format(&mcmeta, target).map_err(|e| e.to_string())?;
+        let report = run_native(input, &work, &Output::Zip(out.clone()), &opts, |tx| {
+            if tx.exists("pack.mcmeta") {
+                let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                let next = crate::pack::version_converter::rewrite_pack_mcmeta_text(&cur, target)?;
+                tx.put("pack.mcmeta", next.into_bytes())
+                    .map_err(|e| e.to_string())?;
             }
             Ok(())
         })
@@ -2010,10 +2069,13 @@ mod tests {
             opts.source_version = source;
             opts.target_version = target;
             opts.native = NativeSwitches::all();
-            let _ = run_native(&input, &work, &Output::Dir(dir_out.clone()), &opts, |dir| {
-                let m = dir.join("pack.mcmeta");
-                if m.exists() {
-                    write_pack_format(&m, target).map_err(|e| e.to_string())?;
+            let _ = run_native(&input, &work, &Output::Dir(dir_out.clone()), &opts, |tx| {
+                if tx.exists("pack.mcmeta") {
+                    let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                    let next =
+                        crate::pack::version_converter::rewrite_pack_mcmeta_text(&cur, target)?;
+                    tx.put("pack.mcmeta", next.into_bytes())
+                        .map_err(|e| e.to_string())?;
                 }
                 Ok(())
             })

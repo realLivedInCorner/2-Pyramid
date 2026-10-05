@@ -90,6 +90,36 @@ pub fn decl_any(name: &str, tier: Tier) -> TaskDecl {
         .writes(ScopeSet::any())
 }
 
+/// 只算**基线**（包内容的指纹表），**不落盘**（§9.144）。
+///
+/// `materialize` 做两件事：把视图写成磁盘树、并算出这份指纹表。而 §9.144 之后
+/// workdir 在转换期间已无读者（任务全走 `Tx`，收尾步骤也已改为包原生），
+/// 于是只剩指纹表有用——真实包上它是 1.6s 里的大头（3631 次写盘）。
+///
+/// 与 `materialize` 的基线**逐项等价**（同源的遍历与同一套 `(长度, sha256)` 指纹），
+/// 差别只是不写文件。保留 `materialize` 是因为 `Output::Dir` 仍然需要它。
+pub fn baseline_of(view: &PackView<'_>) -> Result<Materialized, AromError> {
+    let mut baseline = Materialized::default();
+
+    for dir in view.effective_dirs()? {
+        baseline.dirs.insert(dir);
+    }
+
+    for res in view.entries()? {
+        if res.is_dir {
+            continue;
+        }
+        let bytes = view
+            .read(&res.path)?
+            .ok_or_else(|| AromError::internal(format!("entry vanished: {}", res.path)))?;
+        baseline
+            .files
+            .insert(res.path.clone(), (bytes.len() as u64, sha256_hex(&bytes)));
+    }
+
+    Ok(baseline)
+}
+
 /// 把当前有效条目落到 `dest`，返回基线。
 pub fn materialize(view: &PackView<'_>, dest: &Path) -> Result<Materialized, AromError> {
     std::fs::create_dir_all(dest)

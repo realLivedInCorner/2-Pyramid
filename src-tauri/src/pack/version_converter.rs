@@ -372,17 +372,30 @@ fn pack_format_major_minor(target: u32) -> (u32, u32) {
 ///
 /// M2 起由 [`crate::native_run`] 在 A-ROM 接管序列化后调用，因此放开可见性
 /// （仅扩大可见范围，行为不变）。
+///
+/// **§9.144：实现在 [`rewrite_pack_mcmeta_text`]，本函数只是它的文件外壳。**
+/// 拆开的理由是让 `tail` 能直接在 `Tx` 上工作（读包里的文本→改→写回），
+/// 从而不再需要把整棵包物化到磁盘（见 §9.144 的 materialize 移除）。
 pub fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(), String> {
     let content = if pack_meta_path.exists() {
         read_text_with_fallback(pack_meta_path)?
     } else {
         String::new()
     };
+    let pretty = rewrite_pack_mcmeta_text(&content, target_version)?;
+    fs::write(pack_meta_path, pretty)
+        .map_err(|e| format!("failed to write {}: {}", pack_meta_path.display(), e))
+}
 
+/// **纯函数**：把 `pack.mcmeta` 的文本改写到目标版本，返回改写后的文本。
+///
+/// 与 [`write_pack_format`] 的行为**逐字相同**（后者只是"读文件→调本函数→写文件"），
+/// 但不需要文件系统——这样 `tail` 可以在 `Tx` 里对包内的文本直接调用它。
+pub fn rewrite_pack_mcmeta_text(content: &str, target_version: u32) -> Result<String, String> {
     let mut data: Value = if content.trim().is_empty() {
         json!({"pack": {"pack_format": target_version, "description": "Converted by 2-Pyramid"}})
     } else {
-        serde_json::from_str(&content).unwrap_or_else(|_| {
+        serde_json::from_str(content).unwrap_or_else(|_| {
             json!({"pack": {"pack_format": target_version, "description": "Converted by 2-Pyramid"}})
         })
     };
@@ -420,8 +433,7 @@ pub fn write_pack_format(pack_meta_path: &Path, target_version: u32) -> Result<(
 
     let pretty = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("failed to serialize pack.mcmeta: {}", e))?;
-    fs::write(pack_meta_path, pretty)
-        .map_err(|e| format!("failed to write {}: {}", pack_meta_path.display(), e))
+    Ok(pretty)
 }
 
 pub fn build_output_path_for_batch(
@@ -584,10 +596,13 @@ pub fn process_extracted_dir_only(
         scratch.path(),
         &crate::native_run::Output::Dir(out_dir.clone()),
         &mopts,
-        |dir| {
-            let m = dir.join("pack.mcmeta");
-            if m.exists() {
-                write_pack_format(&m, target_version).map_err(|e| e.to_string())?;
+        |tx| {
+            // §9.144：tail 直接在包上工作（读包内文本→改→写回），不再经 workdir。
+            if tx.exists("pack.mcmeta") {
+                let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                let next = rewrite_pack_mcmeta_text(&cur, target_version)?;
+                tx.put("pack.mcmeta", next.into_bytes())
+                    .map_err(|e| e.to_string())?;
             }
             Ok(())
         },
@@ -903,10 +918,13 @@ pub fn process_zip_timed(
             _pipeline_scratch.path(),
             &output_sink,
             &mopts,
-            |dir| {
-                let m = dir.join("pack.mcmeta");
-                if m.exists() {
-                    write_pack_format(&m, java_target_for_tail).map_err(|e| e.to_string())?;
+            |tx| {
+                // §9.144：tail 直接在包上工作，不再经 workdir。
+                if tx.exists("pack.mcmeta") {
+                    let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                    let next = rewrite_pack_mcmeta_text(&cur, java_target_for_tail)?;
+                    tx.put("pack.mcmeta", next.into_bytes())
+                        .map_err(|e| e.to_string())?;
                 }
                 Ok(())
             },
