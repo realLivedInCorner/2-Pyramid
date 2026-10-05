@@ -116,6 +116,153 @@ def collect_staging() -> None:
     if license_src.exists():
         shutil.copy2(license_src, STAGING / "legal" / "LICENSE")
 
+    collect_third_party_licenses()
+
+
+# 随包分发组件里，以下几种许可证要求**把条款正文随二进制一并提供**：
+#   * Apache-2.0 §4(a)：需给接收者一份许可证副本；
+#   * MPL-2.0 §3.1：需告知源码获取方式，且不得移除许可证声明；
+#   * MIT / BSD / ISC / Unlicense：需保留版权声明与许可声明。
+# 因此安装包里必须真的有这些正文，不能让用户自己去 node_modules 或 crates.io 找。
+_LICENSE_FILE_RE = re.compile(
+    r"^(licen[cs]e|copying|notice|copyright)(\.(md|txt|rst|html?))?$", re.IGNORECASE
+)
+
+# 无许可证文件时的兜底：许可证标识符 → 完整文本来源。
+_LICENSE_URLS = {
+    "Apache-2.0": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "MPL-2.0": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+    "MIT": "https://opensource.org/license/mit",
+    "BSD-2-Clause": "https://opensource.org/license/bsd-2-clause",
+    "BSD-3-Clause": "https://opensource.org/license/bsd-3-clause",
+    "ISC": "https://opensource.org/license/isc-license-txt",
+    "Unlicense": "https://unlicense.org/UNLICENSE",
+}
+
+
+def _copy_license_files(src_dir: Path, dest_dir: Path, label: str) -> int:
+    """把一个依赖目录里的 LICENSE/COPYING/NOTICE 复制到 dest_dir。返回复制数。"""
+    copied = 0
+    try:
+        entries = list(src_dir.iterdir())
+    except OSError:
+        return 0
+    for f in entries:
+        if f.is_file() and _LICENSE_FILE_RE.match(f.name):
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, dest_dir / f.name)
+            copied += 1
+    return copied
+
+
+def _collect_cargo_licenses(dest: Path) -> int:
+    """从 cargo registry 缓存里收集 Rust 依赖的许可证正文。
+
+    按 **`(name, version)` 精确匹配**：`Cargo.lock` 里有 42 个包同时存在多个版本，
+    只按包名匹配会把用不到的旧版本也搬进安装包。
+    """
+    registry = Path.home() / ".cargo" / "registry" / "src"
+    if not registry.is_dir():
+        print("    [warn] 找不到 cargo registry 缓存，跳过 Rust 依赖许可证收集")
+        return 0
+    # 只收集 lockfile 里真实出现的 (name, version)。
+    wanted: set[str] = set()
+    for lock in (TAURI_DIR / "Cargo.lock", INSTALLER_APP / "src-tauri" / "Cargo.lock"):
+        if not lock.exists():
+            continue
+        txt = lock.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(
+            r'\[\[package\]\]\s*\nname\s*=\s*"([^"]+)"\s*\nversion\s*=\s*"([^"]+)"', txt
+        ):
+            # registry 目录名就是 `{name}-{version}`
+            wanted.add(f"{m.group(1)}-{m.group(2)}")
+    total = 0
+    for index_dir in registry.iterdir():
+        if not index_dir.is_dir():
+            continue
+        for crate in index_dir.iterdir():
+            if not crate.is_dir() or crate.name not in wanted:
+                continue
+            total += _copy_license_files(crate, dest / crate.name, "cargo")
+    return total
+
+
+def _collect_npm_licenses(dest: Path) -> int:
+    """从前端依赖目录收集许可证正文。
+
+    注意**依赖提升**：在 git worktree 里跑构建时，`ROOT/node_modules` 往往只放了 `.vite`，
+    真正的依赖被提升到上层检出（本仓库为此专门修过 `vite.config.ts`）。
+    因此这里按 `ROOT` → 各层父目录的顺序找 `node_modules`，取第一个**含真实包**的。
+    """
+    candidates = [ROOT / "node_modules"] + [p / "node_modules" for p in ROOT.parents]
+    node_modules = None
+    for cand in candidates:
+        if not cand.is_dir():
+            continue
+        if any(c.is_dir() and not c.name.startswith(".") for c in cand.iterdir()):
+            node_modules = cand
+            break
+    if node_modules is None:
+        print("    [warn] 找不到含依赖的 node_modules，跳过前端依赖许可证收集")
+        return 0
+    if node_modules != ROOT / "node_modules":
+        print(f"    [info] 前端依赖被提升到 {node_modules}")
+    total = 0
+    for pkg_json in node_modules.rglob("package.json"):
+        pkg_dir = pkg_json.parent
+        parts = pkg_dir.relative_to(node_modules).parts
+        # 只收一层依赖与 @scope/name，不收嵌套副本（同一包会重复几十次）。
+        if len(parts) > 2 or "node_modules" in parts:
+            continue
+        if parts[0].startswith("."):
+            continue
+        name = "/".join(parts)
+        total += _copy_license_files(pkg_dir, dest / name.replace("/", "__"), "npm")
+    return total
+
+
+def collect_third_party_licenses() -> None:
+    """把随包分发依赖的许可证正文收集进安装包的 legal/third-party-licenses/。
+
+    背景：`legal/THIRD-PARTY-NOTICES.md` 原先让用户"自己去 node_modules 或 cargo license 查"，
+    但安装包 staging 里只有 exe / UImage / overlay / legal，**一条许可证正文都没有** ——
+    对 Apache-2.0（§4(a) 要求随附副本）与 MPL-2.0（`option-ext`，经 dirs→dirs-sys）是不合规的。
+    """
+    dest = STAGING / "legal" / "third-party-licenses"
+    if dest.exists():
+        shutil.rmtree(dest)
+    n_cargo = _collect_cargo_licenses(dest / "rust")
+    n_npm = _collect_npm_licenses(dest / "npm")
+    if n_cargo == 0 and n_npm == 0:
+        print("    [warn] 未收集到任何第三方许可证正文")
+        return
+    # 附带一份索引，说明缺正文时去哪里取（含 Apache-2.0 / MPL-2.0 的官方 URL）。
+    lines = [
+        "# 第三方许可证正文 / Third-party license texts",
+        "",
+        "本目录由 `tools/build_release.py` 在打包时自动生成，**不要手工编辑**。",
+        "",
+        f"- `rust/` — {n_cargo} 个文件，来自 cargo registry 缓存，覆盖 `Cargo.lock` 中的包",
+        f"- `npm/` — {n_npm} 个文件，来自 `node_modules`，覆盖直接依赖",
+        "",
+        "多数依赖同时以 `MIT OR Apache-2.0` 双许可发布，其目录下会看到两份正文。",
+        "",
+        "## 若某组件缺少正文",
+        "",
+        "少数 crate/npm 包不随源码附带许可证文件。此时请按 `legal/THIRD-PARTY-NOTICES.md` 的清单",
+        "到下列官方地址取全文：",
+        "",
+    ]
+    for spdx, url in _LICENSE_URLS.items():
+        lines.append(f"- `{spdx}` — {url}")
+    lines += [
+        "",
+        "权威依赖清单：`src-tauri/Cargo.lock`、`installer-app/src-tauri/Cargo.lock`、`package-lock.json`。",
+        "",
+    ]
+    (dest / "README.md").write_text("\n".join(lines), encoding="utf-8")
+    print(f"    legal/third-party-licenses/ -> rust {n_cargo} 个 / npm {n_npm} 个许可证文件")
+
 
 def make_payload_zip() -> Path:
     print(f"\n==> 生成 payload.zip -> installer-app/src-tauri/")

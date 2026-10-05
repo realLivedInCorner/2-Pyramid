@@ -27,7 +27,7 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 | `npm run build` | 仅前端构建 |
 | `npm run buildrelease` | 正式版完整构建（会递增 BUILD） |
 
-依赖：Node.js、Rust stable、Windows（当前仅官方支持 Windows 桌面目标）。
+依赖：Node.js、Rust stable、Python 3（发布脚本 `tools/build_release.py`）、Windows（当前仅官方支持 Windows 桌面目标）。
 
 ## 3. 代码规范
 
@@ -35,7 +35,11 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 
 - 运行 `cargo fmt`（若仓库未强制 rustfmt 配置，保持与邻近代码一致）
 - `cargo clippy` 能过则过；新代码避免新增 `unwrap()` 于非测试路径
-- 转换逻辑请放在 `src-tauri/src/converters/` 对应子模块（`ui/` / `textures/` / `reverse/` 等），并注册到 Scheduler，**不要**把业务写进 `invoke_conversion.rs`
+- 转换逻辑请放在 `src-tauri/src/natives/`（按角色分组：`eraser/` / `architect/` / `surgeon/`），每个任务一个模块；
+  引擎与调度在 `src-tauri/src/arom/`（`engine/scheduler.rs` 负责规划与按阶段分桶）
+- 任务**元数据**（名字 / 类型 / 阶段）登记在 `src-tauri/src/task_registry.rs`，改动后跑
+  `pwsh tools/gen-task-registry.ps1` 校验；**不要**把业务写进 `invoke_conversion.rs`
+  （它现在只做元数据登记，无任务实现）
 - 新增或修改图像/路径逻辑时，尽量补 `#[cfg(test)]` 单测
 
 ### 前端 / Vue

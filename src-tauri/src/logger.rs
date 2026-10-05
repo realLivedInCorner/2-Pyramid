@@ -5,8 +5,8 @@ use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 
 // ── 日志规范（2026-08 约定）───────────────────────────────────────
 //
-// 1. 转换 / 打包流水线（converters、hurray、invoke_conversion、
-//    overlay_package）保持详细日志：进度、模块完成、批量统计。
+  // 1. 转换 / 打包流水线（pack、arom::engine、invoke_conversion、
+  //    overlay_package）保持详细日志：进度、模块完成、批量统计。
 // 2. 其他简单操作成功后只输出一条：
 //        log_info!("OKAY <operation> [<关键参数>]")
 //    时间戳由日志框架统一前缀（即「OKAY + 时间」）。

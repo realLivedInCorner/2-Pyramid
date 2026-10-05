@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use rayon::prelude::*;
 
-use crate::converters::version_converter::{
+use crate::pack::version_converter::{
     process_zip,
     pack_format_label_for_output,
     build_output_path_for_batch,
@@ -35,6 +35,54 @@ fn perf_plan() -> crate::perf::PerfPlan {
 /// 批处理同时转换的包数。
 fn concurrent_packs() -> usize {
     perf_plan().packs
+}
+
+/// **并发包数闸门**（§9.151）：一个朴素的计数信号量。
+///
+/// 为什么需要它：rayon 池现在按 **CPU 总预算**（`plan.threads`）建，
+/// 因此 `par_iter` 会**同时展开尽可能多的包**——而 `plan.packs` 的本意是**内存保护**
+/// （每个包解压 + 图片解码有峰值内存），不是 CPU 保护。池变大之后，这道保护必须由
+/// 调用方自己兜住，否则一次会把所有包都解压开。
+///
+/// 用 `Mutex + Condvar` 而非第三方信号量：依赖里没有现成的，而这里只需要"计数 + 等待"。
+struct PackGate {
+    limit: usize,
+    state: std::sync::Mutex<usize>,
+    cv: std::sync::Condvar,
+}
+
+impl PackGate {
+    fn new(limit: usize) -> Self {
+        Self {
+            limit: limit.max(1),
+            state: std::sync::Mutex::new(0),
+            cv: std::sync::Condvar::new(),
+        }
+    }
+
+    fn acquire(&self) -> PackTicket<'_> {
+        let mut used = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        while *used >= self.limit {
+            used = self.cv.wait(used).unwrap_or_else(|e| e.into_inner());
+        }
+        *used += 1;
+        drop(used);
+        PackTicket { gate: self }
+    }
+}
+
+/// 闸门票据：drop 时归还名额（即使转换 panic 也会归还，因为 drop 在 unwind 时仍会跑）。
+struct PackTicket<'a> {
+    gate: &'a PackGate,
+}
+
+impl Drop for PackTicket<'_> {
+    fn drop(&mut self) {
+        let mut used = self.gate.state.lock().unwrap_or_else(|e| e.into_inner());
+        *used = used.saturating_sub(1);
+        drop(used);
+        self.gate.cv.notify_one();
+    }
 }
 
 /// 暴露给前端的性能档位信息（用于设置页显示解析后的线程/包数）。
@@ -146,7 +194,7 @@ pub async fn convert_resource_pack(
     let _running = RunningGuard::new();
 
     let result = task::spawn_blocking(move || {
-        crate::converters::version_converter::convert_resource_pack(
+        crate::pack::version_converter::convert_resource_pack(
             &file_path,
             target_format,
         )
@@ -192,13 +240,32 @@ pub async fn convert_resource_packs_batch(
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
     let plan = perf_plan();
-    let parallelism = plan.packs;
+    // **§9.151：池大小用 `threads`（CPU 总预算），不是 `packs`（内存保护）。**
+    //
+    // `perf.rs` 的模块文档把两者的语义写得很清楚：
+    //   * `threads` 是「**总活跃线程上限**」，包内并行任务与 PNG 并行编码都在这个池里跑；
+    //   * `packs` 「只是在此基础上再限制**同时展开几个包**」，理由是内存（每包解压 +
+    //     图片解码有峰值内存），**不是 CPU 保护**。
+    //
+    // 但这里原先写成 `let parallelism = plan.packs;` 并直接拿它建池，于是本机
+    // （24 核 / 性能档：threads=24、packs=6）的池只有 **6 个线程**——
+    // **单包转换时 18 个核闲置，用户选的"性能"档没有兑现**。
+    //
+    // 实测可见的后果：GUI 日志里并行批的记录是 `architect 并行批（6 项，含落盘）`、
+    // 各项 0.007–0.012s，正好卡在 6 路并行上。
+    //
+    // 修法：**池 = `threads`（CPU 总预算）**，而并发**包数**另用信号量限到 `packs`
+    // （保住它的内存保护语义）。两者分离后：单包能用满线程预算，多包也不会同时展开过多。
+    let effective_packs = plan.packs;
+    let pool_size = plan.threads.max(effective_packs).max(1);
+    let parallelism = effective_packs;
     log_info!(
-        "Performance mode: {} (cores={}, thread budget={}, concurrent packs={})",
+        "Performance mode: {} (cores={}, thread budget={}, concurrent packs={}, rayon pool={})",
         plan.mode,
         plan.cores,
         plan.threads,
-        plan.packs
+        plan.packs,
+        pool_size
     );
     if let Some(note) = &plan.note {
         crate::log_warn!("Performance note: {}", note);
@@ -249,7 +316,7 @@ pub async fn convert_resource_packs_batch(
                 .cloned()
                 .and_then(|s| if s.is_empty() { None } else { Some(s) });
 
-            match crate::converters::version_converter::process_zip_timed(
+            match crate::pack::version_converter::process_zip_timed(
                 file_path,
                 target_format,
                 None,
@@ -258,6 +325,8 @@ pub async fn convert_resource_packs_batch(
                 output_path.as_deref(),
                 fix_alpha,
                 adapt_shaders,
+                // §9.138：GUI 命令保持「完整转换」语义（GUI 手术开）
+                true,
             ) {
                 Ok((result_path, timing)) => {
                     let elapsed = file_start.elapsed();
@@ -305,7 +374,12 @@ pub async fn convert_resource_packs_batch(
         // results with items 1:1. If the pool cannot be built for any
         // reason we fall back to serial execution so the batch never
         // hard-fails on a pool error.
-        let pool_size = parallelism.max(1);
+        // Parallel path: pool sized by the user's **CPU budget** (`plan.threads`), while the
+        // number of packs in flight at once is bounded separately by the pack-count guard.
+        // rayon preserves the input order in the collected Vec, so the frontend can still pair
+        // results with items 1:1. If the pool cannot be built for any reason we fall back to
+        // serial execution so the batch never hard-fails on a pool error.
+        let pack_gate = PackGate::new(parallelism);
         match rayon::ThreadPoolBuilder::new()
             .num_threads(pool_size)
             .thread_name(|i| format!("pack-conv-{}", i))
@@ -315,7 +389,12 @@ pub async fn convert_resource_packs_batch(
                 file_paths
                     .par_iter()
                     .enumerate()
-                    .map(convert_one)
+                    .map(|(i, p)| {
+                        // 内存保护：同时展开的包数不超过 `packs`。池变大（= CPU 预算）之后
+                        // 必须由这里兜住，否则一次会把所有包都解压开来。
+                        let _ticket = pack_gate.acquire();
+                        convert_one((i, p))
+                    })
                     .collect::<Vec<_>>()
             }),
             Err(e) => {

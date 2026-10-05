@@ -24,8 +24,13 @@ Python_Script/
 2pyr-logo.svg
 overlay_projects.json
 src-tauri/overlay_projects.json
-test*
-thumb*
+# **必须锚定到仓库根**（§9.127 实测缺陷）：写成不带 `/` 的 `test*` 时，gitignore 会在
+# **任意层级**匹配，于是 `src-tauri/src/natives/tests/` 这个**源码目录**被整目录忽略、
+# 静默不进版本控制 ⇒ 全新 clone 用 `--features legacy-oracle` 直接编译失败
+# （`couldn't read src\natives\tests\tests.rs`）。这两条规则本意是挡**仓库根的**临时
+# 测试包与缩略图（实测当前没有需要它们挡的东西）。
+/test*
+/thumb*
 
 # Tauri generated schemas (regenerated on build)
 src-tauri/gen/
@@ -35,8 +40,7 @@ installer-app/src-tauri/gen/
 tools/*.cjs
 tools/*.js.bak
 
-# Local docs only (do not track)
-docs/
+# 设计文档与 specs **正常入库**；草稿见下方 docs/compose/_*/ 规则
 
 # compose scratch only（specs / releases 正常入库）
 docs/compose/_*/
@@ -95,3 +99,32 @@ tools/store/*.png
 /_*.png
 /_*.md
 /_*.json
+
+# ── 旧转换器：§9.128 已**整体送走**，M4 收尾**不入库** ──
+#
+# `archive/legacy-converters/`（107 文件 / 16634 行）是旧转换器的完整快照，
+# **不参与构建、零活代码依赖**（全库只有注释提及）。它原本要支撑"重生成冻结基线"
+# 的能力，但那个能力**从未实现**（`legacy-oracle` feature 不在 `Cargo.toml` 里），
+# 因此存档已无功能用途。
+#
+# 决定（M4）：**本地保留、不入版本控制**。16.6k 行死代码入库会永久污染仓库体积，
+# 而它已不再支撑任何构建或测试。需要查阅时它仍在工作树里。
+/archive/
+
+# ── 设计过程日志：本地保留、不入库 ──
+#
+# 这两份是 M3 期间的**逐节设计流水**（`astray-arom-model.md` 3627 行、
+# `astray.md` 377 行），价值在过程记录而非规范本身；入库会把仓库撑大且
+# 内容与最终实现存在大量中间态。给 master 的是精简版：
+# `astray-summary.md`（设计汇总）+ `perf-verification.md`（性能验证规范）。
+#
+# 交接文档一次性作废——它的 HEAD 停在 `88e2f0e`，比实际落后 52 个提交。
+/docs/compose/spec/astray-arom-model.md
+/docs/compose/spec/astray.md
+/docs/compose/spec/HANDOVER-m3-final.md
+# ── 例外：这两份是**给用户的**文档，不是设计过程日志 ──
+# 它们被 024bf6d「stop tracking docs/」一并扫掉，导致 CHANGELOG 的引用变成死链。
+# 内容对 master 有价值：前者是 Editor Mode 工作台的唯一文档，后者是 2.4.0 发版说明。
+!docs/compose/spec/foray.md
+!docs/compose/releases/
+!docs/compose/releases/2.4.0.md

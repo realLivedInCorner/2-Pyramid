@@ -1,6 +1,6 @@
 # 隐私说明 / Privacy Policy
 
-**生效日期：** 2026-10-01  
+**生效日期：** 2026-10-06  
 **适用产品：** 2-Pyramid（Windows 桌面应用及自研安装器）
 
 2-Pyramid 的设计原则是：**完全本地处理、无账号、无遥测**。下文说明我们实际会与不会收集什么。
@@ -40,12 +40,15 @@
 |------|--------|------|
 | 检查更新 | GitHub Releases API（`api.github.com`） | 仅拉取 release 列表；不上传你的文件或设备指纹 |
 | 下载更新 | `github.com` / `objects.githubusercontent.com` | 下载官方安装包与 `.sha256` 校验文件 |
-| 更新源测速 | 同上 | 测量延迟与下载速率 |
 | **Foray AI 分析（可选，默认关闭）** | **你配置的 OpenAI 兼容 `baseURL`** | **依数据档位而定，详见第 4 节** |
 
-> 国内镜像 `cdn.5eggpack.top` 曾作为可选更新源，**已于 2026-10 移除**（镜像作者停止维护），现不再有任何请求发往该域名。
+> 更新源已固定为 GitHub 官方：设置里不再有「更新源」选项、测速或切换入口。国内镜像
+> `cdn.5eggpack.top` 曾作为可选更新源，**已于 2026-10 彻底移除**（镜像作者停止维护），
+> 现不再有任何请求发往该域名。
 
 **自动检查更新默认开启**：应用启动时会请求一次 release 列表（即上表第一行）。在「设置 → 版本与更新」关闭「自动检查更新」后，只有你主动点击检查/下载时才会联网。除此之外，未启用 Foray AI 时应用不会发起上述请求。
+
+**本机回环通信（不出网）**：应用启动时会在 `127.0.0.1:24157` 绑定**单实例锁**（第二次启动借此把参数投递给已运行实例），debug 构建另在 `127.0.0.1:24159` 起一个动作流端口。两者都**只监听回环地址**，不监听外部网卡、不接受局域网连接，也不传输任何资源包内容。
 
 ## 4. 第三方处理者
 
@@ -84,6 +87,6 @@
 
 ---
 
-**English summary:** 2-Pyramid processes resource packs entirely on your device. No account, no telemetry, no upload of your packs (except optional Foray AI analysis you enable yourself). Network is used for update checks — **automatic update check is on by default at startup** and can be disabled in Settings — for downloading updates (GitHub Releases and optional third-party mirror), or when Foray AI is enabled. Share codes are exported locally; the app does not host them.
+**English summary:** 2-Pyramid processes resource packs entirely on your device. No account, no telemetry, no upload of your packs (except optional Foray AI analysis you enable yourself). Network is used for update checks — **automatic update check is on by default at startup** and can be disabled in Settings — for downloading updates (GitHub Releases only), or when Foray AI is enabled. Share codes are exported locally; the app does not host them.
 
 **联系方式：** GitHub Issues — https://github.com/realLivedInCorner/2-Pyramid/issues

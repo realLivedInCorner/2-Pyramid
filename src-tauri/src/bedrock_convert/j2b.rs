@@ -1,0 +1,118 @@
+//! j2b：Java 包目录 → Bedrock 结构。
+
+use std::fs;
+use std::path::Path;
+
+use crate::log_info;
+
+use super::fsutil::remove_file_quiet;
+use super::metadata::{
+    cleanup_empty_assets, convert_lang_java_to_bedrock, convert_sounds_java_to_bedrock,
+    read_description_from_mcmeta, strip_java_only, write_manifest,
+};
+use super::shaders::adapt_java_shaders_for_bedrock;
+use super::skybox::convert_java_skybox_for_bedrock;
+use super::textures::{move_java_font_to_bedrock, reorganize_java_textures_for_bedrock};
+
+/// 把已转换到最新 Java 26.3（format 97）的包目录重组为基岩版结构。
+pub fn convert_java_to_bedrock(temp_dir: &Path, pack_name: &str) -> Result<(), String> {
+    let pack_png = temp_dir.join("pack.png");
+    if pack_png.exists() {
+        let pack_icon = temp_dir.join("pack_icon.png");
+        remove_file_quiet(&pack_icon);
+        fs::rename(&pack_png, &pack_icon).map_err(|e| format!("rename pack.png failed: {}", e))?;
+        log_info!("OKAY bedrock [pack.png -> pack_icon.png]");
+    }
+    // description 必须在删除 pack.mcmeta 之前读取
+    let description = read_description_from_mcmeta(temp_dir);
+    remove_file_quiet(&temp_dir.join("pack.mcmeta"));
+
+    let minecraft = temp_dir.join("assets").join("minecraft");
+    move_java_font_to_bedrock(&minecraft, temp_dir);
+    reorganize_java_textures_for_bedrock(&minecraft, &temp_dir.join("textures"))?;
+    convert_lang_java_to_bedrock(&minecraft, temp_dir);
+    convert_sounds_java_to_bedrock(&minecraft, temp_dir);
+    // 着色器：先于 strip（strip 会删 assets/minecraft/shaders）
+    adapt_java_shaders_for_bedrock(&minecraft, temp_dir);
+    // 天空盒：Java panorama → 基岩 cubemap_*（国际基岩顺序）
+    convert_java_skybox_for_bedrock(&temp_dir.join("textures"));
+    strip_java_only(&minecraft, temp_dir);
+    cleanup_empty_assets(temp_dir);
+
+    write_manifest(temp_dir, pack_name, &description)?;
+    log_info!("OKAY bedrock [manifest.json]");
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_j2b_end_to_end() {
+        let temp = tempdir().unwrap();
+        let root = temp.path();
+        let tex = root.join("assets/minecraft/textures");
+        fs::create_dir_all(tex.join("item")).unwrap();
+        fs::create_dir_all(tex.join("block")).unwrap();
+        fs::create_dir_all(tex.join("gui/container")).unwrap();
+        fs::create_dir_all(tex.join("models/armor")).unwrap();
+        fs::create_dir_all(root.join("assets/minecraft/lang")).unwrap();
+        fs::create_dir_all(root.join("assets/minecraft/blockstates")).unwrap();
+        fs::write(tex.join("item/golden_apple.png"), b"g").unwrap();
+        fs::write(tex.join("block/stone.png"), b"s").unwrap();
+        // **§9.127 回归**：映射表里有**恒等项**（`bamboo_block → bamboo_block`、
+        // `crimson_stem → crimson_stem`，见 `mapping.rs`）。它们的作用是声明"这个名字在
+        // 覆盖范围内"，不是要改名。修 `rename_stems_in_dir` 之前，这类文件会让
+        // 「先删目标（= 源自身）、再 rename」把文件删掉并报 `NotFound`，**整条 j2b 中止**。
+        // 本用例此前只放了 `stone.png`（无映射），所以三年没碰到这个分支。
+        fs::write(tex.join("block/bamboo_block.png"), b"bb").unwrap();
+        fs::write(tex.join("block/crimson_stem.png"), b"cs").unwrap();
+        fs::write(tex.join("gui/icons.png"), b"i").unwrap();
+        fs::write(tex.join("models/armor/iron_layer_1.png"), b"a").unwrap();
+        fs::write(root.join("pack.png"), b"p").unwrap();
+        fs::write(
+            root.join("pack.mcmeta"),
+            r#"{"pack":{"pack_format":75,"description":"测试"}}"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("assets/minecraft/lang/zh_cn.json"),
+            r#"{"block.minecraft.stone":"石头"}"#,
+        )
+        .unwrap();
+        fs::write(root.join("assets/minecraft/blockstates/stone.json"), b"{}").unwrap();
+
+        // capture description before conversion removes mcmeta
+        convert_java_to_bedrock(root, "测试").unwrap();
+
+        assert!(root.join("pack_icon.png").exists());
+        assert!(!root.join("pack.mcmeta").exists());
+        assert!(root.join("textures/items/apple_golden.png").exists());
+        assert!(root.join("textures/blocks/stone.png").exists());
+        // 恒等映射的文件必须**原样还在**（此前会被删掉并中止整条转换）
+        assert!(
+            root.join("textures/blocks/bamboo_block.png").exists(),
+            "恒等映射的 bamboo_block.png 被删掉了 —— rename_stems_in_dir 的 guard 失效"
+        );
+        assert!(
+            root.join("textures/blocks/crimson_stem.png").exists(),
+            "恒等映射的 crimson_stem.png 被删掉了 —— rename_stems_in_dir 的 guard 失效"
+        );
+        assert!(root.join("textures/ui/icons.png").exists());
+        assert!(!root.join("textures/container").exists(), "textures/container 应并入 ui");
+        assert!(root.join("textures/gui/icons.png").exists(), "Bedrock 需要 gui/icons.png");
+        assert!(!root.join("assets").exists());
+        assert!(root.join("manifest.json").exists());
+        // textures/models（盔甲）不得被剥离，且层名已改
+        assert!(root.join("textures/models/armor/iron_1.png").exists());
+        assert!(root.join("textures/textures_list.json").exists());
+        // 不再生成 item/terrain atlas（可用包布局：仅文件路径覆盖）
+        assert!(!root.join("textures/terrain_texture.json").exists());
+        assert!(!root.join("textures/item_texture.json").exists());
+        let m: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(root.join("manifest.json")).unwrap()).unwrap();
+        assert_eq!(m["header"]["name"], "测试");
+    }
+}

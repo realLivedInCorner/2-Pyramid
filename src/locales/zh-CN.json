@@ -98,8 +98,7 @@
     "ready": "准备就绪",
     "resourcePackFilter": "资源包",
     "allFilesFilter": "所有文件",
-    "mcpackRejected": "暂不支持导入 .mcpack（基岩版转换仍在完善中，目前仅供测试）",
-    "bedrockWarn": {
+        "bedrockWarn": {
       "title": "基岩版转换（测试中）",
       "body": "基岩版转换尚未完善，可能存在显示或兼容问题，建议先用测试包验证。是否继续？",
       "confirm": "继续测试"
@@ -426,7 +425,7 @@
       "author2Name": "亚克力",
       "author2Note": "提供了 Skybox 转换源码",
       "author3Name": "我小张7272635",
-      "author3Note": "提供了镜像源"
+      "author3Note": "曾提供镜像更新源（该镜像已于 2026-10 退役并移除）"
     },
     "checkUpdate": {
       "label": "检查更新",

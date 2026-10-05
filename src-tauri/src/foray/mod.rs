@@ -1,4 +1,4 @@
-//! Foray — 资源包结构分析与轻量编辑工作台（平行于 Hurray）。
+//! Foray — 资源包结构分析与轻量编辑工作台（与 A-ROM 内核平行的只读/编辑侧）。
 //!
 //! 模块：
 //! - `zip_safe`：Zip Slip / Bomb / Symlink 安全门禁

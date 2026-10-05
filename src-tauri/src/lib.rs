@@ -84,9 +84,20 @@ use self::commands::{
     ForayState,
 };
 
+pub mod arom;
+/// 基岩 ↔ Java 结构转换（生产功能：Bedrock 目标 / Bedrock 源预检，§9.125 移出 `converters/`）。
+mod bedrock_convert;
 mod commands;
-mod converters;
+/// 资源包 I/O 与分析工具（原 converters/，§9.128 只保留生产必需的四块）。
+mod pack;
 mod foray;
+pub mod native_run;
+/// **原生实现主体**：46 个任务的 A-ROM 实现（原 `pilots/`，§9.127 改名 `natives/` 并分组）。
+///
+/// 名字即身份：这些模块**是生产实现**，不再是"试点"。目录按职责分六组
+/// （`native/` `eraser/` `architect/` `surgeon/` `reverse/` `tests/`），
+/// 模块路径仍是 `crate::natives::<任务名>`（分组用 `#[path]` 声明，不改路径）。
+pub mod natives;
 mod image_utils;
 mod color_utils;
 mod invoke_conversion;
@@ -94,24 +105,42 @@ mod logger;
 mod overlay;
 pub mod perf;
 mod resource_resolver;
-mod updater;
-pub mod hurray;
+/// 箱子贴图区域变换（供原生实现使用，§9.124）
+/// 颜色/HSV 工具（供原生实现使用，§9.124）
+mod color;
+mod chest_region;
+/// 缩放因子（`determine_scale_factor`）：原生实现与测试共用，§9.125。
+///
+/// §9.128：文件已从 `converters/` 移到 crate 根（旧转换器树送走后，`converters/`
+/// 只剩生产四块，这个共享工具不该再挂在那里）。
+mod scale_factor;
+/// **任务元数据表**（名字 / 并发类型 / 阶段）——生产驱动取阶段的唯一来源，§9.125。
+mod task_registry;
 
-pub use invoke_conversion::invoke_conversion;
+mod updater;
+
+// §9.121（M3 ②-c）：`invoke_conversion::invoke_conversion` 与其 `_ex` 变体已删除——
+// 生产入口改走 `native_run`（§9.118），旧入口不再有任何调用者。
+//
+// §9.125–§9.129（M3 收口）：本模块只剩 `register_tasks`（52 行），**只注册元数据**
+// （名字 + `TaskType` + `Tier`）——驱动取阶段要用它。
+// 那 88 个旧闭包体**已彻底删除**，不是门控：`cut_gui` 折进派发表（§9.129）、
+// 任务改为按计划顺序逐个派发 `Tx`，闭包签名随之作废（§9.130 删 `HurrayContext` / `TexturePool`）。
+// `pack/` 下的旧实现整棵移除（§9.128），只留 `archive/legacy-converters/` 作参考快照。
 
 /// 只读资源包结构分析（Tauri 命令与 CLI `--analyze` 共用）。
-pub use converters::pack_analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};
+pub use pack::analysis::{analyze_dir, analyze_zip, LayerInfo, PackAnalysis, PackShape};
 
 /// 输出对比 / 质量闸门（CLI `--pack-diff`）。
-pub use converters::pack_diff;
+pub use pack::diff as pack_diff;
 
 /// 无界面转换 CLI 所需的管线入口与版本解析。
-pub use converters::version_converter::{
+pub use pack::version_converter::{
     pack_format_label_for_output, process_zip_timed, resolve_target_format, ConversionTiming,
 };
 
 /// 后台临时目录清理的等待接口（CLI 退出前调用）。
-pub use converters::zip::{
+pub use pack::io::{
     pending_cleanups, set_cleanup_mode, wait_for_cleanups, CleanupMode,
 };
 

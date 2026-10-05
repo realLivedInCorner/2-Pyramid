@@ -1,13 +1,13 @@
 # 2-Pyramid End User Agreement (EULA)
 
-**Effective date:** 2026-10-01  
+**Effective date:** 2026-10-06  
 **Applies to:** any person or organization that obtains or uses the 2-Pyramid installer or executables.
 
 ---
 
 ## 0. Relationship with the open-source license (read this first)
 
-The project’s **source code and official builds** (including the self-owned installer installer-app) are provided under the **MIT License**, see [LICENSE](../LICENSE).
+The project’s **source code and official builds** (including the self-owned installer, `installer-app`) are provided under the **MIT License**, see [LICENSE](../LICENSE).
 
 - Under MIT you already have the rights to use, copy, modify, merge, publish, distribute, sublicense, and sell copies. **This agreement does not revoke or reduce those rights**, and does not impose restrictions beyond MIT. That includes reverse engineering and research where applicable law allows; this project has no closed-source “proprietary parts,” so no extra limits are added here.
 - If this agreement conflicts with MIT, **MIT controls**.

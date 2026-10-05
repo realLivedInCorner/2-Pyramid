@@ -1,6 +1,6 @@
 # Security Policy
 
-**Effective date:** 2026-10-01  
+**Effective date:** 2026-10-06  
 **Scope:** 2-Pyramid main app, first-party installer, and installers from official release channels.
 
 ---
@@ -9,9 +9,9 @@
 
 | Line | Support |
 |------|---------|
-| Latest stable (Stable tag) | Security fixes prioritized |
+| Current line (**2.7.x**, latest stable / Stable tag) | Security fixes prioritized |
 | Latest Beta | Best effort; no SLA |
-| Older stables | Upgrade recommended; usually no backports |
+| Older stables (2.6.x and earlier) | Upgrade recommended; usually no backports |
 
 ## 2. How to report a vulnerability
 
@@ -29,7 +29,8 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 
 - **Local-first:** conversions do not upload files by default; see `PRIVACY.md`
 - **Update integrity (mandatory):** releases **must** ship `.sha256`; the updater verifies the hash after download — **mismatches are refused and deleted, and any release without a `.sha256` asset (or whose checksum cannot be fetched) is refused outright** (updates that cannot be proven intact are never installed)
-- **Download allowlist:** installers and hashes only from `github.com` / `objects.githubusercontent.com` (the China mirror `cdn.5eggpack.top` is retired and has been removed from the update path)
+- **Download allowlist:** installers and hashes only from `github.com` / `objects.githubusercontent.com` **and their subdomains** (the code is `host == "github.com" || host.ends_with(".github.com")`). The China mirror `cdn.5eggpack.top` is retired and has been removed from the update path
+- **Loopback only:** the app binds loopback addresses only — the single-instance lock on `127.0.0.1:24157` (same-port delivery), plus an action-stream port `127.0.0.1:24159` in debug builds. **It never listens on an external interface**
 - **CSP:** the WebView restricts script and resource origins
 - **No admin rights:** install uses HKCU; no UAC elevation required
 
@@ -37,7 +38,7 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 
 - Converting **arbitrary** user zip/packs parses many PNG / JSON / text files; bad input may be slow or fail; pack code is generally not executed
 - Shader work rewrites GLSL sources and **does not** compile untrusted binaries on your GPU
-- Installers from unofficial channels may bypass the SHA chain; trust only GitHub Releases and documented mirrors
+- Installers from unofficial channels may bypass the SHA chain; trust only this repository's GitHub Releases
 
 ## 5. Credit
 

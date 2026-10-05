@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.7.0-007bff?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-2.200.0-007bff?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
   <img alt="Tauri" src="https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square">
@@ -35,7 +35,7 @@
   - 生成 `gui/icons.png` HUD 图集、`textures_list.json`、容器界面扁平化与 POT 适配
   - 平台独有内容按方向剥离（不互转 Java model ↔ Bedrock geometry）
 - **完全本地** — 无云端、无账号、无遥测，**转换全程不联网**（更新检查与可选的 Foray AI 分析会联网，详见「已知限制」）
-- **批量处理** — 一次拖入多个资源包，1–4 线程并行转换
+- **批量处理** — 一次拖入多个资源包；**性能档位**（设置里二选一）：**平衡**用一半核心（下限 2、上限 8）并同时转换 2 个包，机器可继续正常使用；**性能**吃满核心（上限 32）并同时最多 6 个包（可用内存低于 1500 MB 时自动降为 1 个包）。设置项下方实时显示本机解析结果（核数 · 线程预算 · 并发包数）
 - **目录规整防呆** — 自动把嵌套的 `pack.mcmeta` 提升到压缩包根目录；`pack.mcmeta.txt` 之类多扩展名文件只要内容是合法 mcmeta（能解析出 format 数值）也会统一改名为 `pack.mcmeta`
 - **动态贴图转换** — 老版 `{"animation": {}}` 的 `.png.mcmeta` 自动按贴图尺寸推导帧数，改写为高版本 `frametime` + `interpolate` 格式
 - **输出命名模板** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符自由组合，再转换时自动替换名称中的旧版本前缀
@@ -53,7 +53,7 @@
 
 - **目标版本的新增内容为「近似生成」**：升级时若目标版本引入了原包不存在的新方块 / 新物品（例如 netherite、copper、breeze、pale / poplar 木板、部分树叶），程序会从**最接近的现有贴图**按**手工标定的色相/饱和度/明度参数**派生一张近似贴图（部分树叶额外钉住色相以避免漂色）。**这些贴图不是原版资源，与原版视觉存在差异** —— 想要 1:1 原版观感，请在转换后自行替换这些文件。
 - **结构转换优先，不做像素重绘**：物品 / 方块贴图分辨率、GUI 布局、模型与动画按版本规则改写（含九宫格等厚、sprite 切割、图集生成等），但不会重画美术资源。
-- **Bedrock 双向转换为实验性**：j2b / b2j 未完成且存在严重问题，仅用于测试；选中该目标会弹出警示，材质包选择也不接受 `.mcpack` 作为输入。
+- **Bedrock 双向转换为实验性**：j2b / b2j 未完成且存在严重问题，仅用于测试；选中该目标会弹出警示（`.mcpack` 可直接作为 b2j 的输入）。
 - **发行版默认只记录 Warn / Error 日志**：release 构建下 Info 级日志（含转换进度与 OKAY 明细）默认不写入日志文件；若需完整日志用于排查，请在**设置 → 开发者模式**中开启后再复现问题。
 - **更新检查会访问网络**：仅访问 GitHub 官方源（曾经的国内镜像已停止维护、已移除）；转换过程本身全程离线。
 - **Editor Mode / Foray 的 AI 功能会把内容发给第三方**：该功能使用**你自己填写的** OpenAI 兼容 endpoint 与密钥，你选择分析的贴图/文本会被发送到该 endpoint。默认关闭。
@@ -87,7 +87,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `npm run betabuild` | Beta 渠道构建（输出 `-beta.{BUILD}.exe`，与正式版可并存） |
 | `npm run buildrelease:nobump` / `npm run betabuild:nobump` | 同上但不递增 BUILD 构建号 |
 | `npm run test` / `npm run test:offline` | 运行 Rust 单测（`test:offline` 强制离线） |
-| `npm run buildrelease:noinstaller` | 只构建主程序，跳过安装器（更快） |
+| `npm run buildrelease:noinstaller` | 跳过自研安装器 EXE；**但默认仍会为 MSIX 再编译一次**（`--features store`）并打包，所以想真正只构建主程序需同时跳过 MSIX：`python tools/build_release.py --skip-installer --skip-msix` |
 | `python tools/build_release.py --skip-msix` / `--sign-msix` | 跳过 MSIX / 签名 MSIX（sideload 测试） |
 | `npm run bump:build:show` / `bump:build:set` | 查看 / 手动设置 BUILD 构建号 |
 
@@ -150,9 +150,9 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 **Bedrock 路径（实验性）** 在同一 Scheduler 上以版本边挂载：
 
-- `converters/bedrock/` 模块：`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`
+- `src-tauri/src/bedrock_convert/` 模块：`mapping` / `textures` / `ui` / `potions` / `metadata` / `shaders` / `skybox` / `j2b` / `b2j`
 - 任务 `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java`（`Exclusive` + `Surgeon`）
-- 边：`(97, 1000)` j2b、`(1000, 97)` b2j；Java 中间态统一 **format 97（26.3）**
+- 边：j2b `(84|88|97 → 1000)`、b2j `(1000 → 97|88|84)`，均在 `arom/engine/conversion_maps.rs` 声明；Java 中间态统一 **format 97（26.3）**
 
 ### 🧪 命令行工具（排查 / 压测 / 质量闸门）
 
@@ -160,7 +160,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 | 命令 | 作用 |
 |---|---|
-| `2-pyramid.exe --convert <包\|目录> [--to 26.3] [--out <目录>] [--report <报告.json>]` | 跑**完整转换管线**并输出结构化报告：结构分析 + 纯转换/总时间（含 IO 分解）+ 逐任务耗时 + 体积变化。目录会递归处理其中所有 `.zip`/`.mcpack`。 |
+| `2-pyramid.exe --convert <包\|目录> [--to 26.3] [--out <目录>] [--report <报告.json>] [--fast]` | 跑**完整转换管线**并输出结构化报告：结构分析 + 纯转换/总时间（含 IO 分解）+ 逐任务耗时 + 体积变化。目录会递归处理其中所有 `.zip`/`.mcpack`。`--fast` 关闭 GUI sprite 手术（`run_gui_surgeon`），用于隔离"手术"那部分的耗时。 |
 | `2-pyramid.exe --analyze <包\|目录>` | 只读**结构分析**：官方分层（overlays）、`supported_formats` 区间、非标准版本折叠目录、一包多根，含每层文件数与覆盖计数。 |
 | `2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <报告>]` | **质量闸门**：PNG 像素级、JSON 语义级、其余字节级比对；默认允许"像素相同仅编码不同"，`--strict` 要求字节一致。退出码 0/1，可用于提速改动的回归验证。 |
 
@@ -198,16 +198,27 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   └── locales/               zh-CN.json / en-US.json
 ├── src-tauri/                 Rust 后端（主程序）
 │   ├── src/
-│   │   ├── converters/        版本转换模块（各含 reverse）+ bedrock/ 子模块 + 目录规整 / 打包
+│   │   ├── arom/              A-ROM 对象模型 + 执行引擎（engine/：版本映射与按阶段调度）
+│   │   ├── natives/           46 个任务的**原生实现**（eraser / architect / surgeon / reverse 分组）
+│   │   ├── pack/              资源包 I/O 与分析工具（io / diff / analysis / version_converter）
+│   │   ├── bedrock_convert/   基岩 ↔ Java 结构转换（j2b / b2j）
 │   │   ├── commands/          Tauri 命令（config / background / overlay / misc …）
-│   │   ├── hurray/            调度器与纹理池
+│   │   ├── foray/             资源包结构分析与轻量编辑（只读侧）
 │   │   ├── overlay/           Overlay 模板生成
 │   │   └── lib.rs             入口：窗口创建 / 单实例 / 退出策略
 │   ├── UImage/                内置贴图模板
 │   ├── overlay/               Overlay 模板（模型 / shader / lang）
 │   └── tauri.conf.json
 ├── installer-app/             自研安装器项目（内嵌 payload.zip，HKCU 注册表）
-├── tools/                     发布流水线 / 构建号 / Logo 生成
+├── tools/                     构建与发布工具（见下）
+│   ├── build_release.py       发布流水线（版本校验 / 安装器 / MSIX / .sha256）
+│   ├── set_version.py         版本号 10 处统一设置与 --check 守门
+│   ├── convert-report.bat/.ps1 拖放即转换的启动器与逻辑
+│   ├── benchmark/             性能基准页（单文件 HTML，零依赖）
+│   ├── release/  store/       发布清单 / 商店提交文案
+│   ├── msi/  msix/            MSI 与 MSIX 打包资源与包身份
+│   ├── gen-task-registry.ps1  校验 task_registry 的 88 项元数据不被格式化改动
+│   └── arom-baseline.txt      冻结内容基线的逐条目清单（4018 行）
 ├── BUILD                      构建号（release 编译自动递增）
 ├── CHANGELOG.md               更新日志
 └── release/                   构建产物（已 gitignore）
@@ -238,7 +249,7 @@ npm run build                                               # 前端 build
   - Builds `gui/icons.png` HUD atlas, `textures_list.json`; flattens container UI and pads to power-of-two
   - Platform-exclusive assets are dropped per direction (no Java model ↔ Bedrock geometry conversion)
 - **Fully local** — No cloud, no account, no telemetry; **conversion never touches the network** (update checks and the optional Foray AI analysis do — see Known Limitations)
-- **Batch processing** — Multiple packs at once, 1–4 parallel workers
+- **Batch processing** — Multiple packs at once, with a **performance tier** (choose one in Settings): **Balanced** uses half the cores (min 2, max 8) and converts 2 packs at a time so the machine stays usable; **Performance** uses all cores (cap 32) and up to 6 packs at once (auto-reduced to 1 when available memory drops below 1500 MB). Settings show the resolved numbers for your machine (cores · thread budget · concurrent packs) below the option
 - **Directory normalization** — Nested `pack.mcmeta` is promoted to the zip root; `pack.mcmeta.txt`-style files are renamed to `pack.mcmeta` when they contain a valid `format` value
 - **Animated texture conversion** — Legacy `{"animation": {}}` mcmeta files are upgraded to explicit `frametime` + `interpolate` (frame count derived from texture dimensions)
 - **Output naming template** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` placeholders; old version prefixes are replaced on re-conversion
@@ -256,7 +267,7 @@ npm run build                                               # 前端 build
 
 - **New content in newer target versions is approximated**: when upgrading, blocks/items introduced by the target version but absent from your pack (e.g. netherite, copper, breeze, pale / poplar planks, some leaves) are derived from the **closest existing texture** using **hand-calibrated hue/saturation/value parameters** (some leaves additionally pin hue to avoid drifting). **These are not vanilla assets and will differ visually** — replace them manually if you need a 1:1 vanilla look.
 - **Structure first, no pixel repainting**: item/block resolutions, GUI layout, models and animations are rewritten per version rules (nine-slice equalization, sprite slicing, atlas generation, …), but art is never redrawn.
-- **Bedrock conversion is experimental**: j2b / b2j are incomplete and known to be broken — testing only; selecting that target shows a warning, and `.mcpack` is rejected as input.
+- **Bedrock conversion is experimental**: j2b / b2j are incomplete and known to be broken — testing only; selecting that target shows a warning (`.mcpack` is accepted directly as b2j input).
 - **Release builds log Warn / Error only**: Info-level logs (conversion progress and OKAY details) are not written in release builds; enable **Settings → Developer Mode** first if you need full logs for a bug report.
 - **Update checks reach the network**: official GitHub only (the former China mirror is retired and has been removed). Conversion itself is fully offline.
 - **Editor Mode / Foray AI sends content to a third party**: it uses the OpenAI-compatible endpoint and key **you provide**, and the textures/text you choose to analyze are sent there. Off by default.
@@ -313,9 +324,14 @@ Release requirements:
 
 ### 🏗️ Architecture
 
-The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The very first step is **directory normalization** (locate & promote `pack.mcmeta` to the zip root, with `pack.mcmeta.txt` foolproofing), followed by Eraser → Architect → Surgeon converter tiers.
+The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**, built on the in-house **A-ROM** object model (`Pack` / `Tx` / `Layer` / `PackView`). The very first step is **directory normalization** (locate & promote `pack.mcmeta` to the zip root, with `pack.mcmeta.txt` foolproofing), followed by Eraser → Architect → Surgeon converter tiers.
 
-**Bedrock path (experimental)** mounts on the same scheduler as version edges: modular `converters/bedrock/` (`mapping` / `textures` / `ui` / `potions` / `metadata` / `j2b` / `b2j`), tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`), edges `(97, 1000)` / `(1000, 97)`. The Java intermediate is always **format 97 (26.3)**.
+- **Directory normalization** — runs first: locate the real `pack.mcmeta` (multi-extension foolproofing) and promote it to the root
+- **Eraser** — tear down the source pack into one intermediate representation
+- **Architect** — BFS the shortest conversion path over the target-version graph
+- **Surgeon** — run each converter in order (each with its reverse pair) and emit the target pack
+
+**Bedrock path (experimental)** mounts on the same scheduler as version edges: the `src-tauri/src/bedrock_convert/` module (`mapping` / `textures` / `ui` / `potions` / `metadata` / `shaders` / `skybox` / `j2b` / `b2j`), tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`), edges j2b `(84|88|97 → 1000)` and b2j `(1000 → 97|88|84)` declared in `arom/engine/conversion_maps.rs`. The Java intermediate is always **format 97 (26.3)**.
 
 ### 🧰 Tech Stack
 
@@ -338,16 +354,27 @@ The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**. The ve
 │   └── locales/               zh-CN.json / en-US.json
 ├── src-tauri/                 Rust backend (main app)
 │   ├── src/
-│   │   ├── converters/        Version converters + bedrock/ submodule + directory normalization
+│   │   ├── arom/              A-ROM object model plus the execution engine (engine/: version maps and tier bucketing)
+│   │   ├── natives/           Native implementations of the 46 tasks (eraser / architect / surgeon / reverse)
+│   │   ├── pack/              Pack I/O and analysis tools (io / diff / analysis / version_converter)
+│   │   ├── bedrock_convert/   Bedrock <-> Java structure conversion (j2b / b2j)
 │   │   ├── commands/          Tauri commands
-│   │   ├── hurray/            Scheduler & texture pool
+│   │   ├── foray/             Pack structure analysis and light editing (read-only side)
 │   │   ├── overlay/           Overlay template generation
 │   │   └── lib.rs             Entry: window / single-instance / exit policy
 │   ├── UImage/                Built-in texture templates
 │   ├── overlay/               Overlay templates
 │   └── tauri.conf.json
 ├── installer-app/             Self-owned installer (embeds payload.zip)
-├── tools/                     Release pipeline / build number / logo generation
+├── tools/                     Build & release tooling (see below)
+│   ├── build_release.py       Release pipeline (version check / installer / MSIX / .sha256)
+│   ├── set_version.py         Sets all 10 version sites; `--check` gate
+│   ├── convert-report.bat/.ps1 Drag-and-drop convert launcher and its logic
+│   ├── benchmark/             Perf baseline page (single-file HTML, zero deps)
+│   ├── release/  store/       Release checklist / Store listing copy
+│   ├── msi/  msix/            MSI & MSIX packaging resources and package identity
+│   ├── gen-task-registry.ps1  Guards the 88 registry entries against format churn
+│   └── arom-baseline.txt      Per-entry list of the frozen content baseline (4018 lines)
 ├── BUILD                      Build number (auto-incremented on release builds)
 ├── CHANGELOG.md               Changelog
 ├── legal/                     EULA / Privacy / Disclaimer / Notices / Security / Contributing

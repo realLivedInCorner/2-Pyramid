@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use crate::converters::pack_analysis::{analyze_dir, analyze_zip, PackAnalysis};
+use crate::pack::analysis::{analyze_dir, analyze_zip, PackAnalysis};
 
 /// 分析 zip 或目录（自动判断）。
 #[tauri::command]

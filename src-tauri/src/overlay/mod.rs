@@ -401,7 +401,7 @@ pub fn process_parent_pack_workspace(
         fs::remove_dir_all(&extract_dir).map_err(|e| format!("清理旧解压目录失败: {}", e))?;
     }
 
-    crate::converters::zip::extract_zip_to_dir(&zip_in_workspace, &extract_dir)?;
+    crate::pack::io::extract_zip_to_dir(&zip_in_workspace, &extract_dir)?;
 
     // 删除 zip 原文件
     fs::remove_file(&zip_in_workspace)

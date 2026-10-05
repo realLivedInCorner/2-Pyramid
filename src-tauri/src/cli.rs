@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use serde::Serialize;
 
-use two_pyramid_lib::hurray::scheduler::TaskTiming;
+use two_pyramid_lib::arom::engine::scheduler::TaskTiming;
 use two_pyramid_lib::{
     analyze_zip, pack_format_label_for_output, process_zip_timed, resolve_target_format,
     ConversionTiming, PackAnalysis,
@@ -129,7 +129,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         Some(v) => v.clone(),
         None => {
             eprintln!(
-                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>]"
+                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>] [--fast]"
             );
             return 2;
         }
@@ -147,6 +147,11 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         None => 97,
     };
 
+    // §9.138：可选处理项。**默认全开**（产物完整）。
+    // `--fast` 关闭 GUI sprite 手术——实测它是唯一能显著缩短耗时的处理项
+    // （两次 `cut_gui`，各约 1.5s）。代价是丢失 GUI 切图产物（血条/护甲槽等）。
+    let fast = args.iter().any(|a| a == "--fast");
+    let run_gui_surgeon = !fast;
     let out_dir = arg_value(args, "--out").map(PathBuf::from);
     let report_path = arg_value(args, "--report").map(PathBuf::from);
 
@@ -206,6 +211,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
             out_dir.as_ref().map(|d| d.to_string_lossy().to_string()).as_deref(),
             false,
             true,
+            run_gui_surgeon,
         ) {
             Ok((output, timing)) => {
                 convert_secs += convert_start.elapsed().as_secs_f32();
@@ -243,6 +249,18 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                 println!(
                     "    · 任务画像：{} 个任务，合计 {:.2}s（引擎纯转换 {:.2}s）",
                     task_count, task_sum_s, timing.pure_s
+                );
+                // §9.142：管线相位分解——任务只占流水线的一部分，找瓶颈要看这里。
+                println!(
+                    "    · 管线相位：open {:.2}s · materialize {:.2}s · tasks {:.2}s · direct {:.2}s · harvest {:.2}s · tail {:.2}s · output {:.2}s · other {:.2}s",
+                    timing.phases.open_s,
+                    timing.phases.materialize_s,
+                    timing.phases.tasks_s,
+                    timing.phases.direct_s,
+                    timing.phases.harvest_s,
+                    timing.phases.tail_s,
+                    timing.phases.output_s,
+                    timing.phases.other_s
                 );
                 packs.push(PackReport {
                     input: pack.to_string_lossy().to_string(),
@@ -323,6 +341,11 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         summary.pure_sum_s, summary.total_sum_s, summary.io_sum_s
     );
     println!("墙钟时间：{:.2}s", summary.wall_clock_s);
+    // **测量提示（§9.146）**：只有**进程内**这几个数（纯转换 / 含 IO 总时间 / 墙钟）彼此可比。
+    // 外部用 PowerShell `Start-Process -Wait` 计时会**每次虚增 2.4–2.7s**
+    // （实测：进程内 1.49s 被报成 3.93s；改用 `cmd /C` 同步执行则 1.52s ≈ 进程内 1.52s，
+    // 真实进程开销只有约 0.05s）。我据此做过一次错误的优化取舍，故把结论留在输出里。
+    println!("  （外部计时请用同步方式：Start-Process -Wait 会虚增约 2.5s，以进程内数为准）");
     if summary.input_bytes > 0 {
         println!(
             "体积：{:.2} MB → {:.2} MB",

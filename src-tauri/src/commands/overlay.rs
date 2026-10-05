@@ -68,7 +68,7 @@ fn create_default_overlay_structure(temp_dir: &PathBuf) -> Result<(), String> {
 }
 
 fn extract_zip_file(zip_path: &PathBuf, dest_dir: &PathBuf) -> Result<(), String> {
-    crate::converters::zip::extract_zip_to_dir(zip_path, dest_dir)
+    crate::pack::io::extract_zip_to_dir(zip_path, dest_dir)
 }
 
 #[tauri::command]
