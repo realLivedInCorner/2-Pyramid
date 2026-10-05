@@ -168,6 +168,17 @@ fn dispatch_native_into_pack(
     strict_scopes: bool,
 ) -> Result<crate::natives::Outcome, AromError> {
     let (label, decl, run) = native_for(name, switches).expect("dispatched from the plan");
+    // **§9.136：逐任务耗时打点。**
+    //
+    // 驱动按 `plan` 派发 `Tx`，因此这里是**唯一**能覆盖整条计划的位置。打点走的是引擎那边
+    // 同一份 `TaskTiming` 记录（`pack::version_converter` 的 `take_task_timings()` 会取走），
+    // 于是日志里的 `task profile` 不再恒为空、那行 "scheduler+worker overhead"
+    // 也终于只表示真正的收尾开销（此前它把整条流水线的时间都吞了）。
+    //
+    // 计时范围**含收尾**（层落盘 / 契约检查 / 基线同步 / 提交），因为这才是这个任务
+    // 在流水线里的真实占用；只计 `run()` 会低估真正的瓶颈。
+    let started = std::time::Instant::now();
+    let tier_str = decl.tier.as_str();
     let (outcome, layer) = {
         let mut tx = pack.tx(name);
         let outcome = run(&mut tx)
@@ -201,6 +212,14 @@ fn dispatch_native_into_pack(
     check_layer_materialized(pack, workdir, &layer, name)?;
     sync_baseline_with_layer(pack, &layer, baseline)?;
     pack.commit(layer);
+    // 打点放在**收尾之后**：`started` 起于任务执行前，因此这里记的是该任务在流水线里的
+    // 真实占用（执行 + 层落盘 + 契约检查 + 基线同步 + 提交）。
+    crate::arom::engine::scheduler::record_task_time(
+        name,
+        tier_str,
+        started.elapsed(),
+        false,
+    );
     report.native_tasks += 1;
     report.native_names.push(name.to_string());
     Ok(outcome)
@@ -366,27 +385,12 @@ where
     // 注册表之外的直接步骤（GuiSurgeon sprite 手术）——生产管线在任务之后、
     // 清理之前执行它；漏掉它会整片丢失 sprite 产物（本步实测：真实包少了 3861 个文件）。
     //
-    // **§9.120（M3 ②-c）：改走 `Tx` 形态。** 原先调 `invoke_conversion::run_direct_steps`，它内部是
-    // `GuiSurgeon::execute_transformation`（旧磁盘实现）。现在调 `surgeon_cut_gui::run_in_workdir`，
-    // 它内部是 `gui_surgeon_tx::run`——与批次内的 `cut_gui` **同一份 `Tx` 实现**（§9.113）。
+    // 注意它**依然执行**（不是被计划里那次 `cut_gui` 取代）：§9.90/§9.91 实测过，
+    // 计划内的 `cut_gui` 与这里的这步**各自都是必需的**，删任何一个都会丢 sprite。
+    // 区别只在**输入状态**（本步在全部任务之后），不在实现——两者都调 `gui_surgeon_tx::run`。
     //
-    // 注意它**依然执行**（不是被 `cut_gui` 取代）：§9.90/§9.91 实测过，
-    // 批次内的 `cut_gui` 与批次后的这步**各自都是必需的**，删任何一个都会丢 sprite。
-    //
-    // **§9.128**：二者的 20 项延迟删除现在都经 `Outcome.deferred_removals` 回给本驱动，
-    // 由下方统一的 tombstone 步骤应用（原先走 `ctx.defer_remove_file` + `ctx.execute_cleanup()`，
-    // 而那两个清理点**本来就相邻**，时机等价）。
-    //
-    // **§9.135：本步改为 pack 原生**，不再经 `surgeon_cut_gui::run_in_workdir`。
-    //
-    // 那层桥做的是「读 workdir 的 gui 子树 → 建内存包 → 跑 `Tx` → 把层写回 workdir」，
-    // 而它存在的**唯一理由**是"`cut_gui` 的槽位在批次内部，而批次只能整体喂给旧引擎"
-    // （§9.113）。§9.129 起驱动已按 `plan` 逐任务派发 `Tx`，那个理由消失了：
-    // `gui_surgeon_tx` 用的是**包内全路径**（`assets/minecraft/textures/gui/...`），
-    // 因此可以直接跑在**驱动自己的 pack** 上，省掉一整趟"写盘再读回"。
-    //
-    // 与批次内那次 `cut_gui` 的关系不变：§9.90/§9.91 实测**两者各自必需**，删任何一个都会
-    // 丢 sprite。区别只在**输入状态**（本步在全部任务之后），不在实现。
+    // **§9.135：本步改为 pack 原生**（原先经 `surgeon_cut_gui::run_in_workdir`，那层
+    // "读 gui 子树 → 建内存包 → 写回磁盘"的桥已整体删除）。
     //
     // **保留旧实现的两个门槛**（Bedrock 中间态跳过 sprite 手术，避免干扰 j2b；目标 < 34 也跳过）：
     if opts.run_gui_surgeon && opts.target_version >= 34 {

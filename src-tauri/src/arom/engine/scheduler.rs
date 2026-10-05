@@ -417,7 +417,13 @@ lazy_static::lazy_static! {
         std::sync::Mutex::new(Vec::new());
 }
 
-fn record_task_time(task: &str, tier: &'static str, elapsed: std::time::Duration, parallel: bool) {
+/// 记录一个任务的耗时（供 [`take_task_timings`] 汇总）。
+///
+/// **§9.136：`pub` 化**——驱动 `native_run` 按 `plan` 逐任务派发 `Tx`，它也需要把每个任务的
+/// 耗时记进同一份记录。此前这里只有本文件的 `execute_tasks` 调用，于是正向转换（走驱动）的
+/// `task_profile` **恒为空**，日志里那行 `tasks: 0 runs` 把整条流水线的 18.86s 全算成了
+/// "scheduler+worker overhead"——读数因此失去解释力（看不出时间花在哪个任务上）。
+pub fn record_task_time(task: &str, tier: &'static str, elapsed: std::time::Duration, parallel: bool) {
     if let Ok(mut list) = TASK_TIMINGS.lock() {
         list.push(TaskTiming {
             task: task.to_string(),
