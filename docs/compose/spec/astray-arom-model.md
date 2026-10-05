@@ -4165,3 +4165,57 @@ M3 收口时应一并改名（候选：`native/` 或 `arom_tasks/`），并同�
 
 **无代码改动**（仅文档）。仓库 `c750ede`，绿色（**310 passed / 21 ignored / 警告 86**），
 内容基线 `0x75bb3260e7f578a6`（4018 条目）已冻结入库。
+
+### 9.117 M3 **②-b 步骤 1 完成**：`run_mixed` 支持「写进目录」并已验证与 zip 形态一致（2026-10-05）
+
+#### 为什么需要它（§9.116 的结论落地）
+
+生产入口 `version_converter::process_zip_timed` 在管线跑完之后**还要继续改工作目录**
+（写 `pack.mcmeta` 的 `pack_format`、可选 Bedrock 边任务），**最后才重打包**。
+因此它需要的**不是 zip，而是"填好的工作目录"**——直接换一行调用会让后续步骤作用在旧树上，产物分叉。
+
+#### 交付：`Output` 枚举
+
+```rust
+pub enum Output { Zip(PathBuf), Dir(PathBuf) }
+```
+
+- **`Zip`**：原行为，**完全不变**（两个既有调用点都改为传 `Output::Zip`，行为保持）；
+- **`Dir`**：把 A-ROM 的**最终视图直接物化进给定目录**，从而**省掉一次 zip 往返**。
+  `SerializeStats` 是 zip 特有的，`Dir` 分支留默认值——因为
+  §9.91/§9.115 的**内容契约是更强的判据**（它们能发现"两文件互换内容"，而统计不能）。
+
+#### 验收：新增第 22 个忽略用例
+
+`mixed_output_dir_matches_zip_on_a_real_pack` —— **这是改道的前置判据**：
+
+同一输入跑两遍 `run_mixed`（一遍 `Zip`、一遍 `Dir`），把 zip 解到目录，
+然后**三方逐项对照**：旧管线 ↔ `Zip` 形态 ↔ `Dir` 形态。
+
+```
+Output::Zip 与 Output::Dir 都与旧管线逐项一致     ✓
+```
+
+**意义**：证明"物化回目录"与"序列化成 zip"两者内容一致 ⇒ 生产改道**不可能**改变产物。
+
+#### 验收与状态
+
+- 全量 **310 passed / 0 failed / 22 ignored**（+1 即本用例）；`cargo check --bins` 通过；
+- 警告 **87**（+1，来自新增代码）；
+- **内容基线未变**：`0x75bb3260e7f578a6`（4018 条目）——符合预期，因为**生产尚未接到新分支**。
+
+**提交**：`1aa09af`。
+
+#### ②-b 的下一步（步骤 2）
+
+把 `process_zip_timed` 里的 `invoke_conversion_ex(...)` 换成
+`run_mixed(..., Output::Dir(temp_dir), ...)`，并把"写 `pack.mcmeta`"作为 `tail` 传入
+（`run_mixed` 的 `tail` 参数正是为此设计的：它在 workdir 上跑一次随后被收获）。
+
+**待处理的细节**：
+1. `run_mixed` 会 `ensure_empty_dir(workdir)`，因此需要**给它一个干净的工作目录**——
+   生产当前的 `temp_dir` 是**解压后的源树**，不能直接当 workdir；
+2. `Output::Dir` 的目标是"管线跑完后的树"，即生产的 `temp_dir`——但 `materialize`
+   不会清空目标目录，需确认是"先清空再物化"还是"让 `temp_dir` 本身就是那个 workdir"；
+3. Bedrock 源包探测（`is_bedrock_resource_pack`）等预检工作在 `invoke_conversion_ex` **之前**做，
+   改道后**顺序不能变**。

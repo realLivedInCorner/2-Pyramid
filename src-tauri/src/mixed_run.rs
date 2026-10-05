@@ -198,14 +198,6 @@ pub enum Output {
     Dir(PathBuf),
 }
 
-impl Output {
-    fn as_zip(&self) -> Option<&Path> {
-        match self {
-            Output::Zip(p) => Some(p.as_path()),
-            Output::Dir(_) => None,
-        }
-    }
-}
 
 /// **驱动 v2**：按 `Scheduler::plan` 的顺序逐任务执行——已迁移的走 A-ROM 原生实现，
 /// 未迁移的在 `workdir` 上跑旧闭包并 `harvest` 成层；两者交替时把原生写入同步回 workdir，
@@ -497,6 +489,23 @@ where
             // 「跑完整条 A-ROM 管线之后的工作目录」，随后它照旧改 `pack.mcmeta` / 跑 Bedrock /
             // 重打包。序列化统计（`SerializeStats`）是 zip 特有的，这里留默认值；
             // 需要"产物规模"的判据请用 §9.91/§9.115 的内容契约（它们比这组统计更强）。
+            //
+            // **必须先清空目标目录**：`materialize` 只做 `create_dir_all` + 写文件，
+            // **不会**删除目标里已有的条目。而生产传进来的目录**正是它自己解压出的源树**
+            // （§9.116），若不清空，源树中"新视图里已不存在"的文件会残留下来 ⇒ 产物分叉。
+            if dir.exists() {
+                for e in std::fs::read_dir(dir)
+                    .map_err(|e| AromError::io(format!("read {}: {e}", dir.display())))?
+                    .flatten()
+                {
+                    let p = e.path();
+                    if p.is_dir() {
+                        let _ = std::fs::remove_dir_all(&p);
+                    } else {
+                        let _ = std::fs::remove_file(&p);
+                    }
+                }
+            }
             let view = pack.view();
             materialize(&view, dir)?;
             SerializeStats::default()
@@ -2462,8 +2471,17 @@ mod tests {
         .expect("extract zip output");
 
         // ② Dir 形态
+        // **刻意先往目标目录塞"陈旧文件与陈旧子目录"**：生产传进来的目录正是它自己解压出的
+        // 源树（§9.116），里面必然有"新视图里已不存在"的条目。若 `Output::Dir` 不清空目标，
+        // 这些残留会留在产物里 ⇒ 本用例会红。这是对"清空"这一步的真实检验。
         let dir_out = tmp.path().join("dir_out");
-        std::fs::create_dir_all(&dir_out).expect("mkdir");
+        std::fs::create_dir_all(dir_out.join("assets/minecraft/textures/stale_dir")).expect("mkdir stale");
+        std::fs::write(dir_out.join("stale_top.txt"), b"stale").expect("write stale");
+        std::fs::write(
+            dir_out.join("assets/minecraft/textures/stale_dir/stale.png"),
+            b"stale",
+        )
+        .expect("write stale2");
         {
             let work = tmp.path().join("v2dir_work");
             let mut opts = MixedRunOptions::default();
