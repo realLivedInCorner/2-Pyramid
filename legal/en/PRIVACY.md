@@ -46,6 +46,8 @@ Logs may include **file paths** and error messages for troubleshooting. **Both e
 
 **The automatic update check is on by default**: the app fetches the release list once at startup (first row above). If you turn off “Automatically check for updates” in Settings → Version & Updates, the app only goes online when you explicitly check or download. Beyond that, and with Foray AI disabled, the app makes no network requests.
 
+**Loopback traffic (never leaves the machine):** at startup the app binds a **single-instance lock** on `127.0.0.1:24157` (a second launch uses it to hand its arguments to the running instance), and debug builds additionally open an action-stream port on `127.0.0.1:24159`. Both listen on the **loopback address only** — no external interface, no LAN connections — and neither carries any resource-pack content.
+
 ## 4. Third parties
 
 Beyond update check/download (GitHub only), the software **does not send data to third parties by default**.
