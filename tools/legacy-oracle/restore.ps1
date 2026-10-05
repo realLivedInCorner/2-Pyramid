@@ -70,6 +70,48 @@ if ($LASTEXITCODE -ne 0) { throw "git checkout 失败（退出码 $LASTEXITCODE�
 
 Write-Host ""
 Write-Host "已恢复 $($missing.Count) 个工作树文件（跟踪状态未改变）。"
+
+# ── 归档补齐（§9.127 实测缺陷）────────────────────────────────────────────
+# **为什么需要这一步**：`untracked-files.txt` 是"移出版本控制时"生成的清单，
+# 而此后 §9.124 把 `converters/color` 移到了 crate 根（`crate::color`）——
+# **旧转换器树里仍引用 `crate::converters::color`**，但清单里没有这三个文件
+# （它们当时还是被跟踪的），于是 `--features legacy-oracle` 在全新 clone 上报
+# `could not find 'color' in 'converters'`。
+#
+# 归档 `archive/legacy-converters/`（入库、不参与构建）是完整的，因此用它做**权威补齐**：
+# 只补"归档里有、工作树里没有、且不属于当前 tracked 生产模块"的文件。
+$archive = Join-Path $repoRoot 'archive\legacy-converters'
+$convertersDir = Join-Path $repoRoot 'src-tauri\src\converters'
+if (Test-Path $archive) {
+    # tracked 的生产模块**不能**被归档覆盖（归档里也有它们的旧副本）
+    $tracked = @(& git -C $repoRoot ls-files 'src-tauri/src/converters')
+    $trackedRel = $tracked | ForEach-Object { $_ -replace '^src-tauri/src/converters/', '' }
+
+    $topped = 0
+    Get-ChildItem $archive -Recurse -File | ForEach-Object {
+        $rel = $_.FullName.Substring($archive.Length).TrimStart('\')
+        $relSlash = $rel -replace '\\', '/'
+        if ($relSlash -eq 'README.md') { return }
+        $dest = Join-Path $convertersDir $rel
+        if (Test-Path $dest) { return }
+        # 归档里若混有当前 tracked 模块的同名旧版本，也不能拿它去"补"（那是降级）
+        if ($trackedRel -contains $relSlash) { return }
+        $parent = Split-Path $dest -Parent
+        if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+        Copy-Item $_.FullName $dest -Force
+        $topped++
+    }
+    if ($topped -gt 0) {
+        Write-Host "归档补齐 $topped 个文件（清单未覆盖、但旧转换器树仍需要的，例如 converters/color/）。"
+    } else {
+        Write-Host "归档无需补齐（工作树已完整）。"
+    }
+} else {
+    Write-Host "注意：未找到 archive/legacy-converters —— 若旧转换器树仍缺文件，请手动补齐。"
+}
+
+Write-Host ""
 Write-Host "注意：恢复后请重新运行完整验证："
 Write-Host "  cargo test --lib"
+Write-Host "  cargo test --lib --features legacy-oracle     # 旧闭包/对照 oracle"
 Write-Host "  cargo test --lib -- --ignored        # 含真实包对照"
