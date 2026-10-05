@@ -1841,7 +1841,7 @@ mod tests {
     /// 以及旧管线都逐项一致；开关关闭时行为必须与打开前完全相同。
     ///
     /// §9.125：`off` / `legacy` 两配置的实现是**旧闭包**，默认构建里不存在，因此
-    /// 「与旧实现对照」的部分随 `legacy-oracle` 门控；默认构建保留 **`on` 自身的一致性**
+    /// 「与旧实现对照」的部分随旧实现一起删除（`legacy-oracle` feature 从未实现）；保留 **`on` 自身的一致性**
     /// （每个计划任务恰好执行一次、原生数 ≥ 1），它与冻结基线一起构成默认闸门。
     #[test]
     fn native_switch_keeps_the_output_identical_on_a_fixture() {
@@ -1903,7 +1903,7 @@ mod tests {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         // §9.125：本用例原先用 `native_output`（= 开关全关 `off`）。默认构建里 `off` 没有实现
-        // （旧闭包被 `legacy-oracle` 门控），因此改为**生产口径 `on`**——这正好落实
+        // （旧闭包已被删除），因此改为**生产口径 `on`**——这正好落实
         // 交接文档第 4 步：「默认（无 feature）时，`on` 配置改与冻结基线对照」。
         // 判据强度不变：绝对计数是**独立于任何配置**的产物契约。
         let (_mixed, report) =
@@ -1970,10 +1970,10 @@ mod tests {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         // §9.125（交接文档第 4 步的落点）：**默认构建下本用例与 `on` 配置对照**，
-        // 而不是与 `off` 对照——`off` 的实现（88 个旧闭包）已被 `legacy-oracle` 门控，
+        // 而不是与 `off` 对照——`off` 的实现（88 个旧闭包）已被删除，
         // 默认构建里没有它。`on` 正是**生产配置**，所以这条对照反而更贴近真实产物。
         //
-        // 打开 `--features legacy-oracle` 后，`on` 与 `off` 仍产出同一份内容（由
+        // 旧的 `--features legacy-oracle` 对照路径已不存在；`on` 与 `off` 曾产出同一份内容（由
         // `native_switch_keeps_the_output_identical_on_a_real_pack` 把关），
         // 因此本指纹在两种构建下必须一致——这本身就是一条额外约束。
         let (mixed, _report) =

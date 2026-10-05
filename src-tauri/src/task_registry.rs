@@ -2,8 +2,8 @@
 //!
 //! **这是「谁跑什么、在哪个阶段跑」的单一来源**：生产驱动 `native_run` 用
 //! [`tier_of`] 决定每个任务的放置侧（早/晚阶段，见 `native_placements`），
-//! 而旧闭包注册表（`invoke_conversion`，`legacy-oracle` feature 门控）
-//! **按同一张表、同一顺序**注册，因此两份元数据不可能漂移。
+//! 旧闭包注册表（`invoke_conversion`）**已于 M3 删除**——它历史上按同一张表、同一顺序注册，
+//! 因此两份元数据不可能漂移；现在只剩这一份，漂移风险本身消失了。
 //!
 //! **顺序即语义**：同阶段内的执行顺序、`plan()` 选出的名字集合都依赖它。
 //! **本文件不依赖 `converters`**（旧转换器树），因此默认构建不含旧代码。
@@ -117,7 +117,7 @@ pub const REGISTRY: &[TaskMeta] = &[
 
 /// **不在** [`REGISTRY`] 里、但会出现在计划中的任务的阶段。
 ///
-/// 它们由别处注册（`bedrock_convert::register_tasks`，以及 `legacy-oracle` 下的
+/// 它们由别处注册（`bedrock_convert::register_tasks`；旧闭包注册表已删除，
 /// `converters::{shaders::java, textures::alpha_layers}`），因此不在上面那张表里；
 /// 但 `native_placements` 仍需要它们的阶段来决定放置侧（§9.52/§9.76）。
 /// **注意**：这张表只提供**查询兜底**，不改变任何注册条件（尤其不改变 `adapt_shaders` 开关）。

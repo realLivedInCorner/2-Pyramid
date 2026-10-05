@@ -1,37 +1,40 @@
-//! 任务**注册**：把元数据表登记进调度器。
+//! 转换启动提示（历史名 `invoke_conversion` 保留，避免大面积改调用点与注释）。
 //!
-//! §9.121（M3 ②-c）：`invoke_conversion` 与其 `_ex` 变体已删除——生产入口改走
-//! `native_run`（§9.118）。
+//! ## 这个模块现在**不做任何事**
 //!
-//! §9.128（M3 收官）：**88 个旧闭包体与整个 `legacy-oracle` 兼容层已送走**。
+//! 它曾经是任务注册表：把 88 个任务的**元数据**登记进调度器，并提供那些任务的
+//! **闭包实现**。M3 收官后两件事都已不复存在：
 //!
-//! §9.129：**`cut_gui` 的注册闭包也已删除**——它是最后一个"必须经注册表执行"的任务，
-//! 原因是它的计划槽位在旧批次**内部**（`(15,18)`，§9.100），而驱动当时只能在
-//! 「整批旧任务之前/之后」二选一。现在驱动改按 `plan` 顺序**逐任务**派发 `Tx`，
-//! `cut_gui` 因此并入 `native_run::native_for` 派发表，跑在自己的精确槽位上。
+//! | 曾经 | 现在 |
+//! |---|---|
+//! | 88 个闭包实现 | 全部删除，改为 `natives/` 下的原生 `TaskDecl` |
+//! | 元数据在这里登记 | 移到 [`crate::task_registry::REGISTRY`]（纯数据表） |
+//! | `cut_gui` 靠注册闭包执行 | 并入 `native_run::native_for` 派发表（§9.129） |
+//! | Bedrock 边任务在此注册 | 走 `pack::version_converter::run_bedrock_edge_task`，从不经本驱动 | 
 //!
-//! 于是本模块现在**只做一件事**：把元数据表登记进调度器。
-//! 计划编排（哪些任务、什么顺序）由 [`crate::task_registry::REGISTRY`] 决定，
-//! 驱动用 `Scheduler::plan` 取顺序、用 `Scheduler::task_tier` 取阶段。
+//! 计划（哪些任务、什么顺序、什么阶段）由 `ConversionMaps` 与 `task_registry::REGISTRY`
+//! 决定，驱动用 `Scheduler::plan` 取顺序、`Scheduler::task_tier` 取阶段——**都不需要注册实现**。
+//!
+//! ## 关于 `legacy-oracle`
+//!
+//! 本模块与其它几处注释曾描述一个 `legacy-oracle` cargo feature（"旧闭包由该 feature 门控"）。
+//! **那个 feature 从未实现**（`Cargo.toml` 的 `[features]` 里只有 `store`），旧闭包是被直接
+//! 删除的。相关注释已按事实更正——请勿再引入"门控/对照能力仍在"的表述。
+//!
+//! 代价是**冻结基线不能再重新生成**：它的**冻结值**仍由 `tools/arom-baseline.txt` 与
+//! `native_run` 的指纹用例守住，但没有旧实现可供重算。要改基线必须有意为之。
 
 use std::path::Path;
 
 use crate::arom::engine::scheduler::Scheduler;
 
-/// 注册调度器所需的全部任务。
+/// 历史入口：曾经在这里注册全部任务。
 ///
-/// **§9.130：本函数现在不再注册任何任务。**
+/// **§9.130 起不再注册任何任务**——调度器需要的名字与阶段来自
+/// [`crate::task_registry::REGISTRY`]，实现由 `native_run::native_for` 提供。
 ///
-/// 它历史上注册两样东西：
-/// 1. **Bedrock 边任务**（j2b/b2j）——但它们只在 `target_version == 1000` 时进计划，
-///    而那条路走的是 `pack::version_converter::run_bedrock_edge_task`（自建 scheduler 并直接执行），
-///    **从不经过本驱动的计划**。原先这里注册一份是白做工；
-/// 2. **`cut_gui` 的注册闭包**——§9.129 已删除（驱动改按 `plan` 顺序派发 `Tx`）。
-///
-/// 保留函数本身是因为调用点（`native_run`）与 `pack::diff` 的闸门都用它来确定计划；
-/// 计划顺序由 [`crate::task_registry::REGISTRY`] 与 `ConversionMaps` 决定，不需要注册闭包。
-///
-/// 参数保留旧签名是为了不改调用点；它们如今只用于日志与元数据段，因此显式忽略。
+/// 保留函数是**为了不改调用点**（`native_run` 的放置规则用例与 `pack::diff` 闸门都调它）。
+/// 参数的唯一用途是让启动日志能说明"这份计划是针对哪个包、哪对版本"。
 #[allow(clippy::too_many_arguments)]
 pub fn register_tasks(
     scheduler: &mut Scheduler,

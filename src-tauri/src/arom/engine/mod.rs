@@ -15,7 +15,7 @@
 //!
 //! | 退场物 | 提交 |
 //! |---|---|
-//! | 88 个旧闭包 + `legacy-oracle` 兼容层 | §9.128 |
+//! | 88 个旧闭包（曾计划由 `legacy-oracle` feature 门控，**该 feature 从未实现**） | §9.128 |
 //! | `cut_gui` 注册闭包、批次路径 | §9.129 |
 //! | `HurrayContext`、`TexturePool` | §9.130 |
 //! | 重复的阶段枚举 `TaskTier`、`Scheduler::task_tier` | §9.131 |

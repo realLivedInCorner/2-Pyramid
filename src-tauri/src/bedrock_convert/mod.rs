@@ -14,7 +14,7 @@
 //!
 //! **§9.125（M3 收口）**：本模块原在 `converters/bedrock/`。它是**生产功能**
 //! （`process_zip_timed` 的 Bedrock 目标、Bedrock 源预检都要用它），因此随
-//! 「旧转换器树按 `legacy-oracle` 门控」一起移出 `converters/`——否则
+//! 「旧转换器树随 `legacy-oracle` 计划门控」一起移出 `converters/`（该 feature 未实现，旧树已直接删除）——否则
 //! `crate::converters` 无法整体按 feature 门控。两个任务的阶段登记在
 //! `crate::task_registry::AUXILIARY`。
 
