@@ -4733,5 +4733,50 @@ detected pack_format: 1          ← 修前
 
 提交 `d3979ac` / `f130c65` / `73054a3`，工作树干净；默认与 feature 构建双绿，
 冻结指纹 `0x75bb3260e7f578a6`（4018 条目）。
-**§9.126 的三项遗留全部完成。** 仍未做：`pilots/` → `native/` **改名**（§9.115 的用户指示，
-与本次"拆分"是两件事；改名只动标识符，建议单独一轮）。
+**§9.126 的三项遗留全部完成。**
+
+#### 补充：`pilots/` → `natives/` 改名 + 按职责分组（提交 `de39cc4`）
+
+用户指示：**名字要表明身份**。`pilots/`（试点）早已名不副实——它装的是**原生实现主体**
+（46 个任务）。因此改名为 **`natives/`**，并把 §9.127 拆出来的模块按职责放进子文件夹：
+
+| 组 | 内容 | 个数 |
+|---|---|---|
+| `native/` | 共用基础设施（`rename_blocks_tables` 映射表） | 1 |
+| `eraser/` | 删除 / 改名 / 路径迁移 | 10 |
+| `architect/` | 由贴图**生成**新资源 | 9 |
+| `surgeon/` | 就地修改贴图与 UI | 14 |
+| `reverse/` | 反向（撤销）任务 | 11 |
+| `tests/` | 对照 oracle（随 `legacy-oracle` 门控） | 2 |
+
+**两个刻意决定**：
+
+1. **用 `#[path]` 声明，不改模块路径**。`natives/mod.rs` 保留共享前导，声明写成
+   `#[path = "surgeon/surgeon_cut_gui.rs"] pub mod surgeon_cut_gui;` ⇒
+   **`crate::natives::surgeon_cut_gui` 与改造前同名同路径**；外部 89 处引用只换了一处词根。
+2. **不按组嵌套成 `natives::surgeon::X`**。组与 tier **不是**一一对应
+   （`surgeon_mid` 实际是 Eraser、`reverse_*` 跨三个 tier），嵌套会给出**错误的结构暗示**；
+   而且 `arch_gen`/`arch_gen2`/`arch_gen3` 里各有**一个私有的 `boat` 模块**，
+   必须与父文件同组，否则文件重名。
+
+**验收**：两态测试数与改造前**逐字相同**（236/6、317/21），`--ignored` 两态全绿，
+`check --bins` 通过，冻结指纹未变；git 检测到 **46 处纯重命名**；
+`tools/verify-natives-grouping.ps1` 输出：
+
+```
+✅ 校验通过：46 个模块体与 f130c65 原文逐行一致（零内容改动）
+   反向检查：46 个原模块在新布局下都能找到文件
+   共享项（Outcome / 两个 helper / all() / PilotFn / read_dimensions）均在
+   已知且有意为之的例外 1 处：测试名 pilots_match_* → natives_match_*（§9.127）
+   跳过 1 个非顶层声明：rename_blocks_tables（原为 rename_blocks 内的嵌套声明）
+```
+
+**过程中我自己造了三个错，一并留档**（都属于"没验证就下结论"）：
+① `Move-Item -To` 不是合法参数（真名 `-Destination`），脚本报"搬了 47 个"其实一个没搬——
+**错误信息被我的输出过滤吞掉了**；② `$all` 是 PowerShell 内置只读变量，我拿它当 `all()`
+的行号 ⇒ 抽取逻辑崩坏，留下孤立 `}`、重复 `#[path]`、以及被搬走又没落地的 `all()`；
+③ 模块名 `all` 与函数 `all()` 同名 ⇒ `crate::natives::all()` 解析到模块，
+最终把 `all()`/`PilotFn` **放回 `natives/mod.rs`**（与改造前同址）。
+
+`tools/group-natives.ps1`（分组规则）与 `tools/verify-natives-grouping.ps1`（可复跑凭证）
+一并入库；拆分期的 `split-pilots.ps1` / `verify-pilots-split.ps1` 已删除（规则已被前者涵盖）。
