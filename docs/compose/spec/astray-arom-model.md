@@ -4462,12 +4462,13 @@ encode png `.../gui/sprites/title/realms.png`: Zero height not allowed
 
 | 判据 | 默认构建（无 feature） | `--features legacy-oracle` |
 |---|---|---|
-| `cargo test --lib` | **234 passed / 0 failed / 6 ignored** | **314 passed / 0 failed / 22 ignored** |
+| `cargo test --lib` | **235 passed / 0 failed / 6 ignored** | **315 passed / 0 failed / 22 ignored** |
 | `cargo check --bins` | 通过（57 警告） | 通过（83 警告） |
 | **冻结指纹** | **4018 条目 / `0x75bb3260e7f578a6`** ✅ | 同左 ✅ |
 | 绝对产物契约 | files=4018 bytes=19294735 ✅ | 同左 ✅ |
 | 相对闸门（`legacy`/`off`/`on`） | 不适用（旧实现已门控） | 21/22 通过（见下） |
-| `--ignored` | **6 passed**（含两条真实包闸门） | 21 passed / 1 failed |
+| `--ignored` | **6 passed** | 21 passed / 1 failed |
+| `--to bedrock`（真实包 CLI） | **成功 1 / 失败 0**（修复后）✅ | — |
 
 **忽略用例数从 22 降到 6 是刻意的**：默认构建里没有旧实现可对照，
 「与旧管线逐项一致」类用例**自我比较无信息量**，因此随 feature 门控；
@@ -4516,6 +4517,60 @@ cargo test --lib --features legacy-oracle
    §9.124 收尾清单第 1 条的前提（「基线的重生成能力已由 feature 保留」）**尚未成立**：
    feature 保留的是**开关**，源码仍来自存档。
 3. **`pilots/` 改名**（§9.115 记录的用户指示）仍未做——应单独一轮，只改名不夹带行为改动。
+4. **Bedrock j2b 转换曾在真实包上中止——预先存在，本轮已修**（§9.125 补充实测）。
+   `bedrock_convert` 是**生产功能**（`--to bedrock` 与 Bedrock 源预检都走它），
+   本轮把它从 `converters/` 移出，因此必须证明「移动无行为影响」。实测方式：
+   在**纯净 `aeaecb2`**（另开 worktree + 恢复存档源码）与当前提交上各跑一次同一条 CLI：
+
+   ```
+   2-pyramid.exe --convert "TapL 16x.zip" --to bedrock --out <dir>
+   ```
+
+   **修复前两边逐字相同**：前 5 步 OK（`pack.png→pack_icon.png`、`textures/font→font/`、
+   `minecraft/textures→textures/`、`items 改名 48 个`），随后报
+
+   ```
+   Task `bedrock_java_to_bedrock` failed: rename id failed: 系统找不到指定的文件。 (os error 2)
+   汇总：资源包 1 个（成功 0，失败 1）
+   ```
+
+   ⇒ **预先存在的生产缺陷，不是本轮引入**（本轮对 `bedrock_convert/` 只有 100% 重命名）。
+
+   **根因（加现场读数后一次定位，不是推断）**：把失败点的 `dir/from/to/exists_after`
+   打进错误消息后，读数是
+
+   ```
+   dir=...\.2pyr-work-XXXX\textures\blocks
+   from="...\textures\blocks\bamboo_block.png"
+   to  ="...\textures\blocks\bamboo_block.png"     ← **同一个路径**
+   ```
+
+   即**恒等映射**。映射表里确实有恒等项：
+
+   ```rust
+   // bedrock_convert/mapping.rs:109
+   "bamboo_block" => return Some("bamboo_block".into()),
+   ```
+
+   而 `fsutil.rs::rename_stems_in_dir` 的顺序是「先 `if new_path.exists() { remove_file(new_path) }`，
+   再 `fs::rename(path, new_path)`」。`new_path == path` 时，**那句 remove 把源文件删掉**，
+   随后的 rename 必然 `NotFound`。**恒等项本身没错**（它们的作用是声明"这个名字已在覆盖范围内"），
+   错在**改名函数没有跳过 `new_stem == stem`**。
+
+   **修法**（本轮，一行 guard + 一处读数）：`new_stem == stem` 直接 `continue`；
+   错误消息带上 `dir/from/to/exists_after`。**验收**：同一条 CLI 现在
+   **成功 1 / 失败 0**，产出 `[Bedrock Latest]TapL 16x.mcpack`（1392 条目）
+   且结构合理（`manifest.json` 合法、`pack_icon.png`、`textures/{items,blocks,ui}/`；
+   `texts/` 本就**不该**存在——输入包没有 `lang/`，实测 `assets/minecraft/` 只有
+   `font/ mcpatcher/ textures/`）。新增回归用例
+   `test_identity_mapping_does_not_delete_the_file`，并**实测其非空转**
+   （去掉 guard 后该用例报出与生产**逐字相同**的 `os error 2`）。
+
+   **为什么一直没暴露**：`bedrock_convert` 的 j2b/b2j **没有走完整管线的测试**
+   （各子模块单测只覆盖局部函数），因此这条生产路径**长期不可观测**——
+   与 §9.125 主题（让不可观测变可观测）是同一类问题。
+   **仍缺**：j2b/b2j 的**端到端夹具正题**（本轮只做了真实包手工实测，未把它固化成用例）；
+   b2j 方向（Bedrock → Java）本轮**未验证**。
 
 #### 本轮状态
 

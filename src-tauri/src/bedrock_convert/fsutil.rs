@@ -84,11 +84,29 @@ pub fn rename_stems_in_dir(dir: &Path, map_fn: fn(&str) -> Option<String>) -> Re
             continue;
         };
         let Some(new_stem) = map_fn(&stem) else { continue };
+        // **恒等映射必须跳过**（§9.125 实测缺陷）：映射表里有 `bamboo_block → bamboo_block`
+        // 这类**恒等项**（它们的作用是声明"这个名字已在覆盖范围内"，不是要改名）。
+        // 若照常执行：`new_path == path` ⇒ 下面那句 `remove_file(new_path)` 把**源文件删掉**，
+        // 紧接着的 `rename` 必然报 `NotFound`（Windows os error 2）——
+        // **整条 j2b 转换就此中止**。修复前它一直潜伏，只因为以前没人拿"含恒等映射项"的真实包跑过 j2b。
+        if new_stem == stem {
+            continue;
+        }
         let new_path = dir.join(format!("{}{}", new_stem, suffix));
         if new_path.exists() {
             let _ = fs::remove_file(&new_path);
         }
-        fs::rename(&path, &new_path).map_err(|e| format!("rename id failed: {}", e))?;
+        fs::rename(&path, &new_path).map_err(|e| {
+            // 保留现场读数：这类失败以前只有一句 "rename id failed"，无法定位是哪一个文件
+            format!(
+                "rename id failed: {} [dir={} from={:?} to={:?} exists_after={}]",
+                e,
+                dir.display(),
+                path,
+                new_path,
+                path.exists()
+            )
+        })?;
         renamed += 1;
     }
     Ok(renamed)
@@ -147,5 +165,38 @@ mod tests {
         assert_eq!(n, 1);
         assert!(b.join("z.png").exists());
         assert!(!b.join("y.png").exists());
+    }
+
+    /// **恒等映射必须安全**（§9.125 实测缺陷的回归用例）。
+    ///
+    /// 映射表里有 `bamboo_block → bamboo_block` 这类**恒等项**（声明"已在覆盖范围内"，
+    /// 不是要改名）。修复前该函数会走「先删目标、再改名」——而目标就是源本身 ⇒
+    /// **源被删掉、rename 报 NotFound**，整条 j2b 转换中止。真实包（TapL 16x）实测：
+    /// `textures/blocks/bamboo_block.png` 正是第一个撞上的文件。
+    #[test]
+    fn test_identity_mapping_does_not_delete_the_file() {
+        let temp = tempdir().unwrap();
+        let d = temp.path().join("blocks");
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("bamboo_block.png"), b"keep me").unwrap();
+        fs::write(d.join("bamboo_block.png.mcmeta"), b"meta").unwrap();
+        fs::write(d.join("stone.png"), b"stone").unwrap();
+
+        // 只有 stone 真改名；bamboo_block 是恒等映射（此前会让整个调用报错）
+        let n = rename_stems_in_dir(&d, |s| match s {
+            "bamboo_block" => Some("bamboo_block".into()),
+            "stone" => Some("rock".into()),
+            _ => None,
+        })
+        .expect("恒等映射不得导致 rename 失败（此前会报 NotFound）");
+
+        assert_eq!(n, 1, "只有 stone 真被改名；恒等项不计入");
+        assert!(d.join("bamboo_block.png").exists(), "恒等映射的文件必须还在");
+        assert!(
+            d.join("bamboo_block.png.mcmeta").exists(),
+            "恒等映射的成对 mcmeta 也必须还在"
+        );
+        assert!(!d.join("stone.png").exists());
+        assert!(d.join("rock.png").exists());
     }
 }
