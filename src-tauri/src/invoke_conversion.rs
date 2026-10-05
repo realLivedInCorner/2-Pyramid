@@ -69,8 +69,22 @@ fn install_native_defaults(scheduler: &mut Scheduler) {
         .expect("`cut_gui` 必须在元数据表里（本函数依赖它的阶段）");
     let task_type = meta.task_type.clone();
     scheduler.register_task("cut_gui", task_type, meta.tier, |ctx: &HurrayContext| {
-        crate::natives::surgeon_cut_gui::run_in_workdir(ctx, std::path::Path::new(ctx.temp_dir()))
-            .map_err(|e| e.to_string())
+        // §9.128：`run_in_workdir` 现在把延迟删除**经 `Outcome` 返回**（与其余 43 个原生任务一致）。
+        // 但注册闭包的签名固定是 `Result<(), String>`，拿不到驱动的 `report`；而这一路
+        // （批次内 slot `(15,18)`）仍然只能经 `HurrayContext` 的清理清单交付 ——
+        // 驱动末尾的 `ctx.execute_cleanup()` 与它自己的 `report.deferred_removals`
+        // **本来就相邻**，因此时机等价（§9.128 已核实）。
+        //
+        // 彻底去掉这个 ctx 依赖，要做的是「让驱动能在批次槽位内部派发 `Tx` 任务」
+        // ——那是下一步（届时本闭包整体消失）。
+        let outcome = crate::natives::surgeon_cut_gui::run_in_workdir(std::path::Path::new(
+            ctx.temp_dir(),
+        ))
+        .map_err(|e| e.to_string())?;
+        for rel in &outcome.deferred_removals {
+            ctx.defer_remove_file(&std::path::Path::new(ctx.temp_dir()).join(rel));
+        }
+        Ok(())
     });
 }
 

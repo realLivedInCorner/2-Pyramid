@@ -31,7 +31,7 @@
     /// 而 `Tx` 形态只在批次之外可用（§9.100 实测：挪出批次就少 3 个 sprite）。
     /// 因此这里的做法是**位置不变、实现换成 `Tx`**——那层"建内存包 → 应用回 workdir"
     /// 的往返，正是调用方本来就有的 workdir 形态所要求的，不是新增的架构。
-    pub fn run_in_workdir(ctx: &crate::hurray::context::HurrayContext, workdir: &Path) -> Result<(), String> {
+    pub fn run_in_workdir(workdir: &Path) -> Result<Outcome, String> {
         crate::log_info!("2-Pyramid: starting cut_gui (native Tx pipeline)...");
 
         // ① 读 workdir 的 gui 子树 → 内存包
@@ -52,17 +52,23 @@
         write_layer_to_dir(workdir, &pack, &layer)?;
         pack.commit(layer);
 
-        // ④ 延迟删除登记到**调用方的 ctx**（收尾 `execute_cleanup()` 同一时机生效）
-        for rel in &outcome.deferred_removals {
-            ctx.defer_remove_file(&workdir.join(rel));
-        }
-
+        // ④ 延迟删除**经 `Outcome` 返回给驱动**（§9.128）。
+        //
+        // 原先这里把路径 `ctx.defer_remove_file(workdir.join(rel))` 登记到 `HurrayContext`
+        // 的清理清单，由驱动末尾的 `ctx.execute_cleanup()` 执行。改走 `Outcome` 的理由：
+        //   * 其余 **43 个**原生任务早就是这个机制（`report.deferred_removals`）；
+        //   * 驱动里两个清理点**本来就相邻**（`ctx.execute_cleanup()` 之后紧跟
+        //     `report.deferred_removals` 的 tombstone），时机完全一致；
+        //   * 于是本函数**不再需要 `HurrayContext`** —— 这是"让 A-ROM 取代 hurray"
+        //     的第一刀：把最后一个因旧引擎而存在的 context 依赖切断。
+        //
+        // 注意返回的是**包内相对路径**（与其它原生任务一致），由驱动去 join workdir。
         crate::log_info!(
             "cut_gui: wrote {} entries, deferred {} removals",
             outcome.changed,
             outcome.deferred_removals.len()
         );
-        Ok(())
+        Ok(outcome)
     }
 
     /// `GuiSurgeon` 的读写**全部**落在这个前缀之下（源图 + `sprites/**` 产物 + 清理清单）。

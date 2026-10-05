@@ -441,13 +441,16 @@ where
     //
     // 注意它**依然执行**（不是被 `cut_gui` 取代）：§9.90/§9.91 实测过，
     // 批次内的 `cut_gui` 与批次后的这步**各自都是必需的**，删任何一个都会丢 sprite。
-    // 两者产出的 sprite 集合随后由延迟清理统一收拾（`run_in_workdir` 会把 20 项清理
-    // 登记到 `ctx`，而 `ctx` 正是本驱动收尾时执行清理所用的那个）。
+    //
+    // **§9.128**：二者的 20 项延迟删除现在都经 `Outcome.deferred_removals` 回给本驱动，
+    // 由下方统一的 tombstone 步骤应用（原先走 `ctx.defer_remove_file` + `ctx.execute_cleanup()`，
+    // 而那两个清理点**本来就相邻**，时机等价）。
     //
     // **保留旧实现的两个门槛**（Bedrock 中间态跳过 sprite 手术，避免干扰 j2b；目标 < 34 也跳过）：
     if opts.run_gui_surgeon && opts.target_version >= 34 {
-        crate::natives::surgeon_cut_gui::run_in_workdir(&ctx, workdir)
+        let outcome = crate::natives::surgeon_cut_gui::run_in_workdir(workdir)
             .map_err(|e| AromError::internal(format!("direct steps: {e}")))?;
+        report.deferred_removals.extend(outcome.deferred_removals);
     }
     trace_step("after-direct-steps", &mut trace);
 
