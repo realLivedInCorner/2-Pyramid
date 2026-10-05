@@ -250,6 +250,17 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
                     "    · 任务画像：{} 个任务，合计 {:.2}s（引擎纯转换 {:.2}s）",
                     task_count, task_sum_s, timing.pure_s
                 );
+                // §9.142：管线相位分解——任务只占流水线的一部分，找瓶颈要看这里。
+                println!(
+                    "    · 管线相位：open {:.2}s · materialize {:.2}s · tasks {:.2}s · harvest {:.2}s · tail {:.2}s · output {:.2}s · other {:.2}s",
+                    timing.phases.open_s,
+                    timing.phases.materialize_s,
+                    timing.phases.tasks_s,
+                    timing.phases.harvest_s,
+                    timing.phases.tail_s,
+                    timing.phases.output_s,
+                    timing.phases.other_s
+                );
                 packs.push(PackReport {
                     input: pack.to_string_lossy().to_string(),
                     output: Some(output),

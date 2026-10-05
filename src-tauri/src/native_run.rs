@@ -131,6 +131,46 @@ pub struct MixedRunReport {
     /// 用来回答「分叉是哪一步先发生的」（§9.73）。
     pub step_trace: Vec<(String, usize, u64, u64)>,
     pub stats: SerializeStats,
+    /// **管线相位耗时（§9.142）**：驱动内部的粗粒度分段，用于逐步量化优化收益。
+    ///
+    /// 为什么需要它：`ConversionTiming` 只有 `pipeline_s` 一个总数，而任务画像只覆盖任务本身。
+    /// 真实包实测**任务只占流水线的约 13%**（0.76s / 5.8s），剩下 87% 在这些相位里——
+    /// 没有这个分解，任何"优化了多少"都只能靠猜（我也确实因此猜错过两次）。
+    pub phases: PipelinePhases,
+}
+
+/// **管线相位耗时**（§9.142）：秒。全部由 `run_native` 内部打点，单位为秒。
+///
+/// 分段与「什么优化能影响它」一一对应，这样每做一步优化都能立刻看出钱花在哪：
+/// * `open_s`   ← 构造 `Pack`（读输入容器并建索引）
+/// * `materialize_s` ← 把 `Pack` 的视图落到 workdir（任务读盘的前提）
+/// * `tasks_s` ← 全部任务（含并行批的落盘与提交）
+/// * `harvest_s` ← 收尾把 workdir 与基线对比、产出并提交一层
+/// * `tail_s`   ← 调用方传入的收尾步骤（`pack.mcmeta` 改写）
+/// * `output_s` ← 序列化产物（zip 写出或目录物化）
+/// * `other_s`  ← 其余（直接步骤、延迟删除、报告组装等）
+#[derive(Debug, Clone, Copy, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelinePhases {
+    pub open_s: f32,
+    pub materialize_s: f32,
+    pub tasks_s: f32,
+    pub harvest_s: f32,
+    pub tail_s: f32,
+    pub output_s: f32,
+    pub other_s: f32,
+}
+
+impl PipelinePhases {
+    fn total(&self) -> f32 {
+        self.open_s
+            + self.materialize_s
+            + self.tasks_s
+            + self.harvest_s
+            + self.tail_s
+            + self.output_s
+            + self.other_s
+    }
 }
 
 
@@ -317,11 +357,21 @@ where
 
     ensure_empty_dir(workdir)?;
 
+    // **§9.142：相位打点。** 每段一个 `Instant`，末尾汇总进 `report.phases`。
+    // 这是逐步量化优化的唯一可信依据（`pipeline_s` 太粗、任务画像只覆盖任务本身）。
+    let mut phases = PipelinePhases::default();
+    let pipeline_clock = std::time::Instant::now();
+    let mut clock = pipeline_clock;
+
     let mut pack = Pack::open_zip(input, &opts.limits, opts.blob_limit)?;
+    phases.open_s = clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
     let mut baseline = {
         let view = pack.view();
         materialize(&view, workdir)?
     };
+    phases.materialize_s = clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
 
     let scheduler = Scheduler::new();
     let plan = scheduler
@@ -537,6 +587,8 @@ where
         let _ = tier;
     }
     report.legacy_tasks = 0;
+    phases.tasks_s = clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
 
     {
         let harvested = harvest(&pack, workdir, &baseline, None)?;
@@ -544,6 +596,8 @@ where
         sync_baseline_with_layer(&pack, &harvested.layer, &mut baseline)?;
         pack.commit(harvested.layer);
     }
+    phases.harvest_s = clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
 
     // 注册表之外的直接步骤（GuiSurgeon sprite 手术）——生产管线在任务之后、
     // 清理之前执行它；漏掉它会整片丢失 sprite 产物（本步实测：真实包少了 3861 个文件）。
@@ -606,6 +660,8 @@ where
 
     // 收尾步骤：仍在 workdir 上跑一次，然后收获
     tail(workdir).map_err(AromError::internal)?;
+    phases.tail_s = clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
     let harvested = harvest(&pack, workdir, &baseline, None)?;
     report.harvested_changes += harvested.changed();
     report.added += harvested.added.len();
@@ -613,6 +669,8 @@ where
     report.removed += harvested.removed.len();
     report.undeclared = harvested.undeclared.clone();
     pack.commit(harvested.layer);
+    phases.harvest_s += clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
 
     report.step_trace = trace;
     report.stats = match output {
@@ -647,6 +705,12 @@ where
             SerializeStats::default()
         }
     };
+    phases.output_s = clock.elapsed().as_secs_f32();
+    // `other_s` = 管线总时长 − 已计量的各相位之和。它覆盖直接步骤、延迟删除、
+    // 基线同步与报告组装等零散段。**若它长期偏大，说明相位划分漏了一段**——
+    // 这正是当初 `pipeline_s` 一个总数无法回答的问题，所以留一个显式的余量项。
+    phases.other_s = (pipeline_clock.elapsed().as_secs_f32() - phases.total()).max(0.0);
+    report.phases = phases;
     Ok(report)
 }
 

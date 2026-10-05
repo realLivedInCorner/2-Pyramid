@@ -661,6 +661,9 @@ pub struct ConversionTiming {
     /// 逐任务画像（按耗时降序；并行任务含线程争用）。随返回值一起给出，
     /// 便于 CLI/报告使用（全局画像表在日志输出时已被取走）。
     pub task_profile: Vec<crate::arom::engine::scheduler::TaskTiming>,
+    /// **管线相位耗时（§9.142）**：驱动内部的粗粒度分段。任务画像只覆盖任务本身，
+    /// 真实包上任务仅占流水线的约 13%，这个分解才是"优化了多少"的依据。
+    pub phases: crate::native_run::PipelinePhases,
 }
 
 /// 兼容入口：只关心输出路径的调用方（单文件转换、单测）用这个。
@@ -850,6 +853,8 @@ pub fn process_zip_timed(
         .prefix("2pyr_pipeline_")
         .tempdir()
         .map_err(|e| format!("create pipeline scratch dir failed: {}", e))?;
+    // §9.142：整条管线的相位分解（由驱动内部的打点汇总）。
+    let mut pipeline_phases = crate::native_run::PipelinePhases::default();
     let pipeline_start = std::time::Instant::now();
     {
         let mut mopts = crate::native_run::MixedRunOptions::default();
@@ -862,7 +867,7 @@ pub fn process_zip_timed(
         // `tail`：把 `pack.mcmeta` 的 `pack_format` 改写到目标版本。
         // `run_native` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
         let java_target_for_tail = java_target;
-        let _report = crate::native_run::run_native(
+        let report = crate::native_run::run_native(
             pipeline_input,
             _pipeline_scratch.path(),
             &crate::native_run::Output::Dir(temp_dir.path().to_path_buf()),
@@ -876,6 +881,7 @@ pub fn process_zip_timed(
             },
         )
         .map_err(|e| format!("conversion pipeline failed: {}", e))?;
+        pipeline_phases = report.phases;
     }
     let pipeline_elapsed = pipeline_start.elapsed();
 
@@ -962,6 +968,7 @@ pub fn process_zip_timed(
         pipeline_s: pipeline_elapsed.as_secs_f32(),
         post_s: post_elapsed.as_secs_f32(),
         task_profile: task_timings,
+        phases: pipeline_phases,
     };
     // 一行同时给出两个口径：pure = 纯转换（引擎），total = 含 IO 的总时间。
     // 括号里是 IO 分解与引擎分段，便于判断瓶颈在引擎哪一段还是磁盘。
@@ -986,6 +993,20 @@ pub fn process_zip_timed(
         timing.task_profile.len(),
         timing.task_profile.iter().map(|t| t.seconds).sum::<f32>(),
         (timing.pipeline_s - timing.task_profile.iter().map(|t| t.seconds).sum::<f32>()).max(0.0)
+    );
+    // **§9.142：管线相位分解。** 上面那行的 "scheduler+worker overhead" 在真实包上
+    // 曾把整条流水线的 18.86s 都吞掉（因为那时任务画像恒为空），是个没有解释力的读数。
+    // 这一行把流水线内部的真实构成摆出来：任务只占其中一小部分，大头在容器读写与
+    // workdir 往返上——优化的着力点应当据此选择，而不是猜。
+    log_info!(
+        "pipeline phases: open={:.2}s materialize={:.2}s tasks={:.2}s harvest={:.2}s tail={:.2}s output={:.2}s other={:.2}s",
+        timing.phases.open_s,
+        timing.phases.materialize_s,
+        timing.phases.tasks_s,
+        timing.phases.harvest_s,
+        timing.phases.tail_s,
+        timing.phases.output_s,
+        timing.phases.other_s
     );
 
     Ok((output_path.to_string_lossy().to_string(), timing))
