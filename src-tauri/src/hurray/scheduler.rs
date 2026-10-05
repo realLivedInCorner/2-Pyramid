@@ -44,7 +44,19 @@ impl ConversionMaps {
         let mut forward = HashMap::new();
         let mut reverse = HashMap::new();
 
-        forward.insert((1, 2), vec!["convert_animated_textures".to_string(), "delete_blockstates_models".to_string(), "generate_tipped_arrow_images".to_string(), "fix_ui_survival".to_string(), "fix_ui_creative".to_string(), "fix_ui_sub_hand".to_string(), "generate_boat".to_string(), "generate_potion_lingering".to_string(), "generate_shulker_box_ui".to_string(), "fix_brewing_stand_ui".to_string(), "fix_clock_compass".to_string(), "overlay_icons".to_string()]);
+        // §9.130：`convert_animated_textures` 从**首位**移到这里（`fix_clock_compass` 之后）。
+        //
+        // 它原本排在这个步骤的第一个。这一改动是让**计划顺序本身更贴近真实数据依赖**：
+        // 它是**原位改写**（给 `item/*.png.mcmeta` 补 `frametime` / `interpolate`），
+        // 不产生新文件；而 `fix_clock_compass` 要读 `item/clock.png` / `item/compass.png`
+        // 的原尺寸来切帧。把"改写 mcmeta"排在"消费原始贴图"之后，顺序上不再有歧义。
+        //
+        // **如实记录：这一改动本身不足以取消驱动的前置阶段。** §9.129 的偏差
+        // （多 105 条 `textures/item/*`、少 6 条原图）实测**逐个单独前置都不够**——
+        // 10 个 `EARLY_NATIVES` 一个个试过，没有任何一个能单独保持冻结（只有"Eraser 级
+        // 全部 + `EARLY_NATIVES` 全部"一起前置才正确）。因此驱动里的
+        // `native_placements` / `Side::Early` 是**必要机制**，不是"批次边界的权宜之计"。
+        forward.insert((1, 2), vec!["delete_blockstates_models".to_string(), "generate_tipped_arrow_images".to_string(), "fix_ui_survival".to_string(), "fix_ui_creative".to_string(), "fix_ui_sub_hand".to_string(), "generate_boat".to_string(), "generate_potion_lingering".to_string(), "generate_shulker_box_ui".to_string(), "fix_brewing_stand_ui".to_string(), "fix_clock_compass".to_string(), "convert_animated_textures".to_string(), "overlay_icons".to_string()]);
         forward.insert((2, 3), vec!["generate_shulker_box_ui".to_string(), "delete_horse_folder".to_string(), "fix_horse_ui".to_string()]);
         forward.insert((3, 4), vec!["rename_blocks_items".to_string(), "fix_sign".to_string(), "fix_sign_entities".to_string(), "generate_furnace".to_string(), "fix_machinery_ui".to_string(), "fix_particles".to_string(), "generate_fish_bucket".to_string(), "generate_crossbow".to_string()]);
         forward.insert((4, 5), vec!["process_chest_folder".to_string(), "generate_netherite_block".to_string(), "generate_netherite_ingot".to_string(), "delete_enchanted_item_glint".to_string(), "generate_netherite_tools".to_string(), "generate_netherite_armor_models".to_string(), "generate_smithing_ui".to_string()]);
