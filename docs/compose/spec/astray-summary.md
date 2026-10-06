@@ -44,11 +44,15 @@
 | **M2（8a）** | 混合运行驱动：A-ROM 接管读入与写出，未迁移任务经 `PathView` 以路径形态执行 | ✅ `f587ad3` |
 | **M2（8b）** | 任务目录化：`invoke_conversion` 的注册表成为「旧执行器 + 新驱动」共用的唯一目录 | ✅ `f587ad3` |
 | **M2（8d）** | 限额接线：`SafeLimits` 单一来源 | ✅ `f587ad3` |
-| **M2（8c）** | 按模块/阶段逐批把任务原生化 | 🔄 正向 **27/45**（Eraser 7/7、Architect **21/21 实现**·20 已派发）、反向 **42/43**；Surgeon 28 个待做 |
-| **M2（8c）余量** | Surgeon 阶段 22 个注册任务（`fix_ui_*`、`fix_sign*`、`fix_particles`、`overlay_icons`、`fix_armor_models`、`cut_gui`、`adapt_java_shaders`…） | ⏭ 下一步 |
+| **M2（8c）** | 按模块/阶段逐批把任务原生化 | ✅ **已收口：46/46 全部原生**（写作时为🔄正向 27/45、反向 42/43、Surgeon 28 个待做——数字保留以记录推进过程） |
+| **M2（8c）余量** | Surgeon 阶段 22 个注册任务（`fix_ui_*`、`fix_sign*`、`fix_particles`、`overlay_icons`、`fix_armor_models`、`cut_gui`、`adapt_java_shaders`…） | ✅ 已完成 |
 
-回归现状：全量单测 **307 passed / 0 failed / 8 ignored**（动工前为 215）；**生产路径仍未切换**——
+回归现状（**M1 当时**）：全量单测 **307 passed / 0 failed / 8 ignored**（动工前为 215）；**生产路径当时仍未切换**——
 混合驱动与各原生任务都是新增，`invoke_conversion.rs` 的注册仍跑旧实现，由 `NativeSwitches` 逐模块开关。
+
+> **收口后（M4，权威口径）**：生产路径**已切换且唯一**，旧引擎与旧转换器树已删除；`cargo test --lib`
+> **237 passed / 0 failed / 6 ignored**，`--ignored` **6 passed**。测试数下降的原因见 `CHANGELOG` 的
+> 2.200.0 段（消失的是"拿旧引擎当对照"的 oracle 用例）。完整对照见下方「附录 B → 收口后的实际状态」。
 
 **真实包验收（`tools/TapL 16x.zip`，18.41 MB / 3631 文件，1 → 97）**
 
@@ -358,15 +362,39 @@ L0 Sources    ZipSource（句柄常开，可取原始压缩字节） · BlobSour
 | D18 | 结构层范围 | 多根 + overlays 只读（M0 按此交付） |
 | **D6** | 开关粒度与灰度 | **编译期开关、按模块**（与迁移批次一致，每批可单独回退） |
 | **M2 驱动** | 迁移怎么推进 | **逐任务/逐批替换 + 适配层兜底**：未迁移任务经 `PathView` 继续以路径形态工作，其读写计为整段范围声明 |
-| **D8** | 设计文档存放 | **只在本机**，通过飞书开发群分发，不入 GitHub（`.gitignore` 的 `docs/` 规则保持不动） |
+| **D8** | 设计文档存放 | **大部分只在本机**（经飞书开发群分发），但**有明确例外**——见下方「D8 的落地结果」 |
+
+### D8 的落地结果（M4 收口时校正）
+
+原决定是「`docs/` 整目录不入 GitHub，`.gitignore` 的规则保持不动」。**收口时发现这条与事实冲突，已按下列边界收窄**——本文件本身就在仓库里，若照原决定，它会是一份"声称自己不在仓库里"的文档。
+
+**入库（3 份，`docs/compose/spec/`）**：
+
+| 文件 | 为什么是例外 |
+|---|---|
+| `astray-summary.md` | 本文件。设计汇总，A-ROM 的对外说明。 |
+| `perf-verification.md` | 性能测量与验收规范，是**可复现的操作手册**，不是过程日志。 |
+| `foray.md` | Editor Mode 工作台的**唯一**说明（该功能已随包发布）。 |
+
+**不入库（本地保留在磁盘）**：
+
+| 路径 | 为什么 |
+|---|---|
+| `astray-arom-model.md`（3627 行）、`astray.md` | 逐节设计流水，价值在过程记录而非规范；与最终实现存在大量中间态。 |
+| `HANDOVER-m3-final.md` | 一次性交接文档，写作时 HEAD 停在 `88e2f0e`，早已作废。 |
+| `releases/`（12 份） | 逐版本发版公告；入库会让仓库随版本线性膨胀，`CHANGELOG.md` 才是面向用户的权威记录。 |
+| `download/`（含 MSI，约 31.5 MB） | 二进制产物：入库会让仓库永久变大（后续删除也不缩小 clone）。 |
+| `foray-design/`、`ms-store-*`、`java-to-bedrock-conversion.md` | 设计稿 / 发布物料 / 未稳定功能的设计草稿。 |
+
+**约束**：README、`CHANGELOG.md` 与入库的 spec **只能链接入库的文件**。曾出现过一次反向案例——`CHANGELOG` 引用了 `releases/2.4.0.md`，当时的修法是**改链接的措辞**（说明"该目录不入版本控制、故不给仓库内链接"），而不是把文件补进仓库。
 
 ### 仍待定
 
 | 编号 | 问题 | 现结论 | 何时必须定 |
 |---|---|---|---|
-| D1 | 版本号 `2.8.0` / `3.0.0` | **发布前再定**（走 `3.0.0` 会触发对所有用户的强制更新） | M2 收尾、准备发版时 |
+| D1 | 版本号 `2.8.0` / `3.0.0` | **已定：`2.200.0`**（minor 提到 200 以标明内核世代）；理由见 `CHANGELOG` 的 2.200.0 段 | ✅ 已定 |
 | D4 | 是否允许破「次要对外面」（临时目录、中间产物、错误文案） | 尽量不破；确需破则逐条列出并写进 CHANGELOG 的 Breaking 段 | 每次碰到具体项时 |
-| D17 | Foray 的 `Rom` 类型如何退役 | M3 一次性退役（它没有仓外消费者） | M3 开工前 |
+| D17 | Foray 的 `Rom` 类型如何退役 | **已定：M3 一次性退役**（它没有仓外消费者） | ✅ 已定 |
 
 ---
 
@@ -383,7 +411,7 @@ L0 Sources    ZipSource（句柄常开，可取原始压缩字节） · BlobSour
 
 - 无调用点的若干模块（遗留处理器、若干贴图/音频模块）是否为将来版本预留。
 - GUI 前端实际调用三个转换入口中的哪一个。
-- `docs/` 被整目录忽略是有意还是遗漏。
+- ~~`docs/` 被整目录忽略是有意还是遗漏。~~ → **已在 M4 收口时定清**：有意为之，但收窄为"大部分不入库 + 3 份例外"，见上方「D8 的落地结果」。
 - 无头模式的 `--setting` / `--exit` 是否有外部使用者。
 
 ---
@@ -413,11 +441,26 @@ L0 Sources    ZipSource（句柄常开，可取原始压缩字节） · BlobSour
 
 ## 附录 B：分支与产物
 
-| 项 | 值 |
+> **本节记录的是 M0–M1 阶段的状态快照**（调研与内核落地期）。**M3 已收口、`feat/astray` 已合并进 `master`（合并提交 `63d64ed`，发布 `2.200.0` / BUILD 22000）**，下表仅作历史留存。
+
+| 项 | 值（M0–M1 当时） |
 |---|---|
-| 分支 | `feat/astray`（已推送 origin，跟踪已建） |
+| 分支 | `feat/astray`（已推送 origin，跟踪已建）——**后已合并进 `master`** |
 | 提交 | `ae44e56` 闸门 · `e049502` L0 · `5f61b62` M0 内核 · `c81313c` M1 契约/死代码/试点 · `97effd6` 适配层 · `d039d28` 闸门时间戳语义 |
 | 基点 | `master` @ `503a085`（与 `origin/master` 同步） |
-| 设计文档 | 总纲 `astray.md`、接口细则 `astray-arom-model.md`、影响面清单 —— **仅本机**，经飞书开发群分发 |
+| 设计文档 | 总纲 `astray.md`、接口细则 `astray-arom-model.md`、影响面清单 —— **仅本机**（已作废的 `HANDOVER-m3-final.md` 同此），经飞书开发群分发；**例外见「D8 的落地结果」** |
 | 回归现状 | `cargo test --lib` **298 passed / 0 failed / 3 ignored**（动工前 215）；`cargo check --bins` 通过 |
-| 生产路径 | **未切换**：`arom/` 合计 5,538 行 / 11 文件 + `pilots/` 465 行，全部为新增或死代码清理 |
+| 生产路径 | **未切换**（当时）：`arom/` 合计 5,538 行 / 11 文件 + `pilots/` 465 行，全部为新增或死代码清理 |
+
+### 收口后的实际状态（M4，权威）
+
+| 项 | 值 |
+|---|---|
+| 分支 | `master`（`feat/astray` 已合并，合并提交 `63d64ed`） |
+| 发布 | **`2.200.0`**，BUILD **22000**，tag `Stable-2.200.0` |
+| 生产路径 | **已切换且唯一**：旧引擎 `hurray/` 与旧转换器树 `converters/` **已删除** |
+| 任务落点 | 实现 `natives/{eraser,architect,surgeon,reverse}/`（46 个全部原生）；元数据 `task_registry.rs`；引擎 `arom/engine/` |
+| 回归现状 | `cargo test --lib` **237 passed / 0 failed / 6 ignored**；`--ignored` **6 passed**；`cargo check --bins` 通过 |
+| 冻结基线 | **4018 条目 / 聚合指纹 `0x75bb3260e7f578a6`**；绝对契约 **files=4018 bytes=19294735** |
+| 性能 | debug 纯转换 6.01s → **3.55s**；release 纯 **0.27s**、含 IO 1.20–1.48s |
+| 入库文档 | `docs/compose/spec/` 的 `astray-summary.md`、`perf-verification.md`、`foray.md` |
