@@ -236,17 +236,19 @@ pub mod arch_gen2;
 
 /// `generate_shulker_box_ui`：由 `gui/container/generic_54.png` 派生 `shulker_box.png`。
 ///
-/// 语义逐条照抄（**已完成，但暂不派发**——见 §9.51/§9.52）：
+/// 语义逐条照抄（§9.51/§9.52）：
 /// 1. `determine_scale_factor`：在 {1,2,4,8} 里取 `candidate*256` 与 `max(w,h)` **最接近**者
 ///    （`exact` 标志在旧实现里**没被使用**，因此这里也不需要）；
 /// 2. 清空 `x ∈ [0, 176s)`、`y ∈ [71s, 127s)`（越界处按 `x<width && y<height` 跳过）；
 /// 3. 把 `y ∈ [127s, 222s)` 整体**上移 56s**（`saturating_sub`），并把原区间清空——
 ///    **所有读取都来自原图**（旧实现读 `img` 写 `new_img`），因此源区与目标区重叠时不会自我覆盖。
 ///
-/// **为什么暂不派发**：它的输入 `generic_54.png` 被**更高阶段**（Surgeon 的 GUI 切片链）的旧任务消费，
-/// 而它的输出又要在那之前就位——即它需要「Architect 旧任务之后、Surgeon 旧任务之前」这个**中间位置**。
-/// 旧批次不可拆分（§9.42），所以这个位置在 Surgeon 也原生化之前并不存在（§9.51）。
-/// 实现与语义已就绪，等 Surgeon 就绪后随该阶段一起验收派发。
+/// **已派发**（`native_run::native_for` 的 `"generate_shulker_box_ui"` 臂），跑在计划中的
+/// 精确槽位上（Architect 与 Surgeon 之间）。
+///
+/// 历史：它曾在「批次不可拆」的年代无法派发（§9.42/§9.51）——那时它需要「Architect 旧任务之后、
+/// Surgeon 旧任务之前」这个中间位置，而旧批次无法拆分。驱动改成按 `plan` 顺序逐任务派发 `Tx` 后，
+/// 这个位置自然存在。
 #[path = "architect/shulker_box_gen.rs"]
 pub mod shulker_box_gen;
 
@@ -443,12 +445,11 @@ pub mod surgeon_machinery;
 /// | [`namespace_moj_imports`] | `fn namespace_moj_imports` |
 /// | [`needs_globals_import`] / [`has_globals_import`] / [`inject_globals_import`] | 同名 |
 ///
-/// **尚未移植**（下一步）：表驱动的 `prune_and_rename_core`（4 张表 + 2 个 allowlist）、
-/// `ensure_core_json`、`rewrite_json_matrix_types`、`strip_json_uniforms_for_ubo`、
-/// `adapt_post_paths`、`walk_dir` 的遍历骨架。**因此本模块暂不派发**（生产路径不变）。
-///
-/// **§9.85 起已派发**：生产入口是 [`shader_adapt::run_from_pack`]（驱动派发表已登记），
-/// 因此移植期用来压住死代码警告的 `#[cfg(test)]` **已移除**。
+/// **本模块已完整移植并在生产路径上派发**：入口是 [`shader_adapt::run_from_pack`]，
+/// 登记在驱动派发表（`native_run::native_for` 的 `"adapt_java_shaders"` 分支）。
+/// 表驱动的 `prune_and_rename_core`（4 张表 + 2 个 allowlist）、`ensure_core_json`、
+/// `rewrite_json_matrix_types`、`strip_json_uniforms_for_ubo`、`adapt_post_paths`
+/// 与目录遍历骨架**均已移植**；移植期用来压住死代码警告的 `#[cfg(test)]` 已移除。
 #[path = "surgeon/shader_adapt.rs"]
 pub mod shader_adapt;
 /// **Surgeon 组（续）**：`fix_ui_survival` —— 生存背包界面的四步修复。
@@ -515,8 +516,10 @@ pub mod surgeon_cut_gui;
 /// | `pool.store_texture(&p, img)` | `tx.put_image(x, &img)` |
 /// | `pool.commit_all()` | 不需要（Tx 写层） |
 ///
-/// **本阶段刻意不做**：7 个 `process_*`（`slider`/`icons`/`widgets`/`tabs`/`resource_packs`/
-/// `server_selection`/`title`）与 20 个 atlas 文件的**延迟删除**。因此本模块**暂不派发**——
+/// **这是生产模块**：`cut_gui`（计划内槽位）与 `cut_gui_direct`（批次后直连步骤）都调用 [`run`]。
+///
+/// 7 个 `process_*`（`slider`/`icons`/`widgets`/`tabs`/`resource_packs`/`server_selection`/`title`）
+/// 已在 [`run`] 内实现；20 个旧 atlas 文件的清理经 `Outcome::deferred_removals` 延迟到收尾时机。
 /// 它只用于夹具对照，证明主循环的原生实现与旧实现逐像素一致。
 #[path = "surgeon/gui_surgeon_tx.rs"]
 pub mod gui_surgeon_tx;

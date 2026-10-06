@@ -867,8 +867,8 @@ pub fn process_zip_timed(
     //
     // 原先是 `invoke_conversion::invoke_conversion_ex(input_zip, temp_dir, …)`——即
     // "注册全部旧闭包 → 旧调度器逐任务执行"，其中每个任务名再经 A-ROM 派发表改派到原生实现。
-    // 现在直接调用 `native_run::run_native`：**不再经过旧调度器**，已迁移的任务本来就是原生执行，
-    // 未迁移的仍可在 workdir 上跑旧闭包（当前为 0 个）。
+    // 现在直接调用 `native_run::run_native`：**不再经过旧调度器**，46 个任务全部原生执行，
+    // 旧闭包与适配层已删除、**无回退路径**。
     //
     // **为什么输出到目录而不是 zip**：本函数在管线之后**还要继续改这棵树**
     // （写 `pack.mcmeta` 的 `pack_format`、可选的 Bedrock 边任务），最后才重打包。

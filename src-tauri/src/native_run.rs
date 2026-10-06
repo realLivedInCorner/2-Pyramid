@@ -21,8 +21,9 @@
 //! 与旧管线的唯一差别就是「字节从哪里来、写到哪里去」，因此两者的产物必须逐项一致——
 //! 这正是本模块的验收方式（见文件末尾用例）。
 //!
-//! 迁移期往后，本驱动会逐步把注册表里的任务换成原生实现（`arom::task::plan` 负责排序与并行），
-//! 未迁移的继续走适配层；编译期开关按模块控制（已裁决：D6 按模块）。
+//! 迁移已完成：46 个任务**全部**是原生 `Tx` 实现（[`crate::natives`]），没有适配层、
+//! 没有回退路径。任务顺序来自 [`crate::arom::engine::scheduler::Scheduler::plan`]，
+//! 阶段来自 [`crate::task_registry`]。
 
 use std::path::{Path, PathBuf};
 
@@ -351,10 +352,18 @@ fn finish_dispatch(
 }
 
 
-/// **驱动 v2**：按 `Scheduler::plan` 的顺序逐任务执行——已迁移的走 A-ROM 原生实现，
-/// 未迁移的在 `workdir` 上跑旧闭包并 `harvest` 成层；两者交替时把原生写入同步回 workdir，
-/// 让「目录镜像」与「对象模型」始终一致。`tail` 用于收尾步骤（例如 `pack.mcmeta` 改写），
-/// 它仍然在 workdir 上跑一次、随后被收获（保持与旧管线同一套逻辑，不重复实现）。
+/// **驱动**：按 `Scheduler::plan` 的顺序逐任务执行，每个任务派发一笔 `Tx`，
+/// 实现来自 [`crate::natives`]（46 个全部原生，**无适配层、无旧闭包**）。
+///
+/// ## 两条输出路径
+///
+/// * [`Output::Zip`]（Java 目标，生产默认）：**全内存**——不物化 workdir、不 harvest，
+///   任务层层提交进 `Pack`，最后由 [`write_zip`] 直接从 `Pack` 序列化。因此
+///   `workdir` 与 `tail` 在这条路上**不参与产物**。
+/// * [`Output::Dir`]：才需要「目录镜像」——把层落到 `workdir`、用 `harvest` 把差异收成层，
+///   让磁盘目录与对象模型保持一致；`tail` 用于收尾步骤（例如 `pack.mcmeta` 改写）。
+///
+/// 两条路必须产出**逐项一致**的条目集，这正是本模块末尾用例的验收方式。
 pub fn run_native<F>(
     input: &Path,
     workdir: &Path,
@@ -530,8 +539,9 @@ where
         .cloned()
         .collect();
 
-    // 契约检查：计划里的每个名字都必须有原生实现。计划表由 `task_registry` 驱动，
-    // 若它列出一个没有实现的名字，说明"未迁移"状态回归了——必须显式失败而不是跳过。
+    // 契约检查：计划里的每个名字都必须有原生实现。**这是永久不变式**——全部 46 个任务
+    // 都是原生实现，且已无旧执行路径可回落（§9.129 起）。因此本条真正防的是"往计划表里
+    // 加了一个没有实现的名字"：必须显式失败，而不是静默跳过该任务、产出错误结果。
     for name in &plan_rest {
         if native_for(name, &opts.native).is_none() {
             return Err(AromError::internal(format!(
@@ -1163,8 +1173,9 @@ fn native_for(
             crate::natives::drop_glint::decl(),
             crate::natives::drop_glint::run,
         )),
-        // `rename_blocks_items` 的试点已实现，但真实包上仍与旧实现有差异（见细则 §9.13），
-        // 因此**暂不派发**：它留在 `natives::all()` 里由夹具双轨覆盖。
+        // `rename_blocks_items` 已派发。早年在真实包上与旧实现有差异（§9.13），根因是
+        // `ConversionMaps` 的 `HashMap::insert` 同一区间被写第二次而**静默覆盖**前一次，
+        // 2.6.0 已修复（见 `CHANGELOG`），此后真实包上运行正常。
         "rename_blocks_items" => Some((
             "rename_blocks",
             crate::natives::rename_blocks::decl(),
@@ -1215,8 +1226,9 @@ fn native_for(
 
 /// 原生任务的写入是否落在它**声明**的范围内（D12 契约的落地检查）。
 ///
-/// 旧任务经适配层时范围是「整包」（未迁移者默认串行），而原生任务必须精确声明；
-/// 越界即契约违约，因此驱动默认直接报错（`MixedRunOptions::strict_scopes`）。
+/// 每个任务必须精确声明读写范围；越界即契约违约，因此驱动默认直接报错
+/// （`MixedRunOptions::strict_scopes`）。范围声明同时决定并行批的分组与冲突检测——
+/// 这也是 `ScopeSet::any`（整包）会让任务退化为串行的原因。
 pub fn scope_violations(decl: &TaskDecl, layer: &Layer) -> Vec<String> {
     layer
         .writes()

@@ -208,8 +208,8 @@ impl Scheduler {
     /// 版本对 → **该跑哪些任务**（有序名字）。
     ///
     /// 与 [`Self::execute_version_conversion`] 的选择逻辑完全一致（同一对私有方法），
-    /// 只是把「选哪些」与「怎么跑」分开——M2 的混合运行驱动据此按名字逐个执行：
-    /// 迁移过的任务交给 A-ROM，未迁移的在这里按名字跑。
+    /// 只是把「选哪些」与「怎么跑」分开。生产驱动 [`crate::native_run`] 取这份顺序，
+    /// 逐任务派发 `Tx` 给 [`crate::natives`] 的实现——**计划顺序的唯一来源就是这里**。
     pub fn plan(&self, source_version: u32, target_version: u32) -> EngineResult<Vec<String>> {
         let path = self.calculate_path(source_version, target_version)?;
         Ok(self.get_tasks_for_path_with_rules(&path, target_version))

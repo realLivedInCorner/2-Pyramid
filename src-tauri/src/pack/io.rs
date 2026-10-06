@@ -296,7 +296,7 @@ pub fn remove_dir_in_background(root: &Path) -> bool {
     }
 }
 
-/// 仍在进行中的后台清理数量。
+/// 后台清理**尚未结束**的数量（用于退出前等待，避免短命进程留下残留）。
 pub fn pending_cleanups() -> usize {
     CLEANUP_PENDING.load(std::sync::atomic::Ordering::SeqCst)
 }
