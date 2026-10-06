@@ -62,7 +62,7 @@
   - **输出对比闸门（CLI）**：`2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <out>]` 比较两个转换产物——PNG 走**像素级**比对（尺寸 + 逐像素 RGBA + 最大通道差），JSON 走**语义级**比对，其余字节级；分级 `identical` / `encoding-only` / `json-equivalent` / `CONTENT-DIFF` / `only-in-A|B`。默认允许"像素相同、仅编码不同"，`--strict` 要求字节级完全一致；退出码 0/1，可作为提速改动的质量门槛。新增 4 个单测（一致、仅重编码、像素改变、JSON 语义等价 + 单边文件）。
   - **无界面转换 CLI + 拖放脚本**：`2-pyramid.exe --convert <包|目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>]` 跑与 GUI 完全相同的管线，输出结构化报告（结构分析 + 两个耗时口径 + 逐任务画像 + 体积变化）；版本参数支持 `1.21.4` / `1.21` / `26.3` / `bedrock` 或直接给 pack_format（新增 `resolve_target_format` 与单测）。配套 **`tools/convert-report.bat`**：把资源包或文件夹**拖到脚本上** → 选目标版本 → 转换 → 打印两个耗时与慢任务 → JSON 报告写到包旁边并自动打开目录（Bedrock 目标会先警告）。`ConversionTiming` 现携带 `task_profile`，报告里可看到每个任务的耗时与所属 tier。
 
-- **资源包结构分析（只读，多版本包调研用）**：新增 `converters/pack_analysis.rs`，解析 `pack.mcmeta` 与目录结构，判定并报告：① 官方分层（`overlays.entries[]`，含每个覆盖层的 `formats`、文件数、**会覆盖基础层同路径的文件数与示例**）；② `supported_formats` 区间声明；③ 非标准「版本折叠目录」（如 `textures/item/1.20/…`）；④ 一包多根（一个压缩包里多个 `pack.mcmeta`）。**不修改任何文件、不改变转换行为**。入口有两个：
+- **资源包结构分析（只读，多版本包调研用）**：新增结构分析模块（当时在 `converters/pack_analysis.rs`，本版重写后已移到 `src-tauri/src/pack/analysis.rs`），解析 `pack.mcmeta` 与目录结构，判定并报告：① 官方分层（`overlays.entries[]`，含每个覆盖层的 `formats`、文件数、**会覆盖基础层同路径的文件数与示例**）；② `supported_formats` 区间声明；③ 非标准「版本折叠目录」（如 `textures/item/1.20/…`）；④ 一包多根（一个压缩包里多个 `pack.mcmeta`）。**不修改任何文件、不改变转换行为**。入口有两个：
   - 设置 → 开发者选项 → **「分析资源包结构」**：选一个 zip 直接查看结构化报告（分层表、覆盖计数、折叠目录、警告 + 原始 JSON，可一键复制）；
   - 命令行 **`2-pyramid.exe --analyze <zip | 目录>`**：传目录会递归分析其中所有 `.zip`/`.mcpack` 并输出 JSON 数组，便于批量跑真实样本（退出码 0/1）。
   - 转换流程启动时也会把同样的结构摘要打进日志（仅记录，不改变行为），新增 6 个单测覆盖四种形态与版本目录名启发式。
@@ -111,7 +111,7 @@
   - build_release.py 以 MSIX 产出替换 WiX MSI；需 Windows SDK makeappx
 - **卸载支持可选删除用户数据**：卸载器新增「同时删除用户数据（设置、转换记录）」选项，默认保留。
 - **安装方式识别**：安装器区分 Classic（独立安装，含自定义目录）与 Microsoft Store 安装（WindowsApps 路径），卸载时走对应清理路径。
-- 设置页更新源测速区版式打磨：结果行高亮当前源，测速与「使用最快源」收进同一工具条。
+- 设置页更新源测速区版式打磨：结果行高亮当前源，测速与「使用最快源」收进同一工具条。（**同版随后删除**——见上一条「彻底移除更新源功能」；这里保留以记录该 UI 曾存在过。）
 
 ### Fixed
 
@@ -129,7 +129,7 @@
 - **legal 补充仓库层面数据流披露**：`PRIVACY.md` / `legal/en/PRIVACY.md` 新增 §8.1，说明 `.github/workflows/feishu-notify.yml` 会把 Issue/PR 标题、作者用户名、链接与提交元数据推送到第三方飞书 webhook（内容在 GitHub 上本就公开、不含本机数据），应用本身从不访问飞书。
 - **英文法律正文可达**：`read_legal_file` 新增 `lang` 参数，界面语言为英文时优先读取 `legal/en/`，缺失自动回落中文原文（此前 `legal/en/*.md` 六份文件不可达，切英文仍显示中文）。
 - **README 新增「已知限制」一节**（中英）：明确目标版本新增内容为**近似生成**（手工标定 HSV 参数、非原版资源）、Bedrock 双向转换为实验性、发行版默认只记 Warn/Error 日志、更新检查与 Foray AI 的联网行为；修正架构图目标版本（26.1+ → 26.3）、统一 Java 目标区间数量（27 → 26）、删除更新机制里遗留的「来源可选镜像」表述、补日志脱敏特性说明。
-- **legal 事实一致性修订**：`PRIVACY.md` 承认**自动检查更新默认开启**（原先写「仅在你主动触发时」）、标明镜像 `cdn.5eggpack.top` 为第三方运营（现已移除）、点明 Foray **默认档位 1 会发送包内目录树**、补充 API Key 在 Windows 为明文存储与 MSIX 路径虚拟化说明、说明**两种日志导出默认脱敏**；`SECURITY.md` 改为**强制校验**口径（未附带 `.sha256`、拉取失败或哈希不匹配一律拒绝更新），并从白名单移除镜像域名；`DISCLAIMER.md` 更正「默认不发送内容」；`EULA.md` 更正「仅在你主动检查更新时联网」；`THIRD-PARTY-NOTICES.md` 把 Remix Icon 的许可证从 Apache-2.0 更正为 Remix Icon License v1.0；`legal/en/EULA.md` 修掉字面 `\n` 转义。
+- **legal 事实一致性修订**：`PRIVACY.md` 承认**自动检查更新默认开启**（原先写「仅在你主动触发时」）、标明镜像 `cdn.5eggpack.top` 为第三方运营（现已移除）、点明 Foray **默认档位 1 会发送包内目录树**、补充 API Key 在 Windows 为明文存储与 MSIX 路径虚拟化说明、说明**两种日志导出默认脱敏**；`SECURITY.md` 改为**强制校验**口径（未附带 `.sha256`、拉取失败或哈希不匹配一律拒绝更新），并从白名单移除镜像域名；`DISCLAIMER.md` 更正「默认不发送内容」；`EULA.md` 更正「仅在你主动检查更新时联网」；`THIRD-PARTY-NOTICES.md` 的 Remix Icon 许可证条目当时被从 Apache-2.0 改成 Remix Icon License v1.0（**该次更正本身是错的**——`package-lock.json` 记的是 `"license": "Apache-2.0"`，见 2.200.0 段的再次更正）；`legal/en/EULA.md` 修掉字面 `\n` 转义。
 - **README 更新机制补全**：tag 示例改为 `{版本}` 占位符（避免版本漂移）、补充 `.sha256` 强制校验要求、说明应用内更新走 `--from-app` **覆盖更新向导**、补 Microsoft Store/MSIX 途径与新增脚本（`test` / `buildrelease:noinstaller` / `--skip-msix`）。
 
 ## [2.5.0] - 2026-09-24（BUILD 20048）
@@ -137,7 +137,7 @@
 ### Added
 
 - **Foray（Editor Mode）分析工作台**：设置开启 EM 后，主页拖入 zip 进入 Foray。ROM 树、五探针、轻量像素编辑、OpenAI 兼容 AI（档位 0–5）。默认关闭。详见 `docs/compose/spec/foray.md`。
-- **MSI 安装包（固定名 `2-Pyramid-Installer.msi`）**：WiX x64；静默 `msiexec /i 2-Pyramid-Installer.msi /qn`。**不做 MSIX**。（历史决定：2.5.x 后续已改为 MSIX 双通道分发，见 Unreleased；MSI 不再产出。）
+- **MSI 安装包（固定名 `2-Pyramid-Installer.msi`）**：WiX x64；静默 `msiexec /i 2-Pyramid-Installer.msi /qn`。**本版不做 MSIX。**（历史：MSI 与「不做 MSIX」都只描述本版当时的决定——下一版（2.6.0）改为**双通道分发**：GitHub Releases 发 EXE、Microsoft Store 发 MSIX，MSI 自此不再产出。）
 - **安装器静默参数**：`--silent|/S|-s|--quiet` 等；`--dir`、`--relaunch`、`--shortcuts`、`--help`。
 - **系统通知 Rust 路径**：`show_system_notification`（notify-rust / winrt）。
 
@@ -375,12 +375,12 @@
 
 ### 自 Beta-2.0.2 起包含
 
-- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。
+- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。（**后续演进**：中间态先升到 26.3/format 97，再扩为 `(84|88|97 → 1000)` 三条 j2b 边与对应 b2j 反向边，实现移到 `src-tauri/src/bedrock_convert/`；`pack_format 75` 只是当时的状态。）
 - **动态贴图转换**：`textures/item` / `textures/items` 下与 png 同名的 `.png.mcmeta` 若还是老版 `{"animation": {}}` 格式，会读取同名贴图尺寸推导帧数（横条 = 宽/高，竖条 = 高/宽），改写为高版本适配格式 `{"animation": {"frametime": <帧数>, "interpolate": true}}`；已声明 frametime 的保持原样，尺寸无法整除的跳过不瞎猜。
 - **更新通道三态**：稳定版 / 测试版 / 全部——「全部」同时接受两个通道的更新内容（取最高版本），「测试版」现在只收测试更新（原行为是包含全部）。
 - **动作记录导出 (.2amr)**：开发者选项新增「导出动作记录」，把动作监视记录的点击序列（含所在 Vue 页面）导出为 2amr 文件，供内部工具 **Action Mon3tr**（不开源，不入仓库）逐帧回放调试。
 - **实时动作流（仅 dev）**：debug 构建时 2-Pyramid 在 127.0.0.1:24159 提供本地动作流（支持按需抓取主窗口截图），供 Action Mon3tr 接管实时动作。
-- **输入防护**：材质包选择不再接受 `.mcpack` 文件（Bedrock 输入功能未完善）。
+- **输入防护**：材质包选择不再接受 `.mcpack` 文件（Bedrock 输入功能未完善）。（**后续版本已放开**：b2j 完成后 `.mcpack` 可直接作为输入，当前版本两者都接受。）
 
 ### Fixed（自 Beta-2.0.2 起）
 
@@ -393,11 +393,11 @@
 
 ### Added
 
-- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。
+- **基岩版转换（Bedrock Latest）**：版本选择器新增特殊目标「Bedrock Latest」——选中后先把包转换到 Java 1.21.11（pack_format 75），再按原 Python 版设计做基岩结构重组（pack.png→pack_icon.png、textures/font 提升、textures 提升、item→items 与 golden/wooden 改名、gui/container→ui、creative_inventory 提取、清理空 assets、生成 manifest.json），输出 `.mcpack`。**⚠ 功能未完成、存在严重问题，仅用于测试**（选择该目标时会弹出警示确认；java_ui 模板因兼容性不佳已移除）。（**后续演进**：中间态先升到 26.3/format 97，再扩为 `(84|88|97 → 1000)` 三条 j2b 边与对应 b2j 反向边，实现移到 `src-tauri/src/bedrock_convert/`；`pack_format 75` 只是当时的状态。）
 - **动态贴图转换**：`textures/item` / `textures/items` 下与 png 同名的 `.png.mcmeta` 若还是老版 `{"animation": {}}` 格式，会读取同名贴图尺寸推导帧数（横条 = 宽/高，竖条 = 高/宽），改写为高版本适配格式 `{"animation": {"frametime": <帧数>, "interpolate": true}}`；已声明 frametime 的保持原样，尺寸无法整除的跳过不瞎猜。
 - **动作记录导出 (.2amr)**：开发者选项新增「导出动作记录」，把动作监视记录的点击序列（含所在 Vue 页面）导出为 2amr 文件，供内部工具 **Action Mon3tr**（不开源，不入仓库）逐帧回放调试。
 - **实时动作流（仅 dev）**：debug 构建时 2-Pyramid 在 127.0.0.1:24159 提供本地动作流（支持按需抓取主窗口截图），供 Action Mon3tr 接管实时动作。
-- **输入防护**：材质包选择不再接受 `.mcpack` 文件（Bedrock 输入功能未完善）。
+- **输入防护**：材质包选择不再接受 `.mcpack` 文件（Bedrock 输入功能未完善）。（**后续版本已放开**：b2j 完成后 `.mcpack` 可直接作为输入，当前版本两者都接受。）
 
 ### Changed
 

@@ -95,7 +95,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 ### 🔄 更新机制
 
-应用内的「检查更新」读取本仓库的 Releases（仅 GitHub 官方 API）。Release tag 约定（`{版本}` 例如 `2.5.0`）：
+应用内的「检查更新」读取本仓库的 Releases（仅 GitHub 官方 API）。Release tag 约定：
 
 | Tag 前缀 | 含义 | 可见通道 |
 |---|---|---|
@@ -221,17 +221,32 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   └── arom-baseline.txt      冻结内容基线的逐条目清单（4018 行）
 ├── BUILD                      构建号（release 编译自动递增）
 ├── CHANGELOG.md               更新日志
+├── legal/                     EULA / 隐私 / 免责 / 第三方声明 / 安全 / 贡献（中英双语）
 └── release/                   构建产物（已 gitignore）
 ```
 
 ### 🤝 贡献
 
-欢迎 PR。改动前请先跑：
+欢迎 PR —— 见 [legal/CONTRIBUTING.md](./legal/CONTRIBUTING.md)。推送前请先跑：
 
 ```bash
-cargo test --offline --manifest-path src-tauri/Cargo.toml   # Rust 单测
-npm run build                                               # 前端 build
+npm test                                                    # Rust 单测
+npm run build                                               # 前端构建
 ```
+
+### ⚖️ 法律
+
+| 文件 | 用途 |
+|------|------|
+| [LICENSE](./LICENSE) | MIT —— 源代码 |
+| [legal/EULA.md](./legal/EULA.md) | 最终用户须知；**不**限制 MIT 权利 |
+| [legal/DISCLAIMER.md](./legal/DISCLAIMER.md) | 免责声明；非 Mojang / Microsoft 官方工具 |
+| [legal/PRIVACY.md](./legal/PRIVACY.md) | 本地优先隐私；无遥测 |
+| [legal/THIRD-PARTY-NOTICES.md](./legal/THIRD-PARTY-NOTICES.md) | 开源依赖声明 |
+| [legal/SECURITY.md](./legal/SECURITY.md) | 漏洞报告 |
+| [legal/CONTRIBUTING.md](./legal/CONTRIBUTING.md) | 贡献指南 |
+
+**致谢：** 2-Pyramid 是独立项目。Minecraft 资源包转换领域的早期原型与社区工具为部分设计提供了参考，我们感谢那些作者的工作。此类引用不代表共同著作权、雇佣关系或背书。应用内致谢见 **设置 → 版本信息**。法律文本随包内置于 `legal/`，可在 **设置 → 法律声明** 中阅读（界面语言为英文时优先读取 `legal/en/`，缺失自动回落中文）。
 
 ---
 
@@ -300,12 +315,16 @@ Common scripts:
 | `npm run buildrelease` | Full stable release build (frontend + app + self-owned installer → `release/`) |
 | `npm run betabuild` | Beta channel build (`-beta.{BUILD}.exe`, coexists with stable) |
 | `npm run buildrelease:nobump` / `npm run betabuild:nobump` | Same without bumping `BUILD` |
+| `npm run test` / `npm run test:offline` | Run the Rust unit tests (`test:offline` forces offline) |
+| `npm run buildrelease:noinstaller` | Skips the self-owned installer EXE, but still compiles a second time for MSIX (`--features store`) and packs it. To build only the app, skip both: `python tools/build_release.py --skip-installer --skip-msix` |
+| `python tools/build_release.py --skip-msix` / `--sign-msix` | Skip MSIX / sign MSIX (sideload testing) |
+| `npm run bump:build:show` / `bump:build:set` | Show / manually set the `BUILD` number |
 
 > `BUILD` is incremented exactly once per release build by `build.rs`; `--no-bump` skips it via `2PYR_NO_BUMP=1`.
 
 ### 🔄 Updates
 
-In-app update checks read this repository's Releases (official GitHub API only). Tag conventions (`{version}`, e.g. `2.5.0`):
+In-app update checks read this repository's Releases (official GitHub API only). Tag conventions:
 
 | Tag prefix | Meaning | Visible to |
 |---|---|---|
@@ -324,14 +343,68 @@ Release requirements:
 
 ### 🏗️ Architecture
 
-The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**, built on the in-house **A-ROM** object model (`Pack` / `Tx` / `Layer` / `PackView`). The very first step is **directory normalization** (locate & promote `pack.mcmeta` to the zip root, with `pack.mcmeta.txt` foolproofing), followed by Eraser → Architect → Surgeon converter tiers.
+The core is a hand-rolled **DTD Pipeline** driven by a **BFS Scheduler**, built on the in-house **A-ROM** object model (`Pack` / `Tx` / `Layer` / `PackView`):
+
+```
+        ┌───────────────────────────────────────────────────────┐
+        │          Resource Pack (zip / folder)                │
+        └─────────────────────────┬─────────────────────────────┘
+                                  │
+                                  ▼  directory normalization (runs first, highest priority)
+        ┌───────────────────────────────────────────────────────┐
+        │     locate / promote pack.mcmeta to the zip root      │
+        │     (multi-extension foolproofing)                    │
+        └─────────────────────────┬─────────────────────────────┘
+                                  │
+                                  ▼
+        ┌───────────────────────────────────────────────────────┐
+        │              DTD Pipeline (Scheduler)                │
+        │      ┌──────────┐   ┌──────────┐   ┌──────────┐      │
+        │      │  Eraser  │ → │ Architect│ → │ Surgeon  │      │
+        │      │ tear the │   │ BFS the  │   │ run the  │      │
+        │      │ pack down│   │ path     │   │ rewrites │      │
+        │      └──────────┘   └──────────┘   └──────────┘      │
+        └─────────────────────────┬─────────────────────────────┘
+                                  │
+                                  ▼
+        ┌───────────────────────────────────────────────────────┐
+        │            Target Version (1.6 → 26.3)                │
+        └───────────────────────────────────────────────────────┘
+```
 
 - **Directory normalization** — runs first: locate the real `pack.mcmeta` (multi-extension foolproofing) and promote it to the root
 - **Eraser** — tear down the source pack into one intermediate representation
 - **Architect** — BFS the shortest conversion path over the target-version graph
 - **Surgeon** — run each converter in order (each with its reverse pair) and emit the target pack
 
-**Bedrock path (experimental)** mounts on the same scheduler as version edges: the `src-tauri/src/bedrock_convert/` module (`mapping` / `textures` / `ui` / `potions` / `metadata` / `shaders` / `skybox` / `j2b` / `b2j`), tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`), edges j2b `(84|88|97 → 1000)` and b2j `(1000 → 97|88|84)` declared in `arom/engine/conversion_maps.rs`. The Java intermediate is always **format 97 (26.3)**.
+**Bedrock path (experimental)** mounts on the same scheduler as version edges:
+
+- Module: `src-tauri/src/bedrock_convert/` (`mapping` / `textures` / `ui` / `potions` / `metadata` / `shaders` / `skybox` / `j2b` / `b2j`)
+- Tasks `bedrock_java_to_bedrock` / `bedrock_bedrock_to_java` (`Exclusive` + `Surgeon`)
+- Edges: j2b `(84|88|97 → 1000)`, b2j `(1000 → 97|88|84)`, both declared in `arom/engine/conversion_maps.rs`; the Java intermediate is always **format 97 (26.3)**
+
+### 🧪 Command-line tools (diagnostics / benchmarking / quality gate)
+
+The binary has three headless modes; all are **read-only or self-contained** and never start the GUI:
+
+| Command | Purpose |
+|---|---|
+| `2-pyramid.exe --convert <pack\|dir> [--to 26.3] [--out <dir>] [--report <report.json>] [--fast]` | Runs the **full conversion pipeline** and writes a structured report: structure analysis + pure/total timings (with the IO split) + per-task profile + size delta. A directory is walked recursively for every `.zip` / `.mcpack`. `--fast` turns off the GUI sprite surgery (`run_gui_surgeon`) to isolate its cost. |
+| `2-pyramid.exe --analyze <pack\|dir>` | Read-only **structure analysis**: official overlays, `supported_formats` range, non-standard version-folded directories, multi-root packs, with per-layer file counts and override counts. |
+| `2-pyramid.exe --pack-diff <A> <B> [--strict] [--json <report>]` | **Quality gate**: PNG compared per pixel, JSON semantically, everything else byte-wise; by default "same pixels, different encoding" is allowed, `--strict` demands identical bytes. Exit code 0/1, usable as a regression check for speed work. |
+
+> **Drag-and-drop conversion**: drop a pack (or a folder of packs) onto **`tools/convert-report.bat`** — the script finds a binary that supports `--convert` (repo build first, then an installed release), asks for the target version, converts, prints both timing figures and the slowest tasks, and saves the JSON report next to the pack while opening its folder.
+>
+> It can also be scripted (the `.bat` is a pure-ASCII launcher; the logic lives in `convert-report.ps1`):
+> ```powershell
+> .\tools\convert-report.bat "D:\packs\my.zip" -Target 1.21.4      # explicit version
+> .\tools\convert-report.bat "D:\packs"        -MenuChoice 7 -Yes  # menu 7 = 1.21.4, skip confirmation
+> ```
+> Arguments: `-Target` (version or pack_format), `-MenuChoice` (menu 1–16), `-Yes` (skip confirmation and the final pause), `-NoOpen` (do not open the folder).
+>
+> **Performance baseline page**: `tools/benchmark/index.html` (single file, zero dependencies) compares the timing breakdown across optimisation steps, with a switch between the two timing methods and the quality-check verdict; how to update the data is in `tools/benchmark/README.md`.
+>
+> Maintainer docs: release checklist `tools/release/README.md`; Store listing copy `tools/store/`.
 
 ### 🧰 Tech Stack
 
@@ -402,7 +475,7 @@ npm run build                                               # frontend build
 | [legal/SECURITY.md](./legal/SECURITY.md) | Vulnerability reporting |
 | [legal/CONTRIBUTING.md](./legal/CONTRIBUTING.md) | Contribution guide |
 
-**Credits:** 2-Pyramid is an independent project. Early prototypes and community tools in the Minecraft pack-conversion space informed parts of the design; we thank those authors for their work. Such references do not imply joint copyright, employment, or endorsement. In-app credits live in **Settings → Version Info**. Legal texts are bundled under `legal/` and readable in **Settings → Legal Notices**.
+**Credits:** 2-Pyramid is an independent project. Early prototypes and community tools in the Minecraft pack-conversion space informed parts of the design; we thank those authors for their work. Such references do not imply joint copyright, employment, or endorsement. In-app credits live in **Settings → Version Info**. Legal texts are bundled under `legal/` and readable in **Settings → Legal Notices** (when the UI language is English the `legal/en/` copy is preferred, falling back to the Chinese original).
 
 ---
 
@@ -412,10 +485,17 @@ npm run build                                               # frontend build
 
 使用可执行程序时另见 [EULA](./legal/EULA.md) 与 [DISCLAIMER](./legal/DISCLAIMER.md)。请同时遵守 Minecraft EULA 与资源包原作者授权。
 
-## Foray / 安装包（2.5.0）
+## 其它 / Misc
 
-- **Foray**：设置 → Editor Mode 开启后，主页拖入 zip 进入资源包分析工作台（探针 / 轻量编辑 / 可选 AI）。
-- **静默安装**：2-Pyramid-Installer.exe --silent [--dir <path>] [--relaunch] [--shortcuts]。
-- **产物**：版本化 exe → GitHub Releases；.msix（makeappx）→ Microsoft Store。**不再产出 MSI**。
-- 法律与隐私：`legal/`（含外部 AI API 说明）。
+- **Foray（Editor Mode）**：在 **设置 → 开发者选项** 开启 Editor Mode 后，主页拖入 zip 进入资源包分析工作台（结构探针 / 轻量像素编辑 / 可选 AI 分析）。默认关闭，说明见 [`docs/compose/spec/foray.md`](./docs/compose/spec/foray.md)。
+- **静默安装**：`2-Pyramid-Installer.exe --silent [--dir <路径>] [--relaunch] [--shortcuts]`。
+- **发行形式**：版本化 EXE → GitHub Releases；MSIX → Microsoft Store。**不再产出 MSI。**
+- **可复现性能验证**：测量方法与已证伪的方向见 [`docs/compose/spec/perf-verification.md`](./docs/compose/spec/perf-verification.md)。
+
+**Misc** — the same points in English:
+
+- **Foray (Editor Mode)**: enable Editor Mode in **Settings → Developer options**, then drop a zip on the home page to open the pack-analysis workbench (structure probes / light pixel editing / optional AI). Off by default; see [`docs/compose/spec/foray.md`](./docs/compose/spec/foray.md).
+- **Silent install**: `2-Pyramid-Installer.exe --silent [--dir <path>] [--relaunch] [--shortcuts]`.
+- **Distribution**: versioned EXE → GitHub Releases; MSIX → Microsoft Store. **No MSI is produced any more.**
+- **Reproducible performance verification**: the measurement method and the directions already disproved are in [`docs/compose/spec/perf-verification.md`](./docs/compose/spec/perf-verification.md).
 
