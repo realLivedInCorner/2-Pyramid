@@ -13,8 +13,8 @@
 ## 2. 开发环境
 
 ```bash
-git clone <repo>
-cd 2-Pyramid          # 或你的本地路径（仓库内为 code/）
+git clone git@github.com:realLivedInCorner/2-Pyramid.git
+cd 2-Pyramid          # 或你的本地路径
 npm install
 npm run 2pyr          # Tauri dev（Rust + Vite）
 ```

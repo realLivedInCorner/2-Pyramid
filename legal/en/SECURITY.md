@@ -9,9 +9,9 @@
 
 | Line | Support |
 |------|---------|
-| Current line (**2.7.x**, latest stable / Stable tag) | Security fixes prioritized |
+| Current line (**2.200.x**, latest stable / Stable tag) | Security fixes prioritized |
 | Latest Beta | Best effort; no SLA |
-| Older stables (2.6.x and earlier) | Upgrade recommended; usually no backports |
+| Older stables (**2.7.x and earlier**) | Upgrade recommended; usually no backports |
 
 ## 2. How to report a vulnerability
 

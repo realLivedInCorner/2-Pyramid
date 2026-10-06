@@ -13,8 +13,8 @@ Thanks for your interest in 2-Pyramid! Issues and pull requests are welcome.
 ## 2. Development environment
 
 ```bash
-git clone <repo>
-cd 2-Pyramid          # or your local path (repo lives under code/)
+git clone git@github.com:realLivedInCorner/2-Pyramid.git
+cd 2-Pyramid          # or your local path
 npm install
 npm run 2pyr          # Tauri dev (Rust + Vite)
 ```
