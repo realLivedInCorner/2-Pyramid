@@ -159,7 +159,7 @@
 ### Added
 
 - **1.21 旋风系贴图生成（Tricky Trials）**：升版至 format 34+（1.21）时从包内已有材质近似生成——`breeze_rod`（←烈焰棒）、`wind_charge`/投掷物（←雪球）、`trial_key`/`ominous_trial_key`、`breeze_spawn_egg`、`wind_charged` 效果图标、`copper_bulb` 族（←红石灯/铜块，含氧化与蜡变体）；中等项：`heavy_core`（←铁块/深板岩）、`breeze` 实体（←烈焰人）、`flow` 纹饰模板、`ominous_bottle`。目标已存在则不覆盖；reverse(34→32) 删除。**不做** mace / trial_spawner / vault / crafter / 粒子（轮廓独特）。依据 1.21.11 原版资源均色与 Wiki。
-- **2.4.0 发版说明补录 FolderOpenPatch**：见 `docs/compose/releases/2.4.0.md`（Fabric 补丁 mod，修 MC-311807）。
+- **2.4.0 发版说明补录 FolderOpenPatch**（Fabric 补丁 mod，修 MC-311807）。当时记录在 `docs/compose/releases/2.4.0.md`，**该目录属于逐版本发版说明、不入版本控制**（本地保留），因此这里不给出仓库内链接。
 
 ### Fixed
 
