@@ -622,7 +622,7 @@ async function finish() {
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(20, 23, 26, 0.06);
   color: #94a3b8;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -644,7 +644,7 @@ async function finish() {
   width: 16px;
   height: 2px;
   border-radius: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(20, 23, 26, 0.08);
   transition: background 0.3s ease;
 }
 
@@ -711,7 +711,7 @@ async function finish() {
   gap: 10px;
   padding: 26px 16px 20px;
   background: #fff;
-  border: 2px solid rgba(0, 0, 0, 0.07);
+  border: 2px solid rgba(20, 23, 26, 0.07);
   border-radius: 18px;
   cursor: pointer;
   transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -722,7 +722,7 @@ async function finish() {
 .lang-card:hover {
   border-color: color-mix(in srgb, var(--theme-color) 45%, transparent);
   transform: translateY(-3px);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 26px rgba(20, 23, 26, 0.08);
 }
 
 .lang-card.active {
@@ -768,7 +768,7 @@ async function finish() {
   width: 100%;
   height: 100%;
   border-radius: 5px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 6px rgba(20, 23, 26, 0.12);
   transition: transform 0.28s ease;
 }
 .lang-card:hover .lang-flag svg {
@@ -802,7 +802,7 @@ async function finish() {
   padding: 15px 20px 15px 46px;
   font-size: 16px;
   font-family: inherit;
-  border: 2px solid rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(20, 23, 26, 0.1);
   border-radius: 14px;
   background: #fff;
   color: #1a1a2e;
@@ -834,9 +834,9 @@ async function finish() {
   gap: 14px;
   padding: 32px 28px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.06);
   border-radius: 18px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 4px 20px rgba(20, 23, 26, 0.05);
   text-align: center;
 }
 
@@ -900,12 +900,12 @@ async function finish() {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.03);
+  border-top: 1px solid rgba(20, 23, 26, 0.03);
   transition: background 0.2s ease;
   min-width: 0;
 }
 .startup-setting-row:hover {
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(20, 23, 26, 0.02);
 }
 
 /* 行内控件不参与压缩（否则分段按钮会被挤掉、正文被压成竖排） */
@@ -980,9 +980,9 @@ async function finish() {
   padding: 9px 12px;
   font-size: 13px;
   font-family: inherit;
-  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border: 1.5px solid rgba(20, 23, 26, 0.12);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(20, 23, 26, 0.04);
   color: #1a1a2e;
   outline: none;
 }
@@ -1005,7 +1005,7 @@ async function finish() {
 /* 分段按钮 */
 .segmented {
   display: flex;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(20, 23, 26, 0.05);
   border-radius: 10px;
   padding: 3px;
   flex-shrink: 0;
@@ -1028,7 +1028,7 @@ async function finish() {
 .seg-btn.active {
   background: #fff;
   color: var(--theme-color);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(20, 23, 26, 0.08);
 }
 
 .seg-btn:hover:not(.active) {
@@ -1068,7 +1068,7 @@ async function finish() {
   background: #fff;
   border-radius: 50%;
   transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(20, 23, 26, 0.15);
 }
 
 .switch input:checked + .slider {
@@ -1093,19 +1093,19 @@ async function finish() {
   gap: 6px;
   padding: 6px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.06);
   border-radius: 999px;
   box-shadow:
-    0 10px 34px rgba(15, 23, 42, 0.10),
-    0 2px 8px rgba(15, 23, 42, 0.05);
+    0 10px 34px rgba(20, 23, 26, 0.10),
+    0 2px 8px rgba(20, 23, 26, 0.05);
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
 }
 
 .nav-pill:hover {
   transform: translateY(-3px);
   box-shadow:
-    0 16px 40px rgba(15, 23, 42, 0.13),
-    0 4px 12px rgba(15, 23, 42, 0.07);
+    0 16px 40px rgba(20, 23, 26, 0.13),
+    0 4px 12px rgba(20, 23, 26, 0.07);
 }
 
 .startup-btn {
@@ -1144,12 +1144,12 @@ async function finish() {
 }
 
 .startup-btn-ghost {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(20, 23, 26, 0.05);
   color: #6b7280;
 }
 
 .startup-btn-ghost:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(20, 23, 26, 0.08);
   color: #374151;
   transform: translateY(-1px);
 }
@@ -1208,7 +1208,7 @@ async function finish() {
   align-items: center;
   gap: 6px;
   background: transparent;
-  border: 1px dashed rgba(0, 0, 0, 0.15);
+  border: 1px dashed rgba(20, 23, 26, 0.15);
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 12px;
@@ -1219,7 +1219,7 @@ async function finish() {
 }
 .startup-restore-btn i { font-size: 14px; }
 .startup-restore-btn:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(20, 23, 26, 0.04);
   border-color: var(--theme-color, #14171a);
   color: var(--theme-color, #14171a);
 }
@@ -1232,7 +1232,7 @@ async function finish() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(20, 23, 26, 0.45);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -1242,7 +1242,7 @@ async function finish() {
   background: #fff;
   border-radius: 18px;
   padding: 22px 22px 18px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 24px 48px rgba(20, 23, 26, 0.22);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1263,7 +1263,7 @@ async function finish() {
   border-radius: 8px;
   transition: background 0.15s, color 0.15s;
 }
-.startup-backup-close:hover { background: rgba(0, 0, 0, 0.06); color: #475569; }
+.startup-backup-close:hover { background: rgba(20, 23, 26, 0.06); color: #475569; }
 .startup-backup-desc {
   margin: 0;
   font-size: 12.5px; line-height: 1.5; color: #475569;
@@ -1271,7 +1271,7 @@ async function finish() {
 .startup-backup-list {
   list-style: none;
   margin: 0; padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(20, 23, 26, 0.03);
   border-radius: 12px;
   display: flex; flex-direction: column; gap: 6px;
   max-height: 200px;

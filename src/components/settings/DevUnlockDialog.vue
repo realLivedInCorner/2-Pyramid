@@ -76,7 +76,7 @@ function cancel() {
   margin: 8px 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(20, 23, 26, 0.04);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   font-weight: 700;

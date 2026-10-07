@@ -10,7 +10,7 @@ const { t, locale } = useI18n();
 const visible = defineModel<boolean>({ required: true });
 
 const { onBeforeEnter, onEnter, onAfterEnter, onBeforeLeave, onLeave, onAfterLeave } =
-  useSidebarSlide({ shadow: "-12px 0 36px rgba(0, 0, 0, 0.12)" });
+  useSidebarSlide({ shadow: "-12px 0 36px rgba(20, 23, 26, 0.12)" });
 
 const selectedFile = ref("");
 const content = ref("");
@@ -164,7 +164,7 @@ watch(visible, (v) => {
   width: min(560px, 94vw);
   height: 100vh;
   background: #fff;
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.08);
   display: flex;
   flex-direction: column;
   outline: none;
@@ -180,7 +180,7 @@ watch(visible, (v) => {
   justify-content: space-between;
   gap: 12px;
   padding: 1.25rem 1.5rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
   flex-shrink: 0;
 }
 .legal-header-text { min-width: 0; flex: 1; }
@@ -209,7 +209,7 @@ watch(visible, (v) => {
   list-style: none;
   margin: 0;
   padding: 10px;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  border-right: 1px solid rgba(20, 23, 26, 0.06);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -227,7 +227,7 @@ watch(visible, (v) => {
   color: #475569;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.legal-file-list li:hover { background: rgba(0, 0, 0, 0.04); color: #1d1d1f; }
+.legal-file-list li:hover { background: rgba(20, 23, 26, 0.04); color: #1d1d1f; }
 .legal-file-list li.active {
   background: color-mix(in srgb, var(--theme-color, #14171a) 10%, #fff);
   color: var(--theme-color, #14171a);
@@ -280,7 +280,7 @@ watch(visible, (v) => {
   margin: 0 0 0.75em;
   padding: 8px 12px;
   border-left: 3px solid color-mix(in srgb, var(--theme-color, #14171a) 40%, transparent);
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(20, 23, 26, 0.03);
   border-radius: 0 8px 8px 0;
   color: #475569;
 }
@@ -289,7 +289,7 @@ watch(visible, (v) => {
   font-size: 12px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(20, 23, 26, 0.06);
 }
 .legal-md :deep(pre) {
   margin: 0 0 0.75em;
@@ -307,7 +307,7 @@ watch(visible, (v) => {
 }
 .legal-md :deep(hr) {
   border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid rgba(20, 23, 26, 0.08);
   margin: 1em 0;
 }
 .legal-md :deep(a) {
@@ -321,7 +321,7 @@ watch(visible, (v) => {
   display: flex;
   justify-content: flex-end;
   padding: 12px 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(20, 23, 26, 0.06);
   background: #fff;
 }
 .legal-back-btn {
@@ -332,7 +332,7 @@ watch(visible, (v) => {
   padding: 0 16px;
   border: none;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(20, 23, 26, 0.04);
   color: #64748b;
   font-family: inherit;
   font-size: 13px;
@@ -341,7 +341,7 @@ watch(visible, (v) => {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .legal-back-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(20, 23, 26, 0.08);
   color: #1d1d1f;
 }
 </style>

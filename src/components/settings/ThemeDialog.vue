@@ -122,14 +122,14 @@ function confirmReset() {
   gap: 14px;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(20, 23, 26, 0.03);
   text-align: left;
 }
 .preview-chip {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.06);
   flex-shrink: 0;
 }
 .preview-text { min-width: 0; }

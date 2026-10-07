@@ -57,7 +57,7 @@ const emit = defineEmits<{ remove: [index: number] }>();
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(20, 23, 26, 0.02);
   text-align: left;
 }
 

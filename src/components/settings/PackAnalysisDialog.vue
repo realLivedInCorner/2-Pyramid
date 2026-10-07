@@ -137,7 +137,7 @@ async function copy() {
 .section-title { font-size: 12px; font-weight: 700; color: #6b7280; margin-bottom: 6px; }
 .layer-row {
   display: flex; gap: 10px; align-items: center; padding: 5px 8px;
-  border-radius: 8px; background: rgba(0, 0, 0, 0.03); margin-bottom: 4px; font-size: 12px;
+  border-radius: 8px; background: rgba(20, 23, 26, 0.03); margin-bottom: 4px; font-size: 12px;
 }
 .layer-name { flex: 1; min-width: 0; word-break: break-all; color: #1a1a2e; }
 .layer-fmt { font-family: ui-monospace, Consolas, monospace; color: #14171a; }

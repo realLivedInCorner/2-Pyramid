@@ -483,7 +483,7 @@ onMounted(loadSettings);
 .outline-detail {
   padding: 12px;
   border-radius: 8px;
-  /* 暖色淡面替掉原来的 rgba(0,0,0,0.03) + #eef2f7 冷边 */
+  /* 暖色淡面替掉原来的 rgba(20, 23, 26, 0.03) + #eef2f7 冷边 */
   background: rgba(120, 110, 95, 0.05);
   border: 1px solid rgba(120, 110, 95, 0.14);
   display: flex;

@@ -59,9 +59,9 @@ function submit() {
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(20, 23, 26, 0.03);
   font-size: 14px;
   outline: none;
   font-family: inherit;

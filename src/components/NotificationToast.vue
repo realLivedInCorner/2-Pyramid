@@ -115,9 +115,9 @@ const iconClass = computed(() => {
   background: #ffffff;
   border-radius: calc(8px * var(--dpi-scale, 1));
   box-shadow: 
-    0 calc(8px * var(--dpi-scale, 1)) calc(32px * var(--dpi-scale, 1)) rgba(0, 0, 0, 0.12),
-    0 calc(2px * var(--dpi-scale, 1)) calc(8px * var(--dpi-scale, 1)) rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+    0 calc(8px * var(--dpi-scale, 1)) calc(32px * var(--dpi-scale, 1)) rgba(20, 23, 26, 0.12),
+    0 calc(2px * var(--dpi-scale, 1)) calc(8px * var(--dpi-scale, 1)) rgba(20, 23, 26, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -125,8 +125,8 @@ const iconClass = computed(() => {
 .notification-card:hover {
   transform: translateY(calc(-2px * var(--dpi-scale, 1)));
   box-shadow: 
-    0 calc(12px * var(--dpi-scale, 1)) calc(40px * var(--dpi-scale, 1)) rgba(0, 0, 0, 0.16),
-    0 calc(4px * var(--dpi-scale, 1)) calc(12px * var(--dpi-scale, 1)) rgba(0, 0, 0, 0.1);
+    0 calc(12px * var(--dpi-scale, 1)) calc(40px * var(--dpi-scale, 1)) rgba(20, 23, 26, 0.16),
+    0 calc(4px * var(--dpi-scale, 1)) calc(12px * var(--dpi-scale, 1)) rgba(20, 23, 26, 0.1);
 }
 
 .notification-header {
@@ -135,7 +135,7 @@ const iconClass = computed(() => {
   padding: calc(10px * var(--dpi-scale, 1)) calc(12px * var(--dpi-scale, 1)) calc(8px * var(--dpi-scale, 1));
   gap: calc(8px * var(--dpi-scale, 1));
   background: #f8f9fa;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
 }
 
 .notification-app-icon {
@@ -170,7 +170,7 @@ const iconClass = computed(() => {
 }
 
 .notification-close:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(20, 23, 26, 0.06);
   color: #495057;
 }
 

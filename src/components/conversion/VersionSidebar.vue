@@ -20,7 +20,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: "-12px 0 36px rgba(0, 0, 0, 0.08)" });
+} = useSidebarSlide({ shadow: "-12px 0 36px rgba(20, 23, 26, 0.08)" });
 
 const groups = computed(() => groupVersionsByEra(MINECRAFT_VERSIONS));
 const selectedEntry = computed(
@@ -131,7 +131,7 @@ function pick(entry: VersionEntry) {
   justify-content: space-between;
   gap: 12px;
   padding: 22px 22px 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
 }
 
 .sidebar-header-text h3 {
@@ -149,7 +149,7 @@ function pick(entry: VersionEntry) {
 
 .sidebar-close {
   border: none;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(20, 23, 26, 0.04);
   width: 32px;
   height: 32px;
   border-radius: 10px;
@@ -161,7 +161,7 @@ function pick(entry: VersionEntry) {
 }
 
 .sidebar-close:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(20, 23, 26, 0.08);
   color: #1d1d1f;
 }
 
@@ -208,7 +208,7 @@ function pick(entry: VersionEntry) {
   gap: 10px;
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.7);
   cursor: pointer;

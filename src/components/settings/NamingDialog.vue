@@ -83,9 +83,9 @@ function save() {
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(20, 23, 26, 0.03);
   font-size: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   outline: none;
@@ -102,14 +102,14 @@ function save() {
   align-items: baseline;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.06);
   border-radius: 10px;
   background: transparent;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
 }
-.naming-tag-btn:hover { background: rgba(0, 0, 0, 0.03); }
+.naming-tag-btn:hover { background: rgba(20, 23, 26, 0.03); }
 .naming-tag-token {
   font-size: 12.5px;
   font-weight: 700;

@@ -506,7 +506,7 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(20, 23, 26, 0.05);
   max-width: 480px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -557,7 +557,7 @@ onMounted(() => {
   color: #64748b;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.icon-btn:hover { background: rgba(0, 0, 0, 0.05); color: #1d1d1f; }
+.icon-btn:hover { background: rgba(20, 23, 26, 0.05); color: #1d1d1f; }
 .delete-btn { color: #94a3b8; }
 .delete-btn:hover { color: #ef4444; background: #fee2e2; }
 
@@ -655,11 +655,11 @@ onMounted(() => {
 
 .simple-dialog {
   background: rgba(120, 110, 95, 0.055); padding: 32px; border-radius: 24px; width: 400px;
-  /* 原来 0 25px 50px -12px rgba(0,0,0,0.25) — blur 50px 太大,leave 期间
+  /* 原来 0 25px 50px -12px rgba(20, 23, 26, 0.25) — blur 50px 太大,leave 期间
      opacity 渐变时 shadow 跟着渐变,大 blur 让 shadow "淡出拖尾" 看起来
      持续时间比 dialog 本身还长。改紧凑点(blur 32, opacity 0.18),跟
      leave 550ms 同步消失。 */
-  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 16px 32px -8px rgba(20, 23, 26, 0.18);
 }
 
 .simple-dialog h3 { margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #0f172a; }

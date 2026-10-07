@@ -116,7 +116,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-12px 0 36px rgba(0, 0, 0, 0.08)' });
+} = useSidebarSlide({ shadow: '-12px 0 36px rgba(20, 23, 26, 0.08)' });
 
 const searchText = ref('');
 const isSaving = ref(false);
@@ -253,7 +253,7 @@ onMounted(() => {
   outline: none;
   opacity: 1 !important;
   transform: translateX(100%);
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.08);
   will-change: transform, box-shadow;
 }
 
@@ -261,7 +261,7 @@ onMounted(() => {
   /* 顶部避开浮动窗口控制按钮 */
   padding: 56px 1.5rem 1rem;
   background: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -349,7 +349,7 @@ onMounted(() => {
 .item-row:hover {
   background: #fff;
   border-color: #e2e8f0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 12px rgba(20, 23, 26, 0.03);
 }
 
 .item-id {
@@ -399,7 +399,7 @@ onMounted(() => {
 .panel-footer {
   padding: 12px 1.5rem;
   background: #fff;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(20, 23, 26, 0.06);
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -440,12 +440,12 @@ onMounted(() => {
 }
 
 .back-btn {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(20, 23, 26, 0.04);
   color: #64748b;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .back-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(20, 23, 26, 0.08);
   color: #1d1d1f;
 }
 

@@ -1056,7 +1056,7 @@ const exportLogsToFile = async () => {
   font-size: 11px;
   font-weight: 800;
   color: #64748b;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(20, 23, 26, 0.06);
   cursor: help;
   user-select: none;
 }
@@ -1069,7 +1069,7 @@ const exportLogsToFile = async () => {
 /* 文件 / 文件夹：对齐设置页 segmented */
 .import-tabs {
   display: inline-flex;
-  background: rgba(0, 0, 0, 0.045);
+  background: rgba(20, 23, 26, 0.045);
   border-radius: calc(var(--ui-radius-btn) + 4px);
   padding: 3px;
   gap: 3px;
@@ -1192,7 +1192,7 @@ const exportLogsToFile = async () => {
   background-color: white;
   transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 4px rgba(20, 23, 26, 0.12);
 }
 .switch input:checked + .slider { background-color: #14171a; }
 .switch input:checked + .slider:before { transform: translateX(18px); }
@@ -1336,7 +1336,7 @@ const exportLogsToFile = async () => {
 .selected-items-list {
   background: rgba(255, 255, 255, 0.72);
   border-radius: calc(var(--ui-radius-card) + 2px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   overflow: hidden;
   min-height: 0;
   display: flex;
@@ -1345,7 +1345,7 @@ const exportLogsToFile = async () => {
 .list-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px; font-size: 12px; color: #64748b;
-  background: rgba(0, 0, 0, 0.025);
+  background: rgba(20, 23, 26, 0.025);
   flex-shrink: 0;
 }
 .list-actions { display: flex; align-items: center; gap: 8px; }
@@ -1375,10 +1375,10 @@ const exportLogsToFile = async () => {
 .item-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px;
-  border-top: 1px solid rgba(0,0,0,0.04);
+  border-top: 1px solid rgba(20, 23, 26, 0.04);
   transition: background 0.15s ease;
 }
-.item-row:hover { background: rgba(0, 0, 0, 0.02); }
+.item-row:hover { background: rgba(20, 23, 26, 0.02); }
 .item-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .item-icon { width: 18px; height: 18px; color: #0f172a; display: inline-flex; align-items: center; justify-content: center; }
 .item-icon i { font-size: 18px; line-height: 1; }
@@ -1392,7 +1392,7 @@ const exportLogsToFile = async () => {
 .item-size { font-size: 12px; color: #9ca3af; }
 .remove-item-btn {
   border: none;
-  background: rgba(0,0,0,0.05);
+  background: rgba(20, 23, 26, 0.05);
   width: 22px; height: 22px;
   border-radius: 999px;
   cursor: pointer;
@@ -1404,7 +1404,7 @@ const exportLogsToFile = async () => {
 .remove-item-btn:hover { background: #fee2e2; color: #dc2626; }
 .more-row {
   padding: 10px 14px;
-  border-top: 1px solid rgba(0,0,0,0.04);
+  border-top: 1px solid rgba(20, 23, 26, 0.04);
   color: #64748b;
   font-size: 12px;
 }
@@ -1470,7 +1470,7 @@ const exportLogsToFile = async () => {
   z-index: 201;
   outline: none;
   /* 投影由 useSidebarSlide 在 enter/leave 期间用内联样式维护，这里只是静态兜底。
-     颜色改暖（原来是冷黑 rgba(0,0,0,.08)，压在暖白界面上会发脏）。 */
+     颜色改暖（原来是冷黑 rgba(20, 23, 26, .08)，压在暖白界面上会发脏）。 */
   box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
   /* 默认状态 = enter-from(屏幕外右侧)— element insert 时浏览器 paint 看不见。
      enter/leave 完全由 inline style + CSS transition 驱动(见 onSidebarEnter /
@@ -1491,7 +1491,7 @@ const exportLogsToFile = async () => {
   justify-content: space-between;
   gap: 12px;
   padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
   flex-shrink: 0;
 }
 .sidebar-header-text {
@@ -1531,7 +1531,7 @@ const exportLogsToFile = async () => {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .sidebar-close:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(20, 23, 26, 0.05);
   color: #1d1d1f;
 }
 
@@ -1545,10 +1545,10 @@ const exportLogsToFile = async () => {
 }
 .sidebar-body::-webkit-scrollbar { width: 6px; }
 .sidebar-body::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(20, 23, 26, 0.12);
   border-radius: 3px;
 }
-.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.22); }
+.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(20, 23, 26, 0.22); }
 
 .version-era {
   display: flex;
@@ -1581,7 +1581,7 @@ const exportLogsToFile = async () => {
   to   { opacity: 1; transform: translateX(0); }
 }
 .version-row:active {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(20, 23, 26, 0.06);
 }
 .version-row.has-status { padding-right: 8px; }
 
@@ -1638,7 +1638,7 @@ const exportLogsToFile = async () => {
 .items-dialog-list {
   max-height: 420px;
   overflow: auto;
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid rgba(20, 23, 26, 0.06);
   border-radius: 12px;
 }
 

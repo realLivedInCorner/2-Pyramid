@@ -634,7 +634,7 @@ onMounted(() => {
   font-size: 13px;
 }
 .ghost-btn {
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.1);
   background: rgba(255, 255, 255, 0.72);
   color: #1d1d1f;
   font-weight: 600;
@@ -720,7 +720,7 @@ onMounted(() => {
   box-sizing: border-box;
   padding: 8px 10px;
   border-radius: var(--ui-radius-btn, 10px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   background: rgba(255, 255, 255, 0.8);
   font-size: 12px;
 }
@@ -738,7 +738,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   border: none;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(20, 23, 26, 0.03);
   border-radius: 8px;
   padding: 6px 8px;
   cursor: pointer;
@@ -817,8 +817,8 @@ onMounted(() => {
 .code-block {
   margin: 0;
   padding: 12px 14px;
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(20, 23, 26, 0.04);
+  border: 1px solid rgba(20, 23, 26, 0.06);
   border-radius: var(--ui-radius-card, 14px);
   font-size: 12px;
   line-height: 1.5;
@@ -840,7 +840,7 @@ onMounted(() => {
   image-rendering: pixelated;
   cursor: zoom-in;
   border-radius: var(--ui-radius-card, 12px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   background: #fff;
 }
 .toolbar {
@@ -859,14 +859,14 @@ onMounted(() => {
   width: 68px;
   padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.1);
   background: rgba(255, 255, 255, 0.8);
   font: inherit;
 }
 .toolbar input[type="color"] {
   width: 36px;
   height: 28px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.1);
   border-radius: 8px;
   background: #fff;
 }
@@ -892,7 +892,7 @@ onMounted(() => {
   box-sizing: border-box;
   padding: 10px 12px;
   border-radius: var(--ui-radius-btn, 10px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   background: rgba(255, 255, 255, 0.78);
   color: #1d1d1f;
   font-size: 13px;
@@ -905,7 +905,7 @@ onMounted(() => {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(20, 23, 26, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -914,8 +914,8 @@ onMounted(() => {
 .modal {
   background: rgba(255, 255, 255, 0.96);
   border-radius: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(20, 23, 26, 0.08);
+  box-shadow: 0 24px 60px rgba(20, 23, 26, 0.28);
   display: flex;
   flex-direction: column;
   max-height: min(86vh, 900px);
@@ -934,7 +934,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
 }
 .modal-head h3 {
   margin: 0;
@@ -958,7 +958,7 @@ onMounted(() => {
   image-rendering: pixelated;
   cursor: crosshair;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(20, 23, 26, 0.08);
   background: #fff;
   align-self: center;
 }
