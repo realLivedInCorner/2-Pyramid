@@ -120,7 +120,7 @@
     "ready": "Ready",
     "resourcePackFilter": "Resource Pack",
     "allFilesFilter": "All Files",
-        "bedrockWarn": {
+    "bedrockWarn": {
       "title": "Bedrock Conversion (Experimental)",
       "body": "Bedrock conversion is still experimental and may have visual or compatibility issues. Prefer a test pack first. Continue?",
       "confirm": "Continue Testing"
@@ -946,5 +946,28 @@
       "confirmBtn": "Import and continue"
     }
   },
-  "openBtn": "Open Folder"
+  "openBtn": "Open Folder",
+  "fs": {
+    "subtitle": "Browsing in-app, no system dialog",
+    "home": "Home",
+    "desktop": "Desktop",
+    "documents": "Documents",
+    "downloads": "Downloads",
+    "up": "Up one level",
+    "name": "Name",
+    "size": "Size",
+    "modified": "Modified",
+    "filter": "Filter by name…",
+    "loading": "Reading…",
+    "empty": "This folder is empty",
+    "truncated": "Showing the first {max} items — this folder is very large",
+    "showHidden": "Show hidden",
+    "selected": "{n} selected",
+    "fileName": "File name",
+    "select": "Select",
+    "useNative": "Use the system dialog instead",
+    "titleFiles": "Select files",
+    "titleDir": "Select a folder",
+    "titleSave": "Save as"
+  }
 }

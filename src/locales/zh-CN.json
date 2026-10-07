@@ -120,7 +120,7 @@
     "ready": "准备就绪",
     "resourcePackFilter": "资源包",
     "allFilesFilter": "所有文件",
-        "bedrockWarn": {
+    "bedrockWarn": {
       "title": "基岩版转换（测试中）",
       "body": "基岩版转换尚未完善，可能存在显示或兼容问题，建议先用测试包验证。是否继续？",
       "confirm": "继续测试"
@@ -946,5 +946,28 @@
       "confirmBtn": "导入并继续"
     }
   },
-  "openBtn": "打开目录"
+  "openBtn": "打开目录",
+  "fs": {
+    "subtitle": "在应用内浏览，不用系统对话框",
+    "home": "主目录",
+    "desktop": "桌面",
+    "documents": "文档",
+    "downloads": "下载",
+    "up": "上一级",
+    "name": "名称",
+    "size": "大小",
+    "modified": "修改时间",
+    "filter": "筛选名称…",
+    "loading": "正在读取…",
+    "empty": "这个文件夹是空的",
+    "truncated": "只显示前 {max} 项 —— 这个文件夹太大了",
+    "showHidden": "显示隐藏项",
+    "selected": "已选 {n} 项",
+    "fileName": "文件名",
+    "select": "选择",
+    "useNative": "改用系统对话框",
+    "titleFiles": "选择文件",
+    "titleDir": "选择文件夹",
+    "titleSave": "另存为"
+  }
 }

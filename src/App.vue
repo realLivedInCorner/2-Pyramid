@@ -15,6 +15,9 @@ import { resolveImageUrl } from "./utils/assetUrl";
  import StartupPage from "./components/StartupPage.vue";
  import UpdateDialog from "./components/UpdateDialog.vue";
  import NotificationToast from "./components/NotificationToast.vue";
+ // 应用内文件浏览器：单例挂载在这里，十个调用点通过 useFilePicker() 触发，
+ // 各自不必再引一份组件。
+ import FileBrowser from "./components/fs/FileBrowser.vue";
  import { useUpdater, type UpdateCheckResult } from "./composables/useUpdater";
  import { useNotification } from "./composables/useNotification";
 
@@ -834,6 +837,9 @@ onMounted(async () => {
 
      <!-- Notification toast -->
      <NotificationToast />
+
+     <!-- 应用内文件浏览器。挂在页面容器之外：它是模态的，和当前在哪一页无关。 -->
+     <FileBrowser />
 
      <!-- Conversion-in-progress guard -->
      <Transition name="dialog-pop">
