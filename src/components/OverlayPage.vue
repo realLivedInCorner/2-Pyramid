@@ -1,7 +1,12 @@
+/* .dialog-overlay / .dialog-content 已统一到 shared.css —— 见那里的说明。
+   页面级的定义会因 scoped 的 data-v 属性获得更高特异度，留着会盖掉全局那份。 */
 <template>
   <!-- 不加 page-transition：与 Conversion 一致，入场交给 App 全局 stagger，
        避免 slide-up transform 和 fade-scale blur 叠在同一层导致卡死 -->
   <div class="overlay-container">
+    <!-- 全应用共用的舞台背景，见 shell/StageBackdrop.vue -->
+    <StageBackdrop />
+
     <!-- 头部区域 -->
     <div class="header">
       <div class="header-section">
@@ -26,119 +31,121 @@
       </transition>
     </div>
 
-    <!-- 列表 / 编辑：淡入淡出 + 轻微缩放 -->
+    <!-- 列表 / 编辑：视图切换 -->
     <div class="flip-viewport">
       <Transition name="view-fade" mode="out-in">
-        <div v-if="viewMode === 'list'" key="list" class="panel-grid list-grid">
-      <div class="card card-projects">
-        <div class="card-header-row">
-          <div class="card-title">{{ t('overlay.myProjects') }}</div>
-          <span class="project-count" v-if="overlayHistory.length">{{ overlayHistory.length }}</span>
-        </div>
-
-        <div v-if="overlayHistory.length === 0" class="empty-history">
-          <i class="ri-inbox-line"></i>
-          <p>{{ t('overlay.emptyHistory') }}</p>
-        </div>
-
-        <div v-else class="history-list">
-          <div
-            v-for="item in overlayHistory"
-            :key="item.id"
-            class="history-row"
-            @click="loadOverlay(item)"
-          >
-              <div class="row-icon" aria-hidden="true">
-                <i class="ri-file-copy-line"></i>
-              </div>
-              <div class="card-info">
-                <h3 class="card-name">{{ item.name }}</h3>
-                <p class="card-meta">
-                  <i class="ri-time-line"></i> {{ formatDate(item.updatedAt) }}
-                </p>
-              </div>
-              <div class="card-actions">
-                <button class="icon-btn share-btn" @click.stop="exportShareCode(item)" :title="t('overlay.exportCode')">
-                  <i class="ri-share-forward-line"></i>
-                </button>
-                <button class="icon-btn delete-btn" @click.stop="deleteOverlay(item)">
-                  <i class="ri-delete-bin-line"></i>
-                </button>
-              </div>
+        <div v-if="viewMode === 'list'" key="list" class="list-view">
+          <!--
+            工具栏：两个入口从原来占半屏的「快捷开始」面板搬到这里。
+            它们是一次性动作，不是常驻内容 —— 放在标题行的右侧，
+            视线扫过标题时顺手就能点到，不占用内容的宽度。
+          -->
+          <div class="list-toolbar">
+            <span class="meta-label">
+              {{ t('overlay.myProjects') }}
+              <b v-if="overlayHistory.length">{{ overlayHistory.length }}</b>
+            </span>
+            <div class="toolbar-actions">
+              <button class="ghost-btn" @click="showImportDialog = true">
+                <i class="ri-download-cloud-2-line" aria-hidden="true"></i>
+                <span>{{ t('overlay.importCode') }}</span>
+              </button>
+              <button class="primary-btn" @click="showCreateDialog = true">
+                <i class="ri-add-line" aria-hidden="true"></i>
+                <span>{{ t('overlay.newProject') }}</span>
+              </button>
             </div>
+          </div>
+
+          <!-- 空态：一句话 + 一个入口，不画框 -->
+          <div v-if="overlayHistory.length === 0" class="list-empty">
+            <p class="empty-title">{{ t('overlay.emptyHistory') }}</p>
+            <p class="empty-hint">{{ t('overlay.quickStartHint') }}</p>
+          </div>
+
+          <!--
+            项目列表：整宽、表格式。
+            原来是双栏网格里的一半宽度 —— 每行只有名字和日期两条信息，
+            横向却铺得很开，密度反而低。整宽之后行高收紧、信息靠左成列，
+            一屏能看到的项目数明显变多。
+          -->
+          <div v-else class="list-table">
+            <div class="list-head">
+              <span>{{ t('overlay.myProjects') }}</span>
+              <span>{{ t('overlay.updatedAt') }}</span>
+              <span></span>
+            </div>
+            <div
+              v-for="item in overlayHistory"
+              :key="item.id"
+              class="list-row"
+              @click="loadOverlay(item)"
+            >
+              <span class="col-name">
+                <i class="ri-file-copy-line" aria-hidden="true"></i>
+                {{ item.name }}
+              </span>
+              <span class="col-time">{{ formatDate(item.updatedAt) }}</span>
+              <span class="col-ops">
+                <button class="icon-btn share-btn" @click.stop="exportShareCode(item)" :title="t('overlay.exportCode')">
+                  <i class="ri-share-forward-line" aria-hidden="true"></i>
+                </button>
+                <button class="icon-btn delete-btn" @click.stop="deleteOverlay(item)" :title="t('common.delete')">
+                  <i class="ri-delete-bin-line" aria-hidden="true"></i>
+                </button>
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div class="card card-actions-panel">
-        <div class="card-title">{{ t('overlay.quickStart') }}</div>
-        <p class="card-hint">{{ t('overlay.quickStartHint') }}</p>
-
-        <button class="action-tile create-tile" @click="showCreateDialog = true">
-          <div class="tile-icon"><i class="ri-add-circle-line" aria-hidden="true"></i></div>
-          <div class="tile-text">
-            <h4>{{ t('overlay.newProject') }}</h4>
-            <p>{{ t('overlay.newProjectHint') }}</p>
-          </div>
-          <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
-        </button>
-
-        <button class="action-tile" @click="showImportDialog = true">
-          <div class="tile-icon"><i class="ri-download-cloud-2-line" aria-hidden="true"></i></div>
-          <div class="tile-text">
-            <h4>{{ t('overlay.importCode') }}</h4>
-            <p>{{ t('overlay.importDesc') }}</p>
-          </div>
-          <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
-        </button>
-      </div>
-    </div>
 
     <!-- 编辑模式: 左配置 / 右功能，主按钮落在右栏底部 -->
-    <div v-else key="editor" class="panel-grid editor-grid">
-      <div class="card card-config">
-        <div class="card-title">{{ t('overlay.projectConfig', { name: currentOverlay.name }) }}</div>
-        <div class="config-block">
-          <span class="meta-label">{{ t('overlay.parentPackPath') }}</span>
-          <div class="path-row">
-            <span class="path-value">{{ currentOverlay.parentPackPath || t('overlay.notSelected') }}</span>
-            <button class="select-pack-btn" @click="selectParentPack">
-              <i class="ri-folder-open-line" aria-hidden="true"></i>
-              <span>{{ t('overlay.selectParent') }}</span>
-            </button>
-          </div>
-        </div>
-        <p class="card-hint">{{ t('overlay.parentPackHint') }}</p>
+    <div v-else key="editor" class="editor">
+      <!--
+        母包是前提，不是「第一步」——它单独一行放在顶部，不进任何序列。
+      -->
+      <div class="editor-prereq">
+        <span class="meta-label">{{ t('overlay.parentPackPath') }}</span>
+        <span class="path-value">{{ currentOverlay.parentPackPath || t('overlay.notSelected') }}</span>
+        <button class="select-pack-btn" @click="selectParentPack">
+          <i class="ri-folder-open-line" aria-hidden="true"></i>
+          <span>{{ t('overlay.selectParent') }}</span>
+        </button>
       </div>
 
-      <div class="card card-options">
-        <div class="card-title">{{ t('overlay.optionsTitle') }}</div>
-        <div class="options-list">
+      <!--
+        三个修改项：并列、等权、无先后。
+        原来是一条带 → 的纵向列表 + 末尾挂打包按钮，读起来像「按顺序走三步」；
+        但它们其实互不依赖、随时可改，所以改成横向等分的独立块，
+        去掉箭头（箭头暗示「进入下一项」），也去掉序号。
+      -->
+      <div class="editor-mods">
+        <span class="meta-label">{{ t('overlay.optionsTitle') }}</span>
+        <div class="mod-row">
           <button
-            v-for="option in options"
+            v-for="(option, i) in options"
             :key="option.id"
-            class="option-row"
+            class="mod-tile"
+            :style="{ '--i': i }"
             @click="option.action"
           >
-            <div class="option-icon"><i :class="option.icon" aria-hidden="true"></i></div>
-            <div class="option-text">
-              <h4>{{ option.title }}</h4>
-              <p>{{ option.description }}</p>
-            </div>
-            <i class="ri-arrow-right-s-line option-arrow" aria-hidden="true"></i>
+            <span class="mod-icon"><i :class="option.icon" aria-hidden="true"></i></span>
+            <span class="mod-title">{{ option.title }}</span>
+            <span class="mod-desc">{{ option.description }}</span>
           </button>
         </div>
+      </div>
 
-        <div class="editor-actions">
-          <button class="ghost-btn" @click="viewMode = 'list'">
-            <i class="ri-arrow-go-back-line"></i>
-            <span>{{ t('overlay.exitEdit') }}</span>
-          </button>
-          <button class="primary-btn package-btn" :disabled="isPackaging" @click="handlePackage">
-            <i class="ri-archive-line" v-if="!isPackaging"></i>
-            <i class="ri-loader-4-line spin" v-else></i>
-            <span>{{ isPackaging ? t('overlay.packaging') : t('overlay.startPackaging') }}</span>
-          </button>
-        </div>
+      <!-- 全局动作单独一行，不属于任何修改项 -->
+      <div class="editor-actions">
+        <button class="ghost-btn" @click="viewMode = 'list'">
+          <i class="ri-arrow-go-back-line"></i>
+          <span>{{ t('overlay.exitEdit') }}</span>
+        </button>
+        <button class="primary-btn package-btn" :disabled="isPackaging" @click="handlePackage">
+          <i class="ri-archive-line" v-if="!isPackaging"></i>
+          <i class="ri-loader-4-line spin" v-else></i>
+          <span>{{ isPackaging ? t('overlay.packaging') : t('overlay.startPackaging') }}</span>
+        </button>
       </div>
       </div>
       </Transition>
@@ -162,6 +169,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue';
+import StageBackdrop from './shell/StageBackdrop.vue';
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -448,34 +456,9 @@ onMounted(() => {
   flex: none;
 }
 
-/* 与 ConversionPage .panel-grid 同构：双栏卡片网格铺满视口 */
-.panel-grid {
-  min-height: 0;
-  z-index: 2;
-  padding: 12px 40px 28px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 14px;
-  overflow: hidden;
-  background: transparent;
-}
 
-.list-grid {
-  grid-template-rows: minmax(0, 1fr);
-}
 
-.editor-grid {
-  grid-template-rows: minmax(0, 1fr);
-}
 
-.panel-grid .card {
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .header {
   display: flex;
@@ -545,124 +528,19 @@ onMounted(() => {
 /* status enter/leave 走全局 CSS class 模式(`<transition name="header-status-toast">`,
    见 App.vue 全局 .header-status-toast-* 规则)。 */
 
-.card-header-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
 
-.project-count {
-  font-size: 11px;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--theme-color) 80%, #000);
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  padding: 2px 8px;
-  border-radius: 999px;
-}
 
-.card-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-  margin: 0;
-}
 
-.card-hint {
-  font-size: 12px;
-  color: #94a3b8;
-  margin: 0;
-  flex-shrink: 0;
-}
 
-.empty-history {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 160px;
-  color: #94a3b8;
-  gap: 10px;
-  border: 1px dashed rgba(0, 0, 0, 0.1);
-  border-radius: var(--ui-radius-btn);
-  background: rgba(255, 255, 255, 0.35);
-}
 
-.empty-history i { font-size: 36px; }
-.empty-history p { margin: 0; font-size: 13px; }
 
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  min-height: 0;
-  flex: 1;
-  padding-right: 2px;
-}
 
-.history-list::-webkit-scrollbar { width: 6px; }
-.history-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 3px;
-}
 
-.history-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--ui-radius-btn);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  background: rgba(255, 255, 255, 0.55);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  flex-shrink: 0;
-}
 
-.history-row:hover {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: color-mix(in srgb, var(--theme-color) 32%, transparent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 10%, transparent);
-}
 
-.row-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  color: var(--theme-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
 
-.card-info { min-width: 0; flex: 1; }
 
-.card-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1d1d1f;
-  margin: 0 0 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-.card-meta {
-  font-size: 12px;
-  color: #86868b;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-}
 
 .card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 
@@ -684,80 +562,15 @@ onMounted(() => {
 .delete-btn:hover { color: #ef4444; background: #fee2e2; }
 
 /* 右栏：快速开始 */
-.action-tile {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  padding: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: var(--ui-radius-btn);
-  background: rgba(255, 255, 255, 0.55);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.action-tile:hover {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: color-mix(in srgb, var(--theme-color) 32%, transparent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 10%, transparent);
-}
 
-.tile-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  color: var(--theme-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
 
-.create-tile {
-  border-color: color-mix(in srgb, var(--theme-color) 22%, transparent);
-  background: color-mix(in srgb, var(--theme-color) 6%, #ffffff);
-}
 
-.tile-text { flex: 1; min-width: 0; }
-.tile-text h4 {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #1d1d1f;
-}
-.tile-text p {
-  margin: 0;
-  font-size: 12px;
-  color: #86868b;
-  line-height: 1.45;
-  white-space: normal;
-  word-break: break-word;
-}
 
 /* 编辑：母包配置 */
-.config-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: var(--ui-radius-btn);
-}
 
 .meta-label { font-size: 13px; font-weight: 600; color: #64748b; }
 
-.path-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
 
 .path-value {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -777,9 +590,9 @@ onMounted(() => {
   height: 32px;
   padding: 0 12px;
   flex-shrink: 0;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(120, 110, 95, 0.2);
+  border-radius: 8px;
+  background: transparent;
   color: #1d1d1f;
   font-family: inherit;
   font-size: 12px;
@@ -789,75 +602,8 @@ onMounted(() => {
 }
 
 .select-pack-btn:hover {
-  border-color: color-mix(in srgb, var(--theme-color) 35%, transparent);
-  background: #fff;
-}
-
-/* 编辑：功能入口竖排 */
-.options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.option-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: var(--ui-radius-btn);
-  background: rgba(255, 255, 255, 0.55);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.option-row:hover {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: color-mix(in srgb, var(--theme-color) 32%, transparent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 10%, transparent);
-}
-
-.option-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  color: var(--theme-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
-.option-text { flex: 1; min-width: 0; }
-.option-row h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #1d1d1f; }
-.option-row p {
-  margin: 0;
-  font-size: 12px;
-  color: #86868b;
-  line-height: 1.45;
-  white-space: normal;
-  word-break: break-word;
-}
-
-.option-arrow {
-  font-size: 16px;
-  color: #c6c6c8;
-  flex-shrink: 0;
-  transition: color 0.15s ease, transform 0.15s ease;
-}
-.option-row:hover .option-arrow,
-.action-tile:hover .option-arrow {
-  color: var(--theme-color);
-  transform: translateX(2px);
+  border-color: color-mix(in srgb, #14171a 35%, transparent);
+  background: rgba(120, 110, 95, 0.055);
 }
 
 @media (max-width: 900px) {
@@ -893,26 +639,22 @@ onMounted(() => {
 }
 
 .package-btn {
-  background: var(--theme-color);
+  background: #14171a;
   color: #fff;
   border: none;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-color) 28%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, #14171a 28%, transparent);
   transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 .package-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--theme-color) 88%, #000);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-color) 32%, transparent);
+  background: color-mix(in srgb, #14171a 88%, #000);
+  box-shadow: 0 8px 18px color-mix(in srgb, #14171a 32%, transparent);
 }
 .package-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
 /* 弹窗样式 */
-.dialog-overlay {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(8px);
-}
 
 .simple-dialog {
-  background: #fff; padding: 32px; border-radius: 24px; width: 400px;
+  background: rgba(120, 110, 95, 0.055); padding: 32px; border-radius: 24px; width: 400px;
   /* 原来 0 25px 50px -12px rgba(0,0,0,0.25) — blur 50px 太大,leave 期间
      opacity 渐变时 shadow 跟着渐变,大 blur 让 shadow "淡出拖尾" 看起来
      持续时间比 dialog 本身还长。改紧凑点(blur 32, opacity 0.18),跟
@@ -973,7 +715,7 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.project-input:focus { border-color: var(--theme-color); background: #fff; }
+.project-input:focus { border-color: #14171a; background: #fff; }
 
 .dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
 
@@ -982,7 +724,7 @@ onMounted(() => {
 
 .primary-btn {
   padding: 10px 20px; border-radius: 12px; border: none;
-  background: var(--theme-color); color: #fff; font-weight: 700; cursor: pointer;
+  background: #14171a; color: #fff; font-weight: 700; cursor: pointer;
   transition: all 0.2s;
 }
 .primary-btn:hover:not(:disabled) { opacity: 0.92; }
@@ -996,20 +738,8 @@ onMounted(() => {
 .danger-btn:hover { background: #dc2626; }
 
 /* 列表 ↔ 编辑：淡入淡出 + 轻微缩放（out-in，干净不叠影） */
-.view-fade-enter-active {
-  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.view-fade-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
-}
-.view-fade-enter-from {
-  opacity: 0;
-  transform: scale(0.985);
-}
-.view-fade-leave-to {
-  opacity: 0;
-  transform: scale(1.01);
-}
+/* 旧的 view-fade（用 scale 的那份）已删除 —— 见文件末尾的新定义。
+   scale 会让容器成为包含块，过渡期间里面的 fixed 浮层会错位。 */
 
 /* dialog enter/leave 走全局 CSS class 模式(`<transition name="dialog-pop">`,
    见 App.vue 全局 .dialog-pop-* 规则)。Vue 3 在 element insert 时直接加
@@ -1018,4 +748,279 @@ onMounted(() => {
 
 .spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* ══════════ 覆盖页的面 ══════════
+ *
+ * 这些规则以前由 App.vue 的全局卡片系统提供（玻璃面 + blur + 投影 + 大圆角）。
+ * 那份名单已把 .card 摘掉，所以这里补上页面自己的定义 —— 与设置页、转换页同一套：
+ * 发丝线分层、8px 圆角、不用投影、靠边线与留白而不是靠明暗块。
+ */
+.card {
+  /* 不再是卡片，只是网格里的一个分区。面交给背景，分区之间靠留白与发丝线。 */
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 卡片标题：跟随首页的小字规范 —— 靠字号与字距，不靠加粗 */
+
+/* 列表行：发丝线分隔，最后一行不画线 */
+
+
+
+/* ══════════ 编辑视图：无先后的并列布局 ══════════
+ *
+ * 三者互不依赖、随时可改，所以：
+ *   · 母包 = 前提，单独一行置顶
+ *   · 三个修改项 = 横向等分的独立块，等权、无箭头、无序号
+ *   · 打包 = 全局动作，单独一行靠右
+ * 箭头（→）暗示「进入下一项」，序号暗示「第几步」，两者都拿掉了。
+ */
+.editor {
+  flex: 1;
+  min-height: 0;
+  z-index: 2;
+  padding: 12px 40px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  overflow-y: auto;
+}
+
+.editor-prereq {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+}
+.editor-prereq .path-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  color: #14171a;
+}
+
+.editor-mods { display: flex; flex-direction: column; gap: 12px; }
+
+.editor-mods .meta-label,
+.editor-prereq .meta-label {
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7d776d;
+}
+
+/* 三项等分。用 auto-fit 而不是固定三列 —— 窗口窄了会自动折行，不挤压 */
+.mod-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.mod-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 16px 18px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  /* 与设置页、转换页同一套：发丝线 + 8px + 无投影 */
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(120, 110, 95, 0.16);
+  border-radius: 8px;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /*
+   * 入场：错开一点点即可，不要做成「依次点亮」——
+   * 它们没有先后，动画也不该暗示有。延迟差 55ms，读起来是一起出现。
+   * fill-mode 用 backwards：both / forwards 会永久保留 translate: 0 0，
+   * 元素成为包含块，里面的 fixed 浮层会错位。
+   */
+  animation: mod-in 420ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.mod-tile:hover {
+  background: rgba(120, 110, 95, 0.055);
+  border-color: rgba(120, 110, 95, 0.3);
+  transform: translateY(-2px);
+}
+.mod-tile:active { transform: translateY(0); }
+
+.mod-icon { color: #14171a; font-size: 19px; line-height: 1; }
+.mod-title { font-size: 14px; font-weight: 600; color: #14171a; }
+.mod-desc { font-size: 12px; font-weight: 400; line-height: 1.5; color: #7d776d; }
+
+/* 全局动作：靠右，与其它页面的 stage-actions 一致 */
+.editor-actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
+}
+
+@keyframes mod-in {
+  from { opacity: 0; translate: 0 10px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mod-tile { animation-duration: 1ms; animation-delay: 0ms; transition: none; }
+}
+
+/* ══════════ 列表视图：单栏表格式 ══════════
+ *
+ * 排版上的三个决定：
+ *   ① 整宽单栏。原来双栏网格里列表只占一半宽度，每行却只有名字+日期两条信息，
+ *      横向铺得很开、密度反而低。整宽后名字有时间同列对齐，一屏能看到更多项目。
+ *   ② 入口搬到工具栏。新建/导入是一次性动作，不该常驻半个屏幕。
+ *   ③ 行高收紧到 44px，靠发丝线分隔，不靠间距拉开。
+ */
+.list-view {
+  flex: 1;
+  min-height: 0;
+  z-index: 2;
+  padding: 12px 40px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.list-toolbar .meta-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7d776d;
+}
+.list-toolbar .meta-label b {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #14171a;
+  font-variant-numeric: tabular-nums;
+}
+.toolbar-actions { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ── 表格 ── */
+.list-table { display: flex; flex-direction: column; }
+
+/* 列宽共用同一组定义，表头与行不会错位 */
+.list-head,
+.list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px 76px;
+  align-items: center;
+  gap: 16px;
+}
+
+.list-head {
+  padding: 0 4px 8px;
+  border-bottom: 1px solid rgba(120, 110, 95, 0.2);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9c968c;
+}
+
+.list-row {
+  min-height: 44px;
+  padding: 0 4px;
+  border-bottom: 1px solid rgba(120, 110, 95, 0.11);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: rgba(120, 110, 95, 0.05); }
+
+.col-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 13.5px;
+  color: #14171a;
+  /* 名字过长时省略，不换行 —— 换行会破坏表格式的行高一致性 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.col-name i { font-size: 15px; color: #9c968c; flex-shrink: 0; }
+
+.col-time {
+  font-size: 12px;
+  color: #7d776d;
+  font-variant-numeric: tabular-nums;
+}
+
+.col-ops {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  /* 平时不显形，悬停才出现 —— 行是主体，操作是附加的 */
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.list-row:hover .col-ops,
+.list-row:focus-within .col-ops { opacity: 1; }
+
+/* 触屏/无悬停设备上没有 hover，操作必须常驻，否则点不到 */
+@media (hover: none) {
+  .col-ops { opacity: 1; }
+}
+
+/* ── 空态 ── */
+.list-empty {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.list-empty .empty-title { margin: 0; font-size: 14px; color: #5f5a51; }
+.list-empty .empty-hint { margin: 0; font-size: 12px; color: #9c968c; }
+
+@media (max-width: 720px) {
+  .list-head { display: none; }
+  .list-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .col-time { display: none; }
+}
+
+/*
+ * 视图切换（列表 ↔ 编辑）。
+ * 原来用 scale(0.985) —— transform 会让容器成为包含块，
+ * 过渡期间里面的 position: fixed 浮层会相对它定位。
+ * 改成透明度 + 位移，且不给 fill-mode，过渡结束即回到自然样式。
+ */
+.view-fade-enter-active { transition: opacity 0.24s ease, translate 0.24s cubic-bezier(0.22, 1, 0.36, 1); }
+.view-fade-leave-active { transition: opacity 0.16s ease, translate 0.16s ease; }
+.view-fade-enter-from { opacity: 0; translate: 0 10px; }
+.view-fade-leave-to { opacity: 0; translate: 0 -6px; }
+
 </style>

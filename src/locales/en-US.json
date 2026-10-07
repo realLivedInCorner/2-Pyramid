@@ -32,13 +32,35 @@
     "off": "Off"
   },
   "home": {
-    "subtitle": "Modern Universal Multi-Version Resource Pack Converter",
+    "enter": "ENTER",
+    "prevModule": "Previous module",
+    "nextModule": "Next module",
+    "engineReady": "Engine ready",
     "navConvert": "Convert",
     "navOverlay": "Overlay",
-    "navSettings": "Settings",
-    "greeting": "Hello, {name}"
+    "navSettings": "Settings"
   },
   "conversion": {
+    "stepRunDone": "Conversion complete",
+    "stepRunFailed": "Conversion failed",
+    "flowLabel": "Conversion flow",
+    "stepSource": "Choose resource packs",
+    "stepSourceShort": "Source",
+    "stepSourceDesc": "Drop in or pick the packs to convert. Multiple packs are allowed.",
+    "stepTarget": "Target version and options",
+    "stepTargetShort": "Target",
+    "stepTargetDesc": "Pick the Minecraft version to convert to, and enable repairs as needed",
+    "stepRun": "Converting",
+    "stepRunShort": "Convert",
+    "stepResult": "Conversion result",
+    "stepResultShort": "Result",
+    "nextTarget": "Next: target version",
+    "prev": "Back",
+    "runAgain": "Convert again",
+    "viewDetails": "View details",
+    "viewResult": "View result",
+    "summaryItems": "{count} item(s)",
+    "resultPartial": "{success} of {total} succeeded",
     "title": "Resource Pack Conversion",
     "subtitle": "Drag or select a resource pack to begin conversion",
     "importMode": "Import Mode",
@@ -224,6 +246,16 @@
     }
   },
   "settings": {
+    "categories": {
+      "general": "General",
+      "appearance": "Appearance",
+      "convert": "Conversion",
+      "notify": "Notifications",
+      "motion": "Motion",
+      "update": "Updates",
+      "records": "Records & reset",
+      "dev": "Developer"
+    },
     "title": "Settings",
     "subtitle": "Preferences & Configuration",
     "searchPlaceholder": "Search settings...",
@@ -563,6 +595,7 @@
     }
   },
   "overlay": {
+    "updatedAt": "Last modified",
     "title": "Overlay Pack Creator",
     "subtitle": "Build custom overlay packs and layer them onto any parent pack",
     "backAria": "Back to Home",

@@ -32,13 +32,35 @@
     "off": "关"
   },
   "home": {
-    "subtitle": "现代化通用多版本资源包转换器",
+    "enter": "进入",
+    "prevModule": "上一个功能",
+    "nextModule": "下一个功能",
+    "engineReady": "引擎就绪",
     "navConvert": "材质转换",
     "navOverlay": "覆盖制作",
-    "navSettings": "偏好设置",
-    "greeting": "你好，{name}"
+    "navSettings": "偏好设置"
   },
   "conversion": {
+    "stepRunDone": "转换完成",
+    "stepRunFailed": "转换失败",
+    "flowLabel": "转换流程",
+    "stepSource": "选择资源包",
+    "stepSourceShort": "源",
+    "stepSourceDesc": "拖入或选择要转换的资源包，可以一次选多个",
+    "stepTarget": "目标版本与选项",
+    "stepTargetShort": "目标",
+    "stepTargetDesc": "选择要转到的 Minecraft 版本，并按需开启修复项",
+    "stepRun": "正在转换",
+    "stepRunShort": "转换",
+    "stepResult": "转换结果",
+    "stepResultShort": "结果",
+    "nextTarget": "下一步：目标版本",
+    "prev": "上一步",
+    "runAgain": "再转一次",
+    "viewDetails": "查看详情",
+    "viewResult": "查看结果",
+    "summaryItems": "{count} 项",
+    "resultPartial": "{success}/{total} 成功",
     "title": "资源包转换",
     "subtitle": "拖入或选择资源包，按步骤完成转换",
     "importMode": "导入模式",
@@ -224,6 +246,16 @@
     }
   },
   "settings": {
+    "categories": {
+      "general": "常规",
+      "appearance": "外观",
+      "convert": "转换",
+      "notify": "通知",
+      "motion": "动画",
+      "update": "版本与更新",
+      "records": "记录与重置",
+      "dev": "开发者"
+    },
     "title": "偏好设置",
     "subtitle": "偏好与配置",
     "searchPlaceholder": "搜索设置项...",
@@ -563,6 +595,7 @@
     }
   },
   "overlay": {
+    "updatedAt": "最近修改",
     "title": "覆盖包制作",
     "subtitle": "创建自定义覆盖包,叠加到任意母包之上",
     "backAria": "返回首页",

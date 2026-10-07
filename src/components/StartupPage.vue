@@ -1220,8 +1220,8 @@ async function finish() {
 .startup-restore-btn i { font-size: 14px; }
 .startup-restore-btn:hover {
   background: rgba(0, 0, 0, 0.04);
-  border-color: var(--theme-color, #007bff);
-  color: var(--theme-color, #007bff);
+  border-color: var(--theme-color, #14171a);
+  color: var(--theme-color, #14171a);
 }
 
 /* ═══ 备份导入对话框 ═══ */
@@ -1250,7 +1250,7 @@ async function finish() {
 .startup-backup-head {
   display: flex; align-items: center; gap: 10px;
 }
-.startup-backup-head i { font-size: 22px; color: var(--theme-color, #007bff); }
+.startup-backup-head i { font-size: 22px; color: var(--theme-color, #14171a); }
 .startup-backup-head h3 {
   margin: 0; flex: 1 1 auto;
   font-size: 16px; font-weight: 800; color: #0f172a;

@@ -7,7 +7,7 @@
  * 且 `opacity: 1 !important`。
  */
 export function useSidebarSlide(options?: { shadow?: string }) {
-  const shadow = options?.shadow ?? "-12px 0 36px rgba(0, 0, 0, 0.08)";
+  const shadow = options?.shadow ?? "-12px 0 36px rgba(28, 24, 18, 0.12)";
 
   function prefersReducedMotion() {
     return document.body.classList.contains("motion-reduced");

@@ -1,5 +1,8 @@
 <template>
   <div class="fanhua-settings">
+    <!-- 全应用共用的舞台背景，见 shell/StageBackdrop.vue -->
+    <StageBackdrop />
+
     <header class="settings-header">
       <div class="header-left">
         <button class="back-btn" @click="goBack" :aria-label="t('common.backToHome')">
@@ -22,11 +25,11 @@
       <div class="header-right"></div>
     </header>
 
-    <main class="settings-scroll-area">
+    <Workbench :steps="categories" :label="t('settings.title')" @go="selectCategory">
+      <div class="stage-panel stage-narrow">
       <!-- 新增语言切换 (置于全局设置最前) -->
-      <section class="settings-group" v-if="shouldShowGroup('language')">
+      <section class="settings-group" v-if="shouldShowGroup('language') && inCategory('language')">
         <h3 class="group-title">{{ t('settings.groups.language') }}</h3>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('language')">
             <div class="item-icon">
               <i class="ri-global-line" aria-hidden="true"></i>
@@ -42,13 +45,11 @@
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- 个人信息 -->
-      <section class="settings-group" v-if="shouldShowGroup('personal')">
+      <section class="settings-group" v-if="shouldShowGroup('personal') && inCategory('personal')">
         <h3 class="group-title">{{ t('settings.groups.personal') }}</h3>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('userName')">
             <div class="item-icon">
               <i class="ri-user-3-line" aria-hidden="true"></i>
@@ -65,13 +66,11 @@
               />
             </div>
           </div>
-        </div>
       </section>
 
       <!-- 全局设置优先 -->
-      <section class="settings-group" v-if="shouldShowGroup('global')">
+      <section class="settings-group" v-if="shouldShowGroup('global') && inCategory('global')">
         <h3 class="group-title">{{ t('settings.groups.global') }}</h3>
-        <div class="group-card">
           <div class="setting-item clickable" @click="openThemeDialog" v-if="shouldShowItem('theme')">
             <div class="item-icon">
               <i class="ri-palette-line" aria-hidden="true"></i>
@@ -116,12 +115,10 @@
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- 转换设置 -->
-      <section class="settings-group" v-if="shouldShowGroup('convert')">
-        <div class="group-card">
+      <section class="settings-group" v-if="shouldShowGroup('convert') && inCategory('convert')">
         <h3 class="group-title">{{ t('settings.groups.convert') }}</h3>
           <div class="setting-item">
             <div class="item-icon">
@@ -181,7 +178,6 @@
             </div>
             <p v-if="aiMsg" class="foray-ai-msg">{{ aiMsg }}</p>
           </div>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('outputMode')">
             <div class="item-icon">
               <i class="ri-route-line" aria-hidden="true"></i>
@@ -290,14 +286,11 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
-        </div>
-      </div>
       </section>
 
       <!-- 转换历史 -->
-      <section class="settings-group" v-if="shouldShowGroup('conversionHistory')">
+      <section class="settings-group" v-if="shouldShowGroup('conversionHistory') && inCategory('conversionHistory')">
         <h3 class="group-title">{{ t('settings.conversionHistory.groupTitle') }}</h3>
-        <div class="group-card">
           <div class="setting-item clickable" @click="showHistoryDialog = true" v-if="shouldShowItem('conversionHistory')">
             <div class="item-icon">
               <i class="ri-history-line" aria-hidden="true"></i>
@@ -308,13 +301,11 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
-        </div>
       </section>
 
       <!-- 通知设置 -->
-      <section class="settings-group" v-if="shouldShowGroup('notification')">
+      <section class="settings-group" v-if="shouldShowGroup('notification') && inCategory('notification')">
         <h3 class="group-title">{{ t('settings.groups.notification') }}</h3>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('notification')">
             <div class="item-icon">
               <i class="ri-notification-3-line" aria-hidden="true"></i>
@@ -397,13 +388,11 @@
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- 动画设置：总开关 + 速率 -->
-      <section class="settings-group" v-if="shouldShowGroup('animationSpeed')">
+      <section class="settings-group" v-if="shouldShowGroup('animationSpeed') && inCategory('animationSpeed')">
         <h3 class="group-title">{{ t('settings.groups.animation') }}</h3>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('animationEnabled')">
             <div class="item-icon">
               <i class="ri-magic-line" aria-hidden="true"></i>
@@ -449,15 +438,13 @@
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- 关闭行为设置已移除：关闭窗口现在始终直接退出应用 -->
 
       <!-- 高级设置 (工厂重置) -->
-      <section class="settings-group" v-if="shouldShowGroup('factoryReset')">
+      <section class="settings-group" v-if="shouldShowGroup('factoryReset') && inCategory('factoryReset')">
         <h3 class="group-title">{{ t('settings.factoryReset.groupTitle') }}</h3>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('factoryReset')">
             <div class="item-icon">
               <i class="ri-restart-line" aria-hidden="true"></i>
@@ -470,13 +457,11 @@
               <button class="btn-text danger" @click="showFactoryResetDialog = true">{{ t('settings.factoryReset.btn') }}</button>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- 版本设置 (新增) -->
-      <section class="settings-group" v-if="shouldShowGroup('version')">
+      <section class="settings-group" v-if="shouldShowGroup('version') && inCategory('version')">
         <h3 class="group-title">{{ t('settings.groups.version') }}</h3>
-        <div class="group-card">
           <div class="setting-item" v-if="shouldShowItem('channel')">
             <div class="item-icon">
               <i class="ri-git-branch-line" aria-hidden="true"></i>
@@ -561,9 +546,8 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
-        </div>
       </section>
-    </main>
+
 
     <!-- 版本信息 / 作者 / 法律 / 设置弹窗：独立组件 -->
     <VersionInfoDialog
@@ -603,7 +587,7 @@
       @reset="onThemeReset"
     />
     <transition name="dev-group">
-      <section class="settings-group dev-group" v-if="devModeEnabled && shouldShowGroup('dev')">
+      <section class="settings-group dev-group" v-if="devModeEnabled && shouldShowGroup('dev') && inCategory('dev')">
         <div class="dev-group-head">
           <h3 class="group-title dev-title">
             <i class="ri-code-box-line" aria-hidden="true"></i>
@@ -637,7 +621,6 @@
           </div>
         </div>
 
-        <div class="group-card">
           <div class="setting-item clickable" v-if="shouldShowItem('devAnalyzePack')" @click="analyzePack">
             <div class="item-icon">
               <i class="ri-survey-line" aria-hidden="true"></i>
@@ -708,9 +691,11 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
-        </div>
       </section>
     </transition>
+
+      </div>
+    </Workbench>
 
     <ClearConfigDialog v-model="showClearConfigDialog" />
     <FactoryResetDialog v-model="showFactoryResetDialog" @reset="emit('reset-to-oobe')" />
@@ -742,6 +727,8 @@ import FactoryResetDialog from './settings/FactoryResetDialog.vue';
 import ClearConfigDialog from './settings/ClearConfigDialog.vue';
 import OutputPathDialog from './settings/OutputPathDialog.vue';
 import DevUnlockDialog from './settings/DevUnlockDialog.vue';
+import Workbench, { type WorkbenchStep } from './shell/Workbench.vue';
+import StageBackdrop from './shell/StageBackdrop.vue';
 const { t } = useI18n()
 const { locale, setLanguage } = useLanguage()
 
@@ -902,8 +889,8 @@ const onBackgroundRemoved = () => {
   emit('update:background', { path: null, fit: 'cover', opacity: 1, themeColor: null });
 };
 
-const defaultThemeColor = '#007bff';
-const themeColor = ref('#007bff');
+const defaultThemeColor = '#14171a';
+const themeColor = ref('#14171a');
 
 const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
@@ -1110,6 +1097,56 @@ const shouldShowItem = (itemId: string) => {
   return item.label.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
          item.desc.toLowerCase().includes(searchQuery.value.toLowerCase());
 };
+
+/**
+ * ── 设置分类（常驻导航 + 内容井）────────────────────────────────────────
+ *
+ * 原来是 27 行平铺在一个长滚动里，只能靠小标题分段、靠滚动找。
+ * 现在左侧常驻分类轨、右侧只呈现当前分类 —— 与转换页共用同一套外壳
+ * （<Workbench> 的 rail 支持 icon，所以分类不会显示成「第 1 步 / 第 2 步」）。
+ *
+ * ⚠️ 分类只是**浏览**维度，不参与搜索：
+ * 一旦搜索框有内容，inCategory 放行全部分组 —— 否则跨分类的命中会被
+ * 当前分类过滤掉，用户搜到了东西却看不见。
+ */
+const CATEGORIES = [
+  { id: 'general',    icon: 'ri-user-settings-line',  groups: ['language', 'personal'] },
+  { id: 'appearance', icon: 'ri-palette-line',        groups: ['global'] },
+  { id: 'convert',    icon: 'ri-swap-box-line',       groups: ['convert'] },
+  { id: 'notify',     icon: 'ri-notification-3-line', groups: ['notification'] },
+  // remixicon 里既没有 ri-animation-line 也没有 ri-motion-line —— 写错不会报错，
+  // 只会渲染出 0×0、content:none 的空 <i>，不实测量就永远发现不了。
+  // 这个类名是对着 remixicon.css 里的 ::before 定义逐个核过的。
+  { id: 'motion',     icon: 'ri-shining-line',        groups: ['animationSpeed'] },
+  { id: 'update',     icon: 'ri-information-line',    groups: ['version'] },
+  { id: 'records',    icon: 'ri-history-line',        groups: ['conversionHistory', 'factoryReset'] },
+  { id: 'dev',        icon: 'ri-terminal-box-line',   groups: ['dev'] },
+] as const;
+
+const activeCategory = ref<string>('general');
+const selectCategory = (id: string) => { activeCategory.value = id; };
+
+/** 该分组是否属于当前分类。搜索中一律放行。 */
+const inCategory = (groupId: string) => {
+  if (searchQuery.value) return true;
+  const cat = CATEGORIES.find((c) => c.id === activeCategory.value);
+  return !!cat && (cat.groups as readonly string[]).includes(groupId);
+};
+
+const isSearching = computed(() => searchQuery.value.trim().length > 0);
+
+const categories = computed<WorkbenchStep[]>(() =>
+  CATEGORIES
+    // 开发者分类只在开发者模式下出现，避免普通用户看到一个空分类
+    .filter((c) => c.id !== 'dev' || devModeEnabled.value)
+    .map((c) => ({
+      id: c.id,
+      label: t(`settings.categories.${c.id}`),
+      icon: c.icon,
+      // 搜索中不标任何分类为当前 —— 此时右侧显示的是跨分类的搜索结果
+      state: c.id === activeCategory.value && !isSearching.value ? 'current' : 'todo',
+    }))
+);
 
 const backToHome = () => emit('switch-page', 'home');
 const goBack = backToHome;
@@ -1494,10 +1531,9 @@ const onThemeReset = async () => {
 .search-input {
   width: 100%;
   padding: 10px 16px 10px 44px;
-  border-radius: 12px;
-  border: 2px solid rgba(0, 0, 0, 0.05);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  border: 1px solid rgba(120, 110, 95, 0.2);
+  background: rgba(255, 255, 255, 0.72);
   font-size: 14px;
   transition: all 0.3s;
   outline: none;
@@ -1510,9 +1546,9 @@ const onThemeReset = async () => {
 }
 
 .page-title {
-  font-size: clamp(22px, 3.2vw, 32px);
-  font-weight: 800;
-  color: #0f172a;
+  font-size: clamp(22px, 3.2vw, 30px);
+  font-weight: 700;
+  color: #14171a;
   margin: 0;
   min-width: 0;
   max-width: 16ch;
@@ -1522,22 +1558,6 @@ const onThemeReset = async () => {
 }
 
 .page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
-
-.settings-scroll-area {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 10px;
-  padding-bottom: 28px;
-}
-.settings-scroll-area::-webkit-scrollbar { width: 6px; }
-.settings-scroll-area::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.12); border-radius: 3px;
-}
-.settings-scroll-area::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.22);
-}
-
 .dev-hint {
   font-size: 12px;
   font-weight: 700;
@@ -1566,9 +1586,6 @@ const onThemeReset = async () => {
   font-weight: 700;
   color: #ef4444;
 }
-
-.settings-scroll-area::-webkit-scrollbar-track { background: transparent; }
-
 @media (max-width: 720px) {
   .settings-header {
     grid-template-columns: 1fr;
@@ -1586,7 +1603,7 @@ const onThemeReset = async () => {
     max-width: 22ch;
   }
   .settings-group { padding: 0 16px; }
-  .settings-scroll-area { padding-right: 4px; }
+  
 }
 
 @media (max-width: 520px) {
@@ -1595,10 +1612,11 @@ const onThemeReset = async () => {
   }
 }
 
-.settings-group { margin-top: 30px; width: 100%; padding: 0 48px; }
+/* 原来这里是 padding: 0 48px —— 那是「整宽滚动区」时代给内容留的呼吸边距。\n   现在左侧已有轨道 + 20px 间距，再内缩 48px 会让卡片右缘离窗口 92px、\n   而轨道左缘只有 40px，左右明显不对称。改为贴齐舞台边缘。 */\n.settings-group { margin-top: 30px; width: 100%; }
 .group-title {
-  font-size: 13px; font-weight: 700; color: #86868b;
-  margin-left: 15px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;
+  /* 首页的层级靠字号与字距，不靠字重 —— 这里也照做 */
+  font-size: 10.5px; font-weight: 400; color: #7d776d;
+  margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.18em;
 }
 
 /* 开发者选项分组：启用时与其他分组一样平滑淡入（不突兀出现） */
@@ -1764,18 +1782,15 @@ const onThemeReset = async () => {
 }
 
 .group-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+    /* 这个类已经在模板里去掉了 —— 内容层不再用卡片包裹。
+     保留一个空规则会让后来人以为卡片还存在，所以整条删除。 */
 }
 
 .setting-item {
-  display: flex; align-items: center; padding: 18px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
-  transition: 0.2s;
+  display: flex; align-items: center; padding: 14px 4px;
+  /* 只在下方画线：相邻两行共用一条线，不会出现双线 */
+  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+  transition: background-color 0.2s ease;
 }
 .setting-item:last-child { border-bottom: none; }
 .setting-item.clickable { cursor: pointer; }
@@ -1817,7 +1832,7 @@ const onThemeReset = async () => {
   margin-top: 3px;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11.5px;
-  color: #007bff;
+  color: #14171a;
 }
 .perf-note { color: #d97706; }
 
@@ -2068,7 +2083,7 @@ const onThemeReset = async () => {
 .foray-ai-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; width: 100%; }
 .foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #6b7280; font-weight: 600; }
 .foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.8); color: #1d1d1f; font: inherit; font-weight: 500; }
-.foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--theme-color, #007bff); font-weight: 600; }
+.foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--theme-color, #14171a); font-weight: 600; }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
@@ -2078,7 +2093,7 @@ const onThemeReset = async () => {
   position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.switch input:checked + .slider { background-color: var(--theme-color); }
+.switch input:checked + .slider { background-color: #14171a; }
 .switch input:checked + .slider:before { transform: translateX(18px); }
 .switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
 .switch.disabled { cursor: not-allowed; }
@@ -2141,7 +2156,7 @@ const onThemeReset = async () => {
   margin-top: 2px;
   width: 16px; height: 16px;
   cursor: pointer;
-  accent-color: var(--theme-color, #007bff);
+  accent-color: var(--theme-color, #14171a);
 }
 .dialog-checkbox-text {
   font-weight: 700; font-size: 13px; color: #0f172a;
@@ -2244,4 +2259,93 @@ const onThemeReset = async () => {
 
 .ri-spin { animation: ri-spin 1s linear infinite; }
 @keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/*
+ * 内容井填满舞台，与左侧轨道、窗口右缘各留同样的 40px —— 转换页也是这么做的。
+ * （之前这里限了 760px 却靠左对齐，右侧空出 260px+，左右明显不对称。）
+ */
+/*
+ * 切换分类时，舞台里的分组依次入场。
+ *
+ * Workbench 的 stageKey 跟随当前选中项，所以分类一变整个舞台会重挂载，
+ * 这里的 animation 就会重播 —— 不需要额外的事件或 JS。
+ *
+ * 顺序是「先分组容器、后行内容」：容器 520ms 落位，行在容器内再错开 30ms。
+ * 用 animation 而不是 transition：transition 需要状态前后都存在，
+ * 重挂载的元素没有「之前」，只有 animation 能表达入场。
+ */
+.stage-panel > section.settings-group {
+  /* backwards 而不是 both —— 见 Workbench 的 .stage-swap 说明：
+     both 会永久保留 translate: 0 0，使元素成为包含块，舞台里的 fixed 对话框会错位。 */
+  animation: group-in 520ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: calc(var(--gi, 0) * 62ms);
+}
+
+/* 只列到 10 个 —— 设置页最多同时出现 8 个分组，多写的规则永远不会命中 */
+.stage-panel > section.settings-group:nth-child(1) { --gi: 0; }
+.stage-panel > section.settings-group:nth-child(2) { --gi: 1; }
+.stage-panel > section.settings-group:nth-child(3) { --gi: 2; }
+.stage-panel > section.settings-group:nth-child(4) { --gi: 3; }
+.stage-panel > section.settings-group:nth-child(5) { --gi: 4; }
+.stage-panel > section.settings-group:nth-child(6) { --gi: 5; }
+.stage-panel > section.settings-group:nth-child(7) { --gi: 6; }
+.stage-panel > section.settings-group:nth-child(8) { --gi: 7; }
+.stage-panel > section.settings-group:nth-child(9) { --gi: 8; }
+.stage-panel > section.settings-group:nth-child(10) { --gi: 9; }
+
+/* 行在容器之后入场，错开更小，读起来是「容器先立住、内容再浮现」 */
+.stage-panel > section.settings-group .setting-item {
+  animation: row-in 420ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+}
+.stage-panel > section.settings-group .setting-item:nth-child(1) { animation-delay: 90ms; }
+.stage-panel > section.settings-group .setting-item:nth-child(2) { animation-delay: 130ms; }
+.stage-panel > section.settings-group .setting-item:nth-child(3) { animation-delay: 170ms; }
+.stage-panel > section.settings-group .setting-item:nth-child(4) { animation-delay: 210ms; }
+.stage-panel > section.settings-group .setting-item:nth-child(5) { animation-delay: 250ms; }
+.stage-panel > section.settings-group .setting-item:nth-child(n + 6) { animation-delay: 290ms; }
+
+@keyframes group-in {
+  from { opacity: 0; translate: 0 14px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes row-in {
+  from { opacity: 0; translate: 0 8px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-panel > section.settings-group,
+  .stage-panel > section.settings-group .setting-item { animation-duration: 1ms; animation-delay: 0ms; }
+}
+
+/* ══════════ 设置内容层：发丝线分隔的行 ══════════
+ *
+ * 结构上已经把 <div class="group-card"> 那层壳去掉了，.setting-item 现在是
+ * section 的直接子元素。所以这里只需要：
+ *   · 每行下方一条发丝线，最后一行不画（否则会和分组间距叠成双线）
+ *   · 悬停给极淡的暖色，不要卡片的整块变色
+ * 行内容本身（item-icon / item-info / item-action）沿用原来的样式。
+ */
+.settings-group > .setting-item:last-of-type {
+  border-bottom: none;
+}
+
+/* 可点击的行：悬停时只染一层几乎看不出的暖色，并轻微右移 */
+.setting-item.clickable {
+  cursor: pointer;
+  border-radius: 6px;
+}
+.setting-item.clickable:hover {
+  background: rgba(120, 110, 95, 0.055);
+}
+
+/* 分组之间靠留白分隔，不再靠卡片边界 */
+.settings-group + .settings-group {
+  margin-top: 34px;
+}
+
+/* 危险行（删除 / 重置）用暖红，不用纯红 */
+.setting-item.danger .label { color: #b3261e; }
+.setting-item.danger .item-icon { color: #b3261e; }
+
 </style>

@@ -1,340 +1,520 @@
 <template>
-  <div class="fanhua-home">
-    <header class="home-header">
-      <div class="header-brand">
-        2-Pyramid
-        <span class="header-version">v{{ appVersion }}</span>
-        <span v-if="appIsBeta" class="header-beta">Beta</span>
+  <div class="home" :data-boot="bootPhase">
+    <!--
+      ══ 背景 ══
+      全应用共用的一块地面（StageBackdrop）。固定不动，不参与交互。
+      抽出来是为了让设置页、转换页踩在同一块底上 —— 切页面时背景不动，只有内容在换。
+      revealed 由加载页过渡的 bootPhase 驱动：阶段 1 起随飞行一起淡入。
+    -->
+    <StageBackdrop :revealed="bootPhase >= 1" />
+
+    <!--
+      左上：品牌三行 —— 标识 + 名称 / 标语 / 版本与引擎状态。
+      原先「版本 · 引擎就绪」是独立绝对定位的，和品牌块没有关系；
+      并进来之后左上就是一个完整的身份块，位置也不用两处各调一次。
+      hm-block：本组件自己的 bootPhase 编排入场，
+      必须在 App.vue 的全局 stagger 里排除掉，否则会被那条 (0,6,0) 的规则盖掉。
+      .brand-mark 是加载页 logo 的落点：App.vue 量它的坐标做 FLIP，
+      所以它在 bootPhase 0/1 时必须保持占位（用 visibility，不能用 display:none）。
+    -->
+    <header class="brand hm-block">
+      <div class="brand-top">
+        <img class="brand-mark" :src="logo" alt="" aria-hidden="true" />
+        <span class="brand-name"><SplitText :text="'2-Pyramid'" :stagger="30" :delay="120" :active="bootPhase >= 2" /></span>
       </div>
+      <span class="brand-tag">{{ t('oobe.asideTagline') }}</span>
+      <span class="brand-meta">
+        v{{ appVersion }}<template v-if="appIsBeta"> Beta</template>
+        <i aria-hidden="true"></i>
+        {{ t('home.engineReady') }}
+      </span>
     </header>
 
-    <div v-if="userName" class="home-greeting">
-      <i class="ri-user-smile-line greeting-icon"></i>
-      <span class="greeting-text">{{ t('home.greeting', { name: userName }) }}</span>
+    <!--
+      右上角：使用者与时钟 + 一组纯装饰。
+      窗口控制按钮占据 y 10–54，所以这一列从 y 64 起排 —— 不与之重叠。
+      时钟走的是本地时间，每秒一次；组件卸载时清掉定时器。
+    -->
+    <div class="who hm-block">
+      <span class="who-name">{{ userName || '—' }}</span>
+      <i aria-hidden="true"></i>
+      <span class="who-time">{{ clock }}</span>
     </div>
 
-    <div class="vortex-background">
-      <div class="blob b1"></div>
-      <div class="blob b2"></div>
-      <div class="blob b3"></div>
-      <div class="blob b4"></div>
+    <!-- 纯装饰：阶梯标记 + 十字准星 + 刻度尺。没有文字，也不可交互 -->
+    <div class="deco hm-block" aria-hidden="true">
+      <span class="deco-steps"><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="deco-cross"></span>
+      <span class="deco-scale"><i v-for="n in 20" :key="n"></i></span>
     </div>
 
-    <main class="home-main">
-      <div class="brand-block">
-        <div
-          class="app-icon"
-          role="img"
-          aria-label="2-Pyramid Icon"
-          :style="{ WebkitMaskImage: `url(${appIcon})`, maskImage: `url(${appIcon})` }"
-        ></div>
-        <h1 class="brand-title">2-Pyramid</h1>
-        <p class="brand-subtitle">{{ t('home.subtitle') }}</p>
-        <p class="brand-subtitle en">Modern Universal Multi-Version Resource Pack Converter</p>
+    <!--
+      左下：只是「我在看什么」。
+      刻意不放按钮、不放切换器 —— 一个角落塞四五样东西，重心就又偏了。
+    -->
+    <div class="subject hm-block">
+      <span class="tiny">MODULE / SELECT</span>
+      <div :key="selected" class="subject-body">
+        <div class="counter">
+          <span class="cur">{{ pad(selected + 1) }}</span>
+          <i>/</i>
+          <span class="total">{{ pad(modules.length) }}</span>
+        </div>
+        <h1 class="name">
+          <SplitText :text="t(current.label)" :stagger="42" :delay="0" :active="bootPhase >= 2" />
+        </h1>
+        <span class="name-en">{{ current.en }}</span>
       </div>
-    </main>
-
-    <div class="engine-indicator">
-      <span class="breath-dot" aria-hidden="true"></span>
-      <span class="engine-text">Engine Ready</span>
     </div>
 
-    <div class="dock-wrap">
-      <nav class="action-dock">
-      <button class="dock-item" @click="switchToConversion">
-        <i class="ri-swap-box-line dock-icon" aria-hidden="true"></i>
-        <span>{{ t('home.navConvert') }}</span>
+    <!-- 右下：动作。切换与进入分开两块，不挤在一起 -->
+    <div class="actions hm-block">
+      <div class="switcher">
+        <button class="nav-btn" type="button" :aria-label="t('home.prevModule')" @click="step(-1)">←</button>
+        <div class="ticks" role="tablist">
+          <button
+            v-for="(m, i) in modules"
+            :key="m.page"
+            type="button"
+            role="tab"
+            class="tick"
+            :class="{ on: i === selected }"
+            :aria-selected="i === selected"
+            :aria-label="t(m.label)"
+            @click="goTo(i)"
+          ></button>
+        </div>
+        <button class="nav-btn" type="button" :aria-label="t('home.nextModule')" @click="step(1)">→</button>
+      </div>
+
+      <button class="enter" type="button" @click="enter">
+        <span>{{ t('home.enter') }}</span>
+        <i class="ri-arrow-right-line" aria-hidden="true"></i>
       </button>
-      <button class="dock-item" @click="switchToOverlay">
-        <i class="ri-file-copy-line dock-icon" aria-hidden="true"></i>
-        <span>{{ t('home.navOverlay') }}</span>
-      </button>
-      <button class="dock-item" @click="switchToSettings">
-        <i class="ri-settings-3-line dock-icon" aria-hidden="true"></i>
-        <span>{{ t('home.navSettings') }}</span>
-      </button>
-      </nav>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import appIcon from '../assets/app-icon.png';
+import logo from '../assets/logo-512.png';
 import { useAppInfo } from '../composables/useAppInfo';
+import SplitText from './SplitText.vue';
+import StageBackdrop from './shell/StageBackdrop.vue';
 
 const { t } = useI18n();
-const props = defineProps<{ userName?: string; editorMode?: boolean }>();
+const props = withDefaults(
+  defineProps<{
+    userName?: string;
+    editorMode?: boolean;
+    /** 0 隐藏 / 1 背景显现、标识在飞 / 2 落地并逐项入场。默认直接就是就绪态 */
+    bootPhase?: number;
+  }>(),
+  { bootPhase: 2 },
+);
+const bootPhase = computed(() => props.bootPhase);
 const emit = defineEmits(['switch-page']);
 
-const switchToConversion = () => emit('switch-page', 'conversion');
-const switchToOverlay = () => emit('switch-page', 'overlay');
-const switchToSettings = () => emit('switch-page', 'settings');
-const switchToForay = () => emit('switch-page', 'foray');
-void switchToForay;
-
-import { onMounted } from 'vue';
-onMounted(async () => {
-  // 始终挂监听；触发时再读 localStorage.editorMode（支持开关后拖入）
-  try {
-    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    getCurrentWebviewWindow().onDragDropEvent((event) => {
-      if (event.payload.type !== 'drop') return;
-      const em = localStorage.getItem('editorMode') === 'true' || props.editorMode === true;
-      const p = (event.payload.paths || [])[0];
-      if (!p) return;
-      if (em) {
-        localStorage.setItem('foray.pendingPath', p);
-        emit('switch-page', 'foray');
-      } else {
-        emit('switch-page', 'conversion');
-      }
-    });
-  } catch (e) {
-    console.warn('foray drop', e);
-  }
-});
-
-// Show the plain semver (e.g. "2.0.0") in the top-left corner. The
-// build number lives in Settings → Version Info so this badge stays
-// clean and minimal.
 const { version: appVersion, isBeta: appIsBeta } = useAppInfo();
+
+/**
+ * 本地时钟。
+ * 每秒对一次系统时间 —— 用 setInterval(1000) 累加会在标签页挂起后走偏。
+ * 这里每次直接读 Date，间隔只决定刷新频率，不参与计时。
+ */
+const clock = ref('');
+let clockTimer: number | undefined;
+const tickClock = () => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  clock.value = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+const pad = (n: number) => String(n).padStart(2, '0');
+
+const modules = [
+  { page: 'conversion', en: 'MATERIAL CONVERTER', label: 'home.navConvert' },
+  { page: 'overlay',    en: 'OVERLAY WORKSHOP',   label: 'home.navOverlay' },
+  { page: 'settings',   en: 'PREFERENCES',        label: 'home.navSettings' },
+] as const;
+
+const selected = ref(0);
+const current = computed(() => modules[selected.value]);
+
+/** 循环切换：到末尾再按 → 回到第一列 */
+const step = (delta: number) => {
+  const n = modules.length;
+  selected.value = (selected.value + delta + n) % n;
+};
+
+/** 直接选中某一档 */
+const goTo = (i: number) => { selected.value = i; };
+
+const enter = () => emit('switch-page', current.value.page);
+
+const onKey = (e: KeyboardEvent) => {
+  const el = document.activeElement;
+  const onControl = el instanceof HTMLElement
+    && ['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+  if (e.key === 'ArrowLeft') { step(-1); return; }
+  if (e.key === 'ArrowRight') { step(1); return; }
+  if (e.key === 'Enter' && !onControl) { e.preventDefault(); enter(); }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', onKey);
+  tickClock();
+  clockTimer = window.setInterval(tickClock, 1000);
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey);
+  // 不清会留下一个每秒跑一次、却指向已卸载组件闭包的定时器
+  if (clockTimer !== undefined) window.clearInterval(clockTimer);
+});
 </script>
 
 <style scoped>
-.fanhua-home {
-  width: 100%; height: 100%;
-  min-height: 100vh;
-  background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
-  color: #1d1d1f;
-  display: flex; flex-direction: column; overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background-size: 200% 200%;
-  animation: bg-breathe 14s ease-in-out infinite;
+/*
+ * ══ 首页 ═══════════════════════════════════════════════════════════════
+ *
+ * 四条约束（都是之前踩过的）：
+ *  ① 右上角永远留空 —— 窗口控制按钮在那儿
+ *  ② 不用任何居中元素 —— 居中的潜台词就是「看这里」
+ *  ③ 不制造重点 —— 默认安静，只有用户选中的那一项才亮起来
+ *  ④ 信息分散在四角，不让任何一角承载过多
+ *
+ * 背景不含任何可辨认的物件：只有光、纸纹和品牌三角的形。没有实体，就没有抢焦点的东西。
+ */
+
+.home {
   position: relative;
-  /* 不要用 contain: paint —— 会把 ::before / .vortex-background 的
-     position:fixed 关进本盒子，页面切换缩放时边缘露白。 */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  color: #14171a;
+  background: #f4f2ee;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-.home-header {
-  position: fixed;
-  top: 12px;
-  left: 16px;
-  z-index: 12;
+/* ══════════ 加载页 → 首页的入场编排 ══════════
+ *
+ * bootPhase:
+ *   0  全部不可见。**但 .brand-mark 必须保持占位** —— App.vue 要量它的坐标
+ *      让加载页的 logo 飞过来，所以这里用 visibility 而不是 display:none / opacity。
+ *   1  背景先行显现，标识在飞（此刻首页的 logo 仍然藏着，避免两个影子重叠）。
+ *   2  落地。各组件的入场延迟见下方 --rd。
+ *
+ * 顺序是刻意的：先背景（空间先立起来），再标识（飞行落点），
+ * 然后四角依次入场，最后才是每块内部的文字逐字显性。
+ */
+.home[data-boot="0"] .brand,
+.home[data-boot="0"] .who,
+.home[data-boot="0"] .deco,
+.home[data-boot="0"] .subject,
+.home[data-boot="0"] .actions { opacity: 0; }
+
+.home[data-boot="1"] .brand,
+.home[data-boot="1"] .who,
+.home[data-boot="1"] .deco,
+.home[data-boot="1"] .subject,
+.home[data-boot="1"] .actions { opacity: 0; }
+
+/* 标识在飞 —— 首页这一份先藏着，落地那一帧才亮出来 */
+.home[data-boot="0"] .brand-mark,
+.home[data-boot="1"] .brand-mark { visibility: hidden; }
+
+/* 落地帧：标识直接出现在飞行终点，不播动画（飞行的本体在加载页那一层） */
+.home[data-boot="2"] .brand-mark { visibility: visible; animation: none; }
+
+/* 背景的淡入由 StageBackdrop 的 revealed 属性接管，这里不再重复控制 */
+
+/* 四角依次入场。--rd 是各自的延迟，错开一拍 */
+.home[data-boot="2"] .brand,
+.home[data-boot="2"] .who,
+.home[data-boot="2"] .deco,
+.home[data-boot="2"] .subject,
+.home[data-boot="2"] .actions {
+  /* backwards 而不是 both：both 会永久保留 translate: 0 0，元素成为包含块，
+     内部任何 position: fixed 都会相对它定位而不是视口。 */
+  animation: boot-block 700ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: var(--rd, 0ms);
+}
+.home .brand { --rd: 0ms; }
+.home .who { --rd: 140ms; }
+.home .deco { --rd: 70ms; }
+.home .subject { --rd: 210ms; }
+.home .actions { --rd: 300ms; }
+
+@keyframes boot-block {
+  from { opacity: 0; translate: 0 12px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+/* ══════════ 左上：品牌 ══════════ */
+/*
+ * 首页上唯一放大的一块。其余三个角都刻意压得很小 ——
+ * 品牌标识承担识别，不需要靠其他元素一起大声说话。
+ *
+ * logo 的视觉墨迹在 512 画布里只占 46%×50%（四周留白 L28.7% T27.3% R25.8% B22.9%），
+ * 所以 64px 的盒子实际只有约 30px 可见，用负 margin 把四周的空白吃掉。
+ */
+.brand {
+  position: absolute;
+  z-index: 3;
+  left: 40px;
+  top: 22px;
+  /* 竖直堆叠：第一行是 logo + 名字，下面两行回到块的左缘。
+     之前是整个块横向 flex，于是标语和版本都跟着名字往右缩进了 62px。 */
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(12px);
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.4px;
-  color: #111827;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.header-version {
-  margin-left: 6px;
-  padding: 2px 8px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  color: var(--theme-color);
-  font-weight: 700;
-  font-size: 11px;
-}
+/* logo 与名字同处一行 */
+.brand-top { display: flex; align-items: center; gap: 16px; }
 
-.header-beta {
-  margin-left: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(249, 115, 22, 0.14);
-  color: #ea580c;
-  font-weight: 800;
-  font-size: 10px;
-  letter-spacing: 0.6px;
+.brand-mark { width: 64px; height: 64px; margin: -13px 0 -15px -18px; object-fit: contain; }
+.brand-name { font-size: 30px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; }
+/*
+ * 标语与版本：直接作为 .brand 的子元素，左缘 = 块的左缘（40px）。
+ * logo 的墨迹左缘也是 40.4px（盒子 22 + 画布留白 28.7% × 64），
+ * 所以这三行在视觉上落在同一条左侧线上 —— 这就是「对齐边框」。
+ */
+.brand-tag {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: #6f6a60;
 }
-
-.home-greeting {
-  position: fixed;
-  top: 12px;
-  right: 150px;
-  z-index: 12;
-  display: flex;
+.brand-meta {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(12px);
+  margin-top: 5px;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: #8e887d;
+}
+/*
+ * logo 的视觉墨迹在 512 画布里只占 45%×49%（四周留白 L28.9% T27.3% R26.0% B23.0%），
+ * 所以 64px 的盒子实际只有约 29×31px 可见，靠负 margin 把四周空白吃掉。
+ *
+ * 上边距是 −13 而不是 −17：
+ * 「2-Pyramid」里的 y 有下伸部，它的**墨迹**中心比盒子中心低约 3.8px。
+ * 拿盒子对盒子会让 logo 看着偏高 4px（实测 logo 墨迹中心 38.3 / 名称墨迹中心 42.3），
+ * 按墨迹中心对齐才对得上。
+ */
+.brand-meta i { width: 3px; height: 3px; border-radius: 50%; background: #b8b2a6; }
+
+/* ══════════ 右上角：使用者与时钟 ══════════ */
+/*
+ * 窗口控制按钮占据 y 10–54，所以从 64 起排 —— 与按钮区不重叠。
+ * 与下方的装饰组同处一列（right: 40），竖直叠放。
+ */
+.who {
+  position: absolute;
+  z-index: 3;
+  right: 40px;
+  top: 64px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: #6f6a60;
+}
+.who i { width: 3px; height: 3px; border-radius: 50%; background: #b8b2a6; }
+/* 时钟用等宽数字，秒位跳动时整行不会左右晃 */
+.who-time { font-variant-numeric: tabular-nums; color: #14171a; }
+
+/* ══════════ 右上角的修饰元素 ══════════ */
+/* 装饰组下移，给上面的使用者/时钟让位 */
+.deco {
+  position: absolute;
+  z-index: 2;
+  right: 40px;
+  top: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+  pointer-events: none;
+}
+
+/* 十字准星 */
+.deco-cross { position: relative; width: 17px; height: 17px; color: rgba(20, 23, 26, 0.3); }
+.deco-cross::before,
+.deco-cross::after { content: ""; position: absolute; background: currentColor; }
+.deco-cross::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
+.deco-cross::after { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-50%); }
+
+/* 阶梯标记：五级递增的细条，是品牌阶梯锥的缩小记号 */
+.deco-steps { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
+.deco-steps i { width: 4px; background: rgba(20, 23, 26, 0.24); }
+.deco-steps i:nth-child(1) { height: 4px; }
+.deco-steps i:nth-child(2) { height: 7px; }
+.deco-steps i:nth-child(3) { height: 10px; }
+.deco-steps i:nth-child(4) { height: 13px; }
+.deco-steps i:nth-child(5) { height: 16px; background: rgba(20, 23, 26, 0.36); }
+
+/* 刻度尺：每 4 格一根长刻度 */
+.deco-scale { display: flex; align-items: flex-end; gap: 4px; height: 15px; }
+.deco-scale i { width: 1px; height: 6px; background: rgba(20, 23, 26, 0.26); }
+.deco-scale i:nth-child(4n + 1) { height: 14px; background: rgba(20, 23, 26, 0.38); }
+
+/* ══════════ 左下：我在看什么 ══════════ */
+.subject {
+  position: absolute;
+  z-index: 3;
+  left: 40px;
+  bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.tiny { font-size: 10px; font-weight: 400; letter-spacing: 0.2em; color: #7d776d; }
+
+/*
+ * 切换模块时整块重挂载。
+ * 序号与英文标签只做淡入 —— 模块名交给 SplitText 逐字显性，
+ * 所以这里不再做位移，否则两个动画叠在一起会互相打架。
+ */
+.subject-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.subject-body > .counter,
+.subject-body > .name-en {
+  animation: subject-fade 420ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+@keyframes subject-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.counter {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+  font-weight: 300;
+  color: #14171a;
+  font-variant-numeric: tabular-nums;
+}
+.counter .cur { font-size: 42px; line-height: 1; }
+.counter i { font-style: normal; font-size: 21px; color: #b0aa9e; }
+.counter .total { font-size: 21px; color: #7d776d; }
+
+/* 模块名默认就是普通深灰，不是「已高亮」的状态 —— 重点交给用户的选择去决定 */
+.name {
+  margin: 16px 0 0;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: #14171a;
+}
+.name-en {
+  margin-top: 8px;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: #7d776d;
+}
+
+/* ══════════ 右下：动作 ══════════ */
+.actions {
+  position: absolute;
+  z-index: 3;
+  right: 40px;
+  bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.switcher { display: inline-flex; align-items: center; gap: 12px; }
+
+/* 圆角克制：4px，不是胶囊也不是大圆角 */
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(20, 23, 26, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #14171a;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+.nav-btn:hover { background: #14171a; border-color: #14171a; color: #fff; }
+
+.ticks { display: flex; align-items: center; gap: 7px; }
+.tick {
+  width: 7px;
+  height: 7px;
+  border: none;
+  padding: 0;
+  border-radius: 3px;
+  background: rgba(20, 23, 26, 0.2);
+  cursor: pointer;
+  transition: width 0.26s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.18s ease;
+}
+.tick:hover { background: rgba(20, 23, 26, 0.45); }
+.tick.on { width: 22px; background: #14171a; }
+
+/*
+ * 进入按钮：单独一块，描边态起步。
+ * 默认安静（透明底 + 描边），悬停才填充 —— 重点由用户的行为产生。
+ */
+.enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 30px;
+  padding: 12px 18px;
+  border: 1px solid rgba(20, 23, 26, 0.28);
+  border-radius: 8px;
+  background: transparent;
+  color: #14171a;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #374151;
-  transition: all 0.3s ease;
-}
-.home-greeting:hover {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
-.greeting-icon {
-  font-size: 14px;
-  color: var(--theme-color);
-}
-.greeting-text {
-  letter-spacing: 0.2px;
-}
-.fanhua-home::before {
-  content: "";
-  position: fixed;
-  /* 超出一点，避免亚像素窗口边缘露白 */
-  inset: -2px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--theme-color) 5%, transparent) 0%, color-mix(in srgb, var(--theme-color) 1%, transparent) 50%, transparent 100%),
-    radial-gradient(60vw 55vh at 20% 20%, color-mix(in srgb, var(--theme-color) 24%, transparent), transparent 60%),
-    radial-gradient(50vw 48vh at 80% 30%, color-mix(in srgb, var(--theme-color) 20%, transparent), transparent 58%),
-    radial-gradient(55vw 60vh at 50% 80%, color-mix(in srgb, var(--theme-color) 18%, transparent), transparent 65%);
-  opacity: 0.85;
-  animation: aurora-drift 26s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* `position: fixed` instead of `absolute` so the vortex layer is
-   anchored to the viewport rather than the (sometimes collapsing)
-   flex parent. This guarantees the background always fills the
-   visible area even when .fanhua-home is mid-layout.
-   不用 100vw/100vh：滚动条会把宽度算多，边缘露白。 */
-.vortex-background {
-  position: fixed;
-  inset: -2px;
-  z-index: 1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--theme-color) 40%, transparent), color-mix(in srgb, var(--theme-color) 8%, transparent) 60%, transparent 75%);
-  opacity: 0.7;
-  animation: blob-float 24s ease-in-out infinite;
-  will-change: transform;
-}
-/* 位置往里收一点，位移幅度也收小，避免 scale + translate 顶到裁切边 */
-.b1 { top: 12%; left: 12%; width: 280px; height: 280px; animation-delay: 0s; }
-.b2 { top: 22%; right: 12%; width: 360px; height: 360px; animation-delay: 3s; }
-.b3 { top: 55%; left: 10%; width: 300px; height: 300px; animation-delay: 6s; }
-.b4 { top: 60%; right: 20%; width: 220px; height: 220px; animation-delay: 9s; }
-
-@keyframes blob-float {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  25% { transform: translate3d(18px, -12px, 0) scale(1.03); }
-  50% { transform: translate3d(-12px, 16px, 0) scale(0.98); }
-  75% { transform: translate3d(14px, 18px, 0) scale(1.02); }
-}
-
-@keyframes bg-breathe {
-  0% { background-position: 0% 0%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 100%; }
-}
-
-@keyframes aurora-drift {
-  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.75; }
-  50% { transform: translate3d(16px, -8px, 0); opacity: 0.9; }
-}
-
-.home-main {
-  flex: 1; z-index: 5;
-  display: flex; align-items: center; justify-content: center;
-  padding: 0 40px 40px;
-}
-
-.brand-block { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.app-icon {
-  width: 128px;
-  height: 128px;
-  background: var(--theme-color);
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,0.12));
-}
-.brand-title { font-size: 64px; font-weight: 900; letter-spacing: -2.5px; margin: 0; }
-.brand-subtitle { font-size: 16px; color: #6b7280; margin-top: 12px; font-weight: 600; }
-.brand-subtitle.en { font-size: 12px; letter-spacing: 0.6px; text-transform: uppercase; color: #9ca3af; margin-top: 6px; }
-
-.engine-indicator {
-  position: fixed; left: 20px; bottom: 20px; z-index: 10;
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 12px; font-weight: 700; color: #0f172a;
-  letter-spacing: 0.6px; text-transform: uppercase;
-  padding: 6px 10px;
-}
-.breath-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 12px rgba(34,197,94,0.6);
-  animation: breath 2.8s ease-in-out infinite;
-}
-.engine-text { opacity: 0.7; }
-
-@keyframes breath {
-  0%, 100% { transform: scale(0.8); opacity: 0.4; }
-  50% { transform: scale(1.2); opacity: 1; }
-}
-
-.dock-wrap {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 80px; z-index: 10;
-  display: flex; align-items: flex-end; justify-content: center;
-  pointer-events: none;
-}
-.dock-wrap::before {
-  content: "";
-  position: absolute; left: 0; right: 0; bottom: 0; height: 30px;
-}
-.action-dock {
-  pointer-events: auto;
-  margin-bottom: 16px;
-  display: flex; gap: 12px;
-  background: rgba(255, 255, 255, 0.78); backdrop-filter: blur(20px);
-  padding: 10px 16px; border-radius: 30px; border: 1px solid rgba(0,0,0,0.04);
-  box-shadow: 0 10px 28px rgba(0,0,0,0.1);
-  transform: translateY(8px);
-  opacity: 0.72;
+  letter-spacing: 0.14em;
+  cursor: pointer;
   transition:
-    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.28s ease,
-    background 0.28s ease,
-    box-shadow 0.28s ease;
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
 }
-.dock-wrap:hover .action-dock {
-  transform: translateY(0);
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 14px 34px rgba(0,0,0,0.12);
-}
-.dock-item {
-  background: none; border: none; display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; cursor: pointer;
-  transition: color 0.18s ease, background 0.18s ease;
-  color: #1d1d1f; font-weight: 600; border-radius: 999px;
-}
-.dock-item:hover {
-  color: var(--theme-color);
-  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
-}
-.dock-icon { font-size: 18px; line-height: 1; }
+.enter:hover { background: #14171a; border-color: #14171a; color: #fff; }
+.enter i { font-size: 15px; transition: transform 0.2s ease; }
+.enter:hover i { transform: translateX(4px); }
 
-@media (max-width: 720px) {
-  .action-dock { flex-direction: column; }
-  .dock-wrap { height: 120px; }
-  .engine-indicator { left: 14px; bottom: 14px; }
-  .brand-title { font-size: 54px; }
+/* ── 尊重「减少动效」 ── */
+@media (prefers-reduced-motion: reduce) {
+  .nav-btn, .tick, .enter, .enter i { transition: none; }
+}
+
+/* ── 窄窗口 ── */
+@media (max-width: 900px) {
+  .brand, .subject { left: 20px; }
+  /* .who 靠右，窄窗口下改右边距 */
+  .who, .deco { right: 20px; }
+  .actions { right: 20px; }
+  .name { font-size: 32px; }
+  .counter .cur { font-size: 30px; }
+  .enter { gap: 18px; padding: 10px 14px; }
 }
 </style>

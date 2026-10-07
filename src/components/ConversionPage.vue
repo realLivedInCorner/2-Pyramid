@@ -1,5 +1,10 @@
+/* .dialog-overlay / .dialog-content 已统一到 shared.css —— 见那里的说明。
+   页面级的定义会因 scoped 的 data-v 属性获得更高特异度，留着会盖掉全局那份。 */
 <template>
   <div class="conversion-page">
+    <!-- 全应用共用的舞台背景，见 shell/StageBackdrop.vue -->
+    <StageBackdrop />
+
     <div class="header-section">
       <button class="back-btn" @click="goBack" :aria-label="t('common.backToHome')">
         <i class="ri-arrow-left-line back-icon" aria-hidden="true"></i>
@@ -11,108 +16,17 @@
       </div>
     </div>
 
-    <div class="panel-grid">
-      <div class="card card-mode">
-        <div class="card-title">{{ t('conversion.importMode') }}</div>
+    <Workbench :steps="steps" :label="t('conversion.flowLabel')" @go="goToStep">
+      <!-- ① 源：导入模式 + 拖放 + 队列。全部与「选什么来转」有关 -->
+      <div v-if="currentStep === 'source'" class="stage-panel">
+        <div class="stage-head">
+          <h2 class="stage-title">{{ t('conversion.stepSource') }}</h2>
+          <p class="stage-desc">{{ t('conversion.stepSourceDesc') }}</p>
+        </div>
+
         <div class="import-tabs">
           <button class="tab-btn" :class="{ active: importMode === 'file' }" @click="importMode = 'file'">{{ t('conversion.fileMode') }}</button>
           <button class="tab-btn" :class="{ active: importMode === 'folder' }" @click="importMode = 'folder'">{{ t('conversion.folderMode') }}</button>
-        </div>
-        <p class="card-hint">{{ t('conversion.dropHint') }}</p>
-      </div>
-
-      <div class="card card-version">
-        <div class="card-title">{{ t('conversion.targetVersion') }}</div>
-        <button
-          class="version-picker"
-          :class="{ open: showVersionPicker }"
-          @click="showVersionPicker = true"
-        >
-          <div class="version-picker-main">
-            <span class="version-picker-label">{{ selectedVersionEntry.label }}</span>
-            <span class="version-picker-range">{{ selectedVersionEntry.range }}</span>
-          </div>
-          <div class="version-picker-meta">
-            <span class="version-picker-format">{{ t('conversion.packFormat', { n: selectedVersionEntry.packFormat }) }}</span>
-            <i class="ri-arrow-down-s-line version-picker-chevron" aria-hidden="true"></i>
-          </div>
-        </button>
-        <label class="switch-line">
-          <span class="switch-title">
-            {{ t('conversion.fixAlphaLabel') }}
-            <span
-              class="help-icon"
-              :title="t('conversion.fixAlphaHelp')"
-              :aria-label="t('conversion.fixAlphaLabel')"
-            >?</span>
-          </span>
-          <label class="switch">
-            <input type="checkbox" v-model="fixAlphaLayers" />
-            <span class="slider"></span>
-          </label>
-        </label>
-        <p class="card-hint">{{ t('conversion.fixAlphaHint') }}</p>
-        <label class="switch-line">
-          <span class="switch-title">
-            {{ t('conversion.adaptShadersLabel') }}
-            <span
-              class="help-icon"
-              :title="t('conversion.adaptShadersHelp')"
-              :aria-label="t('conversion.adaptShadersLabel')"
-            >?</span>
-            <span class="exp-tag">{{ t('common.experimental') }}</span>
-          </span>
-          <label class="switch">
-            <input type="checkbox" v-model="adaptShaders" />
-            <span class="slider"></span>
-          </label>
-        </label>
-        <p class="card-hint">{{ t('conversion.adaptShadersHint') }}</p>
-      </div>
-
-      <div class="card card-progress">
-        <div class="card-title">{{ t('conversion.progressTitle') }}</div>
-        <div class="control-steps">
-          <div class="step" :class="{ active: hasItems }">
-            <span class="step-dot"></span>
-            <span class="step-text">{{ t('conversion.stepImport') }}</span>
-          </div>
-          <div class="step" :class="{ active: showProgress || isConverting }">
-            <span class="step-dot"></span>
-            <span class="step-text">{{ t('conversion.stepProcessing') }}</span>
-          </div>
-          <div class="step" :class="{ active: conversionResults.some(r => r && r.status === 'success') }">
-            <span class="step-dot"></span>
-            <span class="step-text">{{ t('conversion.stepOutput') }}</span>
-          </div>
-        </div>
-        <div v-if="showProgress || isConverting" class="progress-section">
-          <div class="progress-info">
-            <i v-if="isConverting" class="ri-loader-4-line spin" aria-hidden="true"></i>
-            <span class="status-text">{{ progressText }}</span>
-          </div>
-          <div v-if="manyFilesWarning" class="many-files-warning">
-            <i class="ri-time-line" aria-hidden="true"></i>
-            {{ t('conversion.manyFilesWarning') }}
-          </div>
-          <button
-            v-if="isConverting"
-            class="cancel-btn"
-            @click="cancelConversion"
-            :disabled="isCancelling"
-          >
-            <i class="ri-close-circle-line" aria-hidden="true"></i>
-            {{ isCancelling ? t('conversion.cancelling') : t('conversion.cancel') }}
-          </button>
-        </div>
-        <div v-else class="idle-state">
-          {{ t('conversion.idleState') }}
-        </div>
-      </div>
-
-      <div class="card card-drop">
-        <div class="drop-header">
-          <div class="drop-title">{{ t('conversion.dropTitle') }}</div>
         </div>
 
         <div
@@ -161,14 +75,181 @@
           </div>
         </div>
 
-        <div class="action-bar">
-          <button class="start-conversion-button" @click="startConversion" :disabled="!hasItems || isConverting">
-            <template v-if="!isConverting">{{ t('conversion.startConvert') }}</template>
-            <template v-else>{{ t('conversion.processing') }}</template>
+        <div class="stage-actions">
+          <p class="stage-hint">{{ t('conversion.dropHint') }}</p>
+          <button class="primary-btn" :disabled="!hasItems" @click="goToStep('target')">
+            {{ t('conversion.nextTarget') }}
+            <i class="ri-arrow-right-line" aria-hidden="true"></i>
           </button>
         </div>
       </div>
-    </div>
+
+      <!-- ② 目标：版本 + 两项修复开关 + 主操作。三者互相依赖，放同一屏 -->
+      <div v-else-if="currentStep === 'target'" class="stage-panel">
+        <div class="stage-head">
+          <h2 class="stage-title">{{ t('conversion.stepTarget') }}</h2>
+          <p class="stage-desc">{{ t('conversion.stepTargetDesc') }}</p>
+        </div>
+
+        <button
+          class="version-picker"
+          :class="{ open: showVersionPicker }"
+          @click="showVersionPicker = true"
+        >
+          <div class="version-picker-main">
+            <span class="version-picker-label">{{ selectedVersionEntry.label }}</span>
+            <span class="version-picker-range">{{ selectedVersionEntry.range }}</span>
+          </div>
+          <div class="version-picker-meta">
+            <span class="version-picker-format">{{ t('conversion.packFormat', { n: selectedVersionEntry.packFormat }) }}</span>
+            <i class="ri-arrow-down-s-line version-picker-chevron" aria-hidden="true"></i>
+          </div>
+        </button>
+
+        <div class="option-list">
+          <div class="option-row">
+            <div class="option-info">
+              <div class="option-title">
+                {{ t('conversion.fixAlphaLabel') }}
+                <span
+                  class="help-icon"
+                  :title="t('conversion.fixAlphaHelp')"
+                  :aria-label="t('conversion.fixAlphaLabel')"
+                >?</span>
+              </div>
+              <p class="option-hint">{{ t('conversion.fixAlphaHint') }}</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" v-model="fixAlphaLayers" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="option-row">
+            <div class="option-info">
+              <div class="option-title">
+                {{ t('conversion.adaptShadersLabel') }}
+                <span
+                  class="help-icon"
+                  :title="t('conversion.adaptShadersHelp')"
+                  :aria-label="t('conversion.adaptShadersLabel')"
+                >?</span>
+                <span class="exp-tag">{{ t('common.experimental') }}</span>
+              </div>
+              <p class="option-hint">{{ t('conversion.adaptShadersHint') }}</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" v-model="adaptShaders" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="stage-actions">
+          <button class="ghost-btn" @click="goToStep('source')">
+            <i class="ri-arrow-left-line" aria-hidden="true"></i>
+            {{ t('conversion.prev') }}
+          </button>
+          <button class="primary-btn" :disabled="!hasItems || isConverting" @click="startConversion">
+            <i class="ri-play-fill" aria-hidden="true"></i>
+            {{ t('conversion.startConvert') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- ③ 转换：进度只在这一步出现，不再是常驻空卡片 -->
+      <div v-else-if="currentStep === 'run'" class="stage-panel">
+        <div class="stage-head">
+          <h2 class="stage-title">{{ runTitle }}</h2>
+          <p class="stage-desc">{{ progressText }}</p>
+        </div>
+
+        <!--
+          三阶段进度。
+          重写原因：旧版用「9px 圆点 + box-shadow 光环 + ::after 勾」，光环和伪元素
+          都不占布局，在 flex 行里会把文字挤到不可预期的位置，出现被裁的现象。
+          现在标记是一个固定 18px 的盒子，状态全部由它自己的边框/底色表达，
+          不依赖任何不占位的装饰；文字是普通块级元素，宽度自适应，不设截断。
+        -->
+        <ol class="run-steps">
+          <li v-for="s in runSteps" :key="s.id" class="run-step" :class="s.state">
+            <span class="run-mark" aria-hidden="true"></span>
+            <span class="run-label">{{ s.label }}</span>
+          </li>
+        </ol>
+
+        <div class="progress-section">
+          <div class="progress-info">
+            <i v-if="isConverting" class="ri-loader-4-line spin" aria-hidden="true"></i>
+            <span class="status-text">{{ progressText }}</span>
+          </div>
+          <div v-if="manyFilesWarning" class="many-files-warning">
+            <i class="ri-time-line" aria-hidden="true"></i>
+            {{ t('conversion.manyFilesWarning') }}
+          </div>
+        </div>
+
+        <div class="stage-actions">
+          <button
+            v-if="isConverting"
+            class="cancel-btn"
+            @click="cancelConversion"
+            :disabled="isCancelling"
+          >
+            <i class="ri-close-circle-line" aria-hidden="true"></i>
+            {{ isCancelling ? t('conversion.cancelling') : t('conversion.cancel') }}
+          </button>
+          <button v-else class="primary-btn" @click="goToStep('result')">
+            {{ t('conversion.viewResult') }}
+            <i class="ri-arrow-right-line" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ④ 结果：原来这份内容在弹窗里，现在成为流程的终点 -->
+      <div v-else class="stage-panel">
+        <div class="stage-head">
+          <h2 class="stage-title">{{ t('conversion.stepResult') }}</h2>
+          <p class="stage-desc">{{ resultSummary }}</p>
+        </div>
+
+        <div class="result-list">
+          <div
+            v-for="(r, i) in conversionResults"
+            :key="i"
+            class="result-row"
+            :class="r.status"
+          >
+            <i
+              class="result-icon"
+              :class="r.status === 'success' ? 'ri-checkbox-circle-line' : r.status === 'cancelled' ? 'ri-indeterminate-circle-line' : 'ri-error-warning-line'"
+              aria-hidden="true"
+            ></i>
+            <div class="result-body">
+              <span class="result-name">{{ r.name || selectedItems[i]?.name || '' }}</span>
+              <span v-if="r.output" class="result-path">{{ r.output }}</span>
+              <span v-else-if="r.error" class="result-path error">{{ r.error }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-actions">
+          <button class="ghost-btn" @click="goToStep('source')">
+            <i class="ri-refresh-line" aria-hidden="true"></i>
+            {{ t('conversion.runAgain') }}
+          </button>
+          <!-- 详情弹窗保留：里面有逐项错误、日志条数与导出日志，结果页只放摘要 -->
+          <button class="ghost-btn" @click="showResultModal = true">
+            <i class="ri-list-check" aria-hidden="true"></i>
+            {{ t('conversion.viewDetails') }}
+          </button>
+          <button class="primary-btn" @click="openOutputFolder">
+            <i class="ri-folder-open-line" aria-hidden="true"></i>
+            {{ t('openBtn') }}
+          </button>
+        </div>
+      </div>
+    </Workbench>
 
     <BedrockWarnDialog v-model="showBedrockWarn" @confirm="confirmBedrockPick" />
     <Java263WarnDialog v-model="show263Warn" @confirm="confirm263Pick" />
@@ -211,6 +292,8 @@ import ConversionResultDialog from './conversion/ConversionResultDialog.vue';
 import DeleteSourceDialog from './conversion/DeleteSourceDialog.vue';
 import ItemsListDialog from './conversion/ItemsListDialog.vue';
 import VersionSidebar from './conversion/VersionSidebar.vue';
+import Workbench, { type WorkbenchStep } from './shell/Workbench.vue';
+import StageBackdrop from './shell/StageBackdrop.vue';
 import {
   MINECRAFT_VERSIONS,
   DEFAULT_VERSION_LABEL,
@@ -224,6 +307,24 @@ const props = defineProps<{
 }>();
 const { t } = useI18n();
 const { notify, registerToastAction, unregisterToastAction } = useNotification();
+
+/**
+ * ── 转换流程状态（一次一步）─────────────────────────────────────────────
+ *
+ * 原来「导入模式 / 目标版本 / 执行进度 / 拖放区」四项铺在一个 2×2 网格里常驻显示，
+ * 代价是两张卡长期是空的（导入模式只有一个切换、进度空闲时只有三个灰点），
+ * 而主操作「开始转换」被放在最后一张卡底部，离它依赖的版本设置隔了半个屏幕。
+ *
+ * 现在同一时刻只呈现一步；步骤轨负责回答「我在哪、前面选了什么」。
+ * 可进入性由 canEnter 统一裁决，轨道上的锁定态与跳转用的是同一份判断，
+ * 不会出现「按钮能点但进去是空的」。
+ */
+const STEP_IDS = ['source', 'target', 'run', 'result'] as const;
+type StepId = (typeof STEP_IDS)[number];
+const currentStep = ref<StepId>('source');
+
+/** 是否跑过一轮（用于决定 run / result 能否进入） */
+const hasRunOnce = ref(false);
 
 const importMode = ref<'file' | 'folder'>('file');
 const isDragging = ref(false);
@@ -292,6 +393,110 @@ const confirm263Pick = () => {
 const hasItems = computed(() => selectedItems.value.length > 0);
 const previewItems = computed(() => selectedItems.value.slice(0, previewLimit));
 
+// ── 流程：可进入性 ────────────────────────────────────────────────────
+/** 某一步当前能否进入。轨道锁定态与跳转共用这一份判断。 */
+const canEnter = (id: StepId): boolean => {
+  switch (id) {
+    case 'source':
+      // 转换跑完之后不再允许回到输入步骤：改了源或目标，结果页展示的就不再是
+      // 那次转换的输入，界面上会出现「结果对不上设置」的矛盾状态。
+      return !hasRunOnce.value;
+    case 'target':
+      return hasItems.value && !hasRunOnce.value;
+    case 'run':
+      return hasRunOnce.value || isConverting.value;
+    case 'result':
+      return hasRunOnce.value && conversionResults.value.length > 0;
+  }
+};
+
+const goToStep = (id: string) => {
+  const step = id as StepId;
+  if (!STEP_IDS.includes(step)) return;
+  if (step !== currentStep.value && !canEnter(step)) return;
+  currentStep.value = step;
+};
+
+/** 本次是否至少有一个成功（决定「输出完成」点亮） */
+const hasSuccess = computed(() => conversionResults.value.some((r) => r?.status === 'success'));
+
+/**
+ * 三阶段进度。
+ *
+ * 状态规则（互斥，同一个阶段只有一个）：
+ *   done   已经走过 —— 导入完成、转换跑完、输出成功
+ *   active 正在进行 —— 只有「转换处理中」在 isConverting 时
+ *   todo   还没到
+ *
+ * 之前是三个独立的 :class 表达式各写各的，容易出现「转换处理中 和 输出完成
+ * 同时不亮」或「两个都亮」的组合。集中到一个 computed 里，顺序和互斥一目了然。
+ */
+const runSteps = computed(() => {
+  const items = [
+    { id: 'import', label: t('conversion.stepImport'), done: hasItems.value, active: false },
+    { id: 'process', label: t('conversion.stepProcessing'), done: hasRunOnce.value, active: isConverting.value },
+    { id: 'output', label: t('conversion.stepOutput'), done: hasSuccess.value, active: false },
+  ];
+  // 当前正在跑的那一步，如果同时也满足 done 条件，以 active 为准
+  return items.map((it) => ({
+    id: it.id,
+    label: it.label,
+    state: it.active ? 'active' : it.done ? 'done' : 'todo',
+  }));
+});
+
+/**
+ * 步骤三的标题要跟着状态走。
+ * 原来写死 t('conversion.stepRun')＝「正在转换」，
+ * 于是转换结束后标题说「正在转换」、副标题说「转换结束: 成功 1/1」，自相矛盾。
+ */
+const runTitle = computed(() => {
+  if (isConverting.value) return t('conversion.stepRun');
+  if (hasRunOnce.value) return hasSuccess.value ? t('conversion.stepRunDone') : t('conversion.stepRunFailed');
+  return t('conversion.stepRun');
+});
+
+/** 结果一句话概括，供结果页副标题用。 */
+const resultSummary = computed(() => {
+  const list = conversionResults.value;
+  if (!list.length) return t('conversion.ready');
+  const ok = list.filter((r) => r?.status === 'success').length;
+  const cancelled = list.filter((r) => r?.status === 'cancelled').length;
+  if (cancelled > 0) return t('conversion.cancelledText');
+  if (ok === list.length) return t('conversion.convAllSuccessBody', { success: ok, total: list.length });
+  return t('conversion.resultPartial', { success: ok, total: list.length });
+});
+
+/**
+ * 步骤轨数据。
+ * summary 只在「已经越过这一步」时才有意义 —— 未到达的步骤不留摘要，
+ * 否则轨道会被前瞻性的空文本撑开。
+ */
+const steps = computed<WorkbenchStep[]>(() => {
+  const cur = STEP_IDS.indexOf(currentStep.value);
+  const labels: Record<StepId, string> = {
+    source: t('conversion.stepSourceShort'),
+    target: t('conversion.stepTargetShort'),
+    run: t('conversion.stepRunShort'),
+    result: t('conversion.stepResultShort'),
+  };
+  const summaries: Record<StepId, string> = {
+    source: hasItems.value ? t('conversion.summaryItems', { count: selectedItems.value.length }) : '',
+    target: selectedVersionEntry.value?.label ?? '',
+    run: hasRunOnce.value ? resultSummary.value : '',
+    result: '',
+  };
+  return STEP_IDS.map((id, i) => {
+    let state: WorkbenchStep['state'];
+    if (i === cur) state = 'current';
+    // 已越过的步骤若 canEnter 为假（例如转换完成后不允许回到输入），
+    // 要标成 locked —— 否则它显示为可点的 done，点了却什么也不发生。
+    else if (i < cur) state = canEnter(id) ? 'done' : 'locked';
+    else state = canEnter(id) ? 'todo' : 'locked';
+    return { id, label: labels[id], summary: i !== cur ? summaries[id] : '', state };
+  });
+});
+
 const goBack = () => emit('switch-page', 'home');
 
 const loadOutputSettings = async () => {
@@ -314,6 +519,41 @@ const loadOutputSettings = async () => {
 
 onMounted(async () => {
   void loadOutputSettings();
+  /*
+   * 接住主页交接过来的文件。
+   *
+   * 主页的窗口级拖拽回调原先只 switch-page('conversion') 就把路径丢了 ——
+   * 用户把包拖到主页，页面跳过去，队列却是空的。
+   * 现在主页把路径写进 localStorage（与既有的 foray.pendingPath 同一个模式），
+   * 这里取出来入队后立刻清掉，避免下次进页面重复导入。
+   */
+  try {
+    const raw = localStorage.getItem('conversion.pendingPaths');
+    if (raw) {
+      localStorage.removeItem('conversion.pendingPaths');
+      const parsed = JSON.parse(raw);
+      // 兼容 { at, paths } 与旧的纯数组两种形态
+      const paths: string[] = Array.isArray(parsed) ? parsed : (parsed?.paths ?? []);
+      const at: number = Array.isArray(parsed) ? Date.now() : (parsed?.at ?? 0);
+      // 超过 60s 视为失效：交接本该是「写入后立刻跳转并消费」，
+      // 隔这么久说明中间出了岔子，不该把陈旧路径导进来。
+      if (Date.now() - at >= 60_000) {
+        console.warn('[conversion] 待转换路径已过期，忽略');
+      } else {
+        for (const p of paths) {
+          const name = p.split(/[\\/]/).pop() || p;
+          const ext = name.includes('.') ? (name.toLowerCase().split('.').pop() || '') : '';
+          const isDir = ext === '';
+          // 与拖入时的过滤保持一致：文件模式只收 zip / mcpack
+          if (!isDir && ext !== 'zip' && ext !== 'mcpack') continue;
+          if (selectedItems.value.some((item) => item.path === p)) continue;
+          selectedItems.value.push({ name, size: isDir ? 'Folder' : '', path: p, isDir });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[conversion] 读取待转换路径失败', e);
+  }
 
   // 校验持久化的版本标签仍存在（版本列表更新后旧标签可能失效），
   // 失效则回退到默认目标版本。
@@ -357,7 +597,7 @@ onMounted(async () => {
           return;
         }
         for (const p of paths) {
-          const fileName = p.split('/').pop() || p.split('\\').pop() || p;
+          const fileName = p.split(/[\\/]/).pop() || p;
           const ext = fileName.toLowerCase().split('.').pop() || '';
           if (importMode.value === 'file') {
             if (ext !== 'zip' && ext !== 'mcpack') continue;
@@ -418,7 +658,7 @@ const triggerPicker = async () => {
     if (result) {
       const paths = Array.isArray(result) ? result : [result];
       for (const path of paths) {
-        const fileName = path.split('/').pop() || path.split('\\').pop() || path;
+        const fileName = path.split(/[\\/]/).pop() || path;
         selectedItems.value.push({
           name: fileName,
           size: importMode.value === 'folder' ? 'Folder' : (Math.random() * 20 + 5).toFixed(1) + ' MB',
@@ -469,6 +709,9 @@ const startConversion = async () => {
   showProgress.value = true;
   progressText.value = t('conversion.converting');
   logMessages.value = [];
+  // 进入流程第 ③ 步。hasRunOnce 同时解锁轨道上的「结果」。
+  hasRunOnce.value = true;
+  goToStep('run');
 
   // Warn when converting a lot of files at once.
   manyFilesWarning.value = selectedItems.value.length >= MANY_FILES_THRESHOLD;
@@ -561,6 +804,7 @@ const startConversion = async () => {
       const cancelledCount = conversionResults.value.filter(r => r.status === 'cancelled').length;
       if (cancelledCount > 0) {
         progressText.value = t('conversion.cancelledText');
+        goToStep('result');
         return;
       }
       if (failureCount === 0) {
@@ -593,8 +837,10 @@ const startConversion = async () => {
           source: 'conversion',
           actions,
         });
+        // 成功也进入结果页 —— 流程有一个明确的终点，而不是停在进度页
+        goToStep('result');
       } else {
-        showResultModal.value = true;
+        goToStep('result');
       }
     }
   }
@@ -813,43 +1059,10 @@ const exportLogsToFile = async () => {
   user-select: none;
 }
 
-.panel-grid {
-  flex: 1;
-  min-height: 0;
-  z-index: 2;
-  padding: 12px 40px 28px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas:
-    "mode version"
-    "progress drop";
-  gap: 14px;
-}
 
 /* 卡片：交给 App.vue 全局玻璃皮肤，只补布局 */
-.card {
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-  overflow: hidden;
-}
-.card-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
 .card-hint { font-size: 12px; color: #94a3b8; margin: 0; flex-shrink: 0; }
 
-.card-mode { grid-area: mode; }
-.card-version { grid-area: version; }
-.card-progress { grid-area: progress; }
-.card-drop { grid-area: drop; gap: 12px; }
 
 /* 文件 / 文件夹：对齐设置页 segmented */
 .import-tabs {
@@ -864,19 +1077,21 @@ const exportLogsToFile = async () => {
   border: none;
   background: transparent;
   padding: 8px 16px;
-  border-radius: calc(var(--ui-radius-btn) + 2px);
+  border-radius: 6px;
   font-size: 13px;
-  font-weight: 600;
-  color: #6b7280;
+  font-weight: 500;
+  color: #7d776d;
   cursor: pointer;
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   font-family: inherit;
 }
-.tab-btn:hover { color: #1d1d1f; }
+.tab-btn:hover { color: #14171a; }
 .tab-btn.active {
   background: #fff;
-  color: #1d1d1f;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  color: #14171a;
+  /* 去掉两层投影（环境影 + 1px 描边影）—— 那是卡片语言的遗留。
+     设置页的分段按钮已经统一成「白面 + 发丝内描边」，这里跟上。 */
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.14);
 }
 
 /* === Version picker === */
@@ -884,22 +1099,22 @@ const exportLogsToFile = async () => {
   display: inline-flex;
   align-items: center;
   gap: 14px;
+  /* 发丝线 + 暖白面，不用主题色描边和内高光 —— 与设置页同一套 */
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid color-mix(in srgb, var(--theme-color) 18%, transparent);
+  border: 1px solid rgba(120, 110, 95, 0.18);
   padding: 12px 14px;
-  border-radius: var(--ui-radius-btn);
+  border-radius: 8px;
   font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease, background 0.2s ease;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  box-shadow: none;
   min-width: 0;
   width: 100%;
   text-align: left;
 }
 .version-picker:hover {
   border-color: color-mix(in srgb, var(--theme-color) 38%, transparent);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--theme-color) 14%, transparent),
-              inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 16px rgba(20, 23, 26, 0.10);
   transform: translateY(-1px);
 }
 .version-picker:active { transform: translateY(0); }
@@ -949,8 +1164,8 @@ const exportLogsToFile = async () => {
   color: #9ca3af;
   transition: transform 0.22s ease, color 0.18s ease;
 }
-.version-picker:hover .version-picker-chevron { color: var(--theme-color); }
-.version-picker.open .version-picker-chevron { transform: rotate(180deg); color: var(--theme-color); }
+.version-picker:hover .version-picker-chevron { color: #14171a; }
+.version-picker.open .version-picker-chevron { transform: rotate(180deg); color: #14171a; }
 
 .switch-line {
   display: flex;
@@ -977,45 +1192,82 @@ const exportLogsToFile = async () => {
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.12);
 }
-.switch input:checked + .slider { background-color: var(--theme-color); }
+.switch input:checked + .slider { background-color: #14171a; }
 .switch input:checked + .slider:before { transform: translateX(18px); }
 
 /* 步骤：更轻的竖向时间线 */
-.control-steps { display: grid; gap: 12px; padding: 4px 0 8px; }
-.step {
+/*
+ * 三阶段进度。
+ *
+ * 每行 = 一个固定 18px 的标记盒 + 一段普通文字。
+ * 标记的状态全部由它自己的边框和底色表达 —— 不用 box-shadow 光环、
+ * 不用 ::after 勾：那两者都不占布局，在 flex 行里会把文字挤到不可预期的位置。
+ * 文字是普通块级元素，宽度自适应，任何地方都不设 overflow / text-overflow。
+ */
+.run-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  /* 宽度按内容收缩，不拉满整行 —— 拉满后文字区域变宽，反而不好读 */
+  width: fit-content;
+}
+
+.run-step {
   display: flex;
   align-items: center;
   gap: 12px;
   font-size: 13px;
-  color: #9ca3af;
+  line-height: 1.5;
+  color: #a8a29a;
   transition: color 0.2s ease;
 }
-.step-dot {
-  width: 9px;
-  height: 9px;
+
+/* 标记：实心盒子，占据真实布局宽度 */
+.run-mark {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #d1d5db;
-  box-shadow: 0 0 0 4px rgba(209, 213, 219, 0.25);
-  flex-shrink: 0;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+  border: 1px solid rgba(120, 110, 95, 0.32);
+  background: transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-.step.active { color: #1d1d1f; font-weight: 600; }
-.step.active .step-dot {
-  background: var(--theme-color);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-color) 22%, transparent);
+
+.run-label { white-space: nowrap; }
+
+/* 进行中：深色描边 + 深色内芯 */
+.run-step.active { color: #14171a; font-weight: 600; }
+.run-step.active .run-mark {
+  border-color: #14171a;
+  background: radial-gradient(circle, #14171a 0 4px, transparent 4px);
+}
+
+/* 已完成：整体填深色 */
+.run-step.done { color: #5f5a51; }
+.run-step.done .run-mark {
+  border-color: #14171a;
+  background: #14171a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-step,
+  .run-mark { transition: none; }
 }
 
 .progress-section { margin-top: 4px; display: flex; flex-direction: column; gap: 12px; }
 .progress-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; }
-.progress-info .spin { color: var(--theme-color); font-size: 16px; }
+.progress-info .spin { color: #14171a; font-size: 16px; }
 .status-text { font-weight: 600; }
 
 .many-files-warning {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px; color: #b45309;
-  background: color-mix(in srgb, #f59e0b 10%, #fff);
-  border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
-  border-radius: 10px; padding: 8px 12px;
+  background: rgba(180, 83, 9, 0.05);
+  border: 1px solid rgba(180, 83, 9, 0.22);
+  border-radius: 8px; padding: 8px 12px;
 }
 .many-files-warning i { font-size: 14px; }
 
@@ -1181,8 +1433,6 @@ const exportLogsToFile = async () => {
 }
 .start-conversion-button:active:not(:disabled) { transform: translateY(0); }
 
-.dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(6px); }
-.dialog-content { background: white; padding: 2rem; border-radius: 24px; width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); max-height: 80vh; overflow-y: auto; }
 .dialog-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
 .dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #64748b; }
 .dialog-body { margin-bottom: 1.5rem; }
@@ -1205,33 +1455,21 @@ const exportLogsToFile = async () => {
 .dialog-button:disabled { background: #cbd5e1; cursor: not-allowed; }
 
 /* === Version picker sidebar (右侧抽屉,从右滑入) === */
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.28);
-  z-index: 200;
-  /* 不用 backdrop-filter blur — 避免 chromium 在 leave 时中断 animationend,
-     跟 dialog-pop overlay 同样策略。 */
-}
+/* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
+   页面级定义会因 scoped 的 data-v 获得更高特异度，留着会盖掉全局那份。 */
 .sidebar-content {
   /* position: fixed + right: 0 — aside 跟 .sidebar-overlay 是 sibling,
      不嵌套在 overlay flex 容器里。aside 自己用 right:0 锚定在屏幕右侧,
      transform translateX(100%) = + 自身 420px width 推到屏幕外右侧;
      transform translateX(0) = 回到 right:0 位置(屏幕内最右 420px)。 */
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: min(420px, 92vw);
+  /* 几何、底色、边框、flex 都来自 shared.css 的 .sidebar-content。
+     这里只留真正有差异的三项，以及下面那段 transform 兜底。 */
   height: 100vh;
-  background: white;
-  /* 阴影淡一点 — 之前 -20px 0 60px rgba(0,0,0,0.18) 偏重,改 12px/36px/0.08
-     保持层级感但不抢戏。enter 期间 inline style 会把 box-shadow 渐变到 0,
-     leave 期间渐变到 0(全透明,exit 时无残留)。 */
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  outline: none;
   z-index: 201;
+  outline: none;
+  /* 投影由 useSidebarSlide 在 enter/leave 期间用内联样式维护，这里只是静态兜底。
+     颜色改暖（原来是冷黑 rgba(0,0,0,.08)，压在暖白界面上会发脏）。 */
+  box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
   /* 默认状态 = enter-from(屏幕外右侧)— element insert 时浏览器 paint 看不见。
      enter/leave 完全由 inline style + CSS transition 驱动(见 onSidebarEnter /
      onSidebarLeave),transform / box-shadow 状态由 inline style 维护,这里
@@ -1335,57 +1573,16 @@ const exportLogsToFile = async () => {
   font-variant-numeric: tabular-nums;
 }
 
-.version-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
-.version-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  transition:
-    background 140ms ease,
-    border-color 140ms ease;
-  /* stagger entrance — 侧栏滑入过半后再让行浮现，避免和面板位移叠在一起 */
-  animation: version-row-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: calc(120ms + var(--card-delay, 0ms));
-}
 @keyframes version-row-in {
   from { opacity: 0; transform: translateX(8px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.version-row:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: color-mix(in srgb, var(--theme-color) 25%, transparent);
-}
 .version-row:active {
   background: rgba(0, 0, 0, 0.06);
 }
-.version-row.active {
-  background: color-mix(in srgb, var(--theme-color) 10%, #ffffff);
-  border-color: color-mix(in srgb, var(--theme-color) 45%, transparent);
-}
 .version-row.has-status { padding-right: 8px; }
 
-.version-row-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
 .version-row-label {
   font-size: 14px;
   font-weight: 600;
@@ -1394,16 +1591,6 @@ const exportLogsToFile = async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.version-row.active .version-row-label {
-  color: color-mix(in srgb, var(--theme-color) 90%, #000);
-}
-.version-row-meta {
-  font-size: 10px;
-  color: #94a3b8;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
 }
 
 .version-row-tail {
@@ -1470,22 +1657,71 @@ const exportLogsToFile = async () => {
 }
 
 @media (max-width: 980px) {
-  .panel-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto 1fr;
-    grid-template-areas: "mode" "version" "drop" "progress";
-    padding: 12px 20px 24px;
-  }
   .header-section { padding: 20px 20px 8px; }
-  .card-drop { min-height: 280px; }
-  .card-progress { min-height: 200px; }
 }
 @media (min-width: 981px) and (max-width: 1200px) {
-  .panel-grid { padding: 14px 28px 24px; }
   .header-section { padding: 24px 28px 8px; }
 }
 @media (min-width: 1600px) {
-  .panel-grid { padding: 20px 64px 32px; gap: 24px; }
   .header-section { padding: 28px 64px 8px; }
 }
+/*
+ * 拖放区与队列按可用空间伸缩。
+ * 原实现里拖放区 flex-shrink: 0、队列 max-height: 150px，都是为「卡片里的一小块」
+ * 调的；搬到整屏舞台后会在下方留出大片空白。
+ * 现在：未导入时拖放区吃掉剩余空间（内容居中），导入后缩成一条、由队列接管。
+ */
+.stage-panel > .drag-drop-frame {
+  flex: 1 1 auto;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.stage-panel > .drag-drop-frame.has-file {
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 18px 20px;
+}
+.stage-panel .selected-items-list { flex: 1 1 auto; min-height: 0; }
+.stage-panel .items-scroll { max-height: none; flex: 1 1 auto; min-height: 0; }
+/* ── 修复项：一行一项，横线分隔 ── */
+.option-list { display: flex; flex-direction: column; flex-shrink: 0; }
+.option-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.option-row:last-child { border-bottom: none; }
+.option-info { flex: 1; min-width: 0; }
+.option-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+.option-hint { margin: 4px 0 0; font-size: 12px; color: #6b7280; line-height: 1.5; }
+
+/* ── 结果列表 ── */
+.result-list { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.result-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-small);
+  background: var(--hover-color);
+}
+.result-icon { font-size: 16px; line-height: 1.45; flex-shrink: 0; }
+.result-row.success .result-icon { color: #10b981; }
+.result-row.error .result-icon { color: #ef4444; }
+.result-row.cancelled .result-icon { color: #f59e0b; }
+.result-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.result-name { font-size: 13px; font-weight: 600; color: #1d1d1f; word-break: break-all; }
+.result-path { font-size: 11.5px; color: #6b7280; word-break: break-all; line-height: 1.45; }
+.result-path.error { color: #ef4444; }
 </style>

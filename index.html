@@ -9,107 +9,114 @@
   </head>
 
   <body>
-    <div class="splash" id="splash-screen">
-      <div class="splash-aurora"></div>
-      <div class="splash-content">
-        <div class="splash-icon">
-          <svg viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <g stroke="#000" stroke-linecap="round">
-              <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
-              <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
-              <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
-              <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
-            </g>
-          </svg>
-        </div>
-        <h1 class="splash-title">2-Pyramid<span class="splash-beta">%VITE_BETA_MARK%</span></h1>
-        <p class="splash-sub" id="splash-sub">现代化通用多版本资源包转换器</p>
-        <div class="splash-spinner">
-          <svg viewBox="0 0 50 50">
-            <circle cx="25" cy="25" r="20" fill="none" stroke="#e9ecef" stroke-width="3"/>
-            <circle cx="25" cy="25" r="20" fill="none" stroke="var(--theme-color)" stroke-width="3" stroke-dasharray="30, 150" stroke-linecap="round"/>
-          </svg>
-        </div>
-      </div>
+    <!--
+      ══ 加载页 ══════════════════════════════════════════════════════════
+      构成照莱茵生命的 loading：品牌锁定 + 一条 1px 轨道。
+      重点是**背景色与首页完全相同**（#f4f2ee）—— 过渡时不需要换色，
+      于是加载页和首页读起来是同一个空间，而不是两张贴在一起的图。
+
+      标识必须和名字、标语一起出现。单放一个图形的话，
+      这个斜的形没有文字锚定，会被读成「一个歪掉的东西」而不是 logo。
+
+      .boot-mark 同时也是飞行动画的载体：App.vue 会量出首页 .brand-mark 的位置，
+      给这里加 transform 让它飞过去。所以两边的 logo 必须是同一份资源
+      （public/logo-mark.png，与 src/assets/logo-512.png 同图）。
+    -->
+    <div class="boot" id="boot-screen">
+      <div class="boot-mark"><img src="/logo-mark.png" alt="" /></div>
+      <h1 class="boot-name">2-Pyramid<span class="boot-beta">%VITE_BETA_MARK%</span></h1>
+      <p class="boot-tag" id="boot-tag">现代化通用多版本资源包转换器</p>
+      <div class="boot-bar"><i></i></div>
     </div>
     <script>
-      (function() {
+      (function () {
         var lang = localStorage.getItem('language') || 'zh-CN';
         document.documentElement.lang = lang;
-        var sub = document.getElementById('splash-sub');
-        if (sub) {
-          sub.textContent = lang === 'en-US' ? 'Universal Multi-Version Resource Pack Converter' : '多版本通用材质包转换器';
+        var tag = document.getElementById('boot-tag');
+        if (tag) {
+          tag.textContent = lang === 'en-US'
+            ? 'Universal Multi-Version Resource Pack Converter'
+            : '多版本通用材质包转换器';
         }
-        document.getElementById('splash-screen').dataset.start = Date.now();
+        document.getElementById('boot-screen').dataset.start = Date.now();
       })();
     </script>
     <div id="app"></div>
     <style>
-      :root { --theme-color: #007bff; }
+      :root { --theme-color: #14171a; }
       html, body {
         overflow: hidden;
-        background-color: #ffffff;
-        background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
-        background-repeat: no-repeat;
-        background-size: 100% 100%;
+        background-color: #f4f2ee;
       }
-      .splash {
+
+      .boot {
         position: fixed; inset: 0; z-index: 9999;
-        display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
-        background-size: 200% 200%;
-        animation: splash-bg 14s ease-in-out infinite;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
-        transition: opacity 0.45s ease;
       }
-      .splash-out { opacity: 0; pointer-events: none; }
-      .splash-aurora {
-        position: absolute; inset: -10%;
-        background: radial-gradient(900px 500px at 30% 30%, color-mix(in srgb, var(--theme-color) 22%, transparent), transparent 60%),
-                    radial-gradient(800px 400px at 70% 70%, color-mix(in srgb, var(--theme-color) 16%, transparent), transparent 60%);
-        opacity: 0.7; filter: blur(8px);
-        animation: splash-aurora 20s ease-in-out infinite;
-        pointer-events: none;
+      /* 底板单独一层：只淡出它，飞行的 logo 不受影响 */
+      .boot::before {
+        content: ""; position: absolute; inset: 0;
+        background: #f4f2ee;
+        transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
       }
-      .splash-content {
-        position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px;
+      .boot > * { position: relative; z-index: 1; }
+
+      /* 132px 盒子里墨迹只占约 46%×50%（图形四周留白很大），所以视觉大小约 61px */
+      .boot-mark { width: 132px; height: 132px; }
+      .boot-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+      .boot-name {
+        margin: 6px 0 0;
+        font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
+        line-height: 1.1; color: #14171a;
+        transition: opacity 220ms ease;
       }
-        .splash-icon {
-          width: 104px; height: 104px; color: var(--theme-color);
-          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.08));
-        }
-      .splash-title {
-        font-size: 40px; font-weight: 900; letter-spacing: -1.5px; color: #212529; margin: 0;
+      .boot-beta {
+        font-size: 15px; font-weight: 800; color: #ea580c;
+        margin-left: 8px; vertical-align: 4px;
       }
-      .splash-beta {
-        font-size: 20px;
-        font-weight: 800;
-        color: #ea580c;
-        margin-left: 10px;
-        vertical-align: 6px;
+
+      .boot-tag {
+        margin: 10px 0 0;
+        font-size: 12px; font-weight: 400; letter-spacing: 0.04em;
+        color: #7d776d;
+        transition: opacity 220ms ease;
       }
-      .splash-sub {
-        font-size: 13px; color: #6b7280; font-weight: 600; margin: 4px 0 14px;
+
+      /* 1px 轨道 + 60px 滑块：莱茵的进度指示就是这个量级，不做大 */
+      .boot-bar {
+        width: 180px; height: 1px; position: relative; overflow: hidden;
+        margin-top: 46px;
+        background: rgba(120, 110, 95, 0.22);
+        transition: opacity 220ms ease;
       }
-      .splash-spinner {
-        width: 40px; height: 40px; color: var(--theme-color);
+      .boot-bar i {
+        position: absolute; top: 0; bottom: 0; left: 0; width: 60px;
+        background: #14171a;
+        animation: boot-slide 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
-      .splash-spinner svg { width: 100%; height: 100%; }
-      .splash-spinner circle:last-child {
-        animation: splash-ring 1.2s linear infinite;
-        transform-origin: center;
+      @keyframes boot-slide {
+        from { transform: translateX(-60px); }
+        to   { transform: translateX(180px); }
       }
-      @keyframes splash-ring {
-        to { transform: rotate(360deg); }
-      }
-      @keyframes splash-bg {
-        0% { background-position: 0% 0%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 100%; }
-      }
-      @keyframes splash-aurora {
-        0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.65; }
-        50% { transform: translate3d(30px, -15px, 0); opacity: 0.85; }
+
+      /* 离场：名字、标语与轨道先退，底板随后淡出；logo 由 App.vue 接管飞行 */
+      .boot-leaving .boot-name,
+      .boot-leaving .boot-tag,
+      .boot-leaving .boot-bar { opacity: 0; }
+      .boot-leaving::before { opacity: 0; }
+
+      /* 落地的瞬间整层撤掉 —— 首页的 logo 已在同一位置接管，看不出切换 */
+      .boot-gone { display: none; }
+
+      /* 尊重「减少动效」：不做飞行，直接淡出 */
+      @media (prefers-reduced-motion: reduce) {
+        .boot-bar i { animation: none; transform: translateX(60px); }
+        .boot-mark { transition: opacity 200ms ease; }
+        .boot-leaving .boot-mark { opacity: 0; }
       }
     </style>
     <script type="module" src="/src/main.ts"></script>

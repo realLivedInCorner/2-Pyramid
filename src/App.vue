@@ -79,6 +79,57 @@ import { resolveImageUrl } from "./utils/assetUrl";
    setCurrentPage("foray");
  }
 
+ // ── 加载页 → 首页的编排 ──────────────────────────────────────────────
+ //
+ // 让两屏读成「一个整体」的关键是**同一个元素连续移动**：
+ // 加载页中央的 logo 直接飞到首页 header 里 logo 的位置（FLIP），
+ // 而不是一个淡出、另一个淡入 —— 中间没有任何东西凭空出现或消失。
+ //
+ // bootPhase 由首页消费：
+ //   0 全部不可见（logo 用 visibility 保占位，好让这里量得到目标坐标）
+ //   1 背景先行显现，logo 在飞
+ //   2 落地 —— 首页接管，各组件依次入场
+ const bootPhase = ref(0);
+ const BOOT_FLY = 820;    // 飞行时长
+ const BOOT_HOLD = 260;   // 加载页文字与轨道先退场所需的时间
+
+ function bootOut(splash: HTMLElement) {
+   const mark = splash.querySelector<HTMLElement>('.boot-mark');
+   const target = document.querySelector<HTMLElement>('.brand-mark');
+   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+   if (reduced || !mark || !target) {
+     // 减少动效 / 拿不到落点：不飞，直接让首页接手
+     splash.classList.add('boot-leaving');
+     window.setTimeout(() => { bootPhase.value = 2; splash.classList.add('boot-gone'); }, 220);
+     window.setTimeout(() => splash.remove(), 520);
+     return;
+   }
+
+   const a = mark.getBoundingClientRect();
+   const b = target.getBoundingClientRect();
+   const scale = b.width / a.width;
+   const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+   const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+
+   mark.style.transformOrigin = '50% 50%';
+   mark.style.transition = `transform ${BOOT_FLY}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+
+   window.setTimeout(() => {
+     // 背景显现与 logo 起飞共用一个起点，所以读起来是同一件事
+     bootPhase.value = 1;
+     splash.classList.add('boot-leaving');
+     mark.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+   }, BOOT_HOLD);
+
+   window.setTimeout(() => {
+     // 落地那一帧撤掉整层：首页的 logo 已在完全相同的位置接管，看不出切换
+     bootPhase.value = 2;
+     splash.classList.add('boot-gone');
+   }, BOOT_HOLD + BOOT_FLY);
+   window.setTimeout(() => splash.remove(), BOOT_HOLD + BOOT_FLY + 200);
+ }
+
  const pageProps = computed(() => {
    if (currentPage.value === "conversion") {
      return {
@@ -91,7 +142,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
     return { animationStyle: animationStyle.value, devMode: devMode.value, userName: userName.value, editorMode: editorMode.value };
    }
    if (currentPage.value === "home") {
-    return { userName: userName.value };
+    return { userName: userName.value, bootPhase: bootPhase.value };
    }
    return {};
  }); 
@@ -145,14 +196,32 @@ const userName = ref<string>("");
  }; 
   
  const onForayLeave = () => switchPage("home");
-  const switchPage = (page: string) => {
-   if (page === "foray") {
-     enterForay();
-     return;
-   }
-   currentPage.value = page;
-   setCurrentPage(page);
- }; 
+/**
+ * 导航深度。只用来说明「这一步是往里走还是往回退」，
+ * 由它决定内容入场的方向（见 <style> 里 .page-shell[data-nav-dir] 的说明）。
+ */
+const NAV_DEPTH: Record<string, number> = {
+  home: 0,
+  conversion: 1,
+  overlay: 1,
+  settings: 1,
+  foray: 2,
+};
+/** 本次切换的方向：forward 内容自下而上顶入，back 自上而下落回。 */
+const navDir = ref<'forward' | 'back'>('forward');
+
+const switchPage = (page: string) => {
+  if (page === "foray") {
+    enterForay();
+    return;
+  }
+  const from = NAV_DEPTH[currentPage.value] ?? 0;
+  const to = NAV_DEPTH[page] ?? 0;
+  // 同层（如转换 ↔ 设置）算前进：横向切换没有明确前后，给一致的默认
+  navDir.value = to >= from ? "forward" : "back";
+  currentPage.value = page;
+  setCurrentPage(page);
+};
 
 const updateDevMode = async (value: boolean) => {
   devMode.value = value;
@@ -589,14 +658,13 @@ onMounted(async () => {
    });
 
   // Dismiss splash screen (minimum 1.2s display) — skip if OOBE is showing.
-  const splash = document.getElementById('splash-screen');
+  const splash = document.getElementById('boot-screen');
   if (splash && !showOOBE.value) {
     const elapsed = Date.now() - Number((splash as HTMLElement).dataset.start || 0);
-    const delay = Math.max(0, 1200 - elapsed);
-    setTimeout(() => {
-      splash.classList.add('splash-out');
-      splash.addEventListener('transitionend', () => splash.remove(), { once: true });
-    }, delay);
+    setTimeout(() => bootOut(splash as HTMLElement), Math.max(0, 1200 - elapsed));
+  } else if (showOOBE.value) {
+    // OOBE 期间没有加载页，首页直接就是就绪态
+    bootPhase.value = 2;
   }
 
   // Startup update check & post-update marker (deferred)
@@ -661,10 +729,11 @@ onMounted(async () => {
      }
    } catch { /* ignore */ }
    // Dismiss splash after OOBE finishes
-   const splash = document.getElementById('splash-screen');
+   const splash = document.getElementById('boot-screen');
    if (splash) {
-     splash.classList.add('splash-out');
-     splash.addEventListener('transitionend', () => splash.remove(), { once: true });
+     bootOut(splash as HTMLElement);
+   } else {
+     bootPhase.value = 2;
    }
  }
  </script> 
@@ -705,7 +774,7 @@ onMounted(async () => {
      <main class="main-content"> 
        <div class="page-content"> 
          <Transition :name="animationStyle"> 
-           <div class="page-shell" :key="currentPage" :data-anim-speed="animationSpeed"> 
+           <div class="page-shell" :key="currentPage" :data-anim-speed="animationSpeed" :data-nav-dir="navDir"> 
              <component
                :is="pageComponent"
                v-bind="pageProps"
@@ -824,7 +893,7 @@ onMounted(async () => {
  } 
  
  :root { 
-   --theme-color: #007bff; 
+   --theme-color: #14171a; 
    --bg-color: #ffffff; 
    --sidebar-bg: #f8f9fa; 
    --text-color: #212529; 
@@ -850,17 +919,26 @@ onMounted(async () => {
    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+   /*
+    * 弹簧曲线：y 分量超过 1，所以会「冲过头再回落」。
+    * 这是位移有落位实感的关键 —— 纯 ease-out 只是「滑过去停下」，读起来是浮的。
+    * 幅度 1.56 是克制值：再大在小位移上会抖。
+    */
+   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+   --ease-spring-soft: cubic-bezier(0.22, 1.28, 0.4, 1);
    --motion-micro: 150ms;
-   --motion-page-leave: 320ms;
-   --motion-page-enter: 300ms;
+   --motion-page-leave: 260ms;
+   --motion-page-enter: 240ms;
    --motion-page-blur: 10px;
    --motion-page-blur-ms: 160ms;
-   --motion-stagger-dur: 280ms;
-   --motion-stagger-step: 36ms;
-   --motion-stagger-base: 60ms;
-   --motion-dialog-enter: 240ms;
+   /* 单项位移拉长到 460ms：弹簧要有时间回落，太快看不出「弹」 */
+   --motion-stagger-dur: 460ms;
+   --motion-stagger-step: 42ms;
+   --motion-stagger-base: 40ms;
+   --motion-page-rise: 22px;
+   --motion-dialog-enter: 340ms;
    --motion-dialog-leave: 160ms;
-   --motion-dialog-quick-enter: 180ms;
+   --motion-dialog-quick-enter: 260ms;
    --motion-dialog-quick-leave: 120ms;
    --motion-toast-enter: 280ms;
    --motion-toast-leave: 180ms;
@@ -939,7 +1017,7 @@ onMounted(async () => {
    --ui-blur: 20px;
    --ui-saturate: 1.5;
    --ui-radius-card: 14px;
-   --ui-radius-btn: 10px;
+   --ui-radius-btn: 8px;
    /* 玻璃层次：顶部高光 + 边缘光 + 悬浮投影 */
    --ui-shadow:
      inset 0 1px 1px rgba(255, 255, 255, 0.75),
@@ -972,8 +1050,11 @@ onMounted(async () => {
  }
 
  /* ── 卡片类（统一柔光玻璃表面 + 统一圆角） ── */
- .app-container .group-card,
- .app-container .card,
+ /*
+  * .group-card 故意不在名单里。
+  * 设置页与覆盖页自己定义它们的面；放进这里会以同特异度、靠加载顺序压过去，
+  * 于是页面里怎么改都看不出来，实测值永远是这套全局玻璃表面。
+  */
  .app-container .home-greeting,
  .app-container .engine-indicator,
  .app-container .home-header,
@@ -1004,8 +1085,6 @@ onMounted(async () => {
    transition: box-shadow 0.25s ease, background 0.25s ease, transform 0.25s ease;
  }
 
- .app-container .group-card:hover,
- .app-container .card:hover,
  .app-container .lang-card:hover,
  .app-container .welcome-card:hover {
    box-shadow: var(--ui-shadow-hover);
@@ -1036,7 +1115,11 @@ onMounted(async () => {
  .app-container .back-btn,
  .app-container .btn-text.secondary,
  .app-container .dialog-button.secondary,
- .app-container .ghost-btn,
+ /*
+  * .ghost-btn 不在这里 —— 它由 shared.css 定义成「透明底 + 发丝描边」。
+  * 放进这份名单会被套上玻璃表面（背景 + blur + 内高光），
+  * 和同页面的 primary-btn（墨底白字）不是一套语言。
+  */
  .app-container .danger-btn,
  .app-container .naming-tag-btn,
  .app-container .naming-preset-btn,
@@ -1102,7 +1185,6 @@ onMounted(async () => {
  .app-container .back-btn:hover,
  .app-container .btn-text.secondary:hover,
  .app-container .dialog-button.secondary:hover,
- .app-container .ghost-btn:hover,
  .app-container .naming-tag-btn:hover,
  .app-container .naming-preset-btn:hover {
    box-shadow: var(--ui-shadow-hover);
@@ -1116,9 +1198,10 @@ onMounted(async () => {
    transform: scale(0.96);
  }
 
- /* 分段按钮选中态：玻璃模式下用主题色淡玻璃（不再纯白突兀），
-    磨砂模式下保持实白 */
- .app-container .seg-btn.active,
+ /* 分段按钮选中态。
+    .app-container 的不在这里定义 —— 交给 shared.css 的白面 + 发丝内描边，
+    免得主题色淡玻璃把页面统一好的配色又染回蓝。
+    OOBE（.startup-root）保留原来的主题色淡玻璃。 */
  .startup-root .seg-btn.active {
    background:
      radial-gradient(240px circle at var(--glare-x) var(--glare-y),
@@ -1517,59 +1600,82 @@ onMounted(async () => {
    filter: blur(var(--motion-page-blur));
  }
 
- /*
-  * Page-entry stagger — 用 CSS 变量驱动延迟，避免旧版“舞台式”
-  * 0.18s→0.90s 阶梯（最后一项要等到 ~1.4s 才落位）。新节奏：
-  * 每项间隔 36ms，单项 280ms，整页约 0.6s 内完成。
+  /*
+  * Page-entry stagger —— 页面内容的「落位」动画。
   *
-  * 选择器仍是 `.page-shell > * > *`（页面根的直接子节点），
-  * 跳过 dialog / sidebar 等浮层，避免它们被 opacity:0 压住。
+  * 这里动的是页面根的直接子元素，不是页面根自己。
+  * 原因：给 .page-shell 加 transform / translate 会让它成为包含块，
+  * 内部 position:fixed 的极光、光斑就不再相对视口定位，窗口左侧会露出白边。
+  * 动子元素没有这个问题 —— fixed 元素自身被 translate 时仍相对视口定位。
+  *
+  * 首页的块（.hm-block）也排除：首页有自己的入场编排（见 HomePage 的 bootPhase），
+ * 那条规则特异度只有 (0,3,0)，会被这里 (0,6,0) 的 animation 直接盖掉 ——
+ * 表现为「四角没有先后、一起冒出来」。用统一类名排除是最省事也最不容易漏的做法。
+ *
+ * 装饰层排除在外：它们本来就铺满视口，让背景跟着位移看起来像整个画面在抖，
+  * 而不是内容在落位。
+  *
+  * 方向：data-nav-dir 由 App 按导航深度设置 ——
+  * 进深层页面时内容自下而上顶入，返回时自上而下落回，
+  * 这样「前进 / 后退」在手感上有区别，而不只是换一份内容淡入。
+  *
+  * fill-mode 必须是 backwards 而不是 forwards：
+  * forwards 会让每个元素永久保留 translate: 0 0 —— 那等价于永久 transform，
+  * 子元素里的 position:fixed 浮层会因此改变定位基准。
+  * backwards 只在延迟期间套用 from 状态，动画结束后回到自然样式，
+  * 所以基线规则里不能再写 opacity: 0。
   */
- .page-shell > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) {
-   opacity: 0;
-   animation: stagger-rise var(--motion-stagger-dur) var(--ease-out) forwards;
+ .page-shell { --nav-dir: 1; }
+ .page-shell[data-nav-dir="back"] { --nav-dir: -1; }
+
+ .page-shell > * > *:not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) {
+   animation: stagger-rise var(--motion-stagger-dur) var(--ease-spring) backwards;
    animation-delay: calc(
      var(--motion-stagger-base) + var(--stagger-i, 0) * var(--motion-stagger-step)
    );
  }
- .page-shell > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 0; }
- .page-shell > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 1; }
- .page-shell > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 2; }
- .page-shell > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 3; }
- .page-shell > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 4; }
- .page-shell > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 5; }
- .page-shell > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 6; }
- .page-shell > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 7; }
- .page-shell > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay)  { --stagger-i: 8; }
- .page-shell > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay) { --stagger-i: 9; }
+
+ .page-shell > * > *:nth-child(1):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 0; }
+ .page-shell > * > *:nth-child(2):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 1; }
+ .page-shell > * > *:nth-child(3):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 2; }
+ .page-shell > * > *:nth-child(4):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 3; }
+ .page-shell > * > *:nth-child(5):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 4; }
+ .page-shell > * > *:nth-child(6):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 5; }
+ .page-shell > * > *:nth-child(7):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 6; }
+ .page-shell > * > *:nth-child(8):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 7; }
+ .page-shell > * > *:nth-child(9):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 8; }
+ .page-shell > * > *:nth-child(10):not(.dialog-overlay):not(.sidebar-overlay):not(.sidebar-content):not(.conv-guard-overlay):not(.vortex-background):not(.bg):not(.home-panel):not(.home-head):not(.home-stage):not(.home-foot):not(.hm-block) { --stagger-i: 9; }
 
  .page-shell[data-anim-speed="slow"] {
-   --motion-stagger-dur: 360ms;
-   --motion-stagger-step: 52ms;
-   --motion-stagger-base: 20ms;
-   --motion-page-leave: 420ms;
-   --motion-page-enter: 400ms;
+   --motion-stagger-dur: 620ms;
+   --motion-stagger-step: 62ms;
+   --motion-stagger-base: 30ms;
+   --motion-page-rise: 30px;
+   --motion-page-leave: 360ms;
+   --motion-page-enter: 340ms;
    --motion-page-blur-ms: 200ms;
  }
 
  .page-shell[data-anim-speed="fast"] {
-   --motion-stagger-dur: 200ms;
-   --motion-stagger-step: 24ms;
+   --motion-stagger-dur: 320ms;
+   --motion-stagger-step: 26ms;
    --motion-stagger-base: 0ms;
-   --motion-page-leave: 220ms;
-   --motion-page-enter: 200ms;
+   --motion-page-rise: 14px;
+   --motion-page-leave: 200ms;
+   --motion-page-enter: 180ms;
    --motion-page-blur-ms: 100ms;
  }
 
  @keyframes stagger-rise {
-   /* 只动 opacity，不要 transform：
-      页面根一旦带 transform，内部 position:fixed 的极光/光斑
-      会变成相对该元素定位，窗口左侧会露出白边。 */
+   /* 用 translate 独立属性而不是 transform：
+      它与 transform 组合而不是覆盖，将来若有元素自带 transform 也不会打架。 */
    from {
      opacity: 0;
+     translate: 0 calc(var(--nav-dir, 1) * var(--motion-page-rise, 22px));
    }
    to {
      opacity: 1;
+     translate: 0 0;
    }
  }
  
@@ -1901,11 +2007,11 @@ onMounted(async () => {
 }
 .dialog-pop-enter-active .dialog-content,
 .dialog-pop-enter-active .conv-guard {
-  transition: transform var(--motion-dialog-enter) var(--ease-out);
+  transition: transform var(--motion-dialog-enter) var(--ease-spring);
 }
 .dialog-pop-enter-from .dialog-content,
 .dialog-pop-enter-from .conv-guard {
-  transform: scale(0.96) translateY(8px);
+  transform: scale(0.92) translateY(14px);
 }
 .dialog-pop-enter-to .dialog-content,
 .dialog-pop-enter-to .conv-guard {
