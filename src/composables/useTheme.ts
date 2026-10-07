@@ -123,6 +123,22 @@ function rollInk() {
  * 之后再做，那就成了两个分开的节拍 —— 与其硬凑，不如不做。
  */
 function revealTheme(applyNext: () => void) {
+  revealInk(applyNext, transitionThenSettle);
+}
+
+/**
+ * 用墨水揭示执行一次 DOM 变更。**主题切换与 OOBE 步骤切换共用这一条路径。**
+ *
+ * 两处共用不是图省事：动效语言只有一条，用户在首页学到的「切换长什么样」
+ * 必须在 OOBE 里同样成立。各自实现一套迟早会走偏。
+ *
+ * 遮罩挂在 `::view-transition-new(root)` 上（见 shared.css），所以任何
+ * `startViewTransition` 调用都会自动拿到同一套泼洒，不需要在这里传样式。
+ *
+ * @param commit   真正改 DOM 的那一步
+ * @param onFallback 不支持 View Transitions 时的回落；不给就直接改
+ */
+export function revealInk(commit: () => void, onFallback?: () => void) {
   const reduced =
     document.body.classList.contains('motion-reduced') ||
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -132,8 +148,8 @@ function revealTheme(applyNext: () => void) {
   ).startViewTransition;
 
   if (reduced || typeof start !== 'function') {
-    transitionThenSettle();
-    applyNext();
+    onFallback?.();
+    commit();
     return;
   }
 
@@ -149,7 +165,7 @@ function revealTheme(applyNext: () => void) {
 
   start
     .call(document, () => {
-      applyNext();
+      commit();
     })
     .finished.finally(() => {
       root.classList.remove('theme-inking');

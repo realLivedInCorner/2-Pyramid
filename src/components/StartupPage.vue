@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useLanguage, type SupportedLocale } from '../composables/useLanguage'
 import { useAppInfo } from '../composables/useAppInfo'
 import StageBackdrop from './shell/StageBackdrop.vue'
-import { useTheme } from '../composables/useTheme'
+import { useTheme, revealInk } from '../composables/useTheme'
 
 const { t, locale } = useI18n()
 const { setLanguage } = useLanguage()
@@ -115,18 +115,33 @@ const canNext = computed(() => {
   return true
 })
 
+/*
+ * 步骤切换走墨水揭示 —— 与主题切换**同一条路径**（revealInk）。
+ *
+ * 此前是 <Transition name="startup-slide"> 的幻灯片，那是第二套动效语言。
+ * 用户在首页学到「切换长什么样」，在 OOBE 里必须同样成立。
+ *
+ * 遮罩挂在 ::view-transition-new(root) 上，所以这里不需要传任何样式；
+ * 方向（上切 / 下切）也由 revealInk 内部的随机化决定，和主题切换共享
+ * 同一个交替状态，不会两套各转各的。
+ */
 function nextStep() {
-  if (step.value < totalSteps - 1) step.value++
+  if (step.value >= totalSteps - 1) return
+  revealInk(() => { step.value++ })
 }
 
 function prevStep() {
-  if (step.value > 0) step.value--
+  if (step.value <= 0) return
+  revealInk(() => { step.value-- })
 }
 
 function selectLang(lang: SupportedLocale) {
-  selectedLang.value = lang
-  setLanguage(lang)
-  nextStep()
+  // 选中态与切步要落在同一次快照里，否则会看到两次揭示
+  revealInk(() => {
+    selectedLang.value = lang
+    setLanguage(lang)
+    if (step.value < totalSteps - 1) step.value++
+  })
 }
 
 function quitApp() {
