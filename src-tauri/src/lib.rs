@@ -262,12 +262,16 @@ pub fn run() {
                 crate::log_info!("ensure_resources_at_exe_level: {}", e);
             }
 
-            // The taskbar / window icon is wired in `build.rs` via
-            // `tauri_build::Attributes::windows_icon("icons/icon.ico")`,
-            // which embeds icon.ico into the EXE's Win32 resource directory
-            // at link time. No runtime `set_icon` is needed (that path
-            // would require enabling the tauri `image-png` / `image-ico`
-            // Cargo features and is redundant with build-time embedding).
+            // The taskbar / window icon comes from `bundle.icon` in
+            // tauri.conf.json — tauri-build picks the `.ico` from that list
+            // and embeds it into the EXE's Win32 resource directory at link
+            // time. No runtime `set_icon` is needed (that path would require
+            // enabling the tauri `image-png` / `image-ico` Cargo features and
+            // is redundant with build-time embedding).
+            //
+            // This comment used to claim build.rs calls
+            // `windows_icon("icons/icon.ico")` — it never did. Verified by
+            // reading build.rs; the wiring is purely the config list above.
 
             Ok(())
         })
