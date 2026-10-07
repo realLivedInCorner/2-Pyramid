@@ -366,6 +366,25 @@ const insertFormat = (code: string) => {
   editedData.value[currentEditingKey.value] = currentVal + '§' + code;
 };
 
+/**
+ * Escape text before it goes into a v-html string.
+ *
+ * The text rendered by renderMinecraftText comes from `lang/*.json` inside a
+ * resource pack — i.e. from whoever built the pack, not from us. Without this
+ * a pack could ship `"item.x": "§a<img src=x onerror=...>"` and have it
+ * parsed as markup.
+ *
+ * The CSP (`default-src 'self'`, no `script-src`, no remote `img-src`) blocks
+ * the obvious payloads, but that is a second line of defence and it does not
+ * stop CSS injection, which `style-src 'unsafe-inline'` does allow. Escaping
+ * here removes the whole class rather than relying on the CSP to catch each
+ * shape individually.
+ */
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string),
+  );
+
 // Minecraft 文本渲染逻辑
 const renderMinecraftText = (text: string) => {
   if (!text) return '';
@@ -390,7 +409,7 @@ const renderMinecraftText = (text: string) => {
   };
 
   const parts = text.split('§');
-  html += parts[0]; // 第一个部分没有格式代码
+  html += escapeHtml(parts[0]); // 第一个部分没有格式代码
 
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
@@ -416,7 +435,7 @@ const renderMinecraftText = (text: string) => {
     
     const styleStr = Object.entries(currentStyles).map(([k, v]) => `${k}:${v}`).join(';');
     const classStr = currentClasses.join(' ');
-    html += `<span style="${styleStr}" class="${classStr}">${content}</span>`;
+    html += `<span style="${styleStr}" class="${classStr}">${escapeHtml(content)}</span>`;
   }
   
   return html;
