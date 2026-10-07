@@ -42,18 +42,60 @@
       })();
     </script>
     <div id="app"></div>
-    <style>
-      :root { --theme-color: #14171a; --boot-bg: #f4f2ee; }
+    <script>
       /*
-       * 这里用字面量而不是 var(--bg)：index.html 在 shared.css 之前解析，
-       * 令牌还没定义。启动页只有这一屏，单独维护一份可以接受 ——
-       * 但必须和 shared.css 的 --bg / 深色值保持一致，否则深色下会闪一下浅色。
+       * 首帧之前定主题。
+       *
+       * 主题的真源是配置文件（theme_mode），但读它要等 IPC —— 那期间页面
+       * 已经画出来了，深色用户每次启动都会先闪一下白。所以这里同步读一份
+       * localStorage 缓存，在样式生效前把 data-theme 挂上。
+       *
+       * 缓存和配置不一致时以配置为准：App 启动后 syncThemeFromConfig 会拉一次
+       * 并回写这里的缓存，所以这份只可能「落后一次启动」，不会长期跑偏。
+       *
+       * 这段必须放在 <style> 之前 —— 放到后面就晚了，浏览器已经用浅色画过一帧。
        */
+      (function () {
+        try {
+          var saved = localStorage.getItem('themeMode');
+          var dark = saved === 'dark' ||
+            (saved !== 'light' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          /* 隐私模式下 localStorage 会抛异常 —— 用默认浅色即可 */
+        }
+      })();
+    </script>
+    <style>
+      :root {
+        --theme-color: #14171a;
+        --boot-bg: #f4f2ee;
+        --boot-ink: #14171a;
+        --boot-dim: #7d776d;
+        --boot-track: rgba(120, 110, 95, 0.22);
+        --boot-beta: #ea580c;
+      }
+      /*
+       * 启动页的一份独立取值，不走 shared.css 的令牌 —— index.html 在它之前
+       * 解析，令牌还没定义。只有这一屏，单独维护可以接受，但**必须和
+       * shared.css 的 --bg / --ink / --ink-3 保持一致**，否则会闪一下别的颜色。
+       */
+      html[data-theme='dark'] {
+        --boot-bg: #1a1815;
+        --boot-ink: #f2efe9;
+        --boot-dim: #8e887d;
+        --boot-track: rgba(150, 143, 132, 0.22);
+        --boot-beta: #d29922;
+      }
       html, body {
         overflow: hidden;
         background-color: var(--boot-bg);
       }
-      html[data-theme='dark'] { --boot-bg: #1a1815; }
+      /* logo 是纯黑线条 + 透明底，深色下等于隐形 —— 反相即可 */
+      html[data-theme='dark'] .boot-mark img { filter: invert(1); }
 
       .boot {
         position: fixed; inset: 0; z-index: 9999;
@@ -65,7 +107,7 @@
       /* 底板单独一层：只淡出它，飞行的 logo 不受影响 */
       .boot::before {
         content: ""; position: absolute; inset: 0;
-        background: #f4f2ee;
+        background: var(--boot-bg);
         transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
       }
       .boot > * { position: relative; z-index: 1; }
@@ -77,18 +119,18 @@
       .boot-name {
         margin: 6px 0 0;
         font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
-        line-height: 1.1; color: #14171a;
+        line-height: 1.1; color: var(--boot-ink);
         transition: opacity 220ms ease;
       }
       .boot-beta {
-        font-size: 15px; font-weight: 800; color: #ea580c;
+        font-size: 15px; font-weight: 800; color: var(--boot-beta);
         margin-left: 8px; vertical-align: 4px;
       }
 
       .boot-tag {
         margin: 10px 0 0;
         font-size: 12px; font-weight: 400; letter-spacing: 0.04em;
-        color: #7d776d;
+        color: var(--boot-dim);
         transition: opacity 220ms ease;
       }
 
@@ -96,12 +138,12 @@
       .boot-bar {
         width: 180px; height: 1px; position: relative; overflow: hidden;
         margin-top: 46px;
-        background: rgba(120, 110, 95, 0.22);
+        background: var(--boot-track);
         transition: opacity 220ms ease;
       }
       .boot-bar i {
         position: absolute; top: 0; bottom: 0; left: 0; width: 60px;
-        background: #14171a;
+        background: var(--boot-ink);
         animation: boot-slide 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
       @keyframes boot-slide {

@@ -36,6 +36,13 @@ pub struct AppConfig {
     /// UI surface style: "glass" (translucent + blur) or "frosted"
     /// (opaque matte).
     pub ui_style: Option<String>,
+    /// 主题："light" / "dark" / "system"（默认 system，跟随操作系统）。
+    ///
+    /// 存在配置文件里而不只是 localStorage，是因为它是用户偏好 ——
+    /// 应当跟着配置一起备份、重置、迁移，重装后不该丢。
+    /// 但首帧不能等 IPC，所以前端仍会从 localStorage 读一次做快速启动，
+    /// 两边由 useTheme 保持同步，见那里的说明。
+    pub theme_mode: Option<String>,
     /// 启动时自动检查更新（默认 true）。
     pub auto_check_update: Option<bool>,
     /// 导出日志时是否脱敏（默认 true；关闭后导出原文）。
@@ -76,6 +83,8 @@ pub struct ConfigPatch {
     pub output_naming: Option<String>,
     #[serde(alias = "uiStyle")]
     pub ui_style: Option<String>,
+    #[serde(alias = "themeMode")]
+    pub theme_mode: Option<String>,
     #[serde(alias = "autoCheckUpdate")]
     pub auto_check_update: Option<bool>,
     #[serde(alias = "logRedaction")]
@@ -429,6 +438,7 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         patch.conversion_threads.as_ref().map(|_| "conversion_threads"),
         patch.output_naming.as_ref().map(|_| "output_naming"),
         patch.ui_style.as_ref().map(|_| "ui_style"),
+        patch.theme_mode.as_ref().map(|_| "theme_mode"),
     ]
     .into_iter()
     .flatten()
@@ -489,6 +499,16 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
             _ => "glass".to_string(),
         };
         cfg.ui_style = Some(normalized);
+    }
+    if let Some(v) = patch.theme_mode {
+        // 白名单式归一化：非法值一律落回 "system"，而不是存进去等着前端
+        // 猜。配置文件是会被手改的，不能假设它总是干净的。
+        let normalized = match v.as_str() {
+            "light" => "light",
+            "dark" => "dark",
+            _ => "system",
+        };
+        cfg.theme_mode = Some(normalized.to_string());
     }
     if let Some(v) = patch.auto_check_update {
         cfg.auto_check_update = Some(v);

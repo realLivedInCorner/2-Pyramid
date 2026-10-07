@@ -20,7 +20,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
  import FileBrowser from "./components/fs/FileBrowser.vue";
  import { useUpdater, type UpdateCheckResult } from "./composables/useUpdater";
  import { useNotification } from "./composables/useNotification";
- import { apply as applyTheme } from "./composables/useTheme";
+ import { apply as applyTheme, syncThemeFromConfig } from "./composables/useTheme";
 
  const { t } = useI18n();
  const currentPage = ref<string>("home");
@@ -570,9 +570,10 @@ onMounted(async () => {
      } catch { /* 老 WebView 无 matchMedia 时忽略 */ }
      applyMotionPreference();
 
-     // 主题要在首帧之前就落到 <html> 上，否则深色用户每次启动都会先闪一下浅色。
-     // composable 在模块加载时已经读过 localStorage，这里只是把结果应用出去。
+     // 主题：先按 localStorage 缓存应用（index.html 的内联脚本其实已经做过
+     // 一次，这里是兜底），再从配置文件拉真源。配置赢。
      applyTheme();
+     void syncThemeFromConfig();
      
      // One-time cleanup: the close-action setting (ask / close /
      // minimize-to-tray) was removed from the app — purge any stale

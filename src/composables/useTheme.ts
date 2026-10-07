@@ -1,16 +1,20 @@
 /**
  * 主题：浅色 / 深色 / 跟随系统。
  *
- * 状态存在模块级单例里，理由和 useFilePicker 一样 —— 切换按钮在首页，
- * 但 `data-theme` 要挂在 <html> 上，两边不共享一个 ref 就会不同步。
+ * 状态的**真源是配置文件**（`theme_mode`），不是 localStorage —— 它是用户
+ * 偏好，应当跟着配置一起备份、重置、迁移。
  *
- * 三档而不是两档：`system` 是默认值，因为它对「没表达过偏好」的用户是
- * 唯一正确的答案。用户手动切一次之后才落盘，此后就按他选的来。
+ * 但首帧不能等 IPC：配置文件要先 invoke 才能读到，那期间页面已经画出来了，
+ * 深色用户每次启动都会先闪一下白。所以 localStorage 留一份**只读缓存**，
+ * 由 index.html 里的内联脚本在首帧之前应用；App 启动后再从配置拉一次，
+ * 以配置为准并回写缓存。两边不一致时配置赢。
  */
 import { computed, readonly, ref } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+/** 首帧缓存。真源是配置里的 theme_mode。 */
 const STORAGE_KEY = 'themeMode';
 
 const stored = localStorage.getItem(STORAGE_KEY);
@@ -166,7 +170,40 @@ export function setThemeMode(next: ThemeMode) {
   if (mode.value === next) return;
   mode.value = next;
   localStorage.setItem(STORAGE_KEY, next);
+  // 真源是配置。写失败不回滚内存状态 —— 界面已经切过去了，把它翻回来
+  // 反而更让人困惑；下次启动会以配置为准，那是它该有的行为。
+  void persist(next);
   revealTheme(apply);
+}
+
+/**
+ * 从配置里拉一次主题，以它为准。
+ *
+ * 在 App 启动时调用。拿不到（老版本配置没有这个字段、或 IPC 失败）就保持
+ * 现有状态不动 —— 此时它来自 localStorage 缓存，已经是可用的值。
+ */
+export async function syncThemeFromConfig() {
+  try {
+    const cfg = await invoke<{ theme_mode?: string; themeMode?: string }>('get_config');
+    const stored = cfg?.theme_mode ?? cfg?.themeMode;
+    if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      mode.value = stored;
+      localStorage.setItem(STORAGE_KEY, stored);
+    } else {
+      // 配置里还没有这个字段（旧配置）—— 把当前选择补写进去，
+      // 否则用户这次的选择只活在 localStorage 里，重装就丢。
+      void persist(mode.value);
+    }
+  } catch {
+    // 读不到配置不影响渲染，localStorage 那份已经生效了
+  }
+  apply();
+}
+
+function persist(value: ThemeMode) {
+  return invoke('update_config', { patch: { themeMode: value } }).catch(() => {
+    // 静默：配置写失败不该弹错。主题已经应用，只是下次启动回退到缓存值。
+  });
 }
 
 /** 按钮用：在浅色与深色之间切换。系统档按当前实际颜色切到它的反面。 */

@@ -175,11 +175,13 @@
  * 是根本看不见。invert(1) 正好：黑线变白线，透明像素仍然透明（alpha 不受
  * 影响），不用额外维护一份白色版素材，也就不会有「两份图哪天不同步」的问题。
  *
- * 启动页的 logo 在 index.html 里，样式同样挂在这里 —— 它在 shared.css 之前
- * 解析，但那时还没渲染，规则照样生效。
+ * 启动页的 logo 反相规则留在 index.html，不列在这里。原因：
+ * index.html 的 `.boot-mark` 是个**容器 div**，反相它会连里面的 img 一起反；
+ * 而 index.html 里另有一条针对 `.boot-mark img` 的规则 —— 两条同时命中就是
+ * 反两次，等于没反（实测启动页 logo 因此仍是黑的）。而且那一条必须在
+ * Vue 挂载之前生效，本来就属于 index.html。
  */
-[data-theme='dark'] .brand-mark,
-[data-theme='dark'] .boot-mark {
+[data-theme='dark'] .brand-mark {
   filter: invert(1);
 }
 
