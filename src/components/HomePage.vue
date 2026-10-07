@@ -393,7 +393,12 @@ onUnmounted(() => {
   .theme-toggle.dark .tt-sun,
   .theme-toggle.dark .tt-moon { transform: none; }
 }
-.who i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+/*
+ * 分隔圆点。**必须是 `>`** —— 写成 `.who i` 会连主题按钮里的两个图标一起匹配，
+ * 把 17px 的字形压成 3×3 的圆点。两者特异度相同（0,1,1），`.who i` 在后面，
+ * 所以它会赢，图标就成了一团认不出的墨点。
+ */
+.who > i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
 /* 时钟用等宽数字，秒位跳动时整行不会左右晃 */
 .who-time { font-variant-numeric: tabular-nums; color: var(--ink); }
 
