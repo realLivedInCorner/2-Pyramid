@@ -249,19 +249,10 @@ async function finish() {
         取代了原来的「五个圆点 + 连线」—— 那是另一套进度语言，而首页
         用计数表达「第几件 / 共几件」，进度条式的圆点在这里是多余的。
       -->
-      <div class="panel-kicker">
-        <span class="kicker-label">ONBOARDING / STEP</span>
-        <span class="kicker-count">
-          <b>{{ pad(step + 1) }}</b><i>/</i>{{ pad(totalSteps) }}
-        </span>
-      </div>
-
       <div class="panel-content">
         <Transition name="startup-slide" mode="out-in">
           <!-- Step 1: Language -->
           <div v-if="step === 0" class="startup-step" key="lang">
-            <h2 class="step-title">{{ stepMeta.title }}</h2>
-            <p class="step-desc">{{ stepMeta.desc }}</p>
             <div class="lang-cards">
               <button class="lang-card" :class="{ active: selectedLang === 'zh-CN' }" @click="selectLang('zh-CN')">
                 <span class="lang-check"><i class="ri-check-line"></i></span>
@@ -292,8 +283,6 @@ async function finish() {
 
           <!-- Step 2: User Name -->
           <div v-else-if="step === 1" class="startup-step" key="name">
-            <h2 class="step-title">{{ stepMeta.title }}</h2>
-            <p class="step-desc">{{ stepMeta.desc }}</p>
             <div class="name-field">
               <i class="ri-user-line name-field-icon" aria-hidden="true"></i>
               <input
@@ -309,8 +298,6 @@ async function finish() {
 
           <!-- Step 4: Settings -->
           <div v-else class="startup-step startup-step-wide" key="settings">
-            <h2 class="step-title">{{ stepMeta.title }}</h2>
-            <p class="step-desc">{{ stepMeta.desc }}</p>
             <div class="startup-settings">
               <div class="startup-settings-grid">
                 <!-- 转换 -->
@@ -351,7 +338,18 @@ async function finish() {
       </div>
 
       <!-- 底部药丸导航 -->
-      <div class="panel-nav">
+      <div class="panel-bottom">
+        <div class="panel-subject">
+          <span class="kicker-label">ONBOARDING / STEP</span>
+          <div class="kicker-count">
+            <b>{{ pad(step + 1) }}</b><i>/</i>{{ pad(totalSteps) }}
+          </div>
+          <h1 class="step-title">{{ stepMeta.title }}</h1>
+          <p class="step-desc">{{ stepMeta.desc }}</p>
+        </div>
+
+        <!-- 右下：动作。与左下标题同一条基线 -->
+        <div class="panel-nav">
         <div class="nav-pill">
           <button
             class="startup-btn startup-btn-quit"
@@ -387,6 +385,7 @@ async function finish() {
             <i class="ri-rocket-2-line"></i>
           </button>
         </div>
+      </div>
       </div>
     </main>
 
@@ -588,13 +587,10 @@ async function finish() {
  * 与首页 .subject 的 counter 同构：等宽数字，当前步用主墨色、总数用最弱灰。
  * 刻意不做成进度条 —— 圆点和连线是另一套语言，而这里表达的是「第几件 / 共几件」。
  */
-.panel-kicker {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 0 36px 6px;
-  flex-shrink: 0;
-}
+/*
+ * .panel-kicker 已随重做删除 —— 计数现在长在 .panel-subject 里，
+ * 与标题同处左下角，不再是一条独立的横条。
+ */
 .kicker-label {
   font-size: 10px;
   font-weight: 400;
@@ -605,15 +601,19 @@ async function finish() {
 .kicker-count {
   display: inline-flex;
   align-items: baseline;
-  gap: 3px;
-  font-size: 13px;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   color: var(--ink-4);
 }
 .kicker-count b {
-  font-size: 17px;
+  /* 与首页 counter 的「当前项」同量级：明显大于总数，形成读数而不是比例 */
+  font-size: 30px;
   font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 .kicker-count i { font-style: normal; opacity: 0.6; }
@@ -672,14 +672,41 @@ async function finish() {
  *
  * 左内边距取 36px 与顶部品牌块对齐，两处的左边缘因此在同一条竖线上。
  */
+/*
+ * 内容区贴着底部的 subject 排，中区留空。
+ *
+ * `align-items: flex-end` 是这次排版重做的关键 —— 内容从上方「浮」到左下角
+ * 的标题上，中间那一大片留给阶梯背景。原来的 flex-start 让所有东西都堆在
+ * 顶部，下半屏完全空着，版面头重脚轻。
+ */
 .panel-content {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: flex-start;
-  padding: 24px 36px 20px;
+  padding: 24px 36px 18px;
   min-height: 0;
   overflow-y: auto;
+}
+
+/*
+ * 底部一行：左边是「这是什么步骤」，右边是「怎么走」。
+ * 与首页底部同构 —— 左下是主体，右下是动作，落在同一条基线上。
+ */
+.panel-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 0 36px 32px;
+  flex-shrink: 0;
+}
+
+.panel-subject {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
 }
 
 .startup-step {
@@ -696,20 +723,27 @@ async function finish() {
 }
 
 .step-title {
-  margin: 0 0 8px;
-  font-size: 24px;
-  /* 600 是上限，见 dialog-spec.md。此前 800 属于「用字重拉层级」，
-     而这里的层级本就该由字号和位置表达。 */
+  margin: 5px 0 0;
+  /*
+   * 40px —— 与首页的模块名同级。
+   *
+   * 原来是 24px，作为「步骤内部的小字」排在中间：抢不到任何注意力，
+   * 而首页把同一层级的信息做成了整页最大的东西。层级该由字号表达。
+   */
+  font-size: 40px;
   font-weight: 600;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
   color: var(--ink);
   text-align: left;
 }
 
 .step-desc {
-  margin: 0 0 26px;
-  font-size: 13.5px;
-  line-height: 1.7;
+  margin: 4px 0 0;
+  /* 落在标题下方，占首页「英文副题」那一行 */
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
   color: var(--ink-3);
   text-align: left;
   max-width: 380px;
@@ -1068,7 +1102,8 @@ async function finish() {
 .panel-nav {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 36px 26px;
+  /* 左右内边距交给 .panel-bottom —— 两处都设会让动作区和标题对不齐 */
+  padding: 0;
   flex-shrink: 0;
 }
 
