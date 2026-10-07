@@ -3,9 +3,19 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { useLanguage, type SupportedLocale } from '../composables/useLanguage'
+import { useAppInfo } from '../composables/useAppInfo'
+import StageBackdrop from './shell/StageBackdrop.vue'
+import { useTheme } from '../composables/useTheme'
 
 const { t, locale } = useI18n()
 const { setLanguage } = useLanguage()
+// 品牌块的版本行，与首页同一组数据
+const { version: appVersion, isBeta: appIsBeta } = useAppInfo()
+// 右上角的深浅切换 —— OOBE 是用户第一次看到这个软件，深浅应当在这里就能定
+const { isDark, toggleTheme } = useTheme()
+
+/** 步骤计数补零成 01 / 03 的形式，与首页的模块计数同构 */
+const pad = (n: number) => String(n).padStart(2, '0')
 
 const emit = defineEmits<{ complete: [] }>()
 
@@ -160,7 +170,14 @@ async function finish() {
 
 <template>
   <div class="startup-root">
-    <!-- ═══ 顶部：品牌（左） + 步骤指示器（右），同一底色无分割 ═══ -->
+    <!--
+      固定阶梯背景，与首页同一张。
+      「背景是固定的舞台，不参与叙事」是首页的第二条规则 —— 它没有动画、
+      不可交互，也不随步骤变化。
+    -->
+    <StageBackdrop />
+
+    <!-- ═══ 顶部：品牌（左） + 计数与主题（右） ═══ -->
     <header class="startup-top">
       <div class="top-brand">
         <!--
@@ -184,22 +201,43 @@ async function finish() {
         <div class="top-brand-text">
           <span class="top-brand-name">2-Pyramid</span>
           <span class="top-brand-tagline">{{ t('oobe.asideTagline') }}</span>
+          <!-- 版本行与首页同构：logo → 名称 → 标语 → 版本 · 引擎 -->
+          <span class="top-brand-meta">
+            v{{ appVersion }}<template v-if="appIsBeta"> Beta</template>
+            <i aria-hidden="true"></i>
+            {{ t('home.engineReady') }}
+          </span>
         </div>
       </div>
 
-      <div class="panel-steps">
-        <template v-for="i in totalSteps" :key="i">
-          <span v-if="i > 1" class="startup-step-line" :class="{ done: i - 2 < step }"></span>
-          <span class="startup-step-dot" :class="{ active: i - 1 === step, done: i - 1 < step }">
-            <i v-if="i - 1 < step" class="ri-check-line"></i>
-            <template v-else>{{ i }}</template>
-          </span>
-        </template>
+      <div class="panel-aside">
+        <button
+          class="theme-toggle"
+          :class="{ dark: isDark }"
+          :aria-label="isDark ? t('home.themeToLight') : t('home.themeToDark')"
+          :title="isDark ? t('home.themeToLight') : t('home.themeToDark')"
+          @click="toggleTheme"
+        >
+          <i class="ri-sun-line tt-sun" aria-hidden="true"></i>
+          <i class="ri-moon-line tt-moon" aria-hidden="true"></i>
+        </button>
       </div>
     </header>
 
     <!-- ═══ 内容区 ═══ -->
     <main class="startup-panel">
+      <!--
+        步骤计数，与首页的模块计数同构：MONITOR / SELECT + 01 / 03。
+        取代了原来的「五个圆点 + 连线」—— 那是另一套进度语言，而首页
+        用计数表达「第几件 / 共几件」，进度条式的圆点在这里是多余的。
+      -->
+      <div class="panel-kicker">
+        <span class="kicker-label">ONBOARDING / STEP</span>
+        <span class="kicker-count">
+          <b>{{ pad(step + 1) }}</b><i>/</i>{{ pad(totalSteps) }}
+        </span>
+      </div>
+
       <div class="panel-content">
         <Transition name="startup-slide" mode="out-in">
           <!-- Step 1: Language -->
@@ -530,7 +568,9 @@ async function finish() {
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  background: var(--surface-2);
+  /* 底色交给 StageBackdrop，这里必须透明 —— 否则会盖住阶梯背景。
+     原本是 background: var(--surface-2)，那正是阶梯被埋掉的原因。 */
+  background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
@@ -592,7 +632,8 @@ async function finish() {
 
 .top-brand-name {
   font-size: 16px;
-  font-weight: 800;
+  /* 600 是上限，见 dialog-spec.md。此前 800 属于「用字重拉层级」 */
+  font-weight: 600;
   letter-spacing: -0.4px;
   color: var(--ink);
   line-height: 1.2;
@@ -606,6 +647,100 @@ async function finish() {
   text-overflow: ellipsis;
 }
 
+/* 版本行：与首页 .brand-meta 同构 —— v版本 · 引擎状态，中间一个分隔点 */
+.top-brand-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  margin-top: 2px;
+}
+.top-brand-meta i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex-shrink: 0;
+}
+
+/* ── 右上角：主题切换 ── */
+.panel-aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+/*
+ * 从首页整段搬来，不动数值 —— 两处的按钮必须是同一个东西，
+ * 否则用户在 OOBE 和首页会看到两个手感不同的开关。
+ */
+.theme-toggle {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink-3);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.theme-toggle:hover { background: rgba(var(--warm-rgb), 0.09); color: var(--ink); }
+.theme-toggle i {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  transition:
+    transform 420ms var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
+    opacity 220ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.tt-sun  { transform: rotate(0deg)   scale(1);   opacity: 1; }
+.tt-moon { transform: rotate(-90deg) scale(0.4); opacity: 0; }
+.theme-toggle.dark .tt-sun  { transform: rotate(90deg) scale(0.4); opacity: 0; }
+.theme-toggle.dark .tt-moon { transform: rotate(0deg) scale(1);    opacity: 1; }
+
+/* ── 步骤计数 ── */
+/*
+ * 与首页 .subject 的 counter 同构：等宽数字，当前步用主墨色、总数用最弱灰。
+ * 刻意不做成进度条 —— 圆点和连线是另一套语言，而这里表达的是「第几件 / 共几件」。
+ */
+.panel-kicker {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 0 36px 6px;
+  flex-shrink: 0;
+}
+.kicker-label {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  color: var(--ink-4);
+  text-transform: uppercase;
+}
+.kicker-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+}
+.kicker-count b {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.kicker-count i { font-style: normal; opacity: 0.6; }
+
 /* ═══ 主内容区 ═══ */
 .startup-panel {
   flex: 1 1 auto;
@@ -613,6 +748,23 @@ async function finish() {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+}
+
+/*
+ * 内容必须自己建立层叠上下文。
+ *
+ * StageBackdrop 是 `position: absolute`，而这两块是**非定位元素** ——
+ * 定位元素绘制在非定位内容之上，与 DOM 顺序无关。所以背景把品牌块、
+ * 计数和步骤内容整个盖住了（实测这些元素的 rect / opacity / color 全部
+ * 正确，就是一个像素都看不见）。
+ *
+ * 首页没有这个问题：它的四个角块自己就是 position: absolute，
+ * 和背景同层，靠 DOM 顺序决定前后。
+ */
+.startup-top,
+.startup-panel {
+  position: relative;
+  z-index: 1;
 }
 
 .panel-steps {
