@@ -613,14 +613,14 @@ onMounted(() => {
 }
 .start-conversion-button {
   border: none;
-  background: var(--theme-color, var(--ink));
+  background: var(--accent, var(--ink));
   color: var(--surface);
   font-weight: 700;
   font-size: 14px;
   padding: 12px 22px;
   border-radius: var(--ui-radius-btn, 12px);
   cursor: pointer;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color, var(--ink)) 28%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent, var(--ink)) 28%, transparent);
 }
 .start-conversion-button:hover:not(:disabled) {
   filter: brightness(1.05);
@@ -672,7 +672,7 @@ onMounted(() => {
 }
 .empty-icon {
   font-size: 42px;
-  color: var(--theme-color, var(--ink));
+  color: var(--accent, var(--ink));
 }
 .foray-grid {
   flex: 1;
@@ -712,8 +712,8 @@ onMounted(() => {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--theme-color, var(--ink)) 80%, #000);
-  background: color-mix(in srgb, var(--theme-color, var(--ink)) 12%, transparent);
+  color: color-mix(in srgb, var(--accent, var(--ink)) 80%, #000);
+  background: color-mix(in srgb, var(--accent, var(--ink)) 12%, transparent);
 }
 .tree-filter {
   width: 100%;
@@ -769,7 +769,7 @@ onMounted(() => {
 }
 .tree-link:hover,
 .tree-link.active {
-  color: var(--theme-color, var(--ink));
+  color: var(--accent, var(--ink));
 }
 .tree-link.active {
   font-weight: 700;

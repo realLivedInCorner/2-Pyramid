@@ -1115,14 +1115,14 @@ const exportLogsToFile = async () => {
   text-align: left;
 }
 .version-picker:hover {
-  border-color: color-mix(in srgb, var(--theme-color) 38%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
   box-shadow: 0 4px 16px rgba(var(--ink-rgb), 0.12);
   transform: translateY(-1px);
 }
 .version-picker:active { transform: translateY(0); }
 .version-picker.open {
-  border-color: color-mix(in srgb, var(--theme-color) 50%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 .version-picker-main {
   display: flex;
@@ -1155,8 +1155,8 @@ const exportLogsToFile = async () => {
 .version-picker-format {
   font-size: 11px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--theme-color) 80%, #000);
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  color: color-mix(in srgb, var(--accent) 80%, #000);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   padding: 3px 8px;
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
@@ -1307,15 +1307,15 @@ const exportLogsToFile = async () => {
   flex-shrink: 0;
 }
 .drag-drop-frame:hover {
-  border-color: color-mix(in srgb, var(--theme-color) 40%, transparent);
-  background: color-mix(in srgb, var(--theme-color) 4%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--panel-2));
 }
 .drag-drop-frame.is-dragover {
-  border-color: var(--theme-color);
+  border-color: var(--accent);
   border-style: solid;
-  background: color-mix(in srgb, var(--theme-color) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   transform: scale(1.01);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-color) 12%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .drag-drop-frame.has-file {
   border-style: dashed;
@@ -1324,7 +1324,7 @@ const exportLogsToFile = async () => {
 .drop-icon-container { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .drop-icon {
   font-size: 34px;
-  color: color-mix(in srgb, var(--theme-color) 70%, var(--ink));
+  color: color-mix(in srgb, var(--accent) 70%, var(--ink));
   line-height: 1;
 }
 .drop-icon.success { color: var(--ok); }
@@ -1351,8 +1351,8 @@ const exportLogsToFile = async () => {
 .list-actions { display: flex; align-items: center; gap: 8px; }
 .view-all-btn {
   border: none;
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  color: color-mix(in srgb, var(--theme-color) 85%, #000);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: color-mix(in srgb, var(--accent) 85%, #000);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 10px;
@@ -1361,7 +1361,7 @@ const exportLogsToFile = async () => {
   font-family: inherit;
   transition: background 0.15s ease;
 }
-.view-all-btn:hover { background: color-mix(in srgb, var(--theme-color) 20%, transparent); }
+.view-all-btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .clear-btn {
   border: none;
   background: transparent;
@@ -1413,7 +1413,7 @@ const exportLogsToFile = async () => {
 .start-conversion-button {
   width: 100%;
   border: none;
-  background: var(--theme-color);
+  background: var(--accent);
   color: var(--surface);
   padding: 13px 16px;
   border-radius: var(--ui-radius-btn);
@@ -1422,7 +1422,7 @@ const exportLogsToFile = async () => {
   font-family: inherit;
   cursor: pointer;
   transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--theme-color) 28%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .start-conversion-button:disabled {
   opacity: 0.45;
@@ -1430,7 +1430,7 @@ const exportLogsToFile = async () => {
   box-shadow: none;
 }
 .start-conversion-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--theme-color) 88%, #000);
+  background: color-mix(in srgb, var(--accent) 88%, #000);
   transform: translateY(-1px);
 }
 .start-conversion-button:active:not(:disabled) { transform: translateY(0); }
@@ -1448,8 +1448,8 @@ const exportLogsToFile = async () => {
 .error-list { margin: 0.5rem 0 0 0; padding-left: 1.5rem; }
 .error-list li { margin-bottom: 0.25rem; color: var(--danger); font-size: 0.9rem; }
 .dialog-footer { display: flex; gap: 12px; justify-content: flex-end; margin-top: 2rem; }
-.dialog-button { padding: 8px 20px; border-radius: 10px; border: none; background: var(--theme-color); color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.dialog-button:hover:not(:disabled) { background: color-mix(in srgb, var(--theme-color) 85%, #000); transform: translateY(-1px); }
+.dialog-button { padding: 8px 20px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.dialog-button:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, #000); transform: translateY(-1px); }
 .dialog-button.secondary { background: var(--surface-3); color: var(--ink-2); }
 .dialog-button.secondary:hover { background: var(--surface-5); }
 .dialog-button.danger { background: var(--danger); }
@@ -1603,7 +1603,7 @@ const exportLogsToFile = async () => {
 }
 .version-row-check {
   font-size: 16px;
-  color: var(--theme-color);
+  color: var(--accent);
   animation: version-check-pop 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes version-check-pop {
@@ -1623,13 +1623,13 @@ const exportLogsToFile = async () => {
 }
 .status-latest {
   color: var(--surface);
-  background: linear-gradient(135deg, var(--theme-color), color-mix(in srgb, var(--theme-color) 65%, #000));
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--theme-color) 40%, transparent);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 65%, #000));
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .status-stable {
-  color: color-mix(in srgb, var(--theme-color) 85%, #000);
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-color) 30%, transparent);
+  color: color-mix(in srgb, var(--accent) 85%, #000);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .items-dialog {

@@ -229,8 +229,8 @@ watch(visible, (v) => {
 }
 .legal-file-list li:hover { background: rgba(var(--ink-rgb), 0.05); color: var(--ink); }
 .legal-file-list li.active {
-  background: color-mix(in srgb, var(--theme-color, var(--ink)) 10%, var(--surface));
-  color: var(--theme-color, var(--ink));
+  background: color-mix(in srgb, var(--accent, var(--ink)) 10%, var(--surface));
+  color: var(--accent, var(--ink));
 }
 
 .legal-file-view {
@@ -279,7 +279,7 @@ watch(visible, (v) => {
 .legal-md :deep(blockquote) {
   margin: 0 0 0.75em;
   padding: 8px 12px;
-  border-left: 3px solid color-mix(in srgb, var(--theme-color, var(--ink)) 40%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--accent, var(--ink)) 40%, transparent);
   background: rgba(var(--ink-rgb), 0.03);
   border-radius: 0 8px 8px 0;
   color: var(--ink-2);
@@ -311,7 +311,7 @@ watch(visible, (v) => {
   margin: 1em 0;
 }
 .legal-md :deep(a) {
-  color: var(--theme-color, var(--ink));
+  color: var(--accent, var(--ink));
   text-decoration: underline;
   text-underline-offset: 2px;
 }

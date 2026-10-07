@@ -1573,9 +1573,9 @@ const onThemeReset = async () => {
 }
 
 .search-input:focus {
-  border-color: var(--theme-color);
+  border-color: var(--accent);
   background: var(--surface);
-  box-shadow: 0 4px 12px rgba(var(--theme-color-rgb), 0.1);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .page-title {
@@ -1594,7 +1594,7 @@ const onThemeReset = async () => {
 .dev-hint {
   font-size: 12px;
   font-weight: 700;
-  color: var(--theme-color);
+  color: var(--accent);
 }
 
 .dev-dialog {
@@ -1876,8 +1876,8 @@ const onThemeReset = async () => {
 
 /* 设置页局部覆盖：主题色文字按钮（比全局 shared 的灰字更醒目） */
 .btn-text {
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-  color: var(--theme-color);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
 }
 .btn-text.secondary { background: rgba(var(--ink-rgb), 0.05); color: var(--ink-2); }
 .btn-text:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1927,7 +1927,7 @@ const onThemeReset = async () => {
 }
 .bg-range {
   flex: 1 1 auto;
-  accent-color: var(--theme-color);
+  accent-color: var(--accent);
 }
 .bg-opacity-val {
   flex: 0 0 42px;
@@ -1955,7 +1955,7 @@ const onThemeReset = async () => {
 }
 .bg-syncing i {
   font-size: 26px;
-  color: var(--theme-color);
+  color: var(--accent);
 }
 .history-list {
   display: flex;
@@ -2005,7 +2005,7 @@ const onThemeReset = async () => {
   color: var(--ink);
   outline: none;
 }
-.naming-input:focus { border-color: var(--theme-color); background: var(--surface); }
+.naming-input:focus { border-color: var(--accent); background: var(--surface); }
 .naming-row {
   display: flex;
   align-items: center;
@@ -2025,14 +2025,14 @@ const onThemeReset = async () => {
   cursor: pointer;
   transition: all 0.15s;
 }
-.naming-tag-btn:hover { border-color: var(--theme-color); background: color-mix(in srgb, var(--theme-color) 6%, transparent); }
+.naming-tag-btn:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .naming-tag-token {
   font-size: 12px;
   font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--ink-2);
 }
-.naming-tag-btn:hover .naming-tag-token { color: var(--theme-color); }
+.naming-tag-btn:hover .naming-tag-token { color: var(--accent); }
 .naming-tag-desc {
   font-size: 10.5px;
   color: var(--ink-4);
@@ -2063,8 +2063,8 @@ const onThemeReset = async () => {
   text-align: right;
 }
 .inline-input:focus {
-  border-color: var(--theme-color);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-color) 12%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .inline-input::placeholder {
   color: var(--ink-4);
@@ -2116,7 +2116,7 @@ const onThemeReset = async () => {
 .foray-ai-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; width: 100%; }
 .foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-3); font-weight: 600; }
 .foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(var(--ink-rgb), 0.08); background: var(--panel-3); color: var(--ink); font: inherit; font-weight: 500; }
-.foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--theme-color, var(--ink)); font-weight: 600; }
+.foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--accent, var(--ink)); font-weight: 600; }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
@@ -2214,7 +2214,7 @@ const onThemeReset = async () => {
   margin-top: 2px;
   width: 16px; height: 16px;
   cursor: pointer;
-  accent-color: var(--theme-color, var(--ink));
+  accent-color: var(--accent, var(--ink));
 }
 .dialog-checkbox-text {
   font-weight: 700; font-size: 13px; color: var(--ink);

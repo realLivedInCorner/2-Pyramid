@@ -68,7 +68,7 @@ const authors = [
   grid-row: 1 / span 2;
   font-size: 12px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--theme-color, var(--ink-3)) 75%, #000);
+  color: color-mix(in srgb, var(--accent, var(--ink-3)) 75%, #000);
   font-variant-numeric: tabular-nums;
 }
 

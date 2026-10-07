@@ -231,13 +231,13 @@ function pick(entry: VersionEntry) {
 }
 
 .version-row:hover {
-  border-color: color-mix(in srgb, var(--theme-color, var(--ink)) 35%, transparent);
-  background: color-mix(in srgb, var(--theme-color, var(--ink)) 6%, white);
+  border-color: color-mix(in srgb, var(--accent, var(--ink)) 35%, transparent);
+  background: color-mix(in srgb, var(--accent, var(--ink)) 6%, white);
 }
 
 .version-row.active {
-  border-color: color-mix(in srgb, var(--theme-color, var(--ink)) 55%, transparent);
-  background: color-mix(in srgb, var(--theme-color, var(--ink)) 10%, white);
+  border-color: color-mix(in srgb, var(--accent, var(--ink)) 55%, transparent);
+  background: color-mix(in srgb, var(--accent, var(--ink)) 10%, white);
 }
 
 .version-row-main {
@@ -273,8 +273,8 @@ function pick(entry: VersionEntry) {
 }
 
 .status-latest {
-  background: color-mix(in srgb, var(--theme-color, var(--ink)) 12%, transparent);
-  color: var(--theme-color, var(--ink));
+  background: color-mix(in srgb, var(--accent, var(--ink)) 12%, transparent);
+  color: var(--accent, var(--ink));
 }
 
 .status-stable {
@@ -288,7 +288,7 @@ function pick(entry: VersionEntry) {
 }
 
 .version-row-check {
-  color: var(--theme-color, var(--ink));
+  color: var(--accent, var(--ink));
   font-size: 16px;
 }
 

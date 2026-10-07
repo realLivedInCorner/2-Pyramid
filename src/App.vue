@@ -187,15 +187,9 @@ const userName = ref<string>("");
   
  const applyThemeColor = (value: string) => { 
    if (!value) return; 
+   // 只写原始值。当前主题下可用的版本由 --accent 派生（见 shared.css）——
+   // 这里不再计算 RGB 三元组：那个值没法跟着主题走，留着就是第二个坑。
    document.documentElement.style.setProperty("--theme-color", value); 
-   // Also set the RGB triplet for legacy rgba(var(--theme-color-rgb), ...) usages
-   const hex = value.replace('#', '');
-   if (hex.length === 6) {
-     const r = parseInt(hex.substring(0, 2), 16);
-     const g = parseInt(hex.substring(2, 4), 16);
-     const b = parseInt(hex.substring(4, 6), 16);
-     document.documentElement.style.setProperty("--theme-color-rgb", `${r}, ${g}, ${b}`);
-   }
    localStorage.setItem("themeColor", value); 
  }; 
   
@@ -887,7 +881,7 @@ onMounted(async () => {
    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
    /* 与主页底色一致；不要 background-attachment:fixed，部分 WebView 左缘会露缝 */
    background-color: var(--bg-color);
-   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--theme-color) 8%, var(--surface)) 100%);
+   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%);
    background-repeat: no-repeat;
    background-size: 100% 100%;
    color: var(--text-color); 
@@ -899,7 +893,7 @@ onMounted(async () => {
    height: 100%; 
    min-height: 100%;
    background-color: var(--bg-color);
-   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--theme-color) 8%, var(--surface)) 100%);
+   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%);
    background-repeat: no-repeat;
    background-size: 100% 100%;
  } 
@@ -912,11 +906,11 @@ onMounted(async () => {
    --text-secondary: var(--ink-3); 
    --border-color: var(--surface-5); 
    --hover-color: rgba(var(--ink-rgb), 0.05); 
-   --primary-color: var(--theme-color); 
-   --accent-color: var(--theme-color); 
-   --success-color: var(--theme-color); 
-   --warning-color: var(--theme-color); 
-   --danger-color: var(--theme-color); 
+   --primary-color: var(--accent); 
+   --accent-color: var(--accent); 
+   --success-color: var(--accent); 
+   --warning-color: var(--accent); 
+   --danger-color: var(--accent); 
    --shadow-light: 0 2px 4px rgba(var(--ink-rgb), 0.05); 
    --shadow-medium: 0 4px 8px rgba(var(--ink-rgb), 0.12); 
    --shadow-heavy: 0 8px 16px rgba(var(--ink-rgb), 0.18); 
@@ -987,7 +981,7 @@ onMounted(async () => {
    overflow: hidden; 
    /* 与主页同底色：页面切换/布局空隙时不露刺眼白边 */
    background-color: var(--bg-color);
-   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--theme-color) 8%, var(--surface)) 100%);
+   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%);
    position: relative;
    z-index: 2;
  } 
@@ -1218,7 +1212,7 @@ onMounted(async () => {
    background:
      radial-gradient(240px circle at var(--glare-x) var(--glare-y),
        var(--panel-2), transparent 55%),
-     color-mix(in srgb, var(--theme-color) 16%, var(--surface));
+     color-mix(in srgb, var(--accent) 16%, var(--surface));
    box-shadow: var(--ui-btn-shadow);
  }
  body.ui-frosted .seg-btn.active {
@@ -1882,7 +1876,7 @@ onMounted(async () => {
   font-size: 18px; flex-shrink: 0;
 }
 .toast-safe .toast-icon { background: rgba(179, 38, 30, 0.06); color: var(--danger); }
-.toast-optional .toast-icon { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); }
+.toast-optional .toast-icon { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); }
 .toast-success .toast-icon { background: rgba(16, 185, 129, 0.10); color: var(--ok); }
 .toast-success { cursor: default; }
 .toast-success:hover { transform: none; box-shadow: 0 12px 36px rgba(var(--ink-rgb), 0.18); }

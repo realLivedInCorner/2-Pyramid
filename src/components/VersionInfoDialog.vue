@@ -94,7 +94,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
 }
 
 .version-tag:hover {
-  color: var(--theme-color, var(--ink));
+  color: var(--accent, var(--ink));
 }
 
 .version-build-mode {
@@ -112,7 +112,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
 .dev-hint {
   font-size: 12px;
   font-weight: 600;
-  color: var(--theme-color, var(--ink-3));
+  color: var(--accent, var(--ink-3));
 }
 
 .version-facts {

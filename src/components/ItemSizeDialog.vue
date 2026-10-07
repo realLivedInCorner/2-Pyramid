@@ -323,10 +323,10 @@ onMounted(() => {
 .category-title {
   font-size: 14px;
   font-weight: 700;
-  color: var(--theme-color);
+  color: var(--accent);
   margin: 0;
   padding-bottom: 8px;
-  border-bottom: 2px solid rgba(var(--theme-color-rgb), 0.1);
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .items-grid {
@@ -429,14 +429,14 @@ onMounted(() => {
 }
 
 .primary-btn {
-  background: var(--theme-color);
+  background: var(--accent);
   color: var(--surface);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 24%, transparent);
   transition: background 0.15s ease, opacity 0.15s ease;
 }
 .primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .primary-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--theme-color) 88%, #000);
+  background: color-mix(in srgb, var(--accent) 88%, #000);
 }
 
 .back-btn {

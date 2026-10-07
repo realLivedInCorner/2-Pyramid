@@ -44,7 +44,7 @@ function openBug() {
   font-size: 13.5px;
 }
 .warn-link {
-  color: var(--theme-color, var(--ink));
+  color: var(--accent, var(--ink));
   text-decoration: underline;
   text-underline-offset: 2px;
 }

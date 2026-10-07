@@ -563,7 +563,7 @@ async function finish() {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--theme-color);
+  color: var(--accent);
   min-width: 0;
 }
 
@@ -630,14 +630,14 @@ async function finish() {
 .startup-step-dot i { font-size: 14px; }
 
 .startup-step-dot.active {
-  background: var(--theme-color);
+  background: var(--accent);
   color: var(--surface);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--theme-color) 40%, transparent);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .startup-step-dot.done {
-  background: color-mix(in srgb, var(--theme-color) 18%, transparent);
-  color: var(--theme-color);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
 }
 
 .startup-step-line {
@@ -649,7 +649,7 @@ async function finish() {
 }
 
 .startup-step-line.done {
-  background: color-mix(in srgb, var(--theme-color) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .panel-content {
@@ -720,17 +720,17 @@ async function finish() {
 }
 
 .lang-card:hover {
-  border-color: color-mix(in srgb, var(--theme-color) 45%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   transform: translateY(-3px);
   box-shadow: 0 10px 26px rgba(var(--ink-rgb), 0.08);
 }
 
 .lang-card.active {
-  border-color: var(--theme-color);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--theme-color) 7%, white) 0%, var(--surface) 100%);
+  border-color: var(--accent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 7%, white) 0%, var(--surface) 100%);
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--theme-color) 18%, transparent),
-    0 8px 24px color-mix(in srgb, var(--theme-color) 14%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 8px 24px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .lang-check {
@@ -740,7 +740,7 @@ async function finish() {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--theme-color);
+  background: var(--accent);
   color: var(--surface);
   display: flex;
   align-items: center;
@@ -749,7 +749,7 @@ async function finish() {
   transform: scale(0);
   opacity: 0;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-color) 40%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .lang-card.active .lang-check {
   transform: scale(1);
@@ -811,8 +811,8 @@ async function finish() {
 }
 
 .startup-input:focus {
-  border-color: var(--theme-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 15%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .startup-input::placeholder {
@@ -842,7 +842,7 @@ async function finish() {
 
 .welcome-card i {
   font-size: 40px;
-  color: var(--theme-color);
+  color: var(--accent);
 }
 
 .welcome-card p {
@@ -940,8 +940,8 @@ async function finish() {
   align-items: center;
   justify-content: center;
   font-size: 17px;
-  color: var(--theme-color);
-  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .startup-setting-info {
@@ -988,7 +988,7 @@ async function finish() {
 }
 
 .naming-input:focus {
-  border-color: var(--theme-color);
+  border-color: var(--accent);
   background: var(--surface);
 }
 
@@ -1027,7 +1027,7 @@ async function finish() {
 
 .seg-btn.active {
   background: var(--surface);
-  color: var(--theme-color);
+  color: var(--accent);
   box-shadow: 0 1px 4px rgba(var(--ink-rgb), 0.08);
 }
 
@@ -1072,7 +1072,7 @@ async function finish() {
 }
 
 .switch input:checked + .slider {
-  background: var(--theme-color);
+  background: var(--accent);
 }
 
 .switch input:checked + .slider::before {
@@ -1123,14 +1123,14 @@ async function finish() {
 }
 
 .startup-btn-primary {
-  background: var(--theme-color);
+  background: var(--accent);
   color: var(--surface);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-color) 35%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .startup-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 42%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
 .startup-btn-primary:active:not(:disabled) {
@@ -1220,8 +1220,8 @@ async function finish() {
 .startup-restore-btn i { font-size: 14px; }
 .startup-restore-btn:hover {
   background: rgba(var(--ink-rgb), 0.05);
-  border-color: var(--theme-color, var(--ink));
-  color: var(--theme-color, var(--ink));
+  border-color: var(--accent, var(--ink));
+  color: var(--accent, var(--ink));
 }
 
 /* ═══ 备份导入对话框 ═══ */
@@ -1250,7 +1250,7 @@ async function finish() {
 .startup-backup-head {
   display: flex; align-items: center; gap: 10px;
 }
-.startup-backup-head i { font-size: 22px; color: var(--theme-color, var(--ink)); }
+.startup-backup-head i { font-size: 22px; color: var(--accent, var(--ink)); }
 .startup-backup-head h3 {
   margin: 0; flex: 1 1 auto;
   font-size: 16px; font-weight: 800; color: var(--ink);
