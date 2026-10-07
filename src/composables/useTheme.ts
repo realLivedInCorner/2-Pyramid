@@ -105,24 +105,6 @@ function rollInk() {
 }
 
 /**
- * 文本刷新：**必须等快照结束之后**。
- *
- * 第一版把它压在墨水收尾处（duration - 300ms），以为两段能接上 ——
- * 那是错的。View Transition 期间 `::view-transition-new(root)` 显示的是一张
- * **冻结的新内容快照**，此刻对 DOM 做的任何动画都不会被渲染。元素上
- * `animationName` 查得到、`refreshing` 类也挂上了，但画面上一个像素都不变。
- *
- * 所以改成 `.finished` 之后再起步。为了让两段不脱节，墨水最后一段本来
- * 就收得很慢（cubic-bezier 尾段），快照撤掉时墨已经基本铺满，刷新紧接着
- * 落下来读起来是同一件事的收尾。
- */
-function refreshText(root: HTMLElement) {
-  root.classList.add('refreshing');
-  // 最后一个字的延迟 = --r-i 最大值(9) × 26ms，加上动画本身 520ms
-  window.setTimeout(() => root.classList.remove('refreshing'), 520 + 26 * 10);
-}
-
-/**
  * 切换主题，带「墨水泼洒」的揭示动画。
  *
  * 用 View Transitions：浏览器给旧画面拍一张快照，新主题渲染在下层，
@@ -130,6 +112,11 @@ function refreshText(root: HTMLElement) {
  * 那种做法要遍历整棵树，这里只有一次合成。
  *
  * 不支持时（老 WebView）回落到原来的颜色过渡，不会变成硬切。
+ *
+ * 文本刷新已移除。它做不到和墨水同步：View Transition 期间
+ * `::view-transition-new(root)` 显示的是一张**冻结的新内容快照**，
+ * 此刻对 DOM 做的动画不会被渲染（实测差异 0 像素）。只能等 `.finished`
+ * 之后再做，那就成了两个分开的节拍 —— 与其硬凑，不如不做。
  */
 function revealTheme(applyNext: () => void) {
   const reduced =
@@ -162,7 +149,6 @@ function revealTheme(applyNext: () => void) {
     })
     .finished.finally(() => {
       root.classList.remove('theme-inking');
-      refreshText(root);
     });
 }
 

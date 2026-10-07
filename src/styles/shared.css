@@ -298,41 +298,6 @@
 }
 .motion-reduced ::view-transition-old(root) { display: none; }
 
-/*
- * ══ 主题切换时的文本刷新 ═════════════════════════════════════════════
- *
- * 逐字「重新落墨」：每个字从偏下、略糊、半透明，归位到清晰。
- *
- * 时序上刻意压在墨水收尾处起步（见 useTheme 里的 TEXT_DELAY），
- * 而不是动画一结束才开始 —— 两段中间空一拍会读成两个不相干的效果。
- *
- * 用 backwards 而不是 both：both / forwards 会永久保留末态里的 translate，
- * 元素因此成为包含块（这个坑本项目踩过四次）。基线里也不能放 opacity: 0，
- * 否则 backwards 动画结束回落到基线时文字会消失。
- */
-.refreshing .r-in {
-  animation: text-refresh 520ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
-  animation-delay: calc(var(--rd, 0ms) + var(--r-i, 0) * 26ms);
-}
-
-@keyframes text-refresh {
-  from {
-    opacity: 0.25;
-    filter: blur(3px);
-    translate: 0 5px;
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-    translate: 0 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .refreshing .r-in { animation: none; }
-}
-.motion-reduced .refreshing .r-in { animation: none; }
-
 /* ── 文本按钮 ── */.btn-text {
   display: inline-flex;
   align-items: center;
