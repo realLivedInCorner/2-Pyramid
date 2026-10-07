@@ -214,6 +214,11 @@
   initial-value: 0%;
   inherits: false;
 }
+@property --ink-d {
+  syntax: '<percentage>';
+  initial-value: 0%;
+  inherits: false;
+}
 
 /*
  * 两张快照必须显式分层：默认是 old 在下、new 在上并且各自带淡入淡出，
@@ -229,14 +234,18 @@
 ::view-transition-new(root) {
   z-index: 2;
   /*
-   * 三个墨点：上 / 中 / 下，起点都贴在左边缘。
-   * 半径用 calc 加一段渐变过渡带（+5%/+7%/+6%），否则圆的边缘是硬边，
-   * 看着像剪纸不像洇开。
+   * 四个墨点沿**对角线**落笔：左上最早、右下殿后，起点 x 也随之左右错开
+   * （-6% / 0% / 6% / -2%）。都在同一列上的话，前沿会是一条竖直的弧，
+   * 而不是斜着扫过去。
+   *
+   * 每个墨点的过渡带宽度也不同（6/9/7/5），边缘软硬不一 —— 统一的过渡带
+   * 会让四个圆看起来是同一个图章盖了四次。
    */
   mask-image:
-    radial-gradient(circle at 0% 16%, #000 var(--ink-a), transparent calc(var(--ink-a) + 5%)),
-    radial-gradient(circle at 0% 52%, #000 var(--ink-b), transparent calc(var(--ink-b) + 7%)),
-    radial-gradient(circle at 0% 88%, #000 var(--ink-c), transparent calc(var(--ink-c) + 6%));
+    radial-gradient(circle at -6% 8%, #000 var(--ink-a), transparent calc(var(--ink-a) + 6%)),
+    radial-gradient(circle at 0% 38%, #000 var(--ink-b), transparent calc(var(--ink-b) + 9%)),
+    radial-gradient(circle at 6% 68%, #000 var(--ink-c), transparent calc(var(--ink-c) + 7%)),
+    radial-gradient(circle at -2% 94%, #000 var(--ink-d), transparent calc(var(--ink-d) + 5%));
   mask-composite: add;
   -webkit-mask-composite: source-over;
   /*
@@ -244,25 +253,32 @@
    * 那条前段过陡：实测它让墨迹在时间轴的 8% 就推到了 78% 的宽度，
    * 读起来是「猛地一泼，然后慢慢爬」—— 那是擦除的节奏，不是洇开。
    * 这条前段缓、中段快、尾段收，才是墨水该有的推进。
+   *
+   * 时长也放到了 1150ms：780ms 下四段推进挤在一起，看不清「先后落笔」。
    */
-  animation: ink-spread 780ms cubic-bezier(0.45, 0.05, 0.25, 1) forwards;
+  animation: ink-spread var(--ink-duration, 1150ms) cubic-bezier(0.45, 0.05, 0.25, 1) forwards;
 }
 
 /*
- * 三个圆错开：上面的先走、下面的殿后，中间最快 —— 前沿因此是斜的、
- * 而且中途会互相咬合再分开，这就是「泼」的那一下。
- * 终点都超过 150%，保证四个角全部盖住，不留没换色的死角。
+ * 四个圆的终点半径由 JS 每次注入（--ink-end-*），带有 ±18% 的抖动。
+ * 固定值会让每一次切换长得一模一样 —— 那就成了转场特效，不是墨。
+ *
+ * 终点都超过 150%，保证四角全部盖住；落笔顺序靠起点位置和半径差体现，
+ * 不靠 animation-delay —— delay 会让先动的那个在静止期就已经可见，
+ * 露馅成一个不动的圆。
  */
 @keyframes ink-spread {
   0% {
     --ink-a: 0%;
     --ink-b: 0%;
     --ink-c: 0%;
+    --ink-d: 0%;
   }
   100% {
-    --ink-a: 165%;
-    --ink-b: 185%;
-    --ink-c: 155%;
+    --ink-a: var(--ink-end-a, 190%);
+    --ink-b: var(--ink-end-b, 165%);
+    --ink-c: var(--ink-end-c, 205%);
+    --ink-d: var(--ink-end-d, 175%);
   }
 }
 

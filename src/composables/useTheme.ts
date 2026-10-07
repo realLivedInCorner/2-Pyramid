@@ -63,6 +63,29 @@ function transitionThenSettle() {
 }
 
 /**
+ * 给这次泼洒掷一次「落笔」。
+ *
+ * 四个墨点的终点半径每次都不同 —— 固定值会让每次切换长得一模一样，
+ * 那就成了一个转场特效，不是墨。抖动 ±18%：太小看不出差别，太大
+ * 偶尔会有一个圆明显没盖到边（虽然终点都过 150%，但视觉上会偏）。
+ *
+ * 半径之间的**相对大小**也随机化（谁大谁小不固定），否则四次切换下来
+ * 还是能看出是同一组形状。
+ */
+function rollInk() {
+  const root = document.documentElement;
+  const jitter = (base: number) => Math.round(base * (0.82 + Math.random() * 0.36));
+  const names = ['--ink-end-a', '--ink-end-b', '--ink-end-c', '--ink-end-d'];
+  // 基准值刻意拉开：190 / 165 / 205 / 175，各自负责一块区域
+  const bases = [190, 165, 205, 175];
+  for (let i = 0; i < names.length; i++) {
+    root.style.setProperty(names[i], `${jitter(bases[i])}%`);
+  }
+  // 时长也轻微浮动 —— 每次都一样长会显得很机械
+  root.style.setProperty('--ink-duration', `${1080 + Math.round(Math.random() * 220)}ms`);
+}
+
+/**
  * 切换主题，带「墨水泼洒」的揭示动画。
  *
  * 用 View Transitions：浏览器给旧画面拍一张快照，新主题渲染在下层，
@@ -85,6 +108,10 @@ function revealTheme(applyNext: () => void) {
     applyNext();
     return;
   }
+
+  // 落笔必须在 startViewTransition 之前定下来：伪元素的动画名字在快照
+  // 建立时就固定了，之后再改自定义属性不会重新解析关键帧。
+  rollInk();
 
   // 快照期间把光标也冻住，避免动画中途 hover 改了底色
   const root = document.documentElement;
