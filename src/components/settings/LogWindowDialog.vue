@@ -169,8 +169,8 @@ onUnmounted(stopTimer);
   margin-bottom: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: rgba(217, 119, 6, 0.1);
-  border: 1px solid rgba(217, 119, 6, 0.25);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 25%, transparent);
   color: var(--warn);
   font-size: 12px;
   text-align: left;
@@ -178,7 +178,7 @@ onUnmounted(stopTimer);
 .raw-warn i { font-size: 15px; }
 .raw-warn span { flex: 1; min-width: 200px; }
 .btn-text.danger { color: var(--danger); }
-.btn-text.danger:hover { background: rgba(220, 38, 38, 0.1); }
+.btn-text.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .log-output {
   min-height: 220px;
   max-height: 50vh;

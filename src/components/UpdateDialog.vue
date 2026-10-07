@@ -327,8 +327,8 @@ onUnmounted(() => {
   width: 44px; height: 44px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: 22px;
 }
-.ud-icon-box.success { background: rgba(5, 150, 105, 0.1); color: var(--ok); }
-.ud-icon-box.danger { background: rgba(179, 38, 30, 0.08); color: var(--danger); }
+.ud-icon-box.success { background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); }
+.ud-icon-box.danger { background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); }
 
 /* ── 优先级标签 ──
    颜色只用来回答「必须装吗」：safe / major 是强制更新，用危险色；
@@ -340,13 +340,13 @@ onUnmounted(() => {
   font-size: 11.5px; font-weight: 600;
 }
 .priority-safe, .priority-major {
-  background: rgba(179, 38, 30, 0.08); color: var(--danger); border-color: rgba(179, 38, 30, 0.22);
+  background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 22%, transparent);
 }
 .priority-minor, .priority-optional {
   background: rgba(var(--warm-rgb), 0.06); color: var(--ink-2); border-color: rgba(var(--warm-rgb), 0.14);
 }
 .priority-patch {
-  background: rgba(5, 150, 105, 0.09); color: var(--ok); border-color: rgba(5, 150, 105, 0.2);
+  background: color-mix(in srgb, var(--ok) 9%, transparent); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 20%, transparent);
 }
 
 .ud-bump-line {
@@ -372,7 +372,7 @@ onUnmounted(() => {
 .ud-beta-tag {
   font-style: normal; padding: 2px 7px; border-radius: 6px;
   font-size: 10.5px; font-weight: 600;
-  background: rgba(180, 83, 9, 0.1); color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn);
   vertical-align: 2px;
 }
 

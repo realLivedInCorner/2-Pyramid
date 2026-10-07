@@ -1267,8 +1267,8 @@ const exportLogsToFile = async () => {
 .many-files-warning {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px; color: var(--warn);
-  background: rgba(180, 83, 9, 0.05);
-  border: 1px solid rgba(180, 83, 9, 0.22);
+  background: color-mix(in srgb, var(--warn) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent);
   border-radius: 8px; padding: 8px 12px;
 }
 .many-files-warning i { font-size: 14px; }
@@ -1279,13 +1279,13 @@ const exportLogsToFile = async () => {
   font-size: 12px; font-weight: 600; font-family: inherit;
   color: var(--danger);
   background: var(--surface);
-  border: 1px solid rgba(179, 38, 30, 0.18);
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent);
   border-radius: var(--ui-radius-btn);
   cursor: pointer;
   align-self: flex-start;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.cancel-btn:hover:not(:disabled) { background: rgba(179, 38, 30, 0.06); border-color: rgba(179, 38, 30, 0.35); }
+.cancel-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 6%, transparent); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 .cancel-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -1401,7 +1401,7 @@ const exportLogsToFile = async () => {
   color: var(--ink-3);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.remove-item-btn:hover { background: rgba(179, 38, 30, 0.16); color: var(--danger); }
+.remove-item-btn:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 .more-row {
   padding: 10px 14px;
   border-top: 1px solid rgba(var(--ink-rgb), 0.05);
@@ -1443,7 +1443,7 @@ const exportLogsToFile = async () => {
 .result-value { font-weight: 700; }
 .result-value.success { color: var(--ok); }
 .result-value.error { color: var(--danger); }
-.error-details { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: rgba(179, 38, 30, 0.06); border: 1px solid rgba(179, 38, 30, 0.16); }
+.error-details { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: color-mix(in srgb, var(--danger) 6%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 16%, transparent); }
 .error-details h4 { margin-top: 0; color: var(--danger); font-size: 1rem; }
 .error-list { margin: 0.5rem 0 0 0; padding-left: 1.5rem; }
 .error-list li { margin-bottom: 0.25rem; color: var(--danger); font-size: 0.9rem; }

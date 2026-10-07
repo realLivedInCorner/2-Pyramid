@@ -197,12 +197,12 @@ const iconClass = computed(() => {
 }
 
 .notification-success .notification-icon {
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
   color: var(--ok);
 }
 
 .notification-error .notification-icon {
-  background: rgba(179, 38, 30, 0.08);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
   color: var(--danger);
 }
 

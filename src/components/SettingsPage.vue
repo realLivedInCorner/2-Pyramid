@@ -1704,9 +1704,9 @@ const onThemeReset = async () => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  background: rgba(5, 150, 105, 0.12);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
   color: var(--ok);
-  border: 1px solid rgba(5, 150, 105, 0.22);
+  border: 1px solid color-mix(in srgb, var(--ok) 22%, transparent);
 }
 
 .dev-sub {
@@ -1724,9 +1724,9 @@ const onThemeReset = async () => {
   margin-bottom: 12px;
   padding: 12px 16px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(6, 78, 59, 0.08), rgba(5, 150, 105, 0.06));
-  border: 1px solid rgba(5, 150, 105, 0.14);
-  box-shadow: 0 2px 12px rgba(6, 78, 59, 0.04);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 8%, transparent), color-mix(in srgb, var(--ok) 6%, transparent));
+  border: 1px solid color-mix(in srgb, var(--ok) 14%, transparent);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--ok) 4%, transparent);
 }
 
 .live-left {
@@ -1742,12 +1742,12 @@ const onThemeReset = async () => {
   border-radius: 50%;
   background: var(--surface-6);
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink-4) 15%, transparent);
 }
 
 .live-dot.on {
   background: var(--ok);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18), 0 0 10px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent), 0 0 10px color-mix(in srgb, var(--ok) 45%, transparent);
   animation: dev-live-pulse 1.6s ease-in-out infinite;
 }
 
@@ -1806,12 +1806,12 @@ const onThemeReset = async () => {
 
 /* 开发者卡片：略深、边缘绿描边 */
 .dev-group .group-card {
-  border-color: rgba(5, 150, 105, 0.12);
+  border-color: color-mix(in srgb, var(--ok) 12%, transparent);
   background: var(--panel-3);
 }
 
 .dev-group .setting-item.clickable.danger:hover {
-  background: rgba(239, 68, 68, 0.05);
+  background: color-mix(in srgb, var(--danger) 5%, transparent);
 }
 
 .group-card {
@@ -2158,9 +2158,9 @@ const onThemeReset = async () => {
 
 /* Dev-only destructive action */
 .setting-item.danger .item-icon { color: var(--danger); }
-.setting-item.danger:hover { background: rgba(239, 68, 68, 0.06); }
+.setting-item.danger:hover { background: color-mix(in srgb, var(--danger) 6%, transparent); }
 .btn-text.danger { color: var(--danger); }
-.btn-text.danger:hover { background: rgba(239, 68, 68, 0.08); }
+.btn-text.danger:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
 .status-badge {
   display: inline-block;
@@ -2174,9 +2174,9 @@ const onThemeReset = async () => {
 }
 .status-loading      { background: var(--surface-3); color: var(--ink-3); }
 .status-busy         { background: var(--surface-3); color: var(--ink); }
-.status-registered   { background: rgba(16, 185, 129, 0.14); color: var(--ok); }
+.status-registered   { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .status-unregistered { background: var(--warn-tint); color: var(--warn); }
-.status-partial      { background: rgba(179, 38, 30, 0.16); color: var(--danger); }
+.status-partial      { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 
 /* 弹窗骨架（overlay/content/header/body/footer）走全局 shared.css */
 .log-toolbar {

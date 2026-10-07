@@ -102,6 +102,6 @@ const emit = defineEmits<{ remove: [index: number] }>();
 
 .remove-item-btn:hover {
   color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 </style>

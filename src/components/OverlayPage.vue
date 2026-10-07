@@ -514,15 +514,15 @@ onMounted(() => {
 }
 
 .header-status.success {
-  background: rgba(16, 185, 129, 0.10);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
   color: var(--ok);
-  border: 1px solid rgba(16, 185, 129, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ok) 12%, transparent);
 }
 
 .header-status.error {
-  background: rgba(179, 38, 30, 0.06);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
   color: var(--danger);
-  border: 1px solid rgba(179, 38, 30, 0.16);
+  border: 1px solid color-mix(in srgb, var(--danger) 16%, transparent);
 }
 
 /* status enter/leave 走全局 CSS class 模式(`<transition name="header-status-toast">`,
@@ -559,7 +559,7 @@ onMounted(() => {
 }
 .icon-btn:hover { background: rgba(var(--ink-rgb), 0.05); color: var(--ink); }
 .delete-btn { color: var(--ink-4); }
-.delete-btn:hover { color: var(--danger); background: rgba(179, 38, 30, 0.16); }
+.delete-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); }
 
 /* 右栏：快速开始 */
 

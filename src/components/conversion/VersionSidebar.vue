@@ -278,7 +278,7 @@ function pick(entry: VersionEntry) {
 }
 
 .status-stable {
-  background: rgba(16, 185, 129, 0.10);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
   color: var(--ok);
 }
 

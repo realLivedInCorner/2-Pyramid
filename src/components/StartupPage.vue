@@ -1171,7 +1171,7 @@ async function finish() {
 }
 
 .startup-btn-quit:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
   color: var(--danger);
   transform: scale(1.06);
 }

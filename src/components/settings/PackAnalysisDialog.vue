@@ -125,7 +125,7 @@ async function copy() {
   padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
   background: rgba(var(--ink-rgb), 0.08); color: var(--ink);
 }
-.shape-badge.warn { background: rgba(217, 119, 6, 0.14); color: var(--warn); }
+.shape-badge.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
 .meta-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px; margin-bottom: 12px;

@@ -883,8 +883,8 @@ onMounted(async () => {
 }
 .format-btn.reset { color: var(--danger); }
 .format-btn.reset:hover {
-  background: rgba(179, 38, 30, 0.08);
-  border-color: rgba(179, 38, 30, 0.24);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
 }
 
 .panel-footer {
@@ -917,8 +917,8 @@ onMounted(async () => {
   padding: 3px 10px;
   border-radius: 6px;
 }
-.save-status.success { color: var(--ok); background: rgba(16, 185, 129, 0.1); }
-.save-status.error { color: var(--danger); background: rgba(179, 38, 30, 0.08); }
+.save-status.success { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.save-status.error { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
 .footer-btns { display: flex; gap: 8px; align-items: center; }
 
