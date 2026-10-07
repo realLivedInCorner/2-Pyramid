@@ -18,36 +18,47 @@
       </div>
 
       <div class="panel-body">
-        <!-- 背包无阴影 -->
-        <div class="option-item">
-          <div class="option-info">
-            <div class="option-label">{{ t('dialog.visual.noShadow') }}</div>
-            <div class="option-desc">{{ t('dialog.visual.noShadowDesc') }}</div>
+        <!-- 渲染选项：这两个开关改的都是「怎么渲染」，归到一个小标题下。
+             复用已有键，不新增 i18n -->
+        <section class="option-group">
+          <div class="group-header">
+            <div class="group-label">{{ t('dialog.otherOptions.rendering') }}</div>
           </div>
-          <label class="switch">
-            <input type="checkbox" v-model="settings.no_shadow">
-            <span class="slider round"></span>
-          </label>
-        </div>
 
-        <!-- 附魔闪光 -->
-        <div class="option-item">
-          <div class="option-info">
-            <div class="option-label">{{ t('dialog.visual.enchantGlint') }}</div>
-            <div class="option-desc">{{ t('dialog.visual.enchantGlintDesc') }}</div>
+          <div class="switch-list">
+            <!-- 背包无阴影 -->
+            <div class="option-item">
+              <div class="option-info">
+                <div class="option-label">{{ t('dialog.visual.noShadow') }}</div>
+                <div class="option-desc">{{ t('dialog.visual.noShadowDesc') }}</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" v-model="settings.no_shadow">
+                <span class="slider round"></span>
+              </label>
+            </div>
+
+            <!-- 附魔闪光 -->
+            <div class="option-item">
+              <div class="option-info">
+                <div class="option-label">{{ t('dialog.visual.enchantGlint') }}</div>
+                <div class="option-desc">{{ t('dialog.visual.enchantGlintDesc') }}</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" v-model="settings.custom_glint">
+                <span class="slider round"></span>
+              </label>
+            </div>
           </div>
-          <label class="switch">
-            <input type="checkbox" v-model="settings.custom_glint">
-            <span class="slider round"></span>
-          </label>
-        </div>
+        </section>
 
         <!-- 实体描边 -->
-        <div class="option-group">
+        <section class="option-group">
           <div class="group-header">
             <div class="group-label">{{ t('dialog.visual.outline') }}</div>
             <div class="group-desc">{{ t('dialog.visual.outlineDesc') }}</div>
           </div>
+
           <div class="outline-grid">
             <button
               v-for="type in outlineTypes"
@@ -117,7 +128,7 @@
             </div>
             <p class="detail-hint">{{ t('dialog.visual.gradientHint') }}</p>
           </div>
-        </div>
+        </section>
       </div>
 
       <div class="panel-footer">
@@ -131,7 +142,9 @@
             <i class="ri-loader-4-line spin" v-else></i>
             {{ isSaving ? t('common.saving') : t('common.save') }}
           </button>
-          <button class="ghost-btn back-btn" @click="visible = false">
+          <!-- 不挂 .back-btn：全局 .app-container .back-btn 是给页面级返回钮的玻璃皮肤，
+               在抽屉页脚里会和共享的 .ghost-btn 打架（同特异度，看加载顺序） -->
+          <button class="ghost-btn" @click="visible = false">
             <i class="ri-arrow-go-back-line"></i>
             <span>{{ t('common.back') }}</span>
           </button>
@@ -156,6 +169,7 @@ const props = defineProps<{
   projectName: string
 }>();
 
+// 投影必须是暖色：合成器的默认值是 rgba(0,0,0,·) 冷灰，压在暖白面板上会发脏
 const {
   onBeforeEnter,
   onEnter,
@@ -163,7 +177,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-12px 0 36px rgba(0, 0, 0, 0.08)' });
+} = useSidebarSlide({ shadow: '-12px 0 36px rgba(28, 24, 18, 0.12)' });
 
 const isSaving = ref(false);
 const saveStatus = ref<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -184,7 +198,8 @@ const settings = reactive({
 });
 
 const outlineTypes = [
-  { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: '#f1f5f9' },
+  // 「无」的色板用暖白：原 #f1f5f9 是冷板岩灰，和这一版暖色发丝线不是一支
+  { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: '#f2efe9' },
   // core_rainbow_outline：N 卡彩虹
   { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' },
   // core_rainbow_outline_hexian：其他显卡彩虹
@@ -309,13 +324,17 @@ onMounted(loadSettings);
 </script>
 
 <style scoped>
-/* 对齐转换页版本选择器 */
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.28);
-  z-index: 200;
-}
+/*
+ * ── 右侧抽屉外壳 ────────────────────────────────────────────────────
+ *
+ * 这一份是「侧滑面板」，不是居中弹窗，所以不套 shared.css 的 .dialog-overlay /
+ * .dialog-content（那对是居中 flex 布局，套上去面板就不再贴右边缘）。
+ * 但取值必须是同一套：暖色遮罩、暖色发丝线、同一组字号与圆角。
+ *
+ * 原值 rgba(15, 23, 42, ·) 是冷蓝灰，压在暖白界面上会发脏。
+ */
+/* .sidebar-overlay 已统一到 shared.css
+   （本地那份与全局逐字相同，属于纯重复，删掉）。 */
 
 .visual-panel.sidebar-content {
   position: fixed;
@@ -324,98 +343,197 @@ onMounted(loadSettings);
   width: min(420px, 94vw);
   height: 100vh;
   z-index: 201;
-  background: #ffffff;
+  background: #fff;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   outline: none;
+  /* App.vue 的 .page-shell > * > * 入场 stagger 会锁 opacity，这里必须压回 1 */
   opacity: 1 !important;
   transform: translateX(100%);
-  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.08);
+  /* 抽屉是真脱离文档流的浮层，投影保留（卡片才一律不要）—— 但换成暖色。
+     取值必须与 useSidebarSlide 传入的 inline 投影一致，否则进场瞬间会闪一下 */
+  box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
+  /* 靠右贴边，单靠投影分不出边界；补一条暖色发丝线，和页面分隔线同一支 */
+  border-left: 1px solid rgba(120, 110, 95, 0.14);
   will-change: transform, box-shadow;
 }
 
 .panel-header {
   /* 顶部避开浮动窗口控制按钮 */
-  padding: 56px 1.5rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 56px 1.5rem 14px;
+  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
   flex-shrink: 0;
 }
 
-.panel-title { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+/* 15px / 600：与 shared.css 的 .dialog-header h3 同一档。
+   原来是 18px/700 + 冷蓝 #0f172a —— 层级由字号与留白建立，不靠字重压人 */
+.panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #14171a;
+}
 
 .panel-body {
   flex: 1;
-  padding: 1.25rem 1.5rem;
+  padding: 18px 1.5rem 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  /* 区块之间靠留白分组，所以这里的间距比任何组内间距都大 */
+  gap: 24px;
   overflow-y: auto;
   min-height: 0;
 }
 .panel-body::-webkit-scrollbar { width: 6px; }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
 .panel-body::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 3px;
+  /* 滚动条也是冷灰重灾区：rgba(0,0,0,·) 换成暖色 */
+  background: rgba(120, 110, 95, 0.2);
+  border-radius: 999px;
 }
+
+/*
+ * ── 区块：小字标签 + 内容 ────────────────────────────────────────────
+ * 原来是一个没有分界的竖列（两个 #f8fafc 冷灰填充块 + 一组卡片），
+ * 看不出哪些控件属于同一件事。现在用小字标签分组、组内用发丝线分隔。
+ */
+.option-group { display: flex; flex-direction: column; gap: 10px; }
+
+.group-header { display: flex; flex-direction: column; gap: 3px; }
+
+/* 10.5px / .18em 小字标签：全项目统一的分组标记 */
+.group-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7d776d;
+}
+
+/* 分组说明比标签再弱一档，免得和标签抢注意力 */
+.group-desc { font-size: 12px; line-height: 1.5; color: #9c968c; }
+
+/* ── 开关行 ── */
+.switch-list { display: flex; flex-direction: column; }
 
 .option-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 16px; background: #f8fafc; border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
 }
+/* 行间一条发丝线就够分组了。原来每行套一个 #f8fafc 冷灰填充块，
+   两块叠在一起反而看不出它们属于同一类设置 */
+.option-item + .option-item { border-top: 1px solid rgba(120, 110, 95, 0.14); }
 
-.option-label { font-weight: 700; color: #1e293b; margin-bottom: 4px; }
-.option-desc { font-size: 13px; color: #64748b; }
+.option-info { min-width: 0; }
+.option-label { font-size: 14px; font-weight: 500; color: #14171a; }
+.option-desc { margin-top: 3px; font-size: 12px; line-height: 1.5; color: #7d776d; }
 
-.option-group { display: flex; flex-direction: column; gap: 12px; }
-.group-label { font-weight: 700; color: #1e293b; font-size: 15px; }
-.group-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+/* ── 描边选项卡 ── */
+.outline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-.outline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-.detail-hint {
-  margin: 0;
-  font-size: 12px;
-  color: #94a3b8;
-  line-height: 1.45;
-}
-
+/* 页内块：一枚暖色发丝边 + 8px 圆角，无投影。
+   原来 2px #f1f5f9 冷灰描边 + 12px 圆角，看着像另一种控件 */
 .outline-card {
-  padding: 12px; border-radius: 12px; border: 2px solid #f1f5f9;
-  background: #fff; cursor: pointer; transition: all 0.2s;
-  display: flex; align-items: center; gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  /* App.vue 的 `.app-container button` 会给按钮挂 nowrap + overflow:hidden，
+     两列布局下「彩虹描边（其他显卡）」会被直接切掉 —— 这里显式恢复折行 */
+  white-space: normal;
+  border: 1px solid rgba(120, 110, 95, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #5f5a51;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.outline-card:hover {
+  border-color: rgba(120, 110, 95, 0.36);
+  background: #fff;
+  color: #14171a;
 }
 
-.outline-card.active { border-color: var(--theme-color); background: rgba(var(--theme-color-rgb), 0.05); }
+/* 选中态用墨色描边，与首页一致；主题色只留给主操作按钮 */
+.outline-card.active { border-color: rgba(20, 23, 26, 0.5); background: rgba(20, 23, 26, 0.035); }
+.outline-card.active .outline-name { color: #14171a; }
 
-.outline-preview { width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.05); }
+/* 色板：50% 圆点，与开关滑块、状态点同一档圆角 */
+.outline-preview {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  /* 浅色色板（无描边 / 白色）需要一圈发丝线才看得出边界 —— 暖色，不用 rgba(0,0,0,·) */
+  border: 1px solid rgba(120, 110, 95, 0.22);
+}
 
-.outline-name { font-size: 14px; font-weight: 600; color: #475569; }
+/* 名字最长的是「彩虹描边（其他显卡）」，两列下必然折行，行高压到 1.35 才不散 */
+.outline-name { font-size: 13px; font-weight: 500; line-height: 1.35; color: inherit; }
 
+/* ── 细节区（标准描边 / 双色循环） ── */
 .outline-detail {
-  margin-top: 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.03);
-  border: 1px solid #eef2f7;
+  padding: 12px;
+  border-radius: 8px;
+  /* 暖色淡面替掉原来的 rgba(0,0,0,0.03) + #eef2f7 冷边 */
+  background: rgba(120, 110, 95, 0.05);
+  border: 1px solid rgba(120, 110, 95, 0.14);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.detail-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.detail-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
 }
 
+.detail-label { font-size: 12px; font-weight: 500; line-height: 1.35; color: #7d776d; }
+
+.detail-block { display: flex; flex-direction: column; gap: 8px; }
+
+.color-row { display: flex; align-items: center; gap: 8px; }
+/* 28px 高的小控件，圆角取小图标钮那一档（6px），不用按钮的 8px */
+.color-input {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(120, 110, 95, 0.22);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.color-hex { font-family: ui-monospace, monospace; font-size: 12px; color: #5f5a51; }
+
+.range-input { width: 100%; min-width: 0; accent-color: #14171a; }
+.range-val {
+  min-width: 40px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: #14171a;
+}
+
+.detail-hint { margin: 0; font-size: 12px; line-height: 1.55; color: #9c968c; }
+
+/* ── 双色循环预览条 ── */
+/* 这条显示的是用户选的两种颜色，所以它自身不带任何颜色，只负责给出边界 */
 .gradient-preview {
   height: 44px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(120, 110, 95, 0.18);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -424,12 +542,13 @@ onMounted(loadSettings);
 }
 
 .preview-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.94);
+  /* 底色由用户决定，可能很浅；描影保证可读 —— 原来是 rgba(0,0,0,·) 冷黑 */
+  text-shadow: 0 1px 2px rgba(28, 24, 18, 0.55);
   pointer-events: none;
 }
 
@@ -437,99 +556,88 @@ onMounted(loadSettings);
   from { background-position: 0% 50%; }
   to { background-position: 200% 50%; }
 }
-.detail-row {
-  display: grid;
-  grid-template-columns: 88px 1fr auto;
-  gap: 10px;
-  align-items: center;
-  font-size: 13px;
-}
-.detail-label { color: #64748b; font-weight: 600; }
-.color-row { display: flex; align-items: center; gap: 8px; }
-.color-input {
-  width: 36px; height: 28px; padding: 0; border: 1px solid #e2e8f0;
-  border-radius: 6px; cursor: pointer; background: none;
-}
-.color-hex {
-  font-family: ui-monospace, monospace; font-size: 12px; color: #475569;
-}
-.range-input { width: 100%; accent-color: var(--theme-color); }
-.range-val {
-  font-variant-numeric: tabular-nums;
-  color: #374151; font-weight: 600; min-width: 36px; text-align: right;
-}
 
-.switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+/* ── 开关 ── */
+/* 与设置页 / 转换页的开关同尺寸（42×24、滑块 18px、行程 18px），勾选态用墨色 */
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
-  position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1;
-  transition: .4s; border-radius: 34px;
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  /* 未选中态用暖灰：原 #cbd5e1 是冷板岩灰 */
+  background-color: rgba(120, 110, 95, 0.28);
+  transition: background-color 0.2s ease;
+  border-radius: 999px;
 }
 .slider:before {
-  position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
-  background-color: white; transition: .4s; border-radius: 50%;
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #fff;
+  transition: transform 0.2s var(--ease-out);
+  border-radius: 50%;
 }
-input:checked + .slider { background-color: var(--theme-color); }
-input:checked + .slider:before { transform: translateX(22px); }
+input:checked + .slider { background-color: #14171a; }
+input:checked + .slider:before { transform: translateX(18px); }
+/* 原生 checkbox 已被压成 0×0，键盘聚焦只能画在轨道上才看得见 */
+input:focus-visible + .slider { outline: 2px solid rgba(20, 23, 26, 0.4); outline-offset: 2px; }
 
 .panel-footer {
   padding: 12px 1.5rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  /* 暖色发丝线，和页面里的分隔线同一支 */
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
   background: #fff;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.save-status { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
-.save-status.success { color: #10b981; }
-.save-status.error { color: #ef4444; }
-
-.footer-btns { display: flex; gap: 8px; align-items: center; }
-
-.primary-btn,
-.back-btn {
-  display: inline-flex;
+.save-status {
+  /* 状态靠左、按钮靠右：用 margin-right:auto 而不是 space-between ——
+     状态是 v-if，换成 space-between 后没有状态时按钮会跳到左边 */
+  margin-right: auto;
+  min-width: 0;
+  display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.save-status.success { color: #10b981; }
+/* 危险色用规格里的 #b3261e（原 #ef4444 是偏冷的 Tailwind 红） */
+.save-status.error { color: #b3261e; }
+
+.footer-btns { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* 主按钮只补尺寸差异：共享的 .primary-btn 高 40px，而 .app-container .primary-btn
+   会把圆角统一到 10px（--ui-radius-btn）—— 都偏离 8px 阶梯，也和旁边的 .ghost-btn
+   （36px / 8px）高低不齐。用 .panel-footer 前缀提高特异度，免得靠加载顺序赢全局规则 */
+.panel-footer .primary-btn {
   height: 36px;
-  padding: 0 16px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
+  border-radius: 8px;
 }
 
-.primary-btn {
-  background: var(--theme-color);
-  color: #fff;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
-  transition: background 0.15s ease, opacity 0.15s ease;
+/*
+ * 动效：抽屉的进出场由 useSidebarSlide 用 inline transition 驱动（transform + box-shadow），
+ * 本文件没有任何 transform 关键帧动画 —— 所以不存在 fill-mode 写成 both/forwards 后
+ * 永久留一个 translate: 0 0、把面板变成包含块（fixed 子元素跟着它走）的隐患。
+ * 唯一的循环动画是预览条，它动的是 background-position，不是 transform。
+ */
+@media (prefers-reduced-motion: reduce) {
+  /* 预览条的循环渐变是装饰，冻结在静止帧上两种颜色仍然看得见。
+     动效是 inline style 挂上去的，所以这里必须用 !important 才压得住。
+     转圈图标是状态反馈，App.vue 已显式保留，这里不动它 */
+  .gradient-preview { animation: none !important; }
+  .outline-card,
+  .slider,
+  .slider:before,
+  .panel-footer .primary-btn { transition: none; }
 }
-.primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-.primary-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--theme-color) 88%, #000);
-}
-
-.back-btn {
-  background: rgba(0, 0, 0, 0.04);
-  color: #64748b;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.back-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1d1d1f;
-}
-
-.icon-button { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 20px; }
-.icon-button:hover { color: #0f172a; }
-
-.spin { animation: ri-spin 1s linear infinite; }
-@keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
 </style>

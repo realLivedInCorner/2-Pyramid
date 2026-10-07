@@ -269,7 +269,7 @@ async function remove() {
   font-weight: 700;
   color: #64748b;
 }
-.bg-range { flex: 1; accent-color: var(--theme-color, #007bff); }
+.bg-range { flex: 1; accent-color: var(--theme-color, #14171a); }
 .bg-opacity-val {
   width: 40px;
   text-align: right;
@@ -293,5 +293,5 @@ async function remove() {
   color: #64748b;
   z-index: 2;
 }
-.bg-syncing i { font-size: 28px; color: var(--theme-color, #007bff); }
+.bg-syncing i { font-size: 28px; color: var(--theme-color, #14171a); }
 </style>

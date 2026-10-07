@@ -113,7 +113,7 @@ function save() {
 .naming-tag-token {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--theme-color, #007bff);
+  color: var(--theme-color, #14171a);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .naming-tag-desc { font-size: 12px; color: #94a3b8; }

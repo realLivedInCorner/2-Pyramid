@@ -176,7 +176,7 @@ onUnmounted(() => {
       <template v-if="state === 'checking'">
         <div class="ud-state checking">
           <div class="ud-spinner"></div>
-          <p>{{ t('update.checking') }}</p>
+          <p class="ud-sub">{{ t('update.checking') }}</p>
         </div>
       </template>
 
@@ -188,7 +188,9 @@ onUnmounted(() => {
           </div>
           <h3>{{ t('update.noUpdate') }}</h3>
           <p class="ud-sub">2-Pyramid {{ updateResult?.currentVersion ?? "" }}</p>
-          <button class="ud-btn primary" @click="emit('close')">{{ t('update.ok') }}</button>
+          <div class="ud-actions dialog-footer">
+            <button class="btn-text primary" @click="emit('close')">{{ t('update.ok') }}</button>
+          </div>
         </div>
       </template>
 
@@ -213,15 +215,22 @@ onUnmounted(() => {
           </div>
           <div class="ud-meta">
             <span class="ud-size"><i class="ri-download-line"></i> {{ assetSize }}</span>
-            <span v-if="latest?.publishedAt" class="ud-date">{{ latest?.publishedAt?.slice(0, 10) }}</span>
+            <!-- 有更新日志时日期上移到日志标题行，同一条信息不出现两次 -->
+            <span v-if="latest?.publishedAt && !latest?.body" class="ud-date">{{ latest?.publishedAt?.slice(0, 10) }}</span>
           </div>
-          <div v-if="latest?.body" class="ud-body">
-            <div class="ud-md" v-html="renderedBody" @click="onMdClick"></div>
+          <div v-if="latest?.body" class="ud-notes">
+            <div class="ud-notes-head">
+              <span class="ud-notes-title">{{ latest?.name || latest?.version }}</span>
+              <span v-if="latest?.publishedAt" class="ud-notes-date">{{ latest?.publishedAt?.slice(0, 10) }}</span>
+            </div>
+            <div class="ud-notes-scroll">
+              <div class="ud-md" v-html="renderedBody" @click="onMdClick"></div>
+            </div>
           </div>
-          <div class="ud-actions">
-            <button v-if="isSkippable" class="ud-btn ghost" @click="emit('close')">{{ t('update.skipVersion') }}</button>
-            <button v-if="isDismissable" class="ud-btn ghost" @click="emit('close')">{{ t('update.remindLater') }}</button>
-            <button class="ud-btn primary" @click="startDownload">{{ t('update.updateNow') }}</button>
+          <div class="ud-actions dialog-footer">
+            <button v-if="isSkippable" class="btn-text" @click="emit('close')">{{ t('update.skipVersion') }}</button>
+            <button v-if="isDismissable" class="btn-text" @click="emit('close')">{{ t('update.remindLater') }}</button>
+            <button class="btn-text primary" @click="startDownload">{{ t('update.updateNow') }}</button>
           </div>
         </div>
       </template>
@@ -238,7 +247,9 @@ onUnmounted(() => {
             {{ downloadProgress }}%
             <span v-if="downloadedSize">· {{ downloadedSize }} / {{ totalSize }}</span>
           </p>
-          <button class="ud-btn ghost" @click="emit('close')">{{ t('update.cancel') }}</button>
+          <div class="ud-actions dialog-footer">
+            <button class="btn-text" @click="emit('close')">{{ t('update.cancel') }}</button>
+          </div>
         </div>
       </template>
 
@@ -251,9 +262,9 @@ onUnmounted(() => {
           <h3>{{ t('update.readyTitle') }}</h3>
           <p class="ud-sub">{{ t('update.readyDesc') }}</p>
           <p class="ud-warn">{{ t('update.readyWarn') }}</p>
-          <div class="ud-actions">
-            <button class="ud-btn ghost" @click="emit('close')">{{ t('update.installLater') }}</button>
-            <button class="ud-btn primary" @click="doInstall">{{ t('update.installRestart') }}</button>
+          <div class="ud-actions dialog-footer">
+            <button class="btn-text" @click="emit('close')">{{ t('update.installLater') }}</button>
+            <button class="btn-text primary" @click="doInstall">{{ t('update.installRestart') }}</button>
           </div>
         </div>
       </template>
@@ -275,9 +286,9 @@ onUnmounted(() => {
           </div>
           <h3>{{ t('update.failed') }}</h3>
           <p class="ud-sub">{{ errorMessage }}</p>
-          <div class="ud-actions">
-            <button class="ud-btn ghost" @click="emit('close')">{{ t('common.close') }}</button>
-            <button class="ud-btn primary" @click="retry">{{ t('update.retry') }}</button>
+          <div class="ud-actions dialog-footer">
+            <button class="btn-text" @click="emit('close')">{{ t('common.close') }}</button>
+            <button class="btn-text primary" @click="retry">{{ t('update.retry') }}</button>
           </div>
         </div>
       </template>
@@ -286,191 +297,175 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.dialog-overlay {
-  position: fixed; inset: 0; z-index: 2000;
-  background: rgba(15, 23, 42, 0.35);
-  display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(8px);
-  animation: overlay-fade 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-.dialog-content {
-  background: #fff; border-radius: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
-  padding: 0; width: 440px; max-width: 92vw;
-  animation: panel-rise 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  overflow: hidden;
-}
-@keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes panel-rise { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+/* 弹窗外壳（.dialog-overlay / .dialog-content）全项目只在 shared.css 有一份 ——
+   页面级的定义会因 scoped 的 data-v 属性拿到更高特异度，留着就会盖掉全局那份，
+   所以本文件不再定义它们。原来跟着它俩一起写的入场动画
+   （@keyframes overlay-fade / panel-rise）也一并删掉了：没有 animation 再引用它们。
+   同理，本文件不再覆盖外壳的内边距与宽度，那是全局约定。 */
 
-.update-dialog {
-  padding: 36px 32px 28px;
-}
+/* ── 居中状态（检查中 / 无更新 / 下载中 / 已就绪 / 安装中 / 失败） ── */
 .ud-state {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
 }
-.ud-state h3 { font-size: 18px; font-weight: 700; color: #1d1d1f; margin: 0; }
-.ud-sub { font-size: 13px; color: #6b7280; margin: 0; }
+/* 状态标题与 shared.css 的 .dialog-header h3 同级：15px/600。
+   层级由字号和留白建立 —— 原来这里用 18px/700，比弹窗标题还重。 */
+.ud-state h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #14171a; }
+.ud-sub { margin: 0; font-size: 13px; line-height: 1.6; color: #5f5a51; }
 
-/* Spinner */
+/* 转圈：底环不能太浅，否则静止时看不出是个环（动画被减动效关掉时尤其明显） */
 .ud-spinner {
-  width: 40px; height: 40px;
-  border: 3px solid #e9ecef;
-  border-top-color: var(--theme-color);
+  width: 36px; height: 36px;
+  border: 3px solid rgba(120, 110, 95, 0.16);
+  border-top-color: #14171a;
   border-radius: 50%;
   animation: ud-spin 0.7s linear infinite;
 }
 @keyframes ud-spin { to { transform: rotate(360deg); } }
 
-/* Icon box */
+/* 状态图标：语义色 + 同色淡底。原来的薄荷绿 / 浅红冷底压在暖白弹窗上发脏。 */
 .ud-icon-box {
-  width: 56px; height: 56px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: 28px;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
 }
-.ud-icon-box.success { background: #ecfdf5; color: #10b981; }
-.ud-icon-box.danger { background: #fef2f2; color: #ef4444; }
+.ud-icon-box.success { background: rgba(5, 150, 105, 0.1); color: #059669; }
+.ud-icon-box.danger { background: rgba(179, 38, 30, 0.08); color: #b3261e; }
 
-/* Priority badge */
+/* ── 优先级标签 ──
+   颜色只用来回答「必须装吗」：safe / major 是强制更新，用危险色；
+   可选更新降为安静态，不再和它一样抢眼（原来两者都是主题蓝，看不出差别）。 */
 .ud-priority-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 14px; border-radius: 20px;
-  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 11.5px; font-weight: 600;
 }
-.priority-safe { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-.priority-optional { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); border: 1px solid color-mix(in srgb, var(--theme-color) 20%, transparent); }
-.priority-major { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-.priority-minor { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); border: 1px solid color-mix(in srgb, var(--theme-color) 20%, transparent); }
-.priority-patch { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+.priority-safe, .priority-major {
+  background: rgba(179, 38, 30, 0.08); color: #b3261e; border-color: rgba(179, 38, 30, 0.22);
+}
+.priority-minor, .priority-optional {
+  background: rgba(120, 110, 95, 0.07); color: #5f5a51; border-color: rgba(120, 110, 95, 0.16);
+}
+.priority-patch {
+  background: rgba(5, 150, 105, 0.09); color: #059669; border-color: rgba(5, 150, 105, 0.2);
+}
 
 .ud-bump-line {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: -4px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; flex-wrap: wrap; margin-top: -4px;
 }
-
 .ud-bump-kind {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 999px;
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 6px; border: 1px solid transparent;
+  font-size: 11.5px; font-weight: 600;
 }
+.ud-bump-hint { font-size: 12px; color: #7d776d; }
 
-.ud-bump-hint {
-  font-size: 12px;
-  color: #94a3b8;
+/* ── 版本对比：本次更新的主角，字号压过下面每一行 ── */
+.ud-version-compare { display: flex; align-items: center; gap: 10px; }
+.v-old { font-size: 15px; color: #9c968c; }
+.v-arrow { font-size: 16px; color: #9c968c; }
+.v-new {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: #14171a;
 }
-
-/* Version compare */
-.ud-version-compare {
-  display: flex; align-items: center; gap: 14px;
-  font-size: 20px; font-weight: 800;
-}
-.v-old { color: #9ca3af; }
-.v-arrow { color: #9ca3af; font-size: 18px; }
-.v-new { color: #1d1d1f; display: inline-flex; align-items: center; gap: 8px; }
 
 .ud-beta-tag {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: rgba(249, 115, 22, 0.14);
-  color: #ea580c;
+  font-style: normal; padding: 2px 7px; border-radius: 6px;
+  font-size: 10.5px; font-weight: 600;
+  background: rgba(180, 83, 9, 0.1); color: #b45309;
   vertical-align: 2px;
 }
 
-/* Meta */
-.ud-meta {
-  display: flex; gap: 16px; font-size: 12px; color: #9ca3af;
-}
-.ud-meta i { font-size: 14px; }
+.ud-meta { display: flex; gap: 14px; font-size: 12px; color: #9c968c; }
+.ud-meta i { font-size: 13px; }
 
-/* Body (changelog) —— Markdown 渲染视图 */
-.ud-body {
-  width: 100%; max-height: 240px; overflow-y: auto;
-  background: #f9fafb; border-radius: 10px; padding: 14px 16px;
-  text-align: left; margin-top: 4px;
+/* ── 更新日志 ──
+   暖色淡面 + 发丝描边，不用投影（它不是浮层）；
+   标题行固定、只有正文滚动 —— 长日志滚到一半也知道自己在读哪个版本。 */
+.ud-notes {
+  align-self: stretch; display: flex; flex-direction: column;
+  margin-top: 2px; overflow: hidden; text-align: left;
+  background: rgba(120, 110, 95, 0.045);
+  border: 1px solid rgba(120, 110, 95, 0.14);
+  border-radius: 8px;
 }
+.ud-notes-head {
+  flex-shrink: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 9px 14px; border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+}
+.ud-notes-title { font-size: 13px; font-weight: 600; color: #14171a; }
+.ud-notes-date { font-size: 11.5px; color: #9c968c; font-variant-numeric: tabular-nums; }
+.ud-notes-scroll { max-height: 200px; overflow-y: auto; padding: 2px 14px 10px; }
+.ud-notes-scroll::-webkit-scrollbar { width: 6px; }
+.ud-notes-scroll::-webkit-scrollbar-thumb { background: rgba(120, 110, 95, 0.2); border-radius: 6px; }
 
-.ud-md {
-  font-size: 12.5px; color: #4b5563; line-height: 1.7;
+/* Markdown 渲染视图。
+   ⚠ .ud-md 内部节点来自 v-html，**不带 data-v 属性** ——
+   普通后代选择器会被编译成 `.ud-md h2[data-v-x]` 而永远匹配不上
+   （改造前 15 条日志样式全是死规则，日志因此是一堵浏览器默认样式的墙，必须走 :deep()）。 */
+.ud-md { font-size: 12.5px; line-height: 1.7; color: #5f5a51; }
+/* 分组标题：整条发丝线 + 上方留白，把日志切成可扫读的几段 */
+.ud-md :deep(h1), .ud-md :deep(h2), .ud-md :deep(h3), .ud-md :deep(h4) {
+  margin: 14px 0 6px; padding-top: 12px;
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
+  font-size: 13px; font-weight: 600; line-height: 1.4; letter-spacing: 0.01em;
+  color: #14171a;
 }
-.ud-md h1, .ud-md h2, .ud-md h3, .ud-md h4 {
-  margin: 10px 0 6px; color: #1f2937; font-weight: 800; line-height: 1.4;
+/* 首个分组紧贴面板顶部，不该再顶一条横线 */
+.ud-md :deep(h1:first-child), .ud-md :deep(h2:first-child),
+.ud-md :deep(h3:first-child), .ud-md :deep(h4:first-child) {
+  margin-top: 8px; padding-top: 0; border-top: none;
 }
-.ud-md h1 { font-size: 15px; }
-.ud-md h2 { font-size: 14px; }
-.ud-md h3, .ud-md h4 { font-size: 13px; }
-.ud-md p { margin: 6px 0; }
-.ud-md ul, .ud-md ol { margin: 6px 0 6px 18px; padding: 0; }
-.ud-md li { margin: 3px 0; }
-.ud-md blockquote {
-  margin: 8px 0; padding: 6px 12px;
-  border-left: 3px solid color-mix(in srgb, var(--theme-color) 55%, #e5e7eb);
-  background: #f3f4f6; border-radius: 0 8px 8px 0;
-  color: #6b7280;
+.ud-md :deep(h1) { font-size: 14px; }
+.ud-md :deep(p) { margin: 6px 0; }
+.ud-md :deep(ul), .ud-md :deep(ol) { margin: 6px 0; padding-left: 18px; }
+.ud-md :deep(li) { margin: 4px 0; }
+/* 列表符号退到三级灰：条目文字才是要读的东西 */
+.ud-md :deep(li)::marker { color: #9c968c; }
+.ud-md :deep(strong) { color: #14171a; font-weight: 600; }
+.ud-md :deep(a) {
+  color: #14171a; font-weight: 500; text-decoration: none;
+  border-bottom: 1px solid rgba(120, 110, 95, 0.35);
 }
-.ud-md code {
+.ud-md :deep(a:hover) { border-bottom-color: #14171a; }
+.ud-md :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 11.5px;
-  background: #eef0f3; border-radius: 4px; padding: 1px 5px;
-  color: #111827;
+  font-size: 11.5px; padding: 1px 5px; border-radius: 6px;
+  background: rgba(120, 110, 95, 0.1); color: #14171a;
 }
-.ud-md pre {
-  margin: 8px 0; padding: 10px 12px;
-  background: #111827; border-radius: 8px; overflow-x: auto;
+.ud-md :deep(pre) {
+  margin: 8px 0; padding: 10px 12px; border-radius: 8px; overflow-x: auto;
+  background: rgba(120, 110, 95, 0.07);
+  border: 1px solid rgba(120, 110, 95, 0.14);
 }
-.ud-md pre code { background: transparent; color: #e5e7eb; padding: 0; font-size: 11.5px; }
-.ud-md a {
-  color: var(--theme-color); text-decoration: none; font-weight: 700;
-  border-bottom: 1px dashed color-mix(in srgb, var(--theme-color) 50%, transparent);
+.ud-md :deep(pre code) { padding: 0; background: transparent; color: #14171a; }
+.ud-md :deep(blockquote) {
+  margin: 8px 0; padding: 6px 12px;
+  border-left: 2px solid rgba(120, 110, 95, 0.3);
+  border-radius: 0 8px 8px 0;
+  background: rgba(120, 110, 95, 0.05);
+  color: #7d776d;
 }
-.ud-md a:hover { border-bottom-style: solid; }
-.ud-md hr {
-  border: none; border-top: 1px solid #e5e7eb; margin: 10px 0;
-}
-.ud-md strong { color: #111827; }
+.ud-md :deep(hr) { margin: 12px 0; border: none; border-top: 1px solid rgba(120, 110, 95, 0.14); }
 
-/* Progress bar */
+/* ── 下载进度 ── */
 .ud-progress-bar {
-  width: 100%; height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden;
+  width: 100%; height: 6px; border-radius: 6px; overflow: hidden;
+  background: rgba(120, 110, 95, 0.14);
 }
-.ud-progress-fill {
-  height: 100%; background: var(--theme-color); border-radius: 3px;
-  transition: width 0.2s ease;
-}
-.ud-progress-text { font-size: 12px; color: #6b7280; margin: 0; }
+.ud-progress-fill { height: 100%; border-radius: 6px; background: #14171a; transition: width 0.2s ease; }
+/* 百分比每跳一次整行宽度就变一次；表格数字等宽后不再抖 */
+.ud-progress-text { margin: 0; font-size: 12px; color: #7d776d; font-variant-numeric: tabular-nums; }
 
-/* Warning */
-.ud-warn {
-  font-size: 12px; color: #f59e0b; font-weight: 600;
-}
+.ud-warn { margin: 0; font-size: 12px; color: #b45309; }
 
-/* Actions */
+/* ── 动作行 ──
+   直接挂全局 .dialog-footer（发丝线 + 上边距 + 靠右）与 .btn-text 系列，不再自造一套按钮；
+   只覆盖对齐：状态内容整体居中，按钮单独靠右会和正文脱节。 */
+.ud-actions { align-self: stretch; justify-content: center; gap: 8px; }
 
-/* Actions */
-.ud-actions {
-  display: flex; gap: 10px; margin-top: 8px;
+@media (prefers-reduced-motion: reduce) {
+  .ud-spinner { animation: none; }
+  .ud-progress-fill { transition: none; }
 }
-.ud-btn {
-  padding: 10px 22px; border-radius: 10px; border: none;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-.ud-btn.primary {
-  background: var(--theme-color); color: #fff;
-}
-.ud-btn.primary:hover { opacity: 0.88; transform: translateY(-1px); }
-.ud-btn.ghost {
-  background: transparent; color: #6b7280;
-}
-.ud-btn.ghost:hover { background: #f3f4f6; color: #1d1d1f; }
 </style>

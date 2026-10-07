@@ -79,7 +79,7 @@
                   <i class="ri-palette-line"></i>
                 </button>
               </div>
-              <div class="item-meta">
+              <div class="item-meta" v-if="editedData[entry.key] || isModified(entry.key)">
                 <span class="mc-preview" v-if="editedData[entry.key]" v-html="renderMinecraftText(editedData[entry.key])"></span>
                 <span class="original-val" v-if="isModified(entry.key)">
                   {{ t('dialog.itemName.original', { value: langData[entry.key] }) }}
@@ -170,6 +170,7 @@ const props = defineProps<{
   projectName: string
 }>();
 
+// 抽屉投影：暖色中性，与 scoped 里的兜底态取同一个值（原来是冷灰 0 12px 48px）
 const {
   onBeforeEnter,
   onEnter,
@@ -177,7 +178,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '0 12px 48px rgba(0, 0, 0, 0.18)' });
+} = useSidebarSlide({ shadow: '-16px 0 48px rgba(28, 24, 18, 0.18)' });
 
 const selectedLang = ref('zh_cn');
 const searchText = ref('');
@@ -482,13 +483,15 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 对齐转换页版本选择器：遮罩无 blur，面板用 sidebar-content + useSidebarSlide */
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.28);
-  z-index: 200;
-}
+/*
+ * 这是个右侧抽屉，不是居中弹窗：沿用 sidebar-content + useSidebarSlide 的滑入实现，
+ * 只把配色 / 字号 / 圆角 / 发丝线并到全局那一套语言上（见 docs/compose/spec/dialog-spec.md）。
+ *
+ * 定位与遮罩必须留在这里：ConversionPage 里的 .sidebar-overlay / .sidebar-content 是 scoped 的，
+ * 加过 data-v 后只作用于它自己那棵子树，别的组件拿不到（useSidebarSlide 的注释也写了这一条）。
+ */
+/* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
+   页面级定义会因 scoped 的 data-v 获得更高特异度，留着会盖掉全局那份。 */
 
 .name-panel.sidebar-content {
   position: fixed;
@@ -498,13 +501,18 @@ onMounted(async () => {
   height: 100vh;
   z-index: 201;
   background: #fff;
+  border-left: 1px solid rgba(120, 110, 95, 0.14);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   outline: none;
+  /* 显式压回 1：App.vue 的 .page-shell > * > * 页面入场 stagger 会给 aside 锁 opacity */
   opacity: 1 !important;
+  /* 兜底态 = 屏幕外。进出场由 inline style + transition 驱动（useSidebarSlide），
+     这里只保证 element insert 那一帧不闪。 */
   transform: translateX(100%);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+  /* 抽屉是真的浮起来的元素，投影保留；冷灰换成暖色中性投影 */
+  box-shadow: -16px 0 48px rgba(28, 24, 18, 0.18);
   will-change: transform, box-shadow;
 }
 
@@ -515,7 +523,7 @@ onMounted(async () => {
   gap: 16px;
   /* 顶部避开浮动窗口控制按钮（top:10 + ~44px 高） */
   padding: 56px 22px 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
   flex-shrink: 0;
   background: #fff;
 }
@@ -523,9 +531,10 @@ onMounted(async () => {
 .panel-title {
   margin: 0;
   font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+  /* 原来是 800 —— 层级由字号和留白建立，面板标题不该靠字重压人 */
+  font-weight: 600;
+  color: #14171a;
+  letter-spacing: -0.01em;
 }
 
 .header-actions {
@@ -535,33 +544,35 @@ onMounted(async () => {
 }
 
 .lang-select {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 110, 95, 0.2);
   background: #fff;
   font-size: 13px;
-  font-weight: 600;
-  color: #475569;
+  font-weight: 500;
+  font-family: inherit;
+  color: #5f5a51;
   cursor: pointer;
   outline: none;
-  font-family: inherit;
 }
-.lang-select:hover { border-color: var(--theme-color); }
+.lang-select:hover { border-color: rgba(120, 110, 95, 0.38); }
+.lang-select:focus-visible { border-color: rgba(20, 23, 26, 0.4); }
 
 .panel-body {
   flex: 1;
   min-height: 0;
-  padding: 16px 22px 8px;
+  padding: 14px 22px 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   overflow: hidden;
 }
 
 .search-bar-container {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
@@ -572,35 +583,38 @@ onMounted(async () => {
 
 .search-icon {
   position: absolute;
-  left: 14px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
-  font-size: 17px;
+  color: #9c968c;
+  font-size: 16px;
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: 10px 14px 10px 40px;
-  border-radius: 12px;
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
-  font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-}
-.search-input:focus {
-  border-color: var(--theme-color);
+  padding: 9px 12px 9px 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 110, 95, 0.2);
   background: #fff;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 16%, transparent);
+  font-size: 13px;
+  font-family: inherit;
+  color: #14171a;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
+/* 焦点环用 outline 而不是 box-shadow：投影按规格只留给真正浮起的元素。
+   outline-offset 取负值，让环画在输入框内侧、不撑动同行元素。 */
+.search-input:focus {
+  border-color: rgba(20, 23, 26, 0.4);
+  outline: 2px solid rgba(20, 23, 26, 0.1);
+  outline-offset: -1px;
+}
+.search-input::placeholder { color: #9c968c; }
 
 .items-count {
   font-size: 12px;
-  font-weight: 600;
-  color: #94a3b8;
+  color: #7d776d;
   white-space: nowrap;
 }
 
@@ -614,16 +628,16 @@ onMounted(async () => {
 .lang-list-container::-webkit-scrollbar { width: 8px; }
 .lang-list-container::-webkit-scrollbar-track { background: transparent; }
 .lang-list-container::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 8px;
+  background: rgba(120, 110, 95, 0.22);
+  border-radius: 6px;
 }
-.lang-list-container::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+.lang-list-container::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.36); }
 
-/* 双列平铺 */
+/* 双列平铺：条目数常在千条以上，单列会把一半横向空间空着 */
 .lang-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 @media (max-width: 820px) {
@@ -631,42 +645,57 @@ onMounted(async () => {
   .lang-grid { grid-template-columns: 1fr; }
 }
 
+/*
+ * 一条 = 一行：键名定宽成列，输入框和调色钮的起点因此上下对齐，
+ * 整片看起来是张表而不是一堆无差别灰卡片。
+ * 原来是「键名独占一行 + 输入 + 预览」三层竖排，一条 ~76px，一屏只能看十几条。
+ */
 .lang-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 158px) minmax(0, 1fr);
+  grid-template-areas:
+    'key input'
+    'meta meta';
+  align-items: center;
+  gap: 5px 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(120, 110, 95, 0.14);
+  border-radius: 6px;
   min-width: 0;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
+/* 行不是浮起物：只换底色和发丝线，不加投影 */
 .lang-item:hover {
-  border-color: #e2e8f0;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-color: rgba(120, 110, 95, 0.26);
+  background: rgba(120, 110, 95, 0.045);
 }
 .lang-item.is-modified {
-  border-color: color-mix(in srgb, var(--theme-color) 35%, transparent);
-  background: color-mix(in srgb, var(--theme-color) 4%, #fff);
+  border-color: rgba(120, 110, 95, 0.32);
+  background: rgba(120, 110, 95, 0.07);
 }
 
 .item-key {
+  grid-area: key;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  background: #e2e8f0;
-  padding: 2px 7px;
-  border-radius: 5px;
+  font-weight: 500;
+  color: #7d776d;
+  background: rgba(120, 110, 95, 0.1);
+  padding: 3px 6px;
+  border-radius: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
 }
+/* 改过的条目把键名提到墨色 —— 比给整行染色更省事，也不会和 hover 撞色 */
+.lang-item.is-modified .item-key {
+  color: #14171a;
+  background: rgba(120, 110, 95, 0.16);
+}
 
 .input-group {
+  grid-area: input;
   display: flex;
   gap: 6px;
   min-width: 0;
@@ -675,56 +704,63 @@ onMounted(async () => {
 .edit-input {
   flex: 1;
   min-width: 0;
-  padding: 8px 10px;
+  height: 30px;
+  padding: 0 9px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(120, 110, 95, 0.2);
   background: #fff;
   font-size: 13px;
-  font-weight: 500;
   font-family: inherit;
+  color: #14171a;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s ease;
 }
 .edit-input:focus {
-  border-color: var(--theme-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 14%, transparent);
+  border-color: rgba(20, 23, 26, 0.4);
+  outline: 2px solid rgba(20, 23, 26, 0.1);
+  outline-offset: -1px;
 }
+.edit-input::placeholder { color: #9c968c; }
 
 .style-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  border: 1px solid rgba(120, 110, 95, 0.2);
   background: #fff;
-  color: #64748b;
+  color: #7d776d;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .style-btn:hover {
-  border-color: var(--theme-color);
-  color: var(--theme-color);
+  border-color: rgba(120, 110, 95, 0.38);
+  background: rgba(120, 110, 95, 0.06);
+  color: #14171a;
 }
 
+/* 预览与「原值」这一行只在有内容时渲染（见模板的 v-if），普通条目因此是单行高 */
 .item-meta {
+  grid-area: meta;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 22px;
+  min-width: 0;
   flex-wrap: wrap;
 }
 
+/* 游戏内名称是深底彩字，预览必须跟着深底，否则白色 / 亮色名称根本看不见 */
 .mc-preview {
   font-family: 'Minecraft', monospace;
   font-size: 12px;
   background: #1e1e1e;
-  padding: 1px 7px;
-  border-radius: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
   color: #fff;
-  line-height: 1.4;
+  line-height: 1.5;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -739,41 +775,49 @@ onMounted(async () => {
 
 .original-val {
   font-size: 11px;
-  color: #94a3b8;
+  color: #9c968c;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 55%;
 }
 
-/* 样式悬浮面板 */
+/* ── 样式悬浮面板（Teleport 到 body，是真的浮层，z-index 要压过抽屉的 201） ── */
 .style-panel {
   position: fixed;
   width: 260px;
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
-  padding: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(120, 110, 95, 0.18);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 12px 32px rgba(28, 24, 18, 0.16);
   z-index: 2000;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  animation: style-panel-pop 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
+  gap: 12px;
+  /* fill-mode 必须是 backwards：用 both / forwards 会把末帧的 translate: 0 0 永久留下，
+     元素从此成为包含块（内部一旦出现 position: fixed 就相对它定位）。
+     基线规则里没有 opacity: 0 之类的隐形态，所以动画结束回落到基线是安全的。 */
+  animation: style-panel-in 180ms var(--ease-out) backwards;
+}
+
+@keyframes style-panel-in {
+  from { opacity: 0; translate: 0 -4px; }
+  to { opacity: 1; translate: 0 0; }
 }
 
 .style-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .section-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #9c968c;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.18em;
 }
 
 .color-grid {
@@ -784,12 +828,12 @@ onMounted(async () => {
 
 .color-swatch {
   aspect-ratio: 1;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(120, 110, 95, 0.24);
   cursor: pointer;
-  transition: transform 0.1s;
+  transition: transform 120ms var(--ease-spring);
 }
-.color-swatch:hover { transform: scale(1.15); }
+.color-swatch:hover { transform: scale(1.12); }
 
 .format-grid {
   display: flex;
@@ -798,27 +842,35 @@ onMounted(async () => {
 }
 
 .format-btn {
-  height: 30px;
-  min-width: 30px;
+  height: 28px;
+  min-width: 28px;
   padding: 0 7px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid rgba(120, 110, 95, 0.2);
+  background: #fff;
+  color: #5f5a51;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.format-btn:hover { background: #fff; border-color: #cbd5e1; }
-.format-btn.reset { color: #ef4444; }
-.format-btn.reset:hover { background: #fee2e2; border-color: #fecaca; }
+.format-btn:hover {
+  background: rgba(120, 110, 95, 0.07);
+  border-color: rgba(120, 110, 95, 0.32);
+}
+.format-btn.reset { color: #b3261e; }
+.format-btn.reset:hover {
+  background: rgba(179, 38, 30, 0.08);
+  border-color: rgba(179, 38, 30, 0.24);
+}
 
 .panel-footer {
   padding: 12px 22px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
   background: #fff;
   display: flex;
   align-items: center;
@@ -829,11 +881,11 @@ onMounted(async () => {
 
 .modified-hint {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--theme-color);
-  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
-  padding: 4px 10px;
-  border-radius: 999px;
+  font-weight: 500;
+  color: #14171a;
+  background: rgba(120, 110, 95, 0.12);
+  padding: 3px 10px;
+  border-radius: 6px;
   margin-right: auto;
 }
 
@@ -841,47 +893,22 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 6px;
 }
 .save-status.success { color: #10b981; background: rgba(16, 185, 129, 0.1); }
-.save-status.error { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.save-status.error { color: #b3261e; background: rgba(179, 38, 30, 0.08); }
 
 .footer-btns { display: flex; gap: 8px; align-items: center; }
 
-.primary-btn,
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+/* 主 / 次按钮的皮肤来自 shared.css（.primary-btn / .ghost-btn），这里只补齐并排时的高度：
+   全局主按钮 40px、幽灵按钮 36px，同一行差 4px 会显得没对齐。 */
+.panel-footer .primary-btn,
+.panel-footer .ghost-btn {
   height: 36px;
-  padding: 0 16px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
 }
-
-.primary-btn {
-  background: var(--theme-color);
-  color: #fff;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
-}
-.primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-.primary-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--theme-color) 88%, #000);
-}
-
-.back-btn {
-  background: rgba(0, 0, 0, 0.04);
-  color: #64748b;
-}
-.back-btn:hover { background: rgba(0, 0, 0, 0.08); color: #1d1d1f; }
 
 .loading-state, .empty-state {
   height: 200px;
@@ -889,16 +916,25 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  color: #94a3b8;
+  gap: 10px;
+  color: #9c968c;
+  font-size: 13px;
 }
-.loading-state i, .empty-state i { font-size: 40px; }
+.loading-state i, .empty-state i { font-size: 30px; }
 
-.spin { animation: ri-spin 1s linear infinite; }
-@keyframes ri-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes style-panel-pop {
-  from { opacity: 0; transform: scale(0.92) translateY(4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+/* 旋转图标用全局 .spin（shared.css）；这里不再重复一份，scoped 的 0,2,0 会盖掉全局那份 */
+
+/* 减少动效：浮层进场、色块缩放、闪烁字、以及各处底色过渡全部停掉 */
+@media (prefers-reduced-motion: reduce) {
+  .style-panel { animation: none; }
+  .color-swatch { transition: none; }
+  .color-swatch:hover { transform: none; }
+  .mc-obfuscated { animation: none; }
+  .lang-item,
+  .lang-select,
+  .search-input,
+  .edit-input,
+  .style-btn,
+  .format-btn { transition: none; }
 }
 </style>

@@ -236,12 +236,8 @@ onMounted(() => {
 
 <style scoped>
 /* 对齐转换页版本选择器 */
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.28);
-  z-index: 200;
-}
+/* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
+   页面级定义会因 scoped 的 data-v 获得更高特异度，留着会盖掉全局那份。 */
 
 .size-panel.sidebar-content {
   position: fixed;
@@ -462,8 +458,6 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-@keyframes overlay-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+/* @keyframes overlay-fade 已删除：模板用的是 <transition name="sidebar-overlay-fade">，
+   那是 App.vue 的过渡类，和这个 keyframes 无关 —— 它没有任何引用方。 */
 </style>

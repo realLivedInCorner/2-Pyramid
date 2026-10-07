@@ -123,7 +123,7 @@ async function copy() {
 .shape-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .shape-badge {
   padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
-  background: rgba(0, 123, 255, 0.12); color: #007bff;
+  background: rgba(20, 23, 26, 0.07); color: #14171a;
 }
 .shape-badge.warn { background: rgba(217, 119, 6, 0.14); color: #b45309; }
 .meta-grid {
@@ -140,7 +140,7 @@ async function copy() {
   border-radius: 8px; background: rgba(0, 0, 0, 0.03); margin-bottom: 4px; font-size: 12px;
 }
 .layer-name { flex: 1; min-width: 0; word-break: break-all; color: #1a1a2e; }
-.layer-fmt { font-family: ui-monospace, Consolas, monospace; color: #007bff; }
+.layer-fmt { font-family: ui-monospace, Consolas, monospace; color: #14171a; }
 .layer-stat { color: #6b7280; white-space: nowrap; }
 .layer-stat.hit { color: #b45309; font-weight: 700; }
 .warnings .warn-row { font-size: 12px; color: #b45309; line-height: 1.6; }

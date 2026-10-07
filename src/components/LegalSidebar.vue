@@ -153,13 +153,8 @@ watch(visible, (v) => {
 
 <style scoped>
 /* 遮罩：点击空白关闭（此前无样式，点不到） */
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.28);
-  z-index: 200;
-  backdrop-filter: blur(4px);
-}
+/* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
+   页面级定义会因 scoped 的 data-v 获得更高特异度，留着会盖掉全局那份。 */
 
 /* 定位与全局 .sidebar-content 一致（scoped 下需自带） */
 .legal-sidebar.sidebar-content {
@@ -234,8 +229,8 @@ watch(visible, (v) => {
 }
 .legal-file-list li:hover { background: rgba(0, 0, 0, 0.04); color: #1d1d1f; }
 .legal-file-list li.active {
-  background: color-mix(in srgb, var(--theme-color, #007bff) 10%, #fff);
-  color: var(--theme-color, #007bff);
+  background: color-mix(in srgb, var(--theme-color, #14171a) 10%, #fff);
+  color: var(--theme-color, #14171a);
 }
 
 .legal-file-view {
@@ -284,7 +279,7 @@ watch(visible, (v) => {
 .legal-md :deep(blockquote) {
   margin: 0 0 0.75em;
   padding: 8px 12px;
-  border-left: 3px solid color-mix(in srgb, var(--theme-color, #007bff) 40%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--theme-color, #14171a) 40%, transparent);
   background: rgba(0, 0, 0, 0.03);
   border-radius: 0 8px 8px 0;
   color: #475569;
@@ -316,7 +311,7 @@ watch(visible, (v) => {
   margin: 1em 0;
 }
 .legal-md :deep(a) {
-  color: var(--theme-color, #007bff);
+  color: var(--theme-color, #14171a);
   text-decoration: underline;
   text-underline-offset: 2px;
 }

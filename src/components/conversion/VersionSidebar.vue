@@ -116,25 +116,11 @@ function pick(entry: VersionEntry) {
 </template>
 
 <style scoped>
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.28);
-  z-index: 200;
-  backdrop-filter: blur(4px);
-}
+/* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
+   页面级定义会因 scoped 的 data-v 获得更高特异度，留着会盖掉全局那份。 */
 
+/* 几何、底色、边框都来自 shared.css 的 .sidebar-content，这里只留差异 */
 .sidebar-content {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(420px, 92vw);
-  z-index: 210;
-  background: rgba(255, 255, 255, 0.96);
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-  display: flex;
-  flex-direction: column;
   opacity: 1 !important;
   outline: none;
 }
@@ -245,13 +231,13 @@ function pick(entry: VersionEntry) {
 }
 
 .version-row:hover {
-  border-color: color-mix(in srgb, var(--theme-color, #007bff) 35%, transparent);
-  background: color-mix(in srgb, var(--theme-color, #007bff) 6%, white);
+  border-color: color-mix(in srgb, var(--theme-color, #14171a) 35%, transparent);
+  background: color-mix(in srgb, var(--theme-color, #14171a) 6%, white);
 }
 
 .version-row.active {
-  border-color: color-mix(in srgb, var(--theme-color, #007bff) 55%, transparent);
-  background: color-mix(in srgb, var(--theme-color, #007bff) 10%, white);
+  border-color: color-mix(in srgb, var(--theme-color, #14171a) 55%, transparent);
+  background: color-mix(in srgb, var(--theme-color, #14171a) 10%, white);
 }
 
 .version-row-main {
@@ -287,8 +273,8 @@ function pick(entry: VersionEntry) {
 }
 
 .status-latest {
-  background: color-mix(in srgb, var(--theme-color, #007bff) 12%, transparent);
-  color: var(--theme-color, #007bff);
+  background: color-mix(in srgb, var(--theme-color, #14171a) 12%, transparent);
+  color: var(--theme-color, #14171a);
 }
 
 .status-stable {
@@ -302,7 +288,7 @@ function pick(entry: VersionEntry) {
 }
 
 .version-row-check {
-  color: var(--theme-color, #007bff);
+  color: var(--theme-color, #14171a);
   font-size: 16px;
 }
 
