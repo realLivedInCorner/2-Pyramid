@@ -761,7 +761,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 .fb-row.on { background: rgba(var(--ink-rgb), 0.08); }
 /* 被扩展名过滤掉的文件仍在列表里，只是选不中 —— 见脚本注释 */
 .fb-row.dim { color: var(--ink-4); cursor: default; }
-.fb-row.dim .c-name i { color: #cfc9bf; }
+.fb-row.dim .c-name i { color: var(--ink-4); }
 .fb-row.dim:hover { background: transparent; }
 
 .c-name {

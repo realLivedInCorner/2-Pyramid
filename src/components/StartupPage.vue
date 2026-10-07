@@ -1052,7 +1052,7 @@ async function finish() {
 .slider {
   position: absolute;
   inset: 0;
-  background: #d1d5db;
+  background: var(--surface-6);
   border-radius: 24px;
   cursor: pointer;
   transition: all 0.3s ease;

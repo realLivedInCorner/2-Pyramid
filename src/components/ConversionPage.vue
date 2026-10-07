@@ -1182,7 +1182,7 @@ const exportLogsToFile = async () => {
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute; inset: 0; cursor: pointer;
-  background-color: #e5e7eb;
+  background-color: var(--surface-5);
   transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 34px;
 }
@@ -1222,7 +1222,7 @@ const exportLogsToFile = async () => {
   gap: 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: #a8a29a;
+  color: var(--ink-4);
   transition: color 0.2s ease;
 }
 
@@ -1279,13 +1279,13 @@ const exportLogsToFile = async () => {
   font-size: 12px; font-weight: 600; font-family: inherit;
   color: var(--danger);
   background: var(--surface);
-  border: 1px solid #fecaca;
+  border: 1px solid rgba(179, 38, 30, 0.18);
   border-radius: var(--ui-radius-btn);
   cursor: pointer;
   align-self: flex-start;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.cancel-btn:hover:not(:disabled) { background: rgba(179, 38, 30, 0.06); border-color: #fca5a5; }
+.cancel-btn:hover:not(:disabled) { background: rgba(179, 38, 30, 0.06); border-color: rgba(179, 38, 30, 0.35); }
 .cancel-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -1328,7 +1328,7 @@ const exportLogsToFile = async () => {
   line-height: 1;
 }
 .drop-icon.success { color: var(--ok); }
-.drop-text h3 { margin: 0; font-size: 14px; font-weight: 700; color: #1f2937; }
+.drop-text h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); }
 .drop-text p { margin: 6px 0 0; color: var(--ink-4); font-size: 12px; }
 .drop-hint { color: var(--warn) !important; font-weight: 700; }
 .bedrock-warn-text { color: var(--danger); font-weight: 600; line-height: 1.7; }

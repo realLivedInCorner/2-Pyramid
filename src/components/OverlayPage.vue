@@ -516,7 +516,7 @@ onMounted(() => {
 .header-status.success {
   background: rgba(16, 185, 129, 0.10);
   color: var(--ok);
-  border: 1px solid #d1fae5;
+  border: 1px solid rgba(16, 185, 129, 0.12);
 }
 
 .header-status.error {

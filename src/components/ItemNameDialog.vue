@@ -775,7 +775,7 @@ onMounted(async () => {
 .mc-preview {
   font-family: 'Minecraft', monospace;
   font-size: 12px;
-  background: #1e1e1e;
+  background: var(--ink);
   padding: 1px 6px;
   border-radius: 6px;
   color: var(--surface);

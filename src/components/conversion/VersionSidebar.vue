@@ -283,8 +283,8 @@ function pick(entry: VersionEntry) {
 }
 
 .status-beta {
-  background: #fff7ed;
-  color: #c2410c;
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 
 .version-row-check {

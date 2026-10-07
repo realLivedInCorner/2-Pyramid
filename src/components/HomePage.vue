@@ -286,7 +286,7 @@ onUnmounted(() => {
   font-size: 11.5px;
   font-weight: 400;
   letter-spacing: 0.04em;
-  color: #6f6a60;
+  color: var(--ink-3);
 }
 .brand-meta {
   display: inline-flex;
@@ -296,7 +296,7 @@ onUnmounted(() => {
   font-size: 10.5px;
   font-weight: 400;
   letter-spacing: 0.12em;
-  color: #8e887d;
+  color: var(--ink-3);
 }
 /*
  * logo 的视觉墨迹在 512 画布里只占 45%×49%（四周留白 L28.9% T27.3% R26.0% B23.0%），
@@ -325,7 +325,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.1em;
-  color: #6f6a60;
+  color: var(--ink-3);
 }
 .who i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
 /* 时钟用等宽数字，秒位跳动时整行不会左右晃 */
@@ -407,7 +407,7 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
 }
 .counter .cur { font-size: 42px; line-height: 1; }
-.counter i { font-style: normal; font-size: 21px; color: #b0aa9e; }
+.counter i { font-style: normal; font-size: 21px; color: var(--ink-4); }
 .counter .total { font-size: 21px; color: var(--ink-3); }
 
 /* 模块名默认就是普通深灰，不是「已高亮」的状态 —— 重点交给用户的选择去决定 */

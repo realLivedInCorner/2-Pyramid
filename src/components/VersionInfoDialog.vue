@@ -106,7 +106,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
   padding: 3px 10px;
   border-radius: 999px;
   background: rgba(249, 115, 22, 0.12);
-  color: #ea580c;
+  color: var(--warn);
 }
 
 .dev-hint {

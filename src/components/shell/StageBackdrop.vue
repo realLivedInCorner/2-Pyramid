@@ -92,7 +92,7 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   inset: 0;
   background:
     radial-gradient(1250px 820px at 20% 8%, var(--surface) 0%, rgba(255, 255, 255, 0) 62%),
-    linear-gradient(158deg, #f8f6f2 0%, #efebe4 100%);
+    linear-gradient(158deg, var(--surface-2) 0%, var(--surface-4) 100%);
 }
 
 /*

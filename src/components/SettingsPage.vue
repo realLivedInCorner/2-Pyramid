@@ -1858,7 +1858,7 @@ const onThemeReset = async () => {
   font-variant-numeric: tabular-nums;
 }
 
-.item-arrow { color: #c6c6c8; font-weight: 800; }
+.item-arrow { color: var(--surface-6); font-weight: 800; }
 
 /* 性能档位：档位说明与解析后的线程/包数 */
 .perf-detail {
@@ -1981,7 +1981,7 @@ const onThemeReset = async () => {
 .history-status.cancelled { background: var(--ink-4); }
 .history-info { flex: 1; min-width: 0; }
 .history-name {
-  font-size: 13px; font-weight: 600; color: #1e293b;
+  font-size: 13px; font-weight: 600; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .history-meta { font-size: 12px; color: var(--ink-4); margin-top: 2px; }
@@ -2120,7 +2120,7 @@ const onThemeReset = async () => {
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
-  position: absolute; inset: 0; cursor: pointer; background-color: #e9e9eb; transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 34px;
+  position: absolute; inset: 0; cursor: pointer; background-color: var(--surface-5); transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 34px;
 }
 .slider:before {
   position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%;
@@ -2173,8 +2173,8 @@ const onThemeReset = async () => {
   vertical-align: middle;
 }
 .status-loading      { background: var(--surface-3); color: var(--ink-3); }
-.status-busy         { background: #dbeafe; color: #1d4ed8; }
-.status-registered   { background: #dcfce7; color: #15803d; }
+.status-busy         { background: var(--surface-3); color: var(--ink); }
+.status-registered   { background: rgba(16, 185, 129, 0.14); color: var(--ok); }
 .status-unregistered { background: var(--warn-tint); color: var(--warn); }
 .status-partial      { background: rgba(179, 38, 30, 0.16); color: var(--danger); }
 
@@ -2187,8 +2187,8 @@ const onThemeReset = async () => {
 .log-output {
   height: 360px;
   overflow: auto;
-  background: #0b1020;
-  color: #a8ffb0;
+  background: var(--ink);
+  color: var(--ok);
   border-radius: 10px;
   padding: 12px;
   font-size: 12px;

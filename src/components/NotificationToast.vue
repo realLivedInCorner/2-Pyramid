@@ -134,7 +134,7 @@ const iconClass = computed(() => {
   align-items: center;
   padding: calc(10px * var(--dpi-scale, 1)) calc(12px * var(--dpi-scale, 1)) calc(8px * var(--dpi-scale, 1));
   gap: calc(8px * var(--dpi-scale, 1));
-  background: #f8f9fa;
+  background: var(--surface-2);
   border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
 }
 
@@ -144,7 +144,7 @@ const iconClass = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1e293b;
+  color: var(--ink);
 }
 
 .notification-app-name {
@@ -160,7 +160,7 @@ const iconClass = computed(() => {
   border-radius: calc(4px * var(--dpi-scale, 1));
   border: none;
   background: transparent;
-  color: #adb5bd;
+  color: var(--ink-4);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -171,7 +171,7 @@ const iconClass = computed(() => {
 
 .notification-close:hover {
   background: rgba(var(--ink-rgb), 0.05);
-  color: #495057;
+  color: var(--ink-2);
 }
 
 .notification-body {
@@ -192,23 +192,23 @@ const iconClass = computed(() => {
 }
 
 .notification-info .notification-icon {
-  background: #e7f1ff;
-  color: #0d6efd;
+  background: var(--surface-3);
+  color: var(--ink);
 }
 
 .notification-success .notification-icon {
-  background: #d1e7dd;
-  color: #198754;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--ok);
 }
 
 .notification-error .notification-icon {
-  background: #f8d7da;
-  color: #dc3545;
+  background: rgba(179, 38, 30, 0.08);
+  color: var(--danger);
 }
 
 .notification-warning .notification-icon {
-  background: #fff3cd;
-  color: #ffc107;
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 
 .notification-content {
@@ -219,7 +219,7 @@ const iconClass = computed(() => {
 .notification-title {
   font-size: calc(14px * var(--dpi-scale, 1));
   font-weight: 600;
-  color: #212529;
+  color: var(--ink);
   margin-bottom: calc(4px * var(--dpi-scale, 1));
   line-height: 1.4;
 }

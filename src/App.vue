@@ -901,10 +901,10 @@ onMounted(async () => {
  :root { 
    --theme-color: var(--ink); 
    --bg-color: var(--surface); 
-   --sidebar-bg: #f8f9fa; 
-   --text-color: #212529; 
+   --sidebar-bg: var(--surface-2); 
+   --text-color: var(--ink); 
    --text-secondary: var(--ink-3); 
-   --border-color: #e9ecef; 
+   --border-color: var(--surface-5); 
    --hover-color: rgba(var(--ink-rgb), 0.05); 
    --primary-color: var(--theme-color); 
    --accent-color: var(--theme-color); 
@@ -1045,8 +1045,8 @@ onMounted(async () => {
 
  body.ui-frosted {
    /* 磨砂：全不透明实底，无光斑无模糊，平面阴影 */
-   --ui-card-surface: #f1f2f5;
-   --ui-btn-surface: #e9ebef;
+   --ui-card-surface: var(--surface-2);
+   --ui-btn-surface: var(--surface-5);
    --ui-blur: 0px;
    --ui-saturate: 1;
    --ui-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.05);
@@ -1321,7 +1321,7 @@ onMounted(async () => {
  } 
  
  .close-button:hover { 
-   background-color: #ff4d4f !important; 
+   background-color: var(--danger) !important; 
    color: white !important; 
  } 
  
