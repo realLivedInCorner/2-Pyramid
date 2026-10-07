@@ -23,14 +23,14 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 .btn-text:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1d1d1f;
+  background: rgba(120, 110, 95, 0.07);
+  color: #14171a;
 }
 .btn-text.secondary {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(120, 110, 95, 0.055);
 }
 
-/* ── 幽灵按钮（对话框 / 侧栏） ── */
+/* ── 幽灵按钮（对话框 / 侧栏 / 流程舞台） ── */
 .ghost-btn {
   display: inline-flex;
   align-items: center;
@@ -38,26 +38,29 @@
   gap: 6px;
   height: 36px;
   padding: 0 16px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
-  color: #64748b;
+  border: 1px solid rgba(120, 110, 95, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: #5f5a51;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
+.ghost-btn i { font-size: 15px; line-height: 1; }
 .ghost-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #1d1d1f;
+  background: rgba(120, 110, 95, 0.08);
+  color: #14171a;
 }
 
 /* ── 分段控件 ── */
 .segmented {
   display: inline-flex;
-  background: rgba(0, 0, 0, 0.045);
-  border-radius: calc(var(--ui-radius-btn, 10px) + 4px);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(120, 110, 95, 0.18);
+  border-radius: 8px;
   padding: 3px;
   gap: 3px;
 }
@@ -65,19 +68,20 @@
   border: none;
   background: transparent;
   padding: 8px 16px;
-  border-radius: calc(var(--ui-radius-btn, 10px) + 2px);
+  border-radius: 6px;
   font-size: 13px;
-  font-weight: 600;
-  color: #6b7280;
+  font-weight: 500;
+  color: #7d776d;
   cursor: pointer;
   font-family: inherit;
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
-.seg-btn:hover { color: #1d1d1f; }
+.seg-btn:hover { color: #14171a; }
 .seg-btn.active {
+  /* 用白面 + 发丝内描边，不用主题色淡面 —— 主题色留给主操作按钮 */
   background: #fff;
-  color: #1d1d1f;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  color: #14171a;
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.14);
 }
 
 /* ── 帮助问号 ── */
@@ -89,9 +93,10 @@
   justify-content: center;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
-  background: rgba(0, 0, 0, 0.06);
+  /* 原来是 800 —— 规格里 UI 文本最高 600，这个小问号也不例外 */
+  font-weight: 600;
+  color: #7d776d;
+  background: rgba(120, 110, 95, 0.09);
   cursor: help;
   user-select: none;
 }
@@ -99,7 +104,8 @@
 /* ── 实验标签 ── */
 .exp-tag {
   font-size: 10px;
-  font-weight: 800;
+  /* 规格：UI 文本字重上限 600。10px 的小标签本来也不该靠加粗找存在感 */
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 2px 6px;
@@ -109,68 +115,102 @@
   border: 1px solid #fde68a;
 }
 
-/* ── 弹窗关闭钮 ── */
-.dialog-close {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
-  font-family: inherit;
-}
-.dialog-close:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1d1d1f;
-}
-
-/* ── 弹窗骨架（Settings 抽出的子组件也用这套） ── */
+/*
+ * ── 弹窗骨架 ──────────────────────────────────────────────────────────
+ *
+ * 这里是**唯一**的 .dialog-overlay / .dialog-content 定义。
+ *
+ * 之前全项目有五份 overlay、四份 content 分散在 ConversionPage / OverlayPage /
+ * UpdateDialog / shared.css 里，z-index 从 100 到 2000 差二十倍，遮罩从冷灰到纯黑、
+ * 圆角 20 与 24 混用、投影四种 —— 对话框长什么样取决于它被哪个组件定义。
+ *
+ * 而且 scoped 组件里的 `.dialog-overlay[data-v-x]`（特异度 0,2,0）压过这里的
+ * `.dialog-overlay`（0,1,0），所以光写一份新的没用，那几份必须删掉。
+ *
+ * 视觉跟首页统一：暖色遮罩（不是冷灰）、发丝边、12px 圆角（弹窗比按钮大，比按钮略圆）、
+ * 投影保留但收敛 —— 弹窗是真的浮起来的元素，和卡片不是一回事。
+ */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.3);
+  /* 暖色遮罩。原来的 rgba(15,23,42,…) 是冷蓝灰，压在暖白界面上会发脏 */
+  background: rgba(28, 24, 18, 0.34);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
-  backdrop-filter: blur(6px);
+  /* 统一到 1000：低于侧栏与窗口控制，高于页面内容 */
+  z-index: 1000;
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
 }
 
 .dialog-content {
   width: 420px;
   max-width: 90vw;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 20px;
+  background: #fff;
+  border: 1px solid rgba(120, 110, 95, 0.18);
+  border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 16px 40px rgba(28, 24, 18, 0.14);
   max-height: min(86vh, 760px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
+/* 减少动效：关掉遮罩的淡入 */
+@media (prefers-reduced-motion: reduce) {
+  .dialog-overlay,
+  .dialog-content { animation: none; }
+}
+
+/*
+ * ── 弹窗内部的排版骨架 ──────────────────────────────────────────────
+ * 与首页同一套语言：层级靠字号与留白，不靠加粗；分隔用暖色发丝线，不用冷灰。
+ */
 .dialog-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   flex-shrink: 0;
 }
 .dialog-header h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-size: 15px;
+  /* 原来是 700 —— 标题的层级由字号和它下方的留白建立，不该靠字重压人 */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #14171a;
+}
+/* 标题带副标题时的第二行 */
+.dialog-header .dialog-sub {
+  margin: 3px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #7d776d;
+}
+
+.dialog-close {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 17px;
+  line-height: 1;
+  color: #9c968c;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dialog-close:hover {
+  background: rgba(120, 110, 95, 0.09);
+  color: #14171a;
 }
 
 .dialog-body {
@@ -180,17 +220,46 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* 弹窗正文的行距比正文本身更能决定「读起来挤不挤」 */
+.dialog-body p { margin: 0; font-size: 13px; line-height: 1.65; color: #5f5a51; }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  margin-top: 18px;
+  padding-top: 14px;
+  /* 暖色发丝线，和页面里的分隔线同一支 */
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
   flex-shrink: 0;
 }
+
+/* 弹窗按钮：与页面共用一套，这里只补尺寸差异 */
+.dialog-footer .btn-text {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #5f5a51;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dialog-footer .btn-text:hover { background: rgba(120, 110, 95, 0.08); }
+/* .secondary 在模板里用了 23 次，和默认态同义（安静态）—— 显式写出来，免得上游改默认态时它被带跑 */
+.dialog-footer .btn-text.secondary { color: #5f5a51; background: transparent; }
+.dialog-footer .btn-text.secondary:hover { background: rgba(120, 110, 95, 0.08); }
+.dialog-footer .btn-text.danger { color: #b3261e; }
+.dialog-footer .btn-text.danger:hover { background: rgba(179, 38, 30, 0.08); }
+.dialog-footer .btn-text.primary {
+  background: #14171a;
+  color: #fff;
+}
+.dialog-footer .btn-text.primary:hover { background: #000; }
 
 /* ── 旋转图标 ── */
 .spin {
@@ -199,4 +268,165 @@
 @keyframes ri-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ══ 流程工作台（一次一步）的舞台原语 ══════════════════════════════════
+   转换页与覆盖包页共用同一套。<Workbench> 提供左侧步骤轨，这里定义右侧舞台。
+   放在全局而不是各页 scoped：两页要长得一样，各写一份必然漂移
+   （此前 .ghost-btn 就在 shared.css 和 OverlayPage 各有一份、取值不同）。 */
+
+/* 当前步骤的内容区 */
+.stage-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+/* 舞台很长时空滚动条会显眼，收窄一点 */
+.stage-panel::-webkit-scrollbar { width: 6px; }
+.stage-panel::-webkit-scrollbar-track { background: transparent; }
+.stage-panel::-webkit-scrollbar-thumb {
+  background: rgba(120, 110, 95, 0.16);
+  border-radius: 3px;
+}
+.stage-panel::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.28); }
+
+.stage-head { flex-shrink: 0; }
+.stage-title { margin: 0; font-size: 18px; font-weight: 600; color: #14171a; }
+.stage-desc { margin: 4px 0 0; font-size: 13px; color: #7d776d; line-height: 1.5; }
+
+/* 主操作固定在舞台底部：按钮跟着它依赖的设置走，不再被埋在另一张卡里 */
+.stage-actions {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  /* 统一靠右。之前没有 justify-content：有 .stage-hint 的步骤被 flex:1 顶到右边、
+     没有 hint 的步骤留在左边，四步之间按钮会左右横跳。 */
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border-color);
+}
+.stage-hint { flex: 1; min-width: 120px; margin: 0; font-size: 12px; color: #9ca3af; }
+
+/* 舞台内的一个分区（区块标题 + 内容） */
+.pane { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.pane-head { display: flex; align-items: center; gap: 8px; }
+.pane-title {
+  font-size: 13px;
+  /* 规格：字重上限 600 */
+  font-weight: 600;
+  color: #7d776d;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* 主按钮 */
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  /* 墨底白字 —— 与首页「进入」按钮同一套。
+     主题色留给极少数需要品牌色的场合，主操作按钮不靠颜色抢眼。 */
+  background: #14171a;
+  color: #fff;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  /* 投影也跟着换成中性色 —— 蓝色投影是主题色时代留下的，和墨底不搭 */
+  box-shadow: 0 4px 14px rgba(20, 23, 26, 0.18);
+}
+.primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.primary-btn:hover:not(:disabled) { background: #000; }
+.primary-btn i { font-size: 15px; line-height: 1; }
+
+/* 打包 / 运行状态 */
+.pack-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-small);
+  background: var(--hover-color);
+  font-size: 13px;
+  line-height: 1.55;
+  word-break: break-all;
+}
+.pack-state i { font-size: 18px; flex-shrink: 0; }
+.pack-state.ok i { color: #10b981; }
+.pack-state.fail i { color: #ef4444; }
+.pack-state.idle { color: #7d776d; }
+.pack-state.idle i { color: #9ca3af; }
+
+/*
+ * 弹窗入场（规格 §3.3）。
+ * 之前 shared.css 里**没有任何弹窗动画** —— 各页面自己写，写法各异；
+ * 统一外壳时把那些一起删了，于是入场动效整个消失。这里补上唯一的实现。
+ *
+ * fill-mode 必须是 backwards：both / forwards 会永久保留 translate: 0 0，
+ * 元素因此成为包含块，弹窗里的 position: fixed 浮层会错位。
+ * 基线里也不能有 opacity: 0 —— backwards 动画结束会回落到基线，那样内容会消失。
+ */
+.dialog-overlay { animation: dialog-fade 200ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards; }
+.dialog-content { animation: dialog-rise 240ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards; }
+
+@keyframes dialog-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes dialog-rise {
+  from { opacity: 0; translate: 0 10px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+/* ══ 抽屉（侧滑面板）外壳 ══════════════════════════════════════════════
+ *
+ * 这里是**唯一**的 .sidebar-overlay / .sidebar-content 定义。
+ * 之前 5 个组件各带一份（ItemNameDialog / ItemSizeDialog / LegalSidebar /
+ * VersionSidebar / ConversionPage），遮罩从暖色到纯黑三种、blur 加不加不一，
+ * 而它们的骨架其实完全一样。
+ *
+ * 为什么不能各写各的：scoped 组件里的选择器会带 data-v 属性（0,2,0），
+ * 特异度高于这里的（0,1,0），所以本地那份永远赢 —— 想统一就必须删掉它们。
+ *
+ * 不加 backdrop-filter：其中两个文件记录过原因 —— blur 会让浏览器在
+ * leave 阶段不触发 transitionend，抽屉的关闭动画收不了尾。
+ */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  /* 暖色遮罩，和 .dialog-overlay 同一支 */
+  background: rgba(28, 24, 18, 0.34);
+  z-index: 200;
+}
+
+/* 面板本体。position: fixed + right: 0 —— 面板和遮罩是兄弟节点，
+   不嵌在 overlay 的 flex 容器里，靠自己 right:0 锚在屏幕右侧。
+   宽度各抽屉可覆盖（本地规则特异度更高，会正常生效）。 */
+.sidebar-content {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  z-index: 210;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-left: 1px solid rgba(120, 110, 95, 0.16);
+  /* 阴影由 useSidebarSlide 在运行时用内联样式控制（enter 淡入 / leave 淡出），
+     这里给一个静态兜底值，供未接该 composable 的抽屉使用 */
+  box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
 }
