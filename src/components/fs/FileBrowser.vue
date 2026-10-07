@@ -13,6 +13,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { useI18n } from 'vue-i18n';
 import { useFilePickerState } from '../../composables/useFilePicker';
+import StageBackdrop from '../shell/StageBackdrop.vue';
 
 const { t } = useI18n();
 const picker = useFilePickerState();
@@ -298,19 +299,30 @@ defineExpose({ nativeFallback });
 </script>
 
 <template>
+  <!--
+    窗口级视图，不是居中弹窗。
+    弹窗把内容关进一张卡片里，四周全是它自己的边距；铺满窗口之后列表能长得多，
+    快捷位置、面包屑、筛选也能各就各位，读起来是「进来了」而不是「弹出个框」。
+    仍然盖在页面之上（z-index 与弹窗同层），下面那页不可交互。
+  -->
   <Transition name="fb-fade">
-    <div v-if="picker.open.value" class="dialog-overlay fb-overlay" @click.self="cancel">
-      <div class="dialog-content fb" @click.stop>
-        <div class="dialog-header">
-          <div>
-            <h3>{{ t(titleKey) }}</h3>
-            <p class="dialog-sub">{{ t('fs.subtitle') }}</p>
-          </div>
-          <button class="dialog-close" @click="cancel" :aria-label="t('common.close')">×</button>
+    <div v-if="picker.open.value" class="fb-shell">
+      <!-- 和其他页面踩同一块地面 -->
+      <StageBackdrop />
+
+      <div class="fb-inner">
+        <!-- 单行标题：沉浸式要的是内容，不是标题栏 -->
+        <div class="fb-head">
+          <button class="fb-back" @click="cancel">
+            <i class="ri-arrow-left-line" aria-hidden="true"></i>
+            <span>{{ t('common.back') }}</span>
+          </button>
+          <h2 class="fb-title">{{ t(titleKey) }}</h2>
+          <span class="fb-sub">{{ t('fs.subtitle') }}</span>
         </div>
 
-        <!-- 导航行：上级 + 面包屑 + 名称过滤 -->
-        <div class="fb-nav">
+        <!-- 工具行：上级 + 面包屑 + 筛选 + 隐藏项 -->
+        <div class="fb-tools">
           <button class="fb-up" :disabled="!listing?.parent" @click="goUp" :title="t('fs.up')">
             <i class="ri-arrow-up-line" aria-hidden="true"></i>
           </button>
@@ -323,6 +335,10 @@ defineExpose({ nativeFallback });
           <label class="fb-filter">
             <i class="ri-search-line" aria-hidden="true"></i>
             <input v-model="filter" type="text" :placeholder="t('fs.filter')" spellcheck="false" />
+          </label>
+          <label class="fb-hidden">
+            <input v-model="showHidden" type="checkbox" />
+            <span>{{ t('fs.showHidden') }}</span>
           </label>
         </div>
 
@@ -346,7 +362,7 @@ defineExpose({ nativeFallback });
 
           <!-- 列表 -->
           <div class="fb-list-wrap">
-            <div class="fb-head">
+            <div class="fb-table-head">
               <span class="c-name">{{ t('fs.name') }}</span>
               <span class="c-size">{{ t('fs.size') }}</span>
               <span class="c-time">{{ t('fs.modified') }}</span>
@@ -388,12 +404,7 @@ defineExpose({ nativeFallback });
           </div>
         </div>
 
-        <div class="fb-foot dialog-footer">
-          <label class="fb-hidden">
-            <input v-model="showHidden" type="checkbox" />
-            <span>{{ t('fs.showHidden') }}</span>
-          </label>
-
+        <div class="fb-foot">
           <span class="fb-count">
             {{ selected.size ? t('fs.selected', { n: selected.size }) : '' }}
           </span>
@@ -408,17 +419,13 @@ defineExpose({ nativeFallback });
           />
 
           <!-- 退路：应用内浏览器拿不到的东西（网络驱动器、超长路径）仍有系统对话框可用 -->
-          <button
-            v-if="nativeFallback"
-            class="btn-text"
-            :title="t('fs.useNative')"
-            @click="nativeFallback()"
-          >
+          <button v-if="nativeFallback" class="ghost-btn" @click="nativeFallback()">
             <i class="ri-external-link-line" aria-hidden="true"></i>
+            <span>{{ t('fs.useNative') }}</span>
           </button>
 
-          <button class="btn-text" @click="cancel">{{ t('common.cancel') }}</button>
-          <button class="btn-text primary" :disabled="!canConfirm" @click="confirm">
+          <button class="ghost-btn" @click="cancel">{{ t('common.cancel') }}</button>
+          <button class="primary-btn" :disabled="!canConfirm" @click="confirm">
             {{ mode === 'save' ? t('common.save') : t('fs.select') }}
           </button>
         </div>
@@ -429,28 +436,82 @@ defineExpose({ nativeFallback });
 
 <style scoped>
 /*
- * 宽变体。文件列表需要横向空间，420px 会把「名称/大小/时间」三列挤成两行。
- * 覆盖 .dialog-content 的宽度而不是另起一套外壳 —— 遮罩、圆角、投影、
- * 发丝边都还来自 shared.css。
+ * 窗口级外壳。
+ *
+ * 和 .dialog-overlay 同层（1000）—— 它确实是模态的，下面那页不该能点。
+ * 但它不画遮罩、不做居中：整块铺满，自己带共享背景，读起来是一层视图
+ * 而不是一张浮在页面上的卡片。
  */
-.fb {
-  width: min(880px, 94vw);
-  height: min(620px, 86vh);
-  padding: 18px 20px 16px;
+.fb-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #f4f2ee; /* StageBackdrop 自己会画底，这里只是 loading 期间的兜底 */
+  animation: fb-in 200ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+}
+@keyframes fb-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.fb-nav {
+/* 内容层压在背景之上，四周留出和页面一致的边距 */
+.fb-inner {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 40px 20px;
+}
+
+/* 单行标题 */
+.fb-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
+  flex-shrink: 0;
+  padding-bottom: 12px;
+}
+.fb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(120, 110, 95, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: #5f5a51;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.fb-back:hover { background: rgba(120, 110, 95, 0.08); color: #14171a; }
+.fb-title {
+  margin: 0;
+  /* 规格：阶段标题 18/600。比页面主标题轻 —— 这是个临时视图，不是顶层页面 */
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #14171a;
+}
+.fb-sub { font-size: 11.5px; color: #9c968c; }
+
+/* 工具行 */
+.fb-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(120, 110, 95, 0.14);
-  flex-shrink: 0;
 }
 
 .fb-up {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -496,8 +557,8 @@ defineExpose({ nativeFallback });
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  width: 160px;
-  height: 28px;
+  width: 180px;
+  height: 30px;
   padding: 0 9px;
   border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 8px;
@@ -514,13 +575,26 @@ defineExpose({ nativeFallback });
   color: #14171a;
 }
 
+.fb-hidden {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #7d776d;
+  cursor: pointer;
+  user-select: none;
+}
+.fb-hidden input { accent-color: #14171a; }
+
+/* 主体：铺满剩余高度。窗口级之后这里比弹窗里高得多，列表能显示更多行。 */
 .fb-body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
-  gap: 14px;
-  padding-top: 12px;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 20px;
+  padding-top: 14px;
 }
 
 .fb-rail {
@@ -534,7 +608,7 @@ defineExpose({ nativeFallback });
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 9px;
   border: none;
   border-radius: 6px;
@@ -556,16 +630,16 @@ defineExpose({ nativeFallback });
 .fb-list-wrap { display: flex; flex-direction: column; min-height: 0; }
 
 /* 表头与行共用同一组列宽，不会错位 */
-.fb-head,
+.fb-table-head,
 .fb-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px 132px;
+  grid-template-columns: minmax(0, 1fr) 96px 148px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.fb-head {
-  padding: 0 8px 7px;
+.fb-table-head {
+  padding: 0 10px 8px;
   border-bottom: 1px solid rgba(120, 110, 95, 0.2);
   font-size: 10px;
   font-weight: 400;
@@ -574,15 +648,15 @@ defineExpose({ nativeFallback });
   color: #9c968c;
   flex-shrink: 0;
 }
-.fb-head .c-size,
-.fb-head .c-time { text-align: right; }
+.fb-table-head .c-size,
+.fb-table-head .c-time { text-align: right; }
 
 .fb-list { flex: 1; min-height: 0; overflow-y: auto; }
 
 .fb-row {
   width: 100%;
-  min-height: 34px;
-  padding: 0 8px;
+  min-height: 36px;
+  padding: 0 10px;
   border: none;
   border-bottom: 1px solid rgba(120, 110, 95, 0.08);
   border-radius: 6px;
@@ -596,7 +670,7 @@ defineExpose({ nativeFallback });
 }
 .fb-row:hover { background: rgba(120, 110, 95, 0.05); }
 .fb-row.on { background: rgba(20, 23, 26, 0.08); }
-/* 被扩展名过滤掉的文件仍在列表里，只是选不中 —— 见模板注释 */
+/* 被扩展名过滤掉的文件仍在列表里，只是选不中 —— 见脚本注释 */
 .fb-row.dim { color: #b8b2a6; cursor: default; }
 .fb-row.dim .c-name i { color: #cfc9bf; }
 .fb-row.dim:hover { background: transparent; }
@@ -622,32 +696,36 @@ defineExpose({ nativeFallback });
 
 .fb-state {
   margin: 0;
-  padding: 28px 8px;
+  padding: 32px 10px;
   text-align: center;
   font-size: 12.5px;
   color: #9c968c;
 }
 .fb-state.err { color: #b3261e; }
-.fb-state.warn { padding: 10px 8px; color: #b45309; }
+.fb-state.warn { padding: 10px; color: #b45309; }
 
-.fb-foot { gap: 10px; }
-.fb-hidden {
-  display: inline-flex;
+/* 动作行固定在窗口底部，和页面里的 .stage-actions 同一套摆法 */
+.fb-foot {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
+}
+.fb-count {
   margin-right: auto;
   font-size: 12px;
-  color: #7d776d;
-  cursor: pointer;
-  user-select: none;
+  color: #9c968c;
+  font-variant-numeric: tabular-nums;
 }
-.fb-hidden input { accent-color: #14171a; }
-.fb-count { font-size: 12px; color: #9c968c; font-variant-numeric: tabular-nums; }
 
 .fb-name {
-  width: 220px;
-  height: 32px;
-  padding: 0 10px;
+  width: 240px;
+  height: 34px;
+  padding: 0 11px;
   border: 1px solid rgba(120, 110, 95, 0.22);
   border-radius: 8px;
   background: #fff;
@@ -658,16 +736,22 @@ defineExpose({ nativeFallback });
 }
 .fb-name:focus { border-color: rgba(20, 23, 26, 0.4); }
 
-/* fill-mode 用 backwards：both / forwards 会永久保留 translate: 0 0，
-   元素成为包含块，里面的 fixed 浮层会错位。基线里也不放 opacity: 0。 */
+/* fill-mode 用 backwards：both / forwards 会永久保留末态，元素成为包含块。
+   基线里也不放 opacity: 0 —— backwards 动画结束会回落到基线，那样内容会消失。 */
 .fb-fade-enter-active { transition: opacity 0.18s ease; }
 .fb-fade-leave-active { transition: opacity 0.14s ease; }
 .fb-fade-enter-from,
 .fb-fade-leave-to { opacity: 0; }
 
+@media (max-width: 860px) {
+  .fb-inner { padding: 16px 20px; }
+  .fb-body { grid-template-columns: 140px minmax(0, 1fr); gap: 14px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .fb-shell { animation: none; }
   .fb-fade-enter-active,
   .fb-fade-leave-active { transition: none; }
-  .fb-row, .fb-loc, .fb-up { transition: none; }
+  .fb-row, .fb-loc, .fb-up, .fb-back { transition: none; }
 }
 </style>
