@@ -45,6 +45,7 @@ const resolved = computed<'light' | 'dark'>(() =>
  */
 let switchTimer: number | undefined;
 
+/** 老浏览器回落用：临时挂类，让颜色自己做过渡。 */
 function transitionThenSettle() {
   const root = document.documentElement;
   // 减少动效时直接切，不要这段过渡
@@ -61,6 +62,40 @@ function transitionThenSettle() {
   }, 340);
 }
 
+/**
+ * 切换主题，带「墨水泼洒」的揭示动画。
+ *
+ * 用 View Transitions：浏览器给旧画面拍一张快照，新主题渲染在下层，
+ * 然后我们用一个遮罩把快照揭开。好处是不用给每个元素挂过渡 ——
+ * 那种做法要遍历整棵树，这里只有一次合成。
+ *
+ * 不支持时（老 WebView）回落到原来的颜色过渡，不会变成硬切。
+ */
+function revealTheme(applyNext: () => void) {
+  const reduced =
+    document.body.classList.contains('motion-reduced') ||
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  const start = (
+    document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }
+  ).startViewTransition;
+
+  if (reduced || typeof start !== 'function') {
+    transitionThenSettle();
+    applyNext();
+    return;
+  }
+
+  // 快照期间把光标也冻住，避免动画中途 hover 改了底色
+  const root = document.documentElement;
+  root.classList.add('theme-inking');
+  start.call(document, () => {
+    applyNext();
+  }).finished.finally(() => {
+    root.classList.remove('theme-inking');
+  });
+}
+
 /** 把当前主题写到 <html data-theme>。没有这个属性就是浅色。 */
 export function apply() {
   const root = document.documentElement;
@@ -73,10 +108,9 @@ export function apply() {
 
 export function setThemeMode(next: ThemeMode) {
   if (mode.value === next) return;
-  transitionThenSettle();
   mode.value = next;
   localStorage.setItem(STORAGE_KEY, next);
-  apply();
+  revealTheme(apply);
 }
 
 /** 按钮用：在浅色与深色之间切换。系统档按当前实际颜色切到它的反面。 */

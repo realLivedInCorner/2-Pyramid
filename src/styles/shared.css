@@ -183,6 +183,103 @@
   filter: invert(1);
 }
 
+/*
+ * ══ 主题切换：墨水泼洒 ═══════════════════════════════════════════════
+ *
+ * View Transitions 给旧画面拍一张快照，新主题渲染在它下面；这里用一个
+ * 遮罩把快照从左往右揭开。
+ *
+ * 为什么不是一条直线擦除：「泼洒」的边界必须是**不规则**的，否则读起来
+ * 就是一次翻页。所以遮罩不是一个圆，是三个从左边不同高度胀开的墨点，
+ * 半径和扩散速度都不同 —— 三个圆的交界处自然形成不规则的推进前沿。
+ *
+ * 用 mask 而不是 clip-path：CSS 的 clip-path 一次只能表达一个基本形状，
+ * 多个圆要靠 mask 的多层 + mask-composite 合并。
+ *
+ * `@property` 注册是必须的：未注册的自定义属性是离散值，@keyframes 里
+ * 无法插值，动画会变成两帧硬切。
+ */
+@property --ink-a {
+  syntax: '<percentage>';
+  initial-value: 0%;
+  inherits: false;
+}
+@property --ink-b {
+  syntax: '<percentage>';
+  initial-value: 0%;
+  inherits: false;
+}
+@property --ink-c {
+  syntax: '<percentage>';
+  initial-value: 0%;
+  inherits: false;
+}
+
+/*
+ * 两张快照必须显式分层：默认是 old 在下、new 在上并且各自带淡入淡出，
+ * 那样会先看到一次交叉淡化，再看到墨水 —— 两层效果打架。
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+/* 新主题在上面被「揭开」，所以它才是带遮罩的那一层 */
+::view-transition-new(root) {
+  z-index: 2;
+  /*
+   * 三个墨点：上 / 中 / 下，起点都贴在左边缘。
+   * 半径用 calc 加一段渐变过渡带（+5%/+7%/+6%），否则圆的边缘是硬边，
+   * 看着像剪纸不像洇开。
+   */
+  mask-image:
+    radial-gradient(circle at 0% 16%, #000 var(--ink-a), transparent calc(var(--ink-a) + 5%)),
+    radial-gradient(circle at 0% 52%, #000 var(--ink-b), transparent calc(var(--ink-b) + 7%)),
+    radial-gradient(circle at 0% 88%, #000 var(--ink-c), transparent calc(var(--ink-c) + 6%));
+  mask-composite: add;
+  -webkit-mask-composite: source-over;
+  /*
+   * 曲线特意不用 --ease-out（0.22, 1, 0.36, 1）。
+   * 那条前段过陡：实测它让墨迹在时间轴的 8% 就推到了 78% 的宽度，
+   * 读起来是「猛地一泼，然后慢慢爬」—— 那是擦除的节奏，不是洇开。
+   * 这条前段缓、中段快、尾段收，才是墨水该有的推进。
+   */
+  animation: ink-spread 780ms cubic-bezier(0.45, 0.05, 0.25, 1) forwards;
+}
+
+/*
+ * 三个圆错开：上面的先走、下面的殿后，中间最快 —— 前沿因此是斜的、
+ * 而且中途会互相咬合再分开，这就是「泼」的那一下。
+ * 终点都超过 150%，保证四个角全部盖住，不留没换色的死角。
+ */
+@keyframes ink-spread {
+  0% {
+    --ink-a: 0%;
+    --ink-b: 0%;
+    --ink-c: 0%;
+  }
+  100% {
+    --ink-a: 165%;
+    --ink-b: 185%;
+    --ink-c: 155%;
+  }
+}
+
+/* 减少动效：不做泼洒，直接换 */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    mask-image: none;
+    animation: none;
+  }
+  ::view-transition-old(root) { display: none; }
+}
+.motion-reduced ::view-transition-new(root) {
+  mask-image: none;
+  animation: none;
+}
+.motion-reduced ::view-transition-old(root) { display: none; }
+
 /* ── 文本按钮 ── */.btn-text {
   display: inline-flex;
   align-items: center;
