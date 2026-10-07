@@ -232,12 +232,15 @@ function pick(entry: VersionEntry) {
 
 .version-row:hover {
   border-color: color-mix(in srgb, var(--accent, var(--ink)) 35%, transparent);
-  background: color-mix(in srgb, var(--accent, var(--ink)) 6%, white);
+  /* 混的是 var(--surface) 而不是 white：浅色下两者等价（--surface 就是
+     #ffffff），深色下 white 会变成一块近白的板。同 bug 家族，见
+     StartupPage 里 .lang-card.active 的说明。 */
+  background: color-mix(in srgb, var(--accent, var(--ink)) 6%, var(--surface));
 }
 
 .version-row.active {
   border-color: color-mix(in srgb, var(--accent, var(--ink)) 55%, transparent);
-  background: color-mix(in srgb, var(--accent, var(--ink)) 10%, white);
+  background: color-mix(in srgb, var(--accent, var(--ink)) 10%, var(--surface));
 }
 
 .version-row-main {

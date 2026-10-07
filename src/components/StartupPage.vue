@@ -163,12 +163,22 @@ async function finish() {
     <!-- ═══ 顶部：品牌（左） + 步骤指示器（右），同一底色无分割 ═══ -->
     <header class="startup-top">
       <div class="top-brand">
+        <!--
+          描边必须用 vector-effect="non-scaling-stroke"。
+          这个 viewBox 是 680×680，而元素只显示 40×40，缩放比 0.0588 ——
+          原来的 stroke-width="7" 实际渲染出来是 0.41px，内线 5 只有 0.29px，
+          亚像素，无论什么颜色都看不见。non-scaling-stroke 让 stroke-width
+          以 CSS 像素表达，不再随 viewBox 缩放。
+
+          **它必须写在每个 <line> 上，不能写在 <g> 上** —— vector-effect 不是
+          继承属性，挂在 <g> 上等于没挂（第一版就是这么白改的）。
+        -->
         <svg class="startup-logo" viewBox="0 0 680 680" fill="none" xmlns="http://www.w3.org/2000/svg">
           <g stroke="currentColor" stroke-linecap="round">
-            <line x1="260" y1="520" x2="200" y2="390" stroke-width="7"/>
-            <line x1="260" y1="520" x2="500" y2="190" stroke-width="7"/>
-            <line x1="200" y1="390" x2="500" y2="190" stroke-width="7"/>
-            <line x1="260" y1="520" x2="374" y2="274" stroke-width="5"/>
+            <line x1="260" y1="520" x2="200" y2="390" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+            <line x1="260" y1="520" x2="500" y2="190" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+            <line x1="200" y1="390" x2="500" y2="190" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+            <line x1="260" y1="520" x2="374" y2="274" stroke-width="1.15" vector-effect="non-scaling-stroke"/>
           </g>
         </svg>
         <div class="top-brand-text">
@@ -527,15 +537,15 @@ async function finish() {
 
 /* 进入动画：品牌、内容、导航依次上浮淡入（工厂重置后平滑过渡） */
 .startup-top {
-  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s backwards;
 }
 
 .panel-content {
-  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s backwards;
 }
 
 .panel-nav {
-  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  animation: oobe-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
 }
 
 @keyframes oobe-rise {
@@ -652,14 +662,21 @@ async function finish() {
   background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+/*
+ * 内容区左对齐，**不居中**。
+ *
+ * 此前是 `align-items: safe center` + `justify-content: center`，配合
+ * 标题与描述的 `text-align: center`，整个 OOBE 是居中的 —— 与首页的
+ * 第一条硬约束直接冲突：「我不希望看到任何居中元素，本身就抢占焦点」。
+ *
+ * 左内边距取 36px 与顶部品牌块对齐，两处的左边缘因此在同一条竖线上。
+ */
 .panel-content {
   flex: 1;
   display: flex;
-  align-items: center;
-  /* 内容高于容器时避免顶部被裁掉（居中改为「安全居中」） */
-  align-items: safe center;
-  justify-content: center;
-  padding: 24px 48px 20px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 24px 36px 20px;
   min-height: 0;
   overflow-y: auto;
 }
@@ -669,21 +686,23 @@ async function finish() {
   max-width: 500px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
 }
 
 /* 设置步骤内容更多：放宽容器，避免卡片被挤成单字竖排 */
 .startup-step-wide {
-  max-width: 960px;
+  max-width: min(960px, 100%);
 }
 
 .step-title {
   margin: 0 0 8px;
   font-size: 24px;
-  font-weight: 800;
+  /* 600 是上限，见 dialog-spec.md。此前 800 属于「用字重拉层级」，
+     而这里的层级本就该由字号和位置表达。 */
+  font-weight: 600;
   letter-spacing: -0.4px;
   color: var(--ink);
-  text-align: center;
+  text-align: left;
 }
 
 .step-desc {
@@ -691,7 +710,7 @@ async function finish() {
   font-size: 13.5px;
   line-height: 1.7;
   color: var(--ink-3);
-  text-align: center;
+  text-align: left;
   max-width: 380px;
 }
 
@@ -727,7 +746,18 @@ async function finish() {
 
 .lang-card.active {
   border-color: var(--accent);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 7%, white) 0%, var(--surface) 100%);
+  /*
+   * 渐变端必须是 var(--surface) 而不是写死的 white。
+   * `color-mix(in srgb, var(--accent) 7%, white)` 是「7% 强调色 + 93% 白」，
+   * 浅色下没问题（--surface 本来就是 #ffffff，两者等价），深色下就是一块
+   * 近白的板 —— 整页最亮的东西。这和阶梯、--panel-* 是同一个 bug 家族：
+   * 把「提亮」的方向写死在只对浅色成立的值上。
+   */
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent) 7%, var(--surface)) 0%,
+    var(--surface) 100%
+  );
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
     0 8px 24px color-mix(in srgb, var(--accent) 14%, transparent);
@@ -1080,10 +1110,15 @@ async function finish() {
 }
 
 /* ═══ 底部药丸导航 ═══ */
+/*
+ * 靠右，与首页右下的动作区同位置。
+ * 此前是 `justify-content: center` —— 底部药丸水平居中，同样是居中元素。
+ * 右内边距取 36px，与顶部品牌块、内容区的左边缘对称。
+ */
 .panel-nav {
   display: flex;
-  justify-content: center;
-  padding: 8px 24px 26px;
+  justify-content: flex-end;
+  padding: 8px 36px 26px;
   flex-shrink: 0;
 }
 
