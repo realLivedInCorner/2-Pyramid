@@ -76,17 +76,17 @@ function cancel() {
   margin: 8px 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   text-align: center;
   user-select: all;
 }
 .dev-error {
   font-size: 12.5px;
-  color: #dc2626;
+  color: var(--danger);
   text-align: left;
 }
 </style>

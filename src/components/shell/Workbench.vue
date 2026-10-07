@@ -175,8 +175,8 @@ const stageId = () => props.stageKey || props.steps.find((s) => s.state === 'cur
   border-radius: 8px;
   /* 用墨色而不是主题色。首页通篇是墨色 + 暖白，没有一处蓝；
      主题色留给「主操作」按钮，选中态不属于主操作。 */
-  background: rgba(20, 23, 26, 0.05);
-  border: 1px solid rgba(20, 23, 26, 0.18);
+  background: rgba(var(--ink-rgb), 0.05);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
   pointer-events: none;
   transition:
     transform 560ms var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
@@ -238,15 +238,15 @@ const stageId = () => props.stageKey || props.steps.find((s) => s.state === 'cur
 }
 
 .rail-step.done .rail-index {
-  background: #14171a;
-  border-color: #14171a;
-  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
 }
 
 .rail-step.current .rail-index {
-  background: #14171a;
-  border-color: #14171a;
-  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
   /* 不再 scale —— 放大会把 22px 的盒子撑成 23.8px，
      和旁边的文字块不在同一条中线上，看起来就是「没对轴」 */
 }

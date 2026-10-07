@@ -4,6 +4,51 @@
  * 注意：不要在此放页面专有布局。
  */
 
+/*
+ * ══ 设计令牌 ══════════════════════════════════════════════════════════
+ *
+ * 全应用唯一的颜色来源。加新颜色前先问：能不能用现有令牌表达？
+ * 这个项目曾经积累到 263 种颜色、13 种文字灰，就是因为每个新界面都
+ * 顺手取了一个「差不多」的值。
+ *
+ * 墨色与暖灰存的是 **RGB 三元组**，不是成品颜色：
+ *     --ink-rgb: 20, 23, 26;
+ *     color: var(--ink);
+ *     border-color: rgba(var(--ink-rgb), 0.12);
+ *
+ * 这么设计是为了深色模式。深色下墨色的浓淡要整体反过来（浅色用黑 8%，
+ * 深色下要用白 8%），而 alpha 的**档位**不变。存三元组意味着翻一个变量
+ * 就能让全部 300 处 alpha 引用跟着走；存成品颜色则要新增八个 token，
+ * 且每加一档 alpha 就再加一个。
+ */
+:root {
+  /* 底色与面（由浅到深的暖色阶梯） */
+  --bg: #f4f2ee;
+  --surface: #ffffff;
+  --surface-2: #f7f5f1;
+  --surface-3: #f2efe9;
+  --surface-4: #f0ede8;
+  --surface-5: #e8e4dc;
+  --surface-6: #ded9d0;
+
+  /* 墨色文字阶梯：主 / 次 / 三级 / 最弱 */
+  --ink: #14171a;
+  --ink-2: #5f5a51;
+  --ink-3: #7d776d;
+  --ink-4: #9c968c;
+
+  /* 浓淡的载体 —— 深色模式只翻这两个 */
+  --ink-rgb: 20, 23, 26;
+  --warm-rgb: 120, 110, 95;
+
+  /* 语义色 */
+  --danger: #b3261e;
+  --warn: #b45309;
+  --ok: #10b981;
+  --warn-tint: #fef3c7;
+  --warn-line: #fde68a;
+}
+
 /* ── 文本按钮 ── */
 .btn-text {
   display: inline-flex;
@@ -15,7 +60,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #7d776d;
+  color: var(--ink-3);
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -23,11 +68,11 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 .btn-text:hover {
-  background: rgba(120, 110, 95, 0.06);
-  color: #14171a;
+  background: rgba(var(--warm-rgb), 0.06);
+  color: var(--ink);
 }
 .btn-text.secondary {
-  background: rgba(120, 110, 95, 0.06);
+  background: rgba(var(--warm-rgb), 0.06);
 }
 
 /* ── 幽灵按钮（对话框 / 侧栏 / 流程舞台） ── */
@@ -38,10 +83,10 @@
   gap: 6px;
   height: 36px;
   padding: 0 16px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
   background: transparent;
-  color: #5f5a51;
+  color: var(--ink-2);
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -51,15 +96,15 @@
 }
 .ghost-btn i { font-size: 15px; line-height: 1; }
 .ghost-btn:hover {
-  background: rgba(120, 110, 95, 0.09);
-  color: #14171a;
+  background: rgba(var(--warm-rgb), 0.09);
+  color: var(--ink);
 }
 
 /* ── 分段控件 ── */
 .segmented {
   display: inline-flex;
   background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
   padding: 3px;
   gap: 3px;
@@ -71,17 +116,17 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: #7d776d;
+  color: var(--ink-3);
   cursor: pointer;
   font-family: inherit;
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
-.seg-btn:hover { color: #14171a; }
+.seg-btn:hover { color: var(--ink); }
 .seg-btn.active {
   /* 用白面 + 发丝内描边，不用主题色淡面 —— 主题色留给主操作按钮 */
-  background: #fff;
-  color: #14171a;
-  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.12);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), 0.12);
 }
 
 /* ── 帮助问号 ── */
@@ -95,8 +140,8 @@
   font-size: 11px;
   /* 原来是 800 —— 规格里 UI 文本最高 600，这个小问号也不例外 */
   font-weight: 600;
-  color: #7d776d;
-  background: rgba(120, 110, 95, 0.09);
+  color: var(--ink-3);
+  background: rgba(var(--warm-rgb), 0.09);
   cursor: help;
   user-select: none;
 }
@@ -110,9 +155,9 @@
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 999px;
-  color: #b45309;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
+  color: var(--warn);
+  background: var(--warn-tint);
+  border: 1px solid var(--warn-line);
 }
 
 /*
@@ -134,7 +179,7 @@
   position: fixed;
   inset: 0;
   /* 暖色遮罩。原来的 rgba(15,23,42,…) 是冷蓝灰，压在暖白界面上会发脏 */
-  background: rgba(20, 23, 26, 0.28);
+  background: rgba(var(--ink-rgb), 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -147,11 +192,11 @@
 .dialog-content {
   width: 420px;
   max-width: 90vw;
-  background: #fff;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  background: var(--surface);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 16px 40px rgba(20, 23, 26, 0.12);
+  box-shadow: 0 16px 40px rgba(var(--ink-rgb), 0.12);
   max-height: min(86vh, 760px);
   overflow: hidden;
   display: flex;
@@ -182,14 +227,14 @@
   /* 原来是 700 —— 标题的层级由字号和它下方的留白建立，不该靠字重压人 */
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #14171a;
+  color: var(--ink);
 }
 /* 标题带副标题时的第二行 */
 .dialog-header .dialog-sub {
   margin: 3px 0 0;
   font-size: 12px;
   font-weight: 400;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 
 .dialog-close {
@@ -204,13 +249,13 @@
   border-radius: 6px;
   font-size: 17px;
   line-height: 1;
-  color: #9c968c;
+  color: var(--ink-4);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .dialog-close:hover {
-  background: rgba(120, 110, 95, 0.09);
-  color: #14171a;
+  background: rgba(var(--warm-rgb), 0.09);
+  color: var(--ink);
 }
 
 .dialog-body {
@@ -221,7 +266,7 @@
   overflow-y: auto;
 }
 /* 弹窗正文的行距比正文本身更能决定「读起来挤不挤」 */
-.dialog-body p { margin: 0; font-size: 13px; line-height: 1.65; color: #5f5a51; }
+.dialog-body p { margin: 0; font-size: 13px; line-height: 1.65; color: var(--ink-2); }
 
 .dialog-footer {
   display: flex;
@@ -231,7 +276,7 @@
   margin-top: 18px;
   padding-top: 14px;
   /* 暖色发丝线，和页面里的分隔线同一支 */
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
   flex-shrink: 0;
 }
 
@@ -246,18 +291,18 @@
   cursor: pointer;
   border: 1px solid transparent;
   background: transparent;
-  color: #5f5a51;
+  color: var(--ink-2);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.dialog-footer .btn-text:hover { background: rgba(120, 110, 95, 0.09); }
+.dialog-footer .btn-text:hover { background: rgba(var(--warm-rgb), 0.09); }
 /* .secondary 在模板里用了 23 次，和默认态同义（安静态）—— 显式写出来，免得上游改默认态时它被带跑 */
-.dialog-footer .btn-text.secondary { color: #5f5a51; background: transparent; }
-.dialog-footer .btn-text.secondary:hover { background: rgba(120, 110, 95, 0.09); }
-.dialog-footer .btn-text.danger { color: #b3261e; }
+.dialog-footer .btn-text.secondary { color: var(--ink-2); background: transparent; }
+.dialog-footer .btn-text.secondary:hover { background: rgba(var(--warm-rgb), 0.09); }
+.dialog-footer .btn-text.danger { color: var(--danger); }
 .dialog-footer .btn-text.danger:hover { background: rgba(179, 38, 30, 0.08); }
 .dialog-footer .btn-text.primary {
-  background: #14171a;
-  color: #fff;
+  background: var(--ink);
+  color: var(--surface);
 }
 .dialog-footer .btn-text.primary:hover { background: #000; }
 
@@ -289,14 +334,14 @@
 .stage-panel::-webkit-scrollbar { width: 6px; }
 .stage-panel::-webkit-scrollbar-track { background: transparent; }
 .stage-panel::-webkit-scrollbar-thumb {
-  background: rgba(120, 110, 95, 0.14);
+  background: rgba(var(--warm-rgb), 0.14);
   border-radius: 3px;
 }
-.stage-panel::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.3); }
+.stage-panel::-webkit-scrollbar-thumb:hover { background: rgba(var(--warm-rgb), 0.3); }
 
 .stage-head { flex-shrink: 0; }
-.stage-title { margin: 0; font-size: 18px; font-weight: 600; color: #14171a; }
-.stage-desc { margin: 4px 0 0; font-size: 13px; color: #7d776d; line-height: 1.5; }
+.stage-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--ink); }
+.stage-desc { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); line-height: 1.5; }
 
 /* 主操作固定在舞台底部：按钮跟着它依赖的设置走，不再被埋在另一张卡里 */
 .stage-actions {
@@ -311,7 +356,7 @@
   flex-wrap: wrap;
   border-top: 1px solid var(--border-color);
 }
-.stage-hint { flex: 1; min-width: 120px; margin: 0; font-size: 12px; color: #9c968c; }
+.stage-hint { flex: 1; min-width: 120px; margin: 0; font-size: 12px; color: var(--ink-4); }
 
 /* 舞台内的一个分区（区块标题 + 内容） */
 .pane { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
@@ -320,7 +365,7 @@
   font-size: 13px;
   /* 规格：字重上限 600 */
   font-weight: 600;
-  color: #7d776d;
+  color: var(--ink-3);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -334,8 +379,8 @@
   border: none;
   /* 墨底白字 —— 与首页「进入」按钮同一套。
      主题色留给极少数需要品牌色的场合，主操作按钮不靠颜色抢眼。 */
-  background: #14171a;
-  color: #fff;
+  background: var(--ink);
+  color: var(--surface);
   height: 40px;
   padding: 0 20px;
   border-radius: 8px;
@@ -346,7 +391,7 @@
   white-space: nowrap;
   transition: background 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
   /* 投影也跟着换成中性色 —— 蓝色投影是主题色时代留下的，和墨底不搭 */
-  box-shadow: 0 4px 14px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 4px 14px rgba(var(--ink-rgb), 0.18);
 }
 .primary-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .primary-btn:hover:not(:disabled) { background: #000; }
@@ -365,10 +410,10 @@
   word-break: break-all;
 }
 .pack-state i { font-size: 18px; flex-shrink: 0; }
-.pack-state.ok i { color: #10b981; }
-.pack-state.fail i { color: #ef4444; }
-.pack-state.idle { color: #7d776d; }
-.pack-state.idle i { color: #9c968c; }
+.pack-state.ok i { color: var(--ok); }
+.pack-state.fail i { color: var(--danger); }
+.pack-state.idle { color: var(--ink-3); }
+.pack-state.idle i { color: var(--ink-4); }
 
 /*
  * 弹窗入场（规格 §3.3）。
@@ -408,7 +453,7 @@
   position: fixed;
   inset: 0;
   /* 暖色遮罩，和 .dialog-overlay 同一支 */
-  background: rgba(20, 23, 26, 0.28);
+  background: rgba(var(--ink-rgb), 0.28);
   z-index: 200;
 }
 
@@ -424,9 +469,9 @@
   z-index: 210;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-left: 1px solid rgba(120, 110, 95, 0.14);
+  background: var(--surface);
+  border-left: 1px solid rgba(var(--warm-rgb), 0.14);
   /* 阴影由 useSidebarSlide 在运行时用内联样式控制（enter 淡入 / leave 淡出），
      这里给一个静态兜底值，供未接该 composable 的抽屉使用 */
-  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.12);
+  box-shadow: -12px 0 36px rgba(var(--ink-rgb), 0.12);
 }

@@ -84,14 +84,14 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   overflow: hidden;
   /* 与 index.html 加载页、App.vue 的 html/body 同色 —— 三处必须一致，
      否则过渡或页面切换的瞬间会闪一下别的底色 */
-  background: #f4f2ee;
+  background: var(--bg);
 }
 
 .bg-base {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(1250px 820px at 20% 8%, #ffffff 0%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(1250px 820px at 20% 8%, var(--surface) 0%, rgba(255, 255, 255, 0) 62%),
     linear-gradient(158deg, #f8f6f2 0%, #efebe4 100%);
 }
 
@@ -121,8 +121,8 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   /* 高度逐级递减 —— 这是「越往上越小」的来源，不靠整面透视 */
   height: var(--h);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.26) 100%);
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
-  border-left: 1px solid rgba(120, 110, 95, 0.09);
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
+  border-left: 1px solid rgba(var(--warm-rgb), 0.09);
 }
 
 /* 越往上越淡 —— 在尺寸递减之外再叠一层明度衰减，纵深更明确 */
@@ -150,7 +150,7 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   inset: 0;
   background-image: repeating-linear-gradient(
     118deg,
-    rgba(120, 110, 95, 0.06) 0 1px,
+    rgba(var(--warm-rgb), 0.06) 0 1px,
     transparent 1px 13px
   );
   mask-image: linear-gradient(200deg, #000 0%, transparent 62%);

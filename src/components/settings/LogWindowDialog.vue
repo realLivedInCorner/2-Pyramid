@@ -160,7 +160,7 @@ onUnmounted(stopTimer);
   justify-content: flex-end;
   margin-bottom: 8px;
 }
-.raw-export-btn { color: #b45309; }
+.raw-export-btn { color: var(--warn); }
 .raw-warn {
   display: flex;
   align-items: center;
@@ -171,13 +171,13 @@ onUnmounted(stopTimer);
   border-radius: 10px;
   background: rgba(217, 119, 6, 0.1);
   border: 1px solid rgba(217, 119, 6, 0.25);
-  color: #b45309;
+  color: var(--warn);
   font-size: 12px;
   text-align: left;
 }
 .raw-warn i { font-size: 15px; }
 .raw-warn span { flex: 1; min-width: 200px; }
-.btn-text.danger { color: #dc2626; }
+.btn-text.danger { color: var(--danger); }
 .btn-text.danger:hover { background: rgba(220, 38, 38, 0.1); }
 .log-output {
   min-height: 220px;
@@ -185,8 +185,8 @@ onUnmounted(stopTimer);
   overflow: auto;
   padding: 12px;
   border-radius: 12px;
-  background: #14171a;
-  color: #e8e4dc;
+  background: var(--ink);
+  color: var(--surface-5);
   font-size: 11.5px;
   line-height: 1.55;
   text-align: left;

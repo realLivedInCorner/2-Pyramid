@@ -309,14 +309,14 @@ onUnmounted(() => {
 }
 /* 状态标题与 shared.css 的 .dialog-header h3 同级：15px/600。
    层级由字号和留白建立 —— 原来这里用 18px/700，比弹窗标题还重。 */
-.ud-state h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #14171a; }
-.ud-sub { margin: 0; font-size: 13px; line-height: 1.6; color: #5f5a51; }
+.ud-state h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+.ud-sub { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
 
 /* 转圈：底环不能太浅，否则静止时看不出是个环（动画被减动效关掉时尤其明显） */
 .ud-spinner {
   width: 36px; height: 36px;
-  border: 3px solid rgba(120, 110, 95, 0.14);
-  border-top-color: #14171a;
+  border: 3px solid rgba(var(--warm-rgb), 0.14);
+  border-top-color: var(--ink);
   border-radius: 50%;
   animation: ud-spin 0.7s linear infinite;
 }
@@ -327,8 +327,8 @@ onUnmounted(() => {
   width: 44px; height: 44px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: 22px;
 }
-.ud-icon-box.success { background: rgba(5, 150, 105, 0.1); color: #059669; }
-.ud-icon-box.danger { background: rgba(179, 38, 30, 0.08); color: #b3261e; }
+.ud-icon-box.success { background: rgba(5, 150, 105, 0.1); color: var(--ok); }
+.ud-icon-box.danger { background: rgba(179, 38, 30, 0.08); color: var(--danger); }
 
 /* ── 优先级标签 ──
    颜色只用来回答「必须装吗」：safe / major 是强制更新，用危险色；
@@ -340,13 +340,13 @@ onUnmounted(() => {
   font-size: 11.5px; font-weight: 600;
 }
 .priority-safe, .priority-major {
-  background: rgba(179, 38, 30, 0.08); color: #b3261e; border-color: rgba(179, 38, 30, 0.22);
+  background: rgba(179, 38, 30, 0.08); color: var(--danger); border-color: rgba(179, 38, 30, 0.22);
 }
 .priority-minor, .priority-optional {
-  background: rgba(120, 110, 95, 0.06); color: #5f5a51; border-color: rgba(120, 110, 95, 0.14);
+  background: rgba(var(--warm-rgb), 0.06); color: var(--ink-2); border-color: rgba(var(--warm-rgb), 0.14);
 }
 .priority-patch {
-  background: rgba(5, 150, 105, 0.09); color: #059669; border-color: rgba(5, 150, 105, 0.2);
+  background: rgba(5, 150, 105, 0.09); color: var(--ok); border-color: rgba(5, 150, 105, 0.2);
 }
 
 .ud-bump-line {
@@ -358,25 +358,25 @@ onUnmounted(() => {
   padding: 3px 9px; border-radius: 6px; border: 1px solid transparent;
   font-size: 11.5px; font-weight: 600;
 }
-.ud-bump-hint { font-size: 12px; color: #7d776d; }
+.ud-bump-hint { font-size: 12px; color: var(--ink-3); }
 
 /* ── 版本对比：本次更新的主角，字号压过下面每一行 ── */
 .ud-version-compare { display: flex; align-items: center; gap: 10px; }
-.v-old { font-size: 15px; color: #9c968c; }
-.v-arrow { font-size: 16px; color: #9c968c; }
+.v-old { font-size: 15px; color: var(--ink-4); }
+.v-arrow { font-size: 16px; color: var(--ink-4); }
 .v-new {
   display: inline-flex; align-items: center; gap: 8px;
-  font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: #14171a;
+  font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink);
 }
 
 .ud-beta-tag {
   font-style: normal; padding: 2px 7px; border-radius: 6px;
   font-size: 10.5px; font-weight: 600;
-  background: rgba(180, 83, 9, 0.1); color: #b45309;
+  background: rgba(180, 83, 9, 0.1); color: var(--warn);
   vertical-align: 2px;
 }
 
-.ud-meta { display: flex; gap: 14px; font-size: 12px; color: #9c968c; }
+.ud-meta { display: flex; gap: 14px; font-size: 12px; color: var(--ink-4); }
 .ud-meta i { font-size: 13px; }
 
 /* ── 更新日志 ──
@@ -385,31 +385,31 @@ onUnmounted(() => {
 .ud-notes {
   align-self: stretch; display: flex; flex-direction: column;
   margin-top: 2px; overflow: hidden; text-align: left;
-  background: rgba(120, 110, 95, 0.06);
-  border: 1px solid rgba(120, 110, 95, 0.14);
+  background: rgba(var(--warm-rgb), 0.06);
+  border: 1px solid rgba(var(--warm-rgb), 0.14);
   border-radius: 8px;
 }
 .ud-notes-head {
   flex-shrink: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-  padding: 9px 14px; border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+  padding: 9px 14px; border-bottom: 1px solid rgba(var(--warm-rgb), 0.14);
 }
-.ud-notes-title { font-size: 13px; font-weight: 600; color: #14171a; }
-.ud-notes-date { font-size: 11.5px; color: #9c968c; font-variant-numeric: tabular-nums; }
+.ud-notes-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.ud-notes-date { font-size: 11.5px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
 .ud-notes-scroll { max-height: 200px; overflow-y: auto; padding: 2px 14px 10px; }
 .ud-notes-scroll::-webkit-scrollbar { width: 6px; }
-.ud-notes-scroll::-webkit-scrollbar-thumb { background: rgba(120, 110, 95, 0.2); border-radius: 6px; }
+.ud-notes-scroll::-webkit-scrollbar-thumb { background: rgba(var(--warm-rgb), 0.2); border-radius: 6px; }
 
 /* Markdown 渲染视图。
    ⚠ .ud-md 内部节点来自 v-html，**不带 data-v 属性** ——
    普通后代选择器会被编译成 `.ud-md h2[data-v-x]` 而永远匹配不上
    （改造前 15 条日志样式全是死规则，日志因此是一堵浏览器默认样式的墙，必须走 :deep()）。 */
-.ud-md { font-size: 12.5px; line-height: 1.7; color: #5f5a51; }
+.ud-md { font-size: 12.5px; line-height: 1.7; color: var(--ink-2); }
 /* 分组标题：整条发丝线 + 上方留白，把日志切成可扫读的几段 */
 .ud-md :deep(h1), .ud-md :deep(h2), .ud-md :deep(h3), .ud-md :deep(h4) {
   margin: 14px 0 6px; padding-top: 12px;
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
   font-size: 13px; font-weight: 600; line-height: 1.4; letter-spacing: 0.01em;
-  color: #14171a;
+  color: var(--ink);
 }
 /* 首个分组紧贴面板顶部，不该再顶一条横线 */
 .ud-md :deep(h1:first-child), .ud-md :deep(h2:first-child),
@@ -421,43 +421,43 @@ onUnmounted(() => {
 .ud-md :deep(ul), .ud-md :deep(ol) { margin: 6px 0; padding-left: 18px; }
 .ud-md :deep(li) { margin: 4px 0; }
 /* 列表符号退到三级灰：条目文字才是要读的东西 */
-.ud-md :deep(li)::marker { color: #9c968c; }
-.ud-md :deep(strong) { color: #14171a; font-weight: 600; }
+.ud-md :deep(li)::marker { color: var(--ink-4); }
+.ud-md :deep(strong) { color: var(--ink); font-weight: 600; }
 .ud-md :deep(a) {
-  color: #14171a; font-weight: 500; text-decoration: none;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.3);
+  color: var(--ink); font-weight: 500; text-decoration: none;
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.3);
 }
-.ud-md :deep(a:hover) { border-bottom-color: #14171a; }
+.ud-md :deep(a:hover) { border-bottom-color: var(--ink); }
 .ud-md :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11.5px; padding: 1px 5px; border-radius: 6px;
-  background: rgba(120, 110, 95, 0.09); color: #14171a;
+  background: rgba(var(--warm-rgb), 0.09); color: var(--ink);
 }
 .ud-md :deep(pre) {
   margin: 8px 0; padding: 10px 12px; border-radius: 8px; overflow-x: auto;
-  background: rgba(120, 110, 95, 0.06);
-  border: 1px solid rgba(120, 110, 95, 0.14);
+  background: rgba(var(--warm-rgb), 0.06);
+  border: 1px solid rgba(var(--warm-rgb), 0.14);
 }
-.ud-md :deep(pre code) { padding: 0; background: transparent; color: #14171a; }
+.ud-md :deep(pre code) { padding: 0; background: transparent; color: var(--ink); }
 .ud-md :deep(blockquote) {
   margin: 8px 0; padding: 6px 12px;
-  border-left: 2px solid rgba(120, 110, 95, 0.3);
+  border-left: 2px solid rgba(var(--warm-rgb), 0.3);
   border-radius: 0 8px 8px 0;
-  background: rgba(120, 110, 95, 0.06);
-  color: #7d776d;
+  background: rgba(var(--warm-rgb), 0.06);
+  color: var(--ink-3);
 }
-.ud-md :deep(hr) { margin: 12px 0; border: none; border-top: 1px solid rgba(120, 110, 95, 0.14); }
+.ud-md :deep(hr) { margin: 12px 0; border: none; border-top: 1px solid rgba(var(--warm-rgb), 0.14); }
 
 /* ── 下载进度 ── */
 .ud-progress-bar {
   width: 100%; height: 6px; border-radius: 6px; overflow: hidden;
-  background: rgba(120, 110, 95, 0.14);
+  background: rgba(var(--warm-rgb), 0.14);
 }
-.ud-progress-fill { height: 100%; border-radius: 6px; background: #14171a; transition: width 0.2s ease; }
+.ud-progress-fill { height: 100%; border-radius: 6px; background: var(--ink); transition: width 0.2s ease; }
 /* 百分比每跳一次整行宽度就变一次；表格数字等宽后不再抖 */
-.ud-progress-text { margin: 0; font-size: 12px; color: #7d776d; font-variant-numeric: tabular-nums; }
+.ud-progress-text { margin: 0; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
-.ud-warn { margin: 0; font-size: 12px; color: #b45309; }
+.ud-warn { margin: 0; font-size: 12px; color: var(--warn); }
 
 /* ── 动作行 ──
    直接挂全局 .dialog-footer（发丝线 + 上边距 + 靠右）与 .btn-text 系列，不再自造一套按钮；

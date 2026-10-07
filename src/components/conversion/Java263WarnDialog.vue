@@ -40,11 +40,11 @@ function openBug() {
 .warn-text {
   text-align: left;
   line-height: 1.65;
-  color: #5f5a51;
+  color: var(--ink-2);
   font-size: 13.5px;
 }
 .warn-link {
-  color: var(--theme-color, #14171a);
+  color: var(--theme-color, var(--ink));
   text-decoration: underline;
   text-underline-offset: 2px;
 }

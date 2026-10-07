@@ -178,7 +178,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-16px 0 48px rgba(20, 23, 26, 0.18)' });
+} = useSidebarSlide({ shadow: '-16px 0 48px rgba(var(--ink-rgb), 0.18)' });
 
 const selectedLang = ref('zh_cn');
 const searchText = ref('');
@@ -210,7 +210,7 @@ const minecraftColors = [
   { code: 'c', hex: '#FF5555', name: t('dialog.itemName.colorNames.red') },
   { code: 'd', hex: '#FF55FF', name: t('dialog.itemName.colorNames.light_purple') },
   { code: 'e', hex: '#FFFF55', name: t('dialog.itemName.colorNames.yellow') },
-  { code: 'f', hex: '#FFFFFF', name: t('dialog.itemName.colorNames.white') },
+  { code: 'f', hex: 'var(--surface)', name: t('dialog.itemName.colorNames.white') },
 ];
 
 const minecraftFormats = [
@@ -397,7 +397,7 @@ const renderMinecraftText = (text: string) => {
     '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
     '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
     '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
-    'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF'
+    'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': 'var(--surface)'
   };
   
   const formatMap: Record<string, { style?: string, class?: string }> = {
@@ -519,8 +519,8 @@ onMounted(async () => {
   width: min(980px, 96vw);
   height: 100vh;
   z-index: 201;
-  background: #fff;
-  border-left: 1px solid rgba(120, 110, 95, 0.14);
+  background: var(--surface);
+  border-left: 1px solid rgba(var(--warm-rgb), 0.14);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -531,7 +531,7 @@ onMounted(async () => {
      这里只保证 element insert 那一帧不闪。 */
   transform: translateX(100%);
   /* 抽屉是真的浮起来的元素，投影保留；冷灰换成暖色中性投影 */
-  box-shadow: -16px 0 48px rgba(20, 23, 26, 0.18);
+  box-shadow: -16px 0 48px rgba(var(--ink-rgb), 0.18);
   will-change: transform, box-shadow;
 }
 
@@ -542,9 +542,9 @@ onMounted(async () => {
   gap: 16px;
   /* 顶部避开浮动窗口控制按钮（top:10 + ~44px 高） */
   padding: 56px 22px 14px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.14);
   flex-shrink: 0;
-  background: #fff;
+  background: var(--surface);
 }
 
 .panel-title {
@@ -552,7 +552,7 @@ onMounted(async () => {
   font-size: 18px;
   /* 原来是 800 —— 层级由字号和留白建立，面板标题不该靠字重压人 */
   font-weight: 600;
-  color: #14171a;
+  color: var(--ink);
   letter-spacing: -0.01em;
 }
 
@@ -566,17 +566,17 @@ onMounted(async () => {
   height: 32px;
   padding: 0 10px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
-  background: #fff;
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
+  background: var(--surface);
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
-  color: #5f5a51;
+  color: var(--ink-2);
   cursor: pointer;
   outline: none;
 }
-.lang-select:hover { border-color: rgba(120, 110, 95, 0.3); }
-.lang-select:focus-visible { border-color: rgba(20, 23, 26, 0.45); }
+.lang-select:hover { border-color: rgba(var(--warm-rgb), 0.3); }
+.lang-select:focus-visible { border-color: rgba(var(--ink-rgb), 0.45); }
 
 .panel-body {
   flex: 1;
@@ -605,7 +605,7 @@ onMounted(async () => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9c968c;
+  color: var(--ink-4);
   font-size: 16px;
   pointer-events: none;
 }
@@ -614,26 +614,26 @@ onMounted(async () => {
   width: 100%;
   padding: 9px 12px 9px 36px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
-  background: #fff;
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
+  background: var(--surface);
   font-size: 13px;
   font-family: inherit;
-  color: #14171a;
+  color: var(--ink);
   outline: none;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 /* 焦点环用 outline 而不是 box-shadow：投影按规格只留给真正浮起的元素。
    outline-offset 取负值，让环画在输入框内侧、不撑动同行元素。 */
 .search-input:focus {
-  border-color: rgba(20, 23, 26, 0.45);
-  outline: 2px solid rgba(20, 23, 26, 0.12);
+  border-color: rgba(var(--ink-rgb), 0.45);
+  outline: 2px solid rgba(var(--ink-rgb), 0.12);
   outline-offset: -1px;
 }
-.search-input::placeholder { color: #9c968c; }
+.search-input::placeholder { color: var(--ink-4); }
 
 .items-count {
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   white-space: nowrap;
 }
 
@@ -647,10 +647,10 @@ onMounted(async () => {
 .lang-list-container::-webkit-scrollbar { width: 8px; }
 .lang-list-container::-webkit-scrollbar-track { background: transparent; }
 .lang-list-container::-webkit-scrollbar-thumb {
-  background: rgba(120, 110, 95, 0.2);
+  background: rgba(var(--warm-rgb), 0.2);
   border-radius: 6px;
 }
-.lang-list-container::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.3); }
+.lang-list-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--warm-rgb), 0.3); }
 
 /* 双列平铺：条目数常在千条以上，单列会把一半横向空间空着 */
 .lang-grid {
@@ -678,19 +678,19 @@ onMounted(async () => {
   align-items: center;
   gap: 5px 8px;
   padding: 6px 10px;
-  border: 1px solid rgba(120, 110, 95, 0.14);
+  border: 1px solid rgba(var(--warm-rgb), 0.14);
   border-radius: 6px;
   min-width: 0;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 /* 行不是浮起物：只换底色和发丝线，不加投影 */
 .lang-item:hover {
-  border-color: rgba(120, 110, 95, 0.3);
-  background: rgba(120, 110, 95, 0.06);
+  border-color: rgba(var(--warm-rgb), 0.3);
+  background: rgba(var(--warm-rgb), 0.06);
 }
 .lang-item.is-modified {
-  border-color: rgba(120, 110, 95, 0.3);
-  background: rgba(120, 110, 95, 0.06);
+  border-color: rgba(var(--warm-rgb), 0.3);
+  background: rgba(var(--warm-rgb), 0.06);
 }
 
 .item-key {
@@ -698,8 +698,8 @@ onMounted(async () => {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
   font-weight: 500;
-  color: #7d776d;
-  background: rgba(120, 110, 95, 0.09);
+  color: var(--ink-3);
+  background: rgba(var(--warm-rgb), 0.09);
   padding: 3px 6px;
   border-radius: 6px;
   overflow: hidden;
@@ -709,8 +709,8 @@ onMounted(async () => {
 }
 /* 改过的条目把键名提到墨色 —— 比给整行染色更省事，也不会和 hover 撞色 */
 .lang-item.is-modified .item-key {
-  color: #14171a;
-  background: rgba(120, 110, 95, 0.14);
+  color: var(--ink);
+  background: rgba(var(--warm-rgb), 0.14);
 }
 
 .input-group {
@@ -726,29 +726,29 @@ onMounted(async () => {
   height: 30px;
   padding: 0 9px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
-  background: #fff;
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
+  background: var(--surface);
   font-size: 13px;
   font-family: inherit;
-  color: #14171a;
+  color: var(--ink);
   outline: none;
   transition: border-color 0.15s ease;
 }
 .edit-input:focus {
-  border-color: rgba(20, 23, 26, 0.45);
-  outline: 2px solid rgba(20, 23, 26, 0.12);
+  border-color: rgba(var(--ink-rgb), 0.45);
+  outline: 2px solid rgba(var(--ink-rgb), 0.12);
   outline-offset: -1px;
 }
-.edit-input::placeholder { color: #9c968c; }
+.edit-input::placeholder { color: var(--ink-4); }
 
 .style-btn {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
   border-radius: 6px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
-  background: #fff;
-  color: #7d776d;
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
+  background: var(--surface);
+  color: var(--ink-3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -756,9 +756,9 @@ onMounted(async () => {
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .style-btn:hover {
-  border-color: rgba(120, 110, 95, 0.3);
-  background: rgba(120, 110, 95, 0.06);
-  color: #14171a;
+  border-color: rgba(var(--warm-rgb), 0.3);
+  background: rgba(var(--warm-rgb), 0.06);
+  color: var(--ink);
 }
 
 /* 预览与「原值」这一行只在有内容时渲染（见模板的 v-if），普通条目因此是单行高 */
@@ -778,7 +778,7 @@ onMounted(async () => {
   background: #1e1e1e;
   padding: 1px 6px;
   border-radius: 6px;
-  color: #fff;
+  color: var(--surface);
   line-height: 1.5;
   max-width: 100%;
   overflow: hidden;
@@ -794,7 +794,7 @@ onMounted(async () => {
 
 .original-val {
   font-size: 11px;
-  color: #9c968c;
+  color: var(--ink-4);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -805,11 +805,11 @@ onMounted(async () => {
 .style-panel {
   position: fixed;
   width: 260px;
-  background: #fff;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  background: var(--surface);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: 0 12px 32px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 12px 32px rgba(var(--ink-rgb), 0.18);
   z-index: 2000;
   display: flex;
   flex-direction: column;
@@ -834,7 +834,7 @@ onMounted(async () => {
 .section-label {
   font-size: 10.5px;
   font-weight: 500;
-  color: #9c968c;
+  color: var(--ink-4);
   text-transform: uppercase;
   letter-spacing: 0.18em;
 }
@@ -848,7 +848,7 @@ onMounted(async () => {
 .color-swatch {
   aspect-ratio: 1;
   border-radius: 6px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   cursor: pointer;
   transition: transform 120ms var(--ease-spring);
 }
@@ -865,9 +865,9 @@ onMounted(async () => {
   min-width: 28px;
   padding: 0 7px;
   border-radius: 6px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
-  background: #fff;
-  color: #5f5a51;
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
+  background: var(--surface);
+  color: var(--ink-2);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -878,10 +878,10 @@ onMounted(async () => {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .format-btn:hover {
-  background: rgba(120, 110, 95, 0.06);
-  border-color: rgba(120, 110, 95, 0.3);
+  background: rgba(var(--warm-rgb), 0.06);
+  border-color: rgba(var(--warm-rgb), 0.3);
 }
-.format-btn.reset { color: #b3261e; }
+.format-btn.reset { color: var(--danger); }
 .format-btn.reset:hover {
   background: rgba(179, 38, 30, 0.08);
   border-color: rgba(179, 38, 30, 0.24);
@@ -889,8 +889,8 @@ onMounted(async () => {
 
 .panel-footer {
   padding: 12px 22px;
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
-  background: #fff;
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -901,8 +901,8 @@ onMounted(async () => {
 .modified-hint {
   font-size: 12px;
   font-weight: 500;
-  color: #14171a;
-  background: rgba(120, 110, 95, 0.14);
+  color: var(--ink);
+  background: rgba(var(--warm-rgb), 0.14);
   padding: 3px 10px;
   border-radius: 6px;
   margin-right: auto;
@@ -917,8 +917,8 @@ onMounted(async () => {
   padding: 3px 10px;
   border-radius: 6px;
 }
-.save-status.success { color: #10b981; background: rgba(16, 185, 129, 0.1); }
-.save-status.error { color: #b3261e; background: rgba(179, 38, 30, 0.08); }
+.save-status.success { color: var(--ok); background: rgba(16, 185, 129, 0.1); }
+.save-status.error { color: var(--danger); background: rgba(179, 38, 30, 0.08); }
 
 .footer-btns { display: flex; gap: 8px; align-items: center; }
 
@@ -936,7 +936,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: #9c968c;
+  color: var(--ink-4);
   font-size: 13px;
 }
 .loading-state i, .empty-state i { font-size: 30px; }

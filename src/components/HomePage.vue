@@ -192,8 +192,8 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  color: #14171a;
-  background: #f4f2ee;
+  color: var(--ink);
+  background: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -307,7 +307,7 @@ onUnmounted(() => {
  * 拿盒子对盒子会让 logo 看着偏高 4px（实测 logo 墨迹中心 38.3 / 名称墨迹中心 42.3），
  * 按墨迹中心对齐才对得上。
  */
-.brand-meta i { width: 3px; height: 3px; border-radius: 50%; background: #9c968c; }
+.brand-meta i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
 
 /* ══════════ 右上角：使用者与时钟 ══════════ */
 /*
@@ -327,9 +327,9 @@ onUnmounted(() => {
   letter-spacing: 0.1em;
   color: #6f6a60;
 }
-.who i { width: 3px; height: 3px; border-radius: 50%; background: #9c968c; }
+.who i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
 /* 时钟用等宽数字，秒位跳动时整行不会左右晃 */
-.who-time { font-variant-numeric: tabular-nums; color: #14171a; }
+.who-time { font-variant-numeric: tabular-nums; color: var(--ink); }
 
 /* ══════════ 右上角的修饰元素 ══════════ */
 /* 装饰组下移，给上面的使用者/时钟让位 */
@@ -346,7 +346,7 @@ onUnmounted(() => {
 }
 
 /* 十字准星 */
-.deco-cross { position: relative; width: 17px; height: 17px; color: rgba(20, 23, 26, 0.28); }
+.deco-cross { position: relative; width: 17px; height: 17px; color: rgba(var(--ink-rgb), 0.28); }
 .deco-cross::before,
 .deco-cross::after { content: ""; position: absolute; background: currentColor; }
 .deco-cross::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
@@ -354,17 +354,17 @@ onUnmounted(() => {
 
 /* 阶梯标记：五级递增的细条，是品牌阶梯锥的缩小记号 */
 .deco-steps { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
-.deco-steps i { width: 4px; background: rgba(20, 23, 26, 0.28); }
+.deco-steps i { width: 4px; background: rgba(var(--ink-rgb), 0.28); }
 .deco-steps i:nth-child(1) { height: 4px; }
 .deco-steps i:nth-child(2) { height: 7px; }
 .deco-steps i:nth-child(3) { height: 10px; }
 .deco-steps i:nth-child(4) { height: 13px; }
-.deco-steps i:nth-child(5) { height: 16px; background: rgba(20, 23, 26, 0.28); }
+.deco-steps i:nth-child(5) { height: 16px; background: rgba(var(--ink-rgb), 0.28); }
 
 /* 刻度尺：每 4 格一根长刻度 */
 .deco-scale { display: flex; align-items: flex-end; gap: 4px; height: 15px; }
-.deco-scale i { width: 1px; height: 6px; background: rgba(20, 23, 26, 0.28); }
-.deco-scale i:nth-child(4n + 1) { height: 14px; background: rgba(20, 23, 26, 0.45); }
+.deco-scale i { width: 1px; height: 6px; background: rgba(var(--ink-rgb), 0.28); }
+.deco-scale i:nth-child(4n + 1) { height: 14px; background: rgba(var(--ink-rgb), 0.45); }
 
 /* ══════════ 左下：我在看什么 ══════════ */
 .subject {
@@ -376,7 +376,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-start;
 }
-.tiny { font-size: 10px; font-weight: 400; letter-spacing: 0.2em; color: #7d776d; }
+.tiny { font-size: 10px; font-weight: 400; letter-spacing: 0.2em; color: var(--ink-3); }
 
 /*
  * 切换模块时整块重挂载。
@@ -403,12 +403,12 @@ onUnmounted(() => {
   gap: 6px;
   margin-top: 6px;
   font-weight: 300;
-  color: #14171a;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .counter .cur { font-size: 42px; line-height: 1; }
 .counter i { font-style: normal; font-size: 21px; color: #b0aa9e; }
-.counter .total { font-size: 21px; color: #7d776d; }
+.counter .total { font-size: 21px; color: var(--ink-3); }
 
 /* 模块名默认就是普通深灰，不是「已高亮」的状态 —— 重点交给用户的选择去决定 */
 .name {
@@ -417,14 +417,14 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
-  color: #14171a;
+  color: var(--ink);
 }
 .name-en {
   margin-top: 8px;
   font-size: 10.5px;
   font-weight: 400;
   letter-spacing: 0.16em;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 
 /* ══════════ 右下：动作 ══════════ */
@@ -445,10 +445,10 @@ onUnmounted(() => {
 .nav-btn {
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(20, 23, 26, 0.18);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.5);
-  color: #14171a;
+  color: var(--ink);
   font-family: inherit;
   font-size: 16px;
   font-weight: 400;
@@ -459,7 +459,7 @@ onUnmounted(() => {
     color 0.18s ease,
     border-color 0.18s ease;
 }
-.nav-btn:hover { background: #14171a; border-color: #14171a; color: #fff; }
+.nav-btn:hover { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 
 .ticks { display: flex; align-items: center; gap: 7px; }
 .tick {
@@ -468,12 +468,12 @@ onUnmounted(() => {
   border: none;
   padding: 0;
   border-radius: 3px;
-  background: rgba(20, 23, 26, 0.18);
+  background: rgba(var(--ink-rgb), 0.18);
   cursor: pointer;
   transition: width 0.26s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.18s ease;
 }
-.tick:hover { background: rgba(20, 23, 26, 0.45); }
-.tick.on { width: 22px; background: #14171a; }
+.tick:hover { background: rgba(var(--ink-rgb), 0.45); }
+.tick.on { width: 22px; background: var(--ink); }
 
 /*
  * 进入按钮：单独一块，描边态起步。
@@ -484,10 +484,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 30px;
   padding: 12px 18px;
-  border: 1px solid rgba(20, 23, 26, 0.28);
+  border: 1px solid rgba(var(--ink-rgb), 0.28);
   border-radius: 8px;
   background: transparent;
-  color: #14171a;
+  color: var(--ink);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -498,7 +498,7 @@ onUnmounted(() => {
     color 0.18s ease,
     border-color 0.18s ease;
 }
-.enter:hover { background: #14171a; border-color: #14171a; color: #fff; }
+.enter:hover { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .enter i { font-size: 15px; transition: transform 0.2s ease; }
 .enter:hover i { transform: translateX(4px); }
 

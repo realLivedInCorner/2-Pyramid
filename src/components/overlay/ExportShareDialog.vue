@@ -37,23 +37,23 @@ const emit = defineEmits<{ copy: [] }>();
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   text-align: center;
 }
 .dialog-desc {
   font-size: 12.5px;
-  color: #9c968c;
+  color: var(--ink-4);
   line-height: 1.55;
 }
 .share-code-box {
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
   word-break: break-all;
 }
 .share-code-box code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
-  color: #14171a;
+  color: var(--ink);
 }
 </style>

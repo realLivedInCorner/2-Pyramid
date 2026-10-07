@@ -20,7 +20,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: "-12px 0 36px rgba(20, 23, 26, 0.08)" });
+} = useSidebarSlide({ shadow: "-12px 0 36px rgba(var(--ink-rgb), 0.08)" });
 
 const groups = computed(() => groupVersionsByEra(MINECRAFT_VERSIONS));
 const selectedEntry = computed(
@@ -131,38 +131,38 @@ function pick(entry: VersionEntry) {
   justify-content: space-between;
   gap: 12px;
   padding: 22px 22px 14px;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
+  border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
 }
 
 .sidebar-header-text h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .sidebar-hint {
   margin-top: 4px;
   font-size: 12px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 .sidebar-close {
   border: none;
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
   width: 32px;
   height: 32px;
   border-radius: 10px;
   cursor: pointer;
-  color: #7d776d;
+  color: var(--ink-3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .sidebar-close:hover {
-  background: rgba(20, 23, 26, 0.08);
-  color: #14171a;
+  background: rgba(var(--ink-rgb), 0.08);
+  color: var(--ink);
 }
 
 .sidebar-body {
@@ -185,13 +185,13 @@ function pick(entry: VersionEntry) {
 .version-era-name {
   font-size: 12px;
   font-weight: 700;
-  color: #7d776d;
+  color: var(--ink-3);
   letter-spacing: 0.02em;
 }
 
 .version-era-count {
   font-size: 11px;
-  color: #9c968c;
+  color: var(--ink-4);
   font-variant-numeric: tabular-nums;
 }
 
@@ -208,7 +208,7 @@ function pick(entry: VersionEntry) {
   gap: 10px;
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.7);
   cursor: pointer;
@@ -231,13 +231,13 @@ function pick(entry: VersionEntry) {
 }
 
 .version-row:hover {
-  border-color: color-mix(in srgb, var(--theme-color, #14171a) 35%, transparent);
-  background: color-mix(in srgb, var(--theme-color, #14171a) 6%, white);
+  border-color: color-mix(in srgb, var(--theme-color, var(--ink)) 35%, transparent);
+  background: color-mix(in srgb, var(--theme-color, var(--ink)) 6%, white);
 }
 
 .version-row.active {
-  border-color: color-mix(in srgb, var(--theme-color, #14171a) 55%, transparent);
-  background: color-mix(in srgb, var(--theme-color, #14171a) 10%, white);
+  border-color: color-mix(in srgb, var(--theme-color, var(--ink)) 55%, transparent);
+  background: color-mix(in srgb, var(--theme-color, var(--ink)) 10%, white);
 }
 
 .version-row-main {
@@ -250,12 +250,12 @@ function pick(entry: VersionEntry) {
 .version-row-label {
   font-size: 13.5px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .version-row-meta {
   font-size: 11.5px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 .version-row-tail {
@@ -273,13 +273,13 @@ function pick(entry: VersionEntry) {
 }
 
 .status-latest {
-  background: color-mix(in srgb, var(--theme-color, #14171a) 12%, transparent);
-  color: var(--theme-color, #14171a);
+  background: color-mix(in srgb, var(--theme-color, var(--ink)) 12%, transparent);
+  color: var(--theme-color, var(--ink));
 }
 
 .status-stable {
   background: rgba(16, 185, 129, 0.10);
-  color: #059669;
+  color: var(--ok);
 }
 
 .status-beta {
@@ -288,7 +288,7 @@ function pick(entry: VersionEntry) {
 }
 
 .version-row-check {
-  color: var(--theme-color, #14171a);
+  color: var(--theme-color, var(--ink));
   font-size: 16px;
 }
 

@@ -521,7 +521,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #f4f2ee; /* StageBackdrop 自己会画底，这里只是 loading 期间的兜底 */
+  background: var(--bg); /* StageBackdrop 自己会画底，这里只是 loading 期间的兜底 */
   animation: fb-in 200ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
 }
 @keyframes fb-in {
@@ -553,26 +553,26 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   gap: 6px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
   background: transparent;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  color: #5f5a51;
+  color: var(--ink-2);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.fb-back:hover { background: rgba(120, 110, 95, 0.09); color: #14171a; }
+.fb-back:hover { background: rgba(var(--warm-rgb), 0.09); color: var(--ink); }
 .fb-title {
   margin: 0;
   /* 规格：阶段标题 18/600。比页面主标题轻 —— 这是个临时视图，不是顶层页面 */
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #14171a;
+  color: var(--ink);
 }
-.fb-sub { font-size: 11.5px; color: #9c968c; }
+.fb-sub { font-size: 11.5px; color: var(--ink-4); }
 
 /* 实验标签。与 ConversionPage 的 .exp-tag 同一形状，但按规格把字重收到 600 */
 .fb-exp {
@@ -583,9 +583,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #b45309;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
+  color: var(--warn);
+  background: var(--warn-tint);
+  border: 1px solid var(--warn-line);
 }
 
 /* 工具行 */
@@ -595,7 +595,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   gap: 10px;
   flex-shrink: 0;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.14);
 }
 
 .fb-up {
@@ -605,14 +605,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 6px;
   background: transparent;
-  color: #5f5a51;
+  color: var(--ink-2);
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.fb-up:hover:not(:disabled) { background: rgba(120, 110, 95, 0.09); color: #14171a; }
+.fb-up:hover:not(:disabled) { background: rgba(var(--warm-rgb), 0.09); color: var(--ink); }
 .fb-up:disabled { opacity: 0.35; cursor: default; }
 
 /* 面包屑：过长时横向滚动而不是折行，路径永远是一行 */
@@ -634,12 +634,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   background: transparent;
   font-family: inherit;
   font-size: 12.5px;
-  color: #5f5a51;
+  color: var(--ink-2);
   cursor: pointer;
   white-space: nowrap;
 }
-.fb-crumb:hover { background: rgba(120, 110, 95, 0.09); color: #14171a; }
-.fb-sep { color: #9c968c; font-size: 12px; }
+.fb-crumb:hover { background: rgba(var(--warm-rgb), 0.09); color: var(--ink); }
+.fb-sep { color: var(--ink-4); font-size: 12px; }
 
 .fb-filter {
   display: inline-flex;
@@ -649,9 +649,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   width: 180px;
   height: 30px;
   padding: 0 9px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 .fb-filter input {
   flex: 1;
@@ -661,7 +661,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   background: transparent;
   font-family: inherit;
   font-size: 12.5px;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .fb-hidden {
@@ -670,11 +670,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   gap: 6px;
   flex-shrink: 0;
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   cursor: pointer;
   user-select: none;
 }
-.fb-hidden input { accent-color: #14171a; }
+.fb-hidden input { accent-color: var(--ink); }
 
 /* 主体：铺满剩余高度。窗口级之后这里比弹窗里高得多，列表能显示更多行。 */
 .fb-body {
@@ -704,17 +704,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   background: transparent;
   font-family: inherit;
   font-size: 12.5px;
-  color: #5f5a51;
+  color: var(--ink-2);
   text-align: left;
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.fb-loc i { font-size: 14px; color: #9c968c; flex-shrink: 0; }
+.fb-loc i { font-size: 14px; color: var(--ink-4); flex-shrink: 0; }
 .fb-loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fb-loc:hover { background: rgba(120, 110, 95, 0.06); }
+.fb-loc:hover { background: rgba(var(--warm-rgb), 0.06); }
 /* 选中 = 墨色，和全局「静默优先、选中才亮」一致 */
-.fb-loc.on { background: rgba(20, 23, 26, 0.05); color: #14171a; font-weight: 500; }
-.fb-loc.on i { color: #14171a; }
+.fb-loc.on { background: rgba(var(--ink-rgb), 0.05); color: var(--ink); font-weight: 500; }
+.fb-loc.on i { color: var(--ink); }
 
 .fb-list-wrap { display: flex; flex-direction: column; min-height: 0; }
 
@@ -729,12 +729,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
 .fb-table-head {
   padding: 0 10px 8px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.2);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.2);
   font-size: 10px;
   font-weight: 400;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #9c968c;
+  color: var(--ink-4);
   flex-shrink: 0;
 }
 .fb-table-head .c-size,
@@ -747,20 +747,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   min-height: 36px;
   padding: 0 10px;
   border: none;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.09);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.09);
   border-radius: 6px;
   background: transparent;
   font-family: inherit;
   font-size: 13px;
-  color: #14171a;
+  color: var(--ink);
   text-align: left;
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.fb-row:hover { background: rgba(120, 110, 95, 0.06); }
-.fb-row.on { background: rgba(20, 23, 26, 0.08); }
+.fb-row:hover { background: rgba(var(--warm-rgb), 0.06); }
+.fb-row.on { background: rgba(var(--ink-rgb), 0.08); }
 /* 被扩展名过滤掉的文件仍在列表里，只是选不中 —— 见脚本注释 */
-.fb-row.dim { color: #9c968c; cursor: default; }
+.fb-row.dim { color: var(--ink-4); cursor: default; }
 .fb-row.dim .c-name i { color: #cfc9bf; }
 .fb-row.dim:hover { background: transparent; }
 
@@ -773,13 +773,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.c-name i { flex-shrink: 0; font-size: 14px; color: #9c968c; }
-.fb-row.dir .c-name i { color: #7d776d; }
+.c-name i { flex-shrink: 0; font-size: 14px; color: var(--ink-4); }
+.fb-row.dir .c-name i { color: var(--ink-3); }
 .c-size,
 .c-time {
   text-align: right;
   font-size: 11.5px;
-  color: #9c968c;
+  color: var(--ink-4);
   font-variant-numeric: tabular-nums;
 }
 
@@ -788,10 +788,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   padding: 32px 10px;
   text-align: center;
   font-size: 12.5px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
-.fb-state.err { color: #b3261e; }
-.fb-state.warn { padding: 10px; color: #b45309; }
+.fb-state.err { color: var(--danger); }
+.fb-state.warn { padding: 10px; color: var(--warn); }
 
 /* 动作行固定在窗口底部，和页面里的 .stage-actions 同一套摆法 */
 .fb-foot {
@@ -802,12 +802,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   flex-shrink: 0;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
 }
 .fb-count {
   margin-right: auto;
   font-size: 12px;
-  color: #9c968c;
+  color: var(--ink-4);
   font-variant-numeric: tabular-nums;
 }
 
@@ -815,17 +815,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   width: 240px;
   height: 34px;
   padding: 0 11px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   font-family: inherit;
   font-size: 13px;
-  color: #14171a;
+  color: var(--ink);
   outline: none;
 }
-.fb-name:focus { border-color: rgba(20, 23, 26, 0.45); }
-.fb-name.bad { border-color: #b3261e; }
-.fb-name-err { font-size: 11.5px; color: #b3261e; white-space: nowrap; }
+.fb-name:focus { border-color: rgba(var(--ink-rgb), 0.45); }
+.fb-name.bad { border-color: var(--danger); }
+.fb-name-err { font-size: 11.5px; color: var(--danger); white-space: nowrap; }
 
 /* fill-mode 用 backwards：both / forwards 会永久保留末态，元素成为包含块。
    基线里也不放 opacity: 0 —— backwards 动画结束会回落到基线，那样内容会消失。 */

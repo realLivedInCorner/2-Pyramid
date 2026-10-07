@@ -881,7 +881,7 @@ onMounted(async () => {
    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
    /* 与主页底色一致；不要 background-attachment:fixed，部分 WebView 左缘会露缝 */
    background-color: var(--bg-color);
-   background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--theme-color) 8%, var(--surface)) 100%);
    background-repeat: no-repeat;
    background-size: 100% 100%;
    color: var(--text-color); 
@@ -893,27 +893,27 @@ onMounted(async () => {
    height: 100%; 
    min-height: 100%;
    background-color: var(--bg-color);
-   background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--theme-color) 8%, var(--surface)) 100%);
    background-repeat: no-repeat;
    background-size: 100% 100%;
  } 
  
  :root { 
-   --theme-color: #14171a; 
-   --bg-color: #ffffff; 
+   --theme-color: var(--ink); 
+   --bg-color: var(--surface); 
    --sidebar-bg: #f8f9fa; 
    --text-color: #212529; 
-   --text-secondary: #7d776d; 
+   --text-secondary: var(--ink-3); 
    --border-color: #e9ecef; 
-   --hover-color: rgba(20, 23, 26, 0.05); 
+   --hover-color: rgba(var(--ink-rgb), 0.05); 
    --primary-color: var(--theme-color); 
    --accent-color: var(--theme-color); 
    --success-color: var(--theme-color); 
    --warning-color: var(--theme-color); 
    --danger-color: var(--theme-color); 
-   --shadow-light: 0 2px 4px rgba(20, 23, 26, 0.05); 
-   --shadow-medium: 0 4px 8px rgba(20, 23, 26, 0.12); 
-   --shadow-heavy: 0 8px 16px rgba(20, 23, 26, 0.18); 
+   --shadow-light: 0 2px 4px rgba(var(--ink-rgb), 0.05); 
+   --shadow-medium: 0 4px 8px rgba(var(--ink-rgb), 0.12); 
+   --shadow-heavy: 0 8px 16px rgba(var(--ink-rgb), 0.18); 
    --radius-small: 6px;
    --radius-medium: 12px;
    --radius-large: 20px;
@@ -981,7 +981,7 @@ onMounted(async () => {
    overflow: hidden; 
    /* 与主页同底色：页面切换/布局空隙时不露刺眼白边 */
    background-color: var(--bg-color);
-   background-image: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--theme-color) 8%, #ffffff) 100%);
+   background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--theme-color) 8%, var(--surface)) 100%);
    position: relative;
    z-index: 2;
  } 
@@ -1029,18 +1029,18 @@ onMounted(async () => {
      inset 0 1px 1px rgba(255, 255, 255, 0.75),
      inset 0 -1px 1px rgba(255, 255, 255, 0.18),
      inset 1px 0 1px rgba(255, 255, 255, 0.35),
-     0 10px 30px rgba(20, 23, 26, 0.12),
-     0 2px 6px rgba(20, 23, 26, 0.05);
+     0 10px 30px rgba(var(--ink-rgb), 0.12),
+     0 2px 6px rgba(var(--ink-rgb), 0.05);
    --ui-shadow-hover:
      inset 0 1px 1px rgba(255, 255, 255, 0.85),
      inset 0 -1px 1px rgba(255, 255, 255, 0.22),
      inset 1px 0 1px rgba(255, 255, 255, 0.4),
-     0 16px 40px rgba(20, 23, 26, 0.12),
-     0 4px 10px rgba(20, 23, 26, 0.08);
+     0 16px 40px rgba(var(--ink-rgb), 0.12),
+     0 4px 10px rgba(var(--ink-rgb), 0.08);
    --ui-border: 1px solid rgba(255, 255, 255, 0.55);
    --ui-btn-shadow:
      inset 0 1px 1px rgba(255, 255, 255, 0.7),
-     0 3px 10px rgba(20, 23, 26, 0.08);
+     0 3px 10px rgba(var(--ink-rgb), 0.08);
  }
 
  body.ui-frosted {
@@ -1049,10 +1049,10 @@ onMounted(async () => {
    --ui-btn-surface: #e9ebef;
    --ui-blur: 0px;
    --ui-saturate: 1;
-   --ui-shadow: 0 1px 3px rgba(20, 23, 26, 0.05);
-   --ui-shadow-hover: 0 3px 10px rgba(20, 23, 26, 0.08);
-   --ui-border: 1px solid rgba(20, 23, 26, 0.05);
-   --ui-btn-shadow: 0 1px 2px rgba(20, 23, 26, 0.05);
+   --ui-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.05);
+   --ui-shadow-hover: 0 3px 10px rgba(var(--ink-rgb), 0.08);
+   --ui-border: 1px solid rgba(var(--ink-rgb), 0.05);
+   --ui-btn-shadow: 0 1px 2px rgba(var(--ink-rgb), 0.05);
  }
 
  /* ── 卡片类（统一柔光玻璃表面 + 统一圆角） ── */
@@ -1111,7 +1111,7 @@ onMounted(async () => {
     玻璃叠成"嵌套两层按钮"的观感） */
  .app-container .segmented,
  .startup-root .segmented {
-   background: rgba(20, 23, 26, 0.05);
+   background: rgba(var(--ink-rgb), 0.05);
    border-radius: calc(var(--ui-radius-btn) + 2px);
    padding: 3px;
  }
@@ -1153,7 +1153,7 @@ onMounted(async () => {
    font-size: 13px;
    font-weight: 600;
    font-family: inherit;
-   color: #5f5a51;
+   color: var(--ink-2);
    cursor: pointer;
    flex-shrink: 0;
    user-select: none;
@@ -1164,7 +1164,7 @@ onMounted(async () => {
    color: inherit;
  }
  .app-container .back-btn:hover {
-   color: #14171a;
+   color: var(--ink);
    transform: translateY(-1px);
  }
  .app-container .back-btn:active {
@@ -1182,7 +1182,7 @@ onMounted(async () => {
    -webkit-backdrop-filter: none;
  }
  .app-container .dialog-close:hover {
-   background: rgba(20, 23, 26, 0.05);
+   background: rgba(var(--ink-rgb), 0.05);
    box-shadow: none;
    transform: none;
  }
@@ -1212,11 +1212,11 @@ onMounted(async () => {
    background:
      radial-gradient(240px circle at var(--glare-x) var(--glare-y),
        rgba(255, 255, 255, 0.5), transparent 55%),
-     color-mix(in srgb, var(--theme-color) 16%, #ffffff);
+     color-mix(in srgb, var(--theme-color) 16%, var(--surface));
    box-shadow: var(--ui-btn-shadow);
  }
  body.ui-frosted .seg-btn.active {
-   background: #ffffff;
+   background: var(--surface);
  }
 
  /* 主题色主按钮只统一圆角（保持实色） */
@@ -1316,7 +1316,7 @@ onMounted(async () => {
  } 
  
  .window-button:hover { 
-   background-color: rgba(20, 23, 26, 0.12); 
+   background-color: rgba(var(--ink-rgb), 0.12); 
    color: var(--primary-color); 
  } 
  
@@ -1771,7 +1771,7 @@ onMounted(async () => {
 
  .float-ripple-btn:hover {
    transform: translateY(-1px);
-   box-shadow: 0 6px 14px rgba(20, 23, 26, 0.12);
+   box-shadow: 0 6px 14px rgba(var(--ink-rgb), 0.12);
  }
 
  .float-ripple-btn:active {
@@ -1826,7 +1826,7 @@ onMounted(async () => {
    bottom: 125%; 
    left: 50%; 
    transform: translateX(-50%); 
-   background-color: rgba(20, 23, 26, 0.8); 
+   background-color: rgba(var(--ink-rgb), 0.8); 
    color: white; 
    padding: 6px 10px; 
    border-radius: var(--radius-small); 
@@ -1861,35 +1861,35 @@ onMounted(async () => {
 .toast-card {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 18px; border-radius: 16px;
-  background: #fff; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.18);
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  background: var(--surface); box-shadow: 0 12px 36px rgba(var(--ink-rgb), 0.18);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   cursor: pointer; max-width: 380px;
   transition: all 0.2s;
 }
 .toast-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 16px 40px rgba(var(--ink-rgb), 0.18);
 }
 .toast-icon {
   width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; flex-shrink: 0;
 }
-.toast-safe .toast-icon { background: rgba(179, 38, 30, 0.06); color: #dc2626; }
+.toast-safe .toast-icon { background: rgba(179, 38, 30, 0.06); color: var(--danger); }
 .toast-optional .toast-icon { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); }
-.toast-success .toast-icon { background: rgba(16, 185, 129, 0.10); color: #10b981; }
+.toast-success .toast-icon { background: rgba(16, 185, 129, 0.10); color: var(--ok); }
 .toast-success { cursor: default; }
-.toast-success:hover { transform: none; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.18); }
+.toast-success:hover { transform: none; box-shadow: 0 12px 36px rgba(var(--ink-rgb), 0.18); }
 .toast-text { flex: 1; min-width: 0; }
-.toast-title { font-size: 14px; font-weight: 700; color: #14171a; }
-.toast-desc { font-size: 12px; color: #7d776d; margin-top: 2px; }
+.toast-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+.toast-desc { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
 .toast-close {
   width: 28px; height: 28px; border-radius: 50%; border: none;
-  background: rgba(20, 23, 26, 0.05); color: #9c968c; cursor: pointer;
+  background: rgba(var(--ink-rgb), 0.05); color: var(--ink-4); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; flex-shrink: 0; transition: 0.2s;
 }
-.toast-close:hover { background: rgba(20, 23, 26, 0.12); color: #14171a; }
+.toast-close:hover { background: rgba(var(--ink-rgb), 0.12); color: var(--ink); }
 
 .toast-slide-enter-active {
   transition:
@@ -1926,7 +1926,7 @@ onMounted(async () => {
 .conv-guard-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 23, 26, 0.45);
+  background: rgba(var(--ink-rgb), 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1935,17 +1935,17 @@ onMounted(async () => {
 }
 
 .conv-guard {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   padding: 24px;
   width: 400px;
-  box-shadow: 0 20px 60px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 20px 60px rgba(var(--ink-rgb), 0.18);
 }
 
 .conv-guard-header h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   margin: 0;
 }
 
@@ -1955,7 +1955,7 @@ onMounted(async () => {
 
 .conv-guard-body p {
   font-size: 14px;
-  color: #7d776d;
+  color: var(--ink-3);
   margin: 0;
   line-height: 1.6;
 }
@@ -1981,8 +1981,8 @@ onMounted(async () => {
 }
 
 .conv-guard-btn.primary {
-  background: #14171a;
-  color: #fff;
+  background: var(--ink);
+  color: var(--surface);
 }
 
 .conv-guard-btn.primary:hover {
@@ -1990,12 +1990,12 @@ onMounted(async () => {
 }
 
 .conv-guard-btn.secondary {
-  background: #f2efe9;
-  color: #5f5a51;
+  background: var(--surface-3);
+  color: var(--ink-2);
 }
 
 .conv-guard-btn.secondary:hover {
-  background: #e8e4dc;
+  background: var(--surface-5);
 }
 
 /* 弹层：遮罩只做透明度，面板单独软缩放。

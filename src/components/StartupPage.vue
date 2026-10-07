@@ -207,7 +207,7 @@ async function finish() {
               <button class="lang-card" :class="{ active: selectedLang === 'en-US' }" @click="selectLang('en-US')">
                 <span class="lang-check"><i class="ri-check-line"></i></span>
                 <span class="lang-flag">
-                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="#fff" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="#C8102E" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="#fff" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="#C8102E" stroke-width="6"/></svg>
+                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="var(--surface)" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="var(--danger)" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="var(--surface)" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="var(--danger)" stroke-width="6"/></svg>
                 </span>
                 <span class="lang-name">{{ t('oobe.step1.en') }}</span>
               </button>
@@ -520,7 +520,7 @@ async function finish() {
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  background: #f7f5f1;
+  background: var(--surface-2);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
@@ -584,13 +584,13 @@ async function finish() {
   font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.4px;
-  color: #14171a;
+  color: var(--ink);
   line-height: 1.2;
 }
 
 .top-brand-tagline {
   font-size: 11.5px;
-  color: #9c968c;
+  color: var(--ink-4);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -622,8 +622,8 @@ async function finish() {
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
-  background: rgba(20, 23, 26, 0.05);
-  color: #9c968c;
+  background: rgba(var(--ink-rgb), 0.05);
+  color: var(--ink-4);
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -631,7 +631,7 @@ async function finish() {
 
 .startup-step-dot.active {
   background: var(--theme-color);
-  color: #fff;
+  color: var(--surface);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--theme-color) 40%, transparent);
 }
 
@@ -644,7 +644,7 @@ async function finish() {
   width: 16px;
   height: 2px;
   border-radius: 1px;
-  background: rgba(20, 23, 26, 0.08);
+  background: rgba(var(--ink-rgb), 0.08);
   transition: background 0.3s ease;
 }
 
@@ -682,7 +682,7 @@ async function finish() {
   font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.4px;
-  color: #14171a;
+  color: var(--ink);
   text-align: center;
 }
 
@@ -690,7 +690,7 @@ async function finish() {
   margin: 0 0 26px;
   font-size: 13.5px;
   line-height: 1.7;
-  color: #7d776d;
+  color: var(--ink-3);
   text-align: center;
   max-width: 380px;
 }
@@ -710,8 +710,8 @@ async function finish() {
   align-items: center;
   gap: 10px;
   padding: 26px 16px 20px;
-  background: #fff;
-  border: 2px solid rgba(20, 23, 26, 0.08);
+  background: var(--surface);
+  border: 2px solid rgba(var(--ink-rgb), 0.08);
   border-radius: 18px;
   cursor: pointer;
   transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -722,12 +722,12 @@ async function finish() {
 .lang-card:hover {
   border-color: color-mix(in srgb, var(--theme-color) 45%, transparent);
   transform: translateY(-3px);
-  box-shadow: 0 10px 26px rgba(20, 23, 26, 0.08);
+  box-shadow: 0 10px 26px rgba(var(--ink-rgb), 0.08);
 }
 
 .lang-card.active {
   border-color: var(--theme-color);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--theme-color) 7%, white) 0%, #fff 100%);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--theme-color) 7%, white) 0%, var(--surface) 100%);
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--theme-color) 18%, transparent),
     0 8px 24px color-mix(in srgb, var(--theme-color) 14%, transparent);
@@ -741,7 +741,7 @@ async function finish() {
   height: 20px;
   border-radius: 50%;
   background: var(--theme-color);
-  color: #fff;
+  color: var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -768,7 +768,7 @@ async function finish() {
   width: 100%;
   height: 100%;
   border-radius: 5px;
-  box-shadow: 0 2px 6px rgba(20, 23, 26, 0.12);
+  box-shadow: 0 2px 6px rgba(var(--ink-rgb), 0.12);
   transition: transform 0.28s ease;
 }
 .lang-card:hover .lang-flag svg {
@@ -778,7 +778,7 @@ async function finish() {
 .lang-name {
   font-size: 14px;
   font-weight: 600;
-  color: #5f5a51;
+  color: var(--ink-2);
 }
 
 /* 名字输入 */
@@ -793,7 +793,7 @@ async function finish() {
   top: 50%;
   transform: translateY(-50%);
   font-size: 18px;
-  color: #9c968c;
+  color: var(--ink-4);
   pointer-events: none;
 }
 
@@ -802,10 +802,10 @@ async function finish() {
   padding: 15px 20px 15px 46px;
   font-size: 16px;
   font-family: inherit;
-  border: 2px solid rgba(20, 23, 26, 0.12);
+  border: 2px solid rgba(var(--ink-rgb), 0.12);
   border-radius: 14px;
-  background: #fff;
-  color: #14171a;
+  background: var(--surface);
+  color: var(--ink);
   outline: none;
   transition: all 0.25s ease;
 }
@@ -816,13 +816,13 @@ async function finish() {
 }
 
 .startup-input::placeholder {
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 .field-hint {
   margin: 12px 0 0;
   font-size: 12.5px;
-  color: #9c968c;
+  color: var(--ink-4);
   text-align: center;
 }
 
@@ -833,10 +833,10 @@ async function finish() {
   align-items: center;
   gap: 14px;
   padding: 32px 28px;
-  background: #fff;
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  background: var(--surface);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   border-radius: 18px;
-  box-shadow: 0 4px 20px rgba(20, 23, 26, 0.05);
+  box-shadow: 0 4px 20px rgba(var(--ink-rgb), 0.05);
   text-align: center;
 }
 
@@ -849,7 +849,7 @@ async function finish() {
   margin: 0;
   font-size: 14px;
   line-height: 1.7;
-  color: #5f5a51;
+  color: var(--ink-2);
 }
 
 /* 设置行 —— 与设置页同款卡片 */
@@ -892,7 +892,7 @@ async function finish() {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 
 .startup-setting-row {
@@ -900,12 +900,12 @@ async function finish() {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-top: 1px solid rgba(20, 23, 26, 0.03);
+  border-top: 1px solid rgba(var(--ink-rgb), 0.03);
   transition: background 0.2s ease;
   min-width: 0;
 }
 .startup-setting-row:hover {
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
 }
 
 /* 行内控件不参与压缩（否则分段按钮会被挤掉、正文被压成竖排） */
@@ -955,12 +955,12 @@ async function finish() {
 .startup-setting-label {
   font-size: 14px;
   font-weight: 600;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .startup-setting-desc {
   font-size: 12px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 /* 命名模板行内编辑器 */
@@ -980,32 +980,32 @@ async function finish() {
   padding: 9px 12px;
   font-size: 13px;
   font-family: inherit;
-  border: 1.5px solid rgba(20, 23, 26, 0.12);
+  border: 1.5px solid rgba(var(--ink-rgb), 0.12);
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.05);
-  color: #14171a;
+  background: rgba(var(--ink-rgb), 0.05);
+  color: var(--ink);
   outline: none;
 }
 
 .naming-input:focus {
   border-color: var(--theme-color);
-  background: #fff;
+  background: var(--surface);
 }
 
 .naming-preview-inline {
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   word-break: break-all;
 }
 
 .naming-preview-inline b {
-  color: #14171a;
+  color: var(--ink);
 }
 
 /* 分段按钮 */
 .segmented {
   display: flex;
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
   border-radius: 10px;
   padding: 3px;
   flex-shrink: 0;
@@ -1019,20 +1019,20 @@ async function finish() {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #7d776d;
+  color: var(--ink-3);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .seg-btn.active {
-  background: #fff;
+  background: var(--surface);
   color: var(--theme-color);
-  box-shadow: 0 1px 4px rgba(20, 23, 26, 0.08);
+  box-shadow: 0 1px 4px rgba(var(--ink-rgb), 0.08);
 }
 
 .seg-btn:hover:not(.active) {
-  color: #5f5a51;
+  color: var(--ink-2);
 }
 
 /* 开关 */
@@ -1065,10 +1065,10 @@ async function finish() {
   height: 18px;
   left: 3px;
   bottom: 3px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 50%;
   transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.18);
 }
 
 .switch input:checked + .slider {
@@ -1092,20 +1092,20 @@ async function finish() {
   align-items: center;
   gap: 6px;
   padding: 6px;
-  background: #fff;
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  background: var(--surface);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   border-radius: 999px;
   box-shadow:
-    0 10px 34px rgba(20, 23, 26, 0.12),
-    0 2px 8px rgba(20, 23, 26, 0.05);
+    0 10px 34px rgba(var(--ink-rgb), 0.12),
+    0 2px 8px rgba(var(--ink-rgb), 0.05);
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
 }
 
 .nav-pill:hover {
   transform: translateY(-3px);
   box-shadow:
-    0 16px 40px rgba(20, 23, 26, 0.12),
-    0 4px 12px rgba(20, 23, 26, 0.08);
+    0 16px 40px rgba(var(--ink-rgb), 0.12),
+    0 4px 12px rgba(var(--ink-rgb), 0.08);
 }
 
 .startup-btn {
@@ -1124,7 +1124,7 @@ async function finish() {
 
 .startup-btn-primary {
   background: var(--theme-color);
-  color: #fff;
+  color: var(--surface);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-color) 35%, transparent);
 }
 
@@ -1144,13 +1144,13 @@ async function finish() {
 }
 
 .startup-btn-ghost {
-  background: rgba(20, 23, 26, 0.05);
-  color: #7d776d;
+  background: rgba(var(--ink-rgb), 0.05);
+  color: var(--ink-3);
 }
 
 .startup-btn-ghost:hover {
-  background: rgba(20, 23, 26, 0.08);
-  color: #5f5a51;
+  background: rgba(var(--ink-rgb), 0.08);
+  color: var(--ink-2);
   transform: translateY(-1px);
 }
 
@@ -1166,13 +1166,13 @@ async function finish() {
   padding: 0;
   justify-content: center;
   background: transparent;
-  color: #9c968c;
+  color: var(--ink-4);
   font-size: 17px;
 }
 
 .startup-btn-quit:hover {
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: var(--danger);
   transform: scale(1.06);
 }
 
@@ -1208,20 +1208,20 @@ async function finish() {
   align-items: center;
   gap: 6px;
   background: transparent;
-  border: 1px dashed rgba(20, 23, 26, 0.18);
+  border: 1px dashed rgba(var(--ink-rgb), 0.18);
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 700;
-  color: #5f5a51;
+  color: var(--ink-2);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .startup-restore-btn i { font-size: 14px; }
 .startup-restore-btn:hover {
-  background: rgba(20, 23, 26, 0.05);
-  border-color: var(--theme-color, #14171a);
-  color: var(--theme-color, #14171a);
+  background: rgba(var(--ink-rgb), 0.05);
+  border-color: var(--theme-color, var(--ink));
+  color: var(--theme-color, var(--ink));
 }
 
 /* ═══ 备份导入对话框 ═══ */
@@ -1232,17 +1232,17 @@ async function finish() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 23, 26, 0.45);
+  background: rgba(var(--ink-rgb), 0.45);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 .startup-backup-card {
   width: 460px;
   max-width: 92vw;
-  background: #fff;
+  background: var(--surface);
   border-radius: 18px;
   padding: 22px 22px 18px;
-  box-shadow: 0 24px 48px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 24px 48px rgba(var(--ink-rgb), 0.18);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1250,28 +1250,28 @@ async function finish() {
 .startup-backup-head {
   display: flex; align-items: center; gap: 10px;
 }
-.startup-backup-head i { font-size: 22px; color: var(--theme-color, #14171a); }
+.startup-backup-head i { font-size: 22px; color: var(--theme-color, var(--ink)); }
 .startup-backup-head h3 {
   margin: 0; flex: 1 1 auto;
-  font-size: 16px; font-weight: 800; color: #14171a;
+  font-size: 16px; font-weight: 800; color: var(--ink);
 }
 .startup-backup-close {
   background: transparent; border: none;
   font-size: 18px; line-height: 1;
-  color: #9c968c; cursor: pointer;
+  color: var(--ink-4); cursor: pointer;
   width: 28px; height: 28px;
   border-radius: 8px;
   transition: background 0.15s, color 0.15s;
 }
-.startup-backup-close:hover { background: rgba(20, 23, 26, 0.05); color: #5f5a51; }
+.startup-backup-close:hover { background: rgba(var(--ink-rgb), 0.05); color: var(--ink-2); }
 .startup-backup-desc {
   margin: 0;
-  font-size: 12.5px; line-height: 1.5; color: #5f5a51;
+  font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
 }
 .startup-backup-list {
   list-style: none;
   margin: 0; padding: 10px 12px;
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
   border-radius: 12px;
   display: flex; flex-direction: column; gap: 6px;
   max-height: 200px;
@@ -1283,10 +1283,10 @@ async function finish() {
 }
 .startup-backup-list li .label {
   flex: 0 0 140px;
-  color: #7d776d; font-weight: 600;
+  color: var(--ink-3); font-weight: 600;
 }
 .startup-backup-list li .value {
-  flex: 1 1 auto; color: #14171a; font-weight: 700;
+  flex: 1 1 auto; color: var(--ink); font-weight: 700;
 }
 .startup-backup-foot {
   display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;

@@ -52,16 +52,16 @@ function submit() {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   text-align: center;
 }
 .project-input {
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid rgba(20, 23, 26, 0.08);
+  border: 1px solid rgba(var(--ink-rgb), 0.08);
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
   font-size: 14px;
   outline: none;
   font-family: inherit;

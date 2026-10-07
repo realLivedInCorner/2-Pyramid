@@ -36,12 +36,12 @@ const emit = defineEmits<{ confirm: [] }>();
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   text-align: center;
 }
 .dialog-desc {
   font-size: 13px;
-  color: #7d776d;
+  color: var(--ink-3);
   line-height: 1.6;
 }
 </style>

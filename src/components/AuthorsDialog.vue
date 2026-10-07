@@ -45,7 +45,7 @@ const authors = [
 .authors-list {
   display: flex;
   flex-direction: column;
-  border: 1px solid #f0ede8;
+  border: 1px solid var(--surface-4);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.65);
   overflow: hidden;
@@ -61,27 +61,27 @@ const authors = [
 }
 
 .author-row + .author-row {
-  border-top: 1px solid #f0ede8;
+  border-top: 1px solid var(--surface-4);
 }
 
 .author-id {
   grid-row: 1 / span 2;
   font-size: 12px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--theme-color, #7d776d) 75%, #000);
+  color: color-mix(in srgb, var(--theme-color, var(--ink-3)) 75%, #000);
   font-variant-numeric: tabular-nums;
 }
 
 .author-name {
   font-size: 14px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   word-break: break-word;
 }
 
 .author-note {
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   line-height: 1.45;
 }
 </style>

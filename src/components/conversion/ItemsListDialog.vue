@@ -57,7 +57,7 @@ const emit = defineEmits<{ remove: [index: number] }>();
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
   text-align: left;
 }
 
@@ -71,7 +71,7 @@ const emit = defineEmits<{ remove: [index: number] }>();
 .item-name {
   font-size: 13px;
   font-weight: 600;
-  color: #14171a;
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -86,13 +86,13 @@ const emit = defineEmits<{ remove: [index: number] }>();
 
 .item-size {
   font-size: 11.5px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 .remove-item-btn {
   border: none;
   background: transparent;
-  color: #9c968c;
+  color: var(--ink-4);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
@@ -101,7 +101,7 @@ const emit = defineEmits<{ remove: [index: number] }>();
 }
 
 .remove-item-btn:hover {
-  color: #dc2626;
+  color: var(--danger);
   background: rgba(239, 68, 68, 0.08);
 }
 </style>

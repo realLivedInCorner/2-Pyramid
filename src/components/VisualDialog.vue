@@ -177,7 +177,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-12px 0 36px rgba(20, 23, 26, 0.12)' });
+} = useSidebarSlide({ shadow: '-12px 0 36px rgba(var(--ink-rgb), 0.12)' });
 
 const isSaving = ref(false);
 const saveStatus = ref<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -199,7 +199,7 @@ const settings = reactive({
 
 const outlineTypes = [
   // 「无」的色板用暖白：原 #f1f5f9 是冷板岩灰，和这一版暖色发丝线不是一支
-  { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: '#f2efe9' },
+  { id: 'none' as const, name: t('dialog.visual.outlineTypes.none'), color: 'var(--surface-3)' },
   // core_rainbow_outline：N 卡彩虹
   { id: 'rainbow' as const, name: t('dialog.visual.outlineTypes.rainbow'), color: 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)' },
   // core_rainbow_outline_hexian：其他显卡彩虹
@@ -207,7 +207,7 @@ const outlineTypes = [
   // core_gradient_outline：N 卡双色循环
   { id: 'gradient' as const, name: t('dialog.visual.outlineTypes.gradient'), color: 'linear-gradient(90deg, #b366e6, #000000)' },
   // core_outline：可改颜色 / 粗细
-  { id: 'default' as const, name: t('dialog.visual.outlineTypes.standard'), color: '#fff' }
+  { id: 'default' as const, name: t('dialog.visual.outlineTypes.standard'), color: 'var(--surface)' }
 ];
 
 function hexFromRgba(c: { r: number; g: number; b: number }) {
@@ -343,7 +343,7 @@ onMounted(loadSettings);
   width: min(420px, 94vw);
   height: 100vh;
   z-index: 201;
-  background: #fff;
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -353,27 +353,27 @@ onMounted(loadSettings);
   transform: translateX(100%);
   /* 抽屉是真脱离文档流的浮层，投影保留（卡片才一律不要）—— 但换成暖色。
      取值必须与 useSidebarSlide 传入的 inline 投影一致，否则进场瞬间会闪一下 */
-  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.12);
+  box-shadow: -12px 0 36px rgba(var(--ink-rgb), 0.12);
   /* 靠右贴边，单靠投影分不出边界；补一条暖色发丝线，和页面分隔线同一支 */
-  border-left: 1px solid rgba(120, 110, 95, 0.14);
+  border-left: 1px solid rgba(var(--warm-rgb), 0.14);
   will-change: transform, box-shadow;
 }
 
 .panel-header {
   /* 顶部避开浮动窗口控制按钮 */
   padding: 56px 1.5rem 14px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.14);
   flex-shrink: 0;
 }
 
 /* 15px / 600：与 shared.css 的 .dialog-header h3 同一档。
-   原来是 18px/700 + 冷蓝 #14171a —— 层级由字号与留白建立，不靠字重压人 */
+   原来是 18px/700 + 冷蓝 var(--ink) —— 层级由字号与留白建立，不靠字重压人 */
 .panel-title {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .panel-body {
@@ -390,7 +390,7 @@ onMounted(loadSettings);
 .panel-body::-webkit-scrollbar-track { background: transparent; }
 .panel-body::-webkit-scrollbar-thumb {
   /* 滚动条也是冷灰重灾区：rgba(0,0,0,·) 换成暖色 */
-  background: rgba(120, 110, 95, 0.2);
+  background: rgba(var(--warm-rgb), 0.2);
   border-radius: 999px;
 }
 
@@ -409,11 +409,11 @@ onMounted(loadSettings);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 
 /* 分组说明比标签再弱一档，免得和标签抢注意力 */
-.group-desc { font-size: 12px; line-height: 1.5; color: #9c968c; }
+.group-desc { font-size: 12px; line-height: 1.5; color: var(--ink-4); }
 
 /* ── 开关行 ── */
 .switch-list { display: flex; flex-direction: column; }
@@ -427,17 +427,17 @@ onMounted(loadSettings);
 }
 /* 行间一条发丝线就够分组了。原来每行套一个 #f8fafc 冷灰填充块，
    两块叠在一起反而看不出它们属于同一类设置 */
-.option-item + .option-item { border-top: 1px solid rgba(120, 110, 95, 0.14); }
+.option-item + .option-item { border-top: 1px solid rgba(var(--warm-rgb), 0.14); }
 
 .option-info { min-width: 0; }
-.option-label { font-size: 14px; font-weight: 500; color: #14171a; }
-.option-desc { margin-top: 3px; font-size: 12px; line-height: 1.5; color: #7d776d; }
+.option-label { font-size: 14px; font-weight: 500; color: var(--ink); }
+.option-desc { margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
 
 /* ── 描边选项卡 ── */
 .outline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* 页内块：一枚暖色发丝边 + 8px 圆角，无投影。
-   原来 2px #f2efe9 冷灰描边 + 12px 圆角，看着像另一种控件 */
+   原来 2px var(--surface-3) 冷灰描边 + 12px 圆角，看着像另一种控件 */
 .outline-card {
   display: flex;
   align-items: center;
@@ -446,10 +446,10 @@ onMounted(loadSettings);
   /* App.vue 的 `.app-container button` 会给按钮挂 nowrap + overflow:hidden，
      两列布局下「彩虹描边（其他显卡）」会被直接切掉 —— 这里显式恢复折行 */
   white-space: normal;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.6);
-  color: #5f5a51;
+  color: var(--ink-2);
   font-family: inherit;
   font-size: 13px;
   text-align: left;
@@ -457,14 +457,14 @@ onMounted(loadSettings);
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
 .outline-card:hover {
-  border-color: rgba(120, 110, 95, 0.3);
-  background: #fff;
-  color: #14171a;
+  border-color: rgba(var(--warm-rgb), 0.3);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 /* 选中态用墨色描边，与首页一致；主题色只留给主操作按钮 */
-.outline-card.active { border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.03); }
-.outline-card.active .outline-name { color: #14171a; }
+.outline-card.active { border-color: rgba(var(--ink-rgb), 0.45); background: rgba(var(--ink-rgb), 0.03); }
+.outline-card.active .outline-name { color: var(--ink); }
 
 /* 色板：50% 圆点，与开关滑块、状态点同一档圆角 */
 .outline-preview {
@@ -473,7 +473,7 @@ onMounted(loadSettings);
   flex-shrink: 0;
   border-radius: 50%;
   /* 浅色色板（无描边 / 白色）需要一圈发丝线才看得出边界 —— 暖色，不用 rgba(0,0,0,·) */
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
 }
 
 /* 名字最长的是「彩虹描边（其他显卡）」，两列下必然折行，行高压到 1.35 才不散 */
@@ -484,8 +484,8 @@ onMounted(loadSettings);
   padding: 12px;
   border-radius: 8px;
   /* 暖色淡面替掉原来的 rgba(20, 23, 26, 0.03) + #eef2f7 冷边 */
-  background: rgba(120, 110, 95, 0.06);
-  border: 1px solid rgba(120, 110, 95, 0.14);
+  background: rgba(var(--warm-rgb), 0.06);
+  border: 1px solid rgba(var(--warm-rgb), 0.14);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -499,7 +499,7 @@ onMounted(loadSettings);
   font-size: 13px;
 }
 
-.detail-label { font-size: 12px; font-weight: 500; line-height: 1.35; color: #7d776d; }
+.detail-label { font-size: 12px; font-weight: 500; line-height: 1.35; color: var(--ink-3); }
 
 .detail-block { display: flex; flex-direction: column; gap: 8px; }
 
@@ -509,31 +509,31 @@ onMounted(loadSettings);
   width: 36px;
   height: 28px;
   padding: 0;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 6px;
   background: none;
   cursor: pointer;
 }
-.color-hex { font-family: ui-monospace, monospace; font-size: 12px; color: #5f5a51; }
+.color-hex { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-2); }
 
-.range-input { width: 100%; min-width: 0; accent-color: #14171a; }
+.range-input { width: 100%; min-width: 0; accent-color: var(--ink); }
 .range-val {
   min-width: 40px;
   text-align: right;
   font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: #14171a;
+  color: var(--ink);
 }
 
-.detail-hint { margin: 0; font-size: 12px; line-height: 1.55; color: #9c968c; }
+.detail-hint { margin: 0; font-size: 12px; line-height: 1.55; color: var(--ink-4); }
 
 /* ── 双色循环预览条 ── */
 /* 这条显示的是用户选的两种颜色，所以它自身不带任何颜色，只负责给出边界 */
 .gradient-preview {
   height: 44px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -548,7 +548,7 @@ onMounted(loadSettings);
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.94);
   /* 底色由用户决定，可能很浅；描影保证可读 —— 原来是 rgba(0,0,0,·) 冷黑 */
-  text-shadow: 0 1px 2px rgba(20, 23, 26, 0.45);
+  text-shadow: 0 1px 2px rgba(var(--ink-rgb), 0.45);
   pointer-events: none;
 }
 
@@ -566,7 +566,7 @@ onMounted(loadSettings);
   inset: 0;
   cursor: pointer;
   /* 未选中态用暖灰：原 #cbd5e1 是冷板岩灰 */
-  background-color: rgba(120, 110, 95, 0.3);
+  background-color: rgba(var(--warm-rgb), 0.3);
   transition: background-color 0.2s ease;
   border-radius: 999px;
 }
@@ -577,20 +577,20 @@ onMounted(loadSettings);
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: #fff;
+  background-color: var(--surface);
   transition: transform 0.2s var(--ease-out);
   border-radius: 50%;
 }
-input:checked + .slider { background-color: #14171a; }
+input:checked + .slider { background-color: var(--ink); }
 input:checked + .slider:before { transform: translateX(18px); }
 /* 原生 checkbox 已被压成 0×0，键盘聚焦只能画在轨道上才看得见 */
-input:focus-visible + .slider { outline: 2px solid rgba(20, 23, 26, 0.45); outline-offset: 2px; }
+input:focus-visible + .slider { outline: 2px solid rgba(var(--ink-rgb), 0.45); outline-offset: 2px; }
 
 .panel-footer {
   padding: 12px 1.5rem;
   /* 暖色发丝线，和页面里的分隔线同一支 */
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
-  background: #fff;
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
+  background: var(--surface);
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -610,9 +610,9 @@ input:focus-visible + .slider { outline: 2px solid rgba(20, 23, 26, 0.45); outli
   font-weight: 500;
   line-height: 1.4;
 }
-.save-status.success { color: #10b981; }
+.save-status.success { color: var(--ok); }
 /* 危险色用规格里的 #b3261e（原 #ef4444 是偏冷的 Tailwind 红） */
-.save-status.error { color: #b3261e; }
+.save-status.error { color: var(--danger); }
 
 .footer-btns { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 

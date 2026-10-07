@@ -34,7 +34,7 @@ const emit = defineEmits<{
 const hue = ref(0);
 const sat = ref(0);
 const val = ref(0);
-const hex = ref('#ffffff');
+const hex = ref('var(--surface)');
 const svRef = ref<HTMLElement | null>(null);
 const isPicking = ref(false);
 let syncing = false;
@@ -161,12 +161,12 @@ syncFromProps();
   min-width: 0;
   height: 120px;
   border-radius: 12px;
-  background: linear-gradient(90deg, #fff, hsl(var(--hue), 100%, 50%));
+  background: linear-gradient(90deg, var(--surface), hsl(var(--hue), 100%, 50%));
   overflow: hidden;
   border: 1px solid #111;
   box-shadow:
-    0 0 0 1px rgba(20, 23, 26, 0.28),
-    0 8px 20px rgba(20, 23, 26, 0.12),
+    0 0 0 1px rgba(var(--ink-rgb), 0.28),
+    0 8px 20px rgba(var(--ink-rgb), 0.12),
     0 0 18px color-mix(in srgb, var(--picker-color) 28%, transparent);
   cursor: crosshair;
 }
@@ -174,7 +174,7 @@ syncFromProps();
 .sv-white {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0));
+  background: linear-gradient(90deg, var(--surface), rgba(255, 255, 255, 0));
 }
 
 .sv-black {
@@ -187,9 +187,9 @@ syncFromProps();
   position: absolute;
   width: 12px;
   height: 12px;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(20, 23, 26, 0.45), 0 0 12px color-mix(in srgb, var(--picker-color) 60%, transparent);
+  box-shadow: 0 0 0 2px rgba(var(--ink-rgb), 0.45), 0 0 12px color-mix(in srgb, var(--picker-color) 60%, transparent);
   transform: translate(-6px, -6px);
   pointer-events: none;
 }
@@ -218,7 +218,7 @@ syncFromProps();
   border-radius: 50%;
   background: var(--picker-color);
   border: 2px solid #111;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(20, 23, 26, 0.28);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(var(--ink-rgb), 0.28);
   cursor: pointer;
   margin-top: -4px;
 }
@@ -229,7 +229,7 @@ syncFromProps();
   border-radius: 50%;
   background: var(--picker-color);
   border: 2px solid #111;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(20, 23, 26, 0.28);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(var(--ink-rgb), 0.28);
   cursor: pointer;
 }
 
@@ -248,7 +248,7 @@ syncFromProps();
 
 .color-value {
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 </style>

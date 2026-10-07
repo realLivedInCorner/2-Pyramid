@@ -108,29 +108,29 @@ const failures = computed(() =>
   gap: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
   text-align: left;
 }
 
 .result-label {
   font-size: 13px;
-  color: #7d776d;
+  color: var(--ink-3);
   font-weight: 600;
 }
 
 .result-value {
   font-size: 13px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
 .result-value.success {
-  color: #059669;
+  color: var(--ok);
 }
 
 .result-value.error {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .error-details {
@@ -141,14 +141,14 @@ const failures = computed(() =>
 .error-details h4 {
   margin: 0 0 8px;
   font-size: 13px;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 
 .error-list {
   margin: 0;
   padding-left: 18px;
   font-size: 12.5px;
-  color: #7d776d;
+  color: var(--ink-3);
   line-height: 1.55;
 }
 </style>

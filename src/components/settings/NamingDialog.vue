@@ -83,9 +83,9 @@ function save() {
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid rgba(20, 23, 26, 0.08);
+  border: 1px solid rgba(var(--ink-rgb), 0.08);
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
   font-size: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   outline: none;
@@ -96,31 +96,31 @@ function save() {
   gap: 8px;
   margin-top: 8px;
 }
-.naming-hint-label { font-size: 12px; font-weight: 700; color: #7d776d; }
+.naming-hint-label { font-size: 12px; font-weight: 700; color: var(--ink-3); }
 .naming-tag-btn {
   display: flex;
   align-items: baseline;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   border-radius: 10px;
   background: transparent;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
 }
-.naming-tag-btn:hover { background: rgba(20, 23, 26, 0.03); }
+.naming-tag-btn:hover { background: rgba(var(--ink-rgb), 0.03); }
 .naming-tag-token {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--theme-color, #14171a);
+  color: var(--theme-color, var(--ink));
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.naming-tag-desc { font-size: 12px; color: #9c968c; }
+.naming-tag-desc { font-size: 12px; color: var(--ink-4); }
 .naming-preview {
   margin-top: 8px;
   font-size: 12.5px;
-  color: #7d776d;
+  color: var(--ink-3);
   word-break: break-all;
 }
 </style>

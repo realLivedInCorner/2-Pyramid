@@ -116,7 +116,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-12px 0 36px rgba(20, 23, 26, 0.08)' });
+} = useSidebarSlide({ shadow: '-12px 0 36px rgba(var(--ink-rgb), 0.08)' });
 
 const searchText = ref('');
 const isSaving = ref(false);
@@ -246,22 +246,22 @@ onMounted(() => {
   width: min(520px, 94vw);
   height: 100vh;
   z-index: 201;
-  background: #ffffff;
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   outline: none;
   opacity: 1 !important;
   transform: translateX(100%);
-  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.08);
+  box-shadow: -12px 0 36px rgba(var(--ink-rgb), 0.08);
   will-change: transform, box-shadow;
 }
 
 .panel-header {
   /* 顶部避开浮动窗口控制按钮 */
   padding: 56px 1.5rem 1rem;
-  background: #fff;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
+  background: var(--surface);
+  border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -272,7 +272,7 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .panel-body {
@@ -288,7 +288,7 @@ onMounted(() => {
 .search-bar-container {
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--surface);
   z-index: 10;
   padding-bottom: 12px;
 }
@@ -302,15 +302,15 @@ onMounted(() => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 .search-input {
   width: 100%;
   padding: 10px 12px 10px 36px;
   border-radius: 10px;
-  border: 1px solid #e8e4dc;
-  background: #f7f5f1;
+  border: 1px solid var(--surface-5);
+  background: var(--surface-2);
   outline: none;
 }
 
@@ -336,8 +336,8 @@ onMounted(() => {
 }
 
 .item-row {
-  background: #f7f5f1;
-  border: 1px solid #f2efe9;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
   border-radius: 12px;
   padding: 12px 16px;
   display: flex;
@@ -347,15 +347,15 @@ onMounted(() => {
 }
 
 .item-row:hover {
-  background: #fff;
-  border-color: #e8e4dc;
-  box-shadow: 0 4px 12px rgba(20, 23, 26, 0.03);
+  background: var(--surface);
+  border-color: var(--surface-5);
+  box-shadow: 0 4px 12px rgba(var(--ink-rgb), 0.03);
 }
 
 .item-id {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
-  color: #5f5a51;
+  color: var(--ink-2);
   font-weight: 600;
 }
 
@@ -373,15 +373,15 @@ onMounted(() => {
 .control-group label {
   font-size: 11px;
   font-weight: 700;
-  color: #9c968c;
+  color: var(--ink-4);
   text-transform: uppercase;
 }
 
 .scale-select {
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid #e8e4dc;
-  background: #fff;
+  border: 1px solid var(--surface-5);
+  background: var(--surface);
   font-size: 12px;
   cursor: pointer;
 }
@@ -392,14 +392,14 @@ onMounted(() => {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #5f5a51;
+  color: var(--ink-2);
   cursor: pointer;
 }
 
 .panel-footer {
   padding: 12px 1.5rem;
-  background: #fff;
-  border-top: 1px solid rgba(20, 23, 26, 0.05);
+  background: var(--surface);
+  border-top: 1px solid rgba(var(--ink-rgb), 0.05);
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -430,7 +430,7 @@ onMounted(() => {
 
 .primary-btn {
   background: var(--theme-color);
-  color: #fff;
+  color: var(--surface);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 24%, transparent);
   transition: background 0.15s ease, opacity 0.15s ease;
 }
@@ -440,13 +440,13 @@ onMounted(() => {
 }
 
 .back-btn {
-  background: rgba(20, 23, 26, 0.05);
-  color: #7d776d;
+  background: rgba(var(--ink-rgb), 0.05);
+  color: var(--ink-3);
   transition: background 0.15s ease, color 0.15s ease;
 }
 .back-btn:hover {
-  background: rgba(20, 23, 26, 0.08);
-  color: #14171a;
+  background: rgba(var(--ink-rgb), 0.08);
+  color: var(--ink);
 }
 
 .spin {

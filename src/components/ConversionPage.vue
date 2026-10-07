@@ -1004,7 +1004,7 @@ const exportLogsToFile = async () => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  color: #14171a;
+  color: var(--ink);
   overflow: hidden;
   position: relative;
   display: flex;
@@ -1026,9 +1026,9 @@ const exportLogsToFile = async () => {
   font-weight: 800;
   letter-spacing: -0.6px;
   margin: 0;
-  color: #14171a;
+  color: var(--ink);
 }
-.page-subtitle { margin: 4px 0 0; color: #7d776d; font-size: 13px; }
+.page-subtitle { margin: 4px 0 0; color: var(--ink-3); font-size: 13px; }
 
 .switch-title {
   display: inline-flex;
@@ -1042,9 +1042,9 @@ const exportLogsToFile = async () => {
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 999px;
-  color: #b45309;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
+  color: var(--warn);
+  background: var(--warn-tint);
+  border: 1px solid var(--warn-line);
 }
 .help-icon {
   width: 18px;
@@ -1055,21 +1055,21 @@ const exportLogsToFile = async () => {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  color: #7d776d;
-  background: rgba(20, 23, 26, 0.05);
+  color: var(--ink-3);
+  background: rgba(var(--ink-rgb), 0.05);
   cursor: help;
   user-select: none;
 }
 
 
 /* 卡片：交给 App.vue 全局玻璃皮肤，只补布局 */
-.card-hint { font-size: 12px; color: #9c968c; margin: 0; flex-shrink: 0; }
+.card-hint { font-size: 12px; color: var(--ink-4); margin: 0; flex-shrink: 0; }
 
 
 /* 文件 / 文件夹：对齐设置页 segmented */
 .import-tabs {
   display: inline-flex;
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
   border-radius: calc(var(--ui-radius-btn) + 4px);
   padding: 3px;
   gap: 3px;
@@ -1082,18 +1082,18 @@ const exportLogsToFile = async () => {
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: #7d776d;
+  color: var(--ink-3);
   cursor: pointer;
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   font-family: inherit;
 }
-.tab-btn:hover { color: #14171a; }
+.tab-btn:hover { color: var(--ink); }
 .tab-btn.active {
-  background: #fff;
-  color: #14171a;
+  background: var(--surface);
+  color: var(--ink);
   /* 去掉两层投影（环境影 + 1px 描边影）—— 那是卡片语言的遗留。
      设置页的分段按钮已经统一成「白面 + 发丝内描边」，这里跟上。 */
-  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), 0.12);
 }
 
 /* === Version picker === */
@@ -1103,7 +1103,7 @@ const exportLogsToFile = async () => {
   gap: 14px;
   /* 发丝线 + 暖白面，不用主题色描边和内高光 —— 与设置页同一套 */
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   padding: 12px 14px;
   border-radius: 8px;
   font-family: inherit;
@@ -1116,7 +1116,7 @@ const exportLogsToFile = async () => {
 }
 .version-picker:hover {
   border-color: color-mix(in srgb, var(--theme-color) 38%, transparent);
-  box-shadow: 0 4px 16px rgba(20, 23, 26, 0.12);
+  box-shadow: 0 4px 16px rgba(var(--ink-rgb), 0.12);
   transform: translateY(-1px);
 }
 .version-picker:active { transform: translateY(0); }
@@ -1134,7 +1134,7 @@ const exportLogsToFile = async () => {
 .version-picker-label {
   font-size: 15px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -1142,7 +1142,7 @@ const exportLogsToFile = async () => {
 }
 .version-picker-range {
   font-size: 11px;
-  color: #7d776d;
+  color: var(--ink-3);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1163,11 +1163,11 @@ const exportLogsToFile = async () => {
 }
 .version-picker-chevron {
   font-size: 18px;
-  color: #9c968c;
+  color: var(--ink-4);
   transition: transform 0.22s ease, color 0.18s ease;
 }
-.version-picker:hover .version-picker-chevron { color: #14171a; }
-.version-picker.open .version-picker-chevron { transform: rotate(180deg); color: #14171a; }
+.version-picker:hover .version-picker-chevron { color: var(--ink); }
+.version-picker.open .version-picker-chevron { transform: rotate(180deg); color: var(--ink); }
 
 .switch-line {
   display: flex;
@@ -1175,7 +1175,7 @@ const exportLogsToFile = async () => {
   justify-content: space-between;
   gap: 12px;
   font-size: 13px;
-  color: #5f5a51;
+  color: var(--ink-2);
   padding-top: 2px;
 }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
@@ -1192,9 +1192,9 @@ const exportLogsToFile = async () => {
   background-color: white;
   transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(20, 23, 26, 0.12);
+  box-shadow: 0 2px 4px rgba(var(--ink-rgb), 0.12);
 }
-.switch input:checked + .slider { background-color: #14171a; }
+.switch input:checked + .slider { background-color: var(--ink); }
 .switch input:checked + .slider:before { transform: translateX(18px); }
 
 /* 步骤：更轻的竖向时间线 */
@@ -1233,7 +1233,7 @@ const exportLogsToFile = async () => {
   height: 18px;
   border-radius: 50%;
   box-sizing: border-box;
-  border: 1px solid rgba(120, 110, 95, 0.3);
+  border: 1px solid rgba(var(--warm-rgb), 0.3);
   background: transparent;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
@@ -1241,17 +1241,17 @@ const exportLogsToFile = async () => {
 .run-label { white-space: nowrap; }
 
 /* 进行中：深色描边 + 深色内芯 */
-.run-step.active { color: #14171a; font-weight: 600; }
+.run-step.active { color: var(--ink); font-weight: 600; }
 .run-step.active .run-mark {
-  border-color: #14171a;
-  background: radial-gradient(circle, #14171a 0 4px, transparent 4px);
+  border-color: var(--ink);
+  background: radial-gradient(circle, var(--ink) 0 4px, transparent 4px);
 }
 
 /* 已完成：整体填深色 */
-.run-step.done { color: #5f5a51; }
+.run-step.done { color: var(--ink-2); }
 .run-step.done .run-mark {
-  border-color: #14171a;
-  background: #14171a;
+  border-color: var(--ink);
+  background: var(--ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1260,13 +1260,13 @@ const exportLogsToFile = async () => {
 }
 
 .progress-section { margin-top: 4px; display: flex; flex-direction: column; gap: 12px; }
-.progress-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5f5a51; }
-.progress-info .spin { color: #14171a; font-size: 16px; }
+.progress-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.progress-info .spin { color: var(--ink); font-size: 16px; }
 .status-text { font-weight: 600; }
 
 .many-files-warning {
   display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: #b45309;
+  font-size: 12px; color: var(--warn);
   background: rgba(180, 83, 9, 0.05);
   border: 1px solid rgba(180, 83, 9, 0.22);
   border-radius: 8px; padding: 8px 12px;
@@ -1277,8 +1277,8 @@ const exportLogsToFile = async () => {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px;
   font-size: 12px; font-weight: 600; font-family: inherit;
-  color: #b91c1c;
-  background: #fff;
+  color: var(--danger);
+  background: var(--surface);
   border: 1px solid #fecaca;
   border-radius: var(--ui-radius-btn);
   cursor: pointer;
@@ -1290,14 +1290,14 @@ const exportLogsToFile = async () => {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
-.idle-state { color: #9c968c; font-size: 12px; padding: 8px 0; }
+.idle-state { color: var(--ink-4); font-size: 12px; padding: 8px 0; }
 
 .drop-header { display: flex; align-items: center; justify-content: space-between; }
-.drop-title { font-size: 13px; font-weight: 700; color: #7d776d; letter-spacing: 0.04em; text-transform: uppercase; }
+.drop-title { font-size: 13px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
 
 /* 拖放区：更安静、主题色描边 */
 .drag-drop-frame {
-  border: 1.5px dashed color-mix(in srgb, #14171a 18%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 18%, transparent);
   border-radius: calc(var(--ui-radius-card) + 4px);
   padding: 28px 20px;
   text-align: center;
@@ -1319,24 +1319,24 @@ const exportLogsToFile = async () => {
 }
 .drag-drop-frame.has-file {
   border-style: dashed;
-  border-color: color-mix(in srgb, #16a34a 35%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
 }
 .drop-icon-container { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .drop-icon {
   font-size: 34px;
-  color: color-mix(in srgb, var(--theme-color) 70%, #14171a);
+  color: color-mix(in srgb, var(--theme-color) 70%, var(--ink));
   line-height: 1;
 }
-.drop-icon.success { color: #16a34a; }
+.drop-icon.success { color: var(--ok); }
 .drop-text h3 { margin: 0; font-size: 14px; font-weight: 700; color: #1f2937; }
-.drop-text p { margin: 6px 0 0; color: #9c968c; font-size: 12px; }
-.drop-hint { color: #d97706 !important; font-weight: 700; }
-.bedrock-warn-text { color: #b91c1c; font-weight: 600; line-height: 1.7; }
+.drop-text p { margin: 6px 0 0; color: var(--ink-4); font-size: 12px; }
+.drop-hint { color: var(--warn) !important; font-weight: 700; }
+.bedrock-warn-text { color: var(--danger); font-weight: 600; line-height: 1.7; }
 
 .selected-items-list {
   background: rgba(255, 255, 255, 0.72);
   border-radius: calc(var(--ui-radius-card) + 2px);
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   overflow: hidden;
   min-height: 0;
   display: flex;
@@ -1344,8 +1344,8 @@ const exportLogsToFile = async () => {
 }
 .list-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px; font-size: 12px; color: #7d776d;
-  background: rgba(20, 23, 26, 0.03);
+  padding: 10px 14px; font-size: 12px; color: var(--ink-3);
+  background: rgba(var(--ink-rgb), 0.03);
   flex-shrink: 0;
 }
 .list-actions { display: flex; align-items: center; gap: 8px; }
@@ -1365,7 +1365,7 @@ const exportLogsToFile = async () => {
 .clear-btn {
   border: none;
   background: transparent;
-  color: #ef4444;
+  color: var(--danger);
   font-weight: 600;
   font-size: 12px;
   cursor: pointer;
@@ -1375,12 +1375,12 @@ const exportLogsToFile = async () => {
 .item-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px;
-  border-top: 1px solid rgba(20, 23, 26, 0.05);
+  border-top: 1px solid rgba(var(--ink-rgb), 0.05);
   transition: background 0.15s ease;
 }
-.item-row:hover { background: rgba(20, 23, 26, 0.03); }
+.item-row:hover { background: rgba(var(--ink-rgb), 0.03); }
 .item-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.item-icon { width: 18px; height: 18px; color: #14171a; display: inline-flex; align-items: center; justify-content: center; }
+.item-icon { width: 18px; height: 18px; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; }
 .item-icon i { font-size: 18px; line-height: 1; }
 .item-name {
   font-size: 13px;
@@ -1389,23 +1389,23 @@ const exportLogsToFile = async () => {
   white-space: nowrap;
 }
 .item-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.item-size { font-size: 12px; color: #9c968c; }
+.item-size { font-size: 12px; color: var(--ink-4); }
 .remove-item-btn {
   border: none;
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
   width: 22px; height: 22px;
   border-radius: 999px;
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  color: #7d776d;
+  color: var(--ink-3);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.remove-item-btn:hover { background: rgba(179, 38, 30, 0.16); color: #dc2626; }
+.remove-item-btn:hover { background: rgba(179, 38, 30, 0.16); color: var(--danger); }
 .more-row {
   padding: 10px 14px;
-  border-top: 1px solid rgba(20, 23, 26, 0.05);
-  color: #7d776d;
+  border-top: 1px solid rgba(var(--ink-rgb), 0.05);
+  color: var(--ink-3);
   font-size: 12px;
 }
 
@@ -1414,7 +1414,7 @@ const exportLogsToFile = async () => {
   width: 100%;
   border: none;
   background: var(--theme-color);
-  color: #fff;
+  color: var(--surface);
   padding: 13px 16px;
   border-radius: var(--ui-radius-btn);
   font-weight: 700;
@@ -1436,25 +1436,25 @@ const exportLogsToFile = async () => {
 .start-conversion-button:active:not(:disabled) { transform: translateY(0); }
 
 .dialog-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
-.dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #7d776d; }
+.dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: var(--ink-3); }
 .dialog-body { margin-bottom: 1.5rem; }
 .result-summary { margin-bottom: 1rem; }
-.result-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 8px; background: #f7f5f1; }
+.result-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 8px; background: var(--surface-2); }
 .result-value { font-weight: 700; }
-.result-value.success { color: #10b981; }
-.result-value.error { color: #ef4444; }
+.result-value.success { color: var(--ok); }
+.result-value.error { color: var(--danger); }
 .error-details { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: rgba(179, 38, 30, 0.06); border: 1px solid rgba(179, 38, 30, 0.16); }
-.error-details h4 { margin-top: 0; color: #dc2626; font-size: 1rem; }
+.error-details h4 { margin-top: 0; color: var(--danger); font-size: 1rem; }
 .error-list { margin: 0.5rem 0 0 0; padding-left: 1.5rem; }
-.error-list li { margin-bottom: 0.25rem; color: #b91c1c; font-size: 0.9rem; }
+.error-list li { margin-bottom: 0.25rem; color: var(--danger); font-size: 0.9rem; }
 .dialog-footer { display: flex; gap: 12px; justify-content: flex-end; margin-top: 2rem; }
 .dialog-button { padding: 8px 20px; border-radius: 10px; border: none; background: var(--theme-color); color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .dialog-button:hover:not(:disabled) { background: color-mix(in srgb, var(--theme-color) 85%, #000); transform: translateY(-1px); }
-.dialog-button.secondary { background: #f2efe9; color: #5f5a51; }
-.dialog-button.secondary:hover { background: #e8e4dc; }
-.dialog-button.danger { background: #ef4444; }
-.dialog-button.danger:hover:not(:disabled) { background: #dc2626; }
-.dialog-button:disabled { background: #ded9d0; cursor: not-allowed; }
+.dialog-button.secondary { background: var(--surface-3); color: var(--ink-2); }
+.dialog-button.secondary:hover { background: var(--surface-5); }
+.dialog-button.danger { background: var(--danger); }
+.dialog-button.danger:hover:not(:disabled) { background: var(--danger); }
+.dialog-button:disabled { background: var(--surface-6); cursor: not-allowed; }
 
 /* === Version picker sidebar (右侧抽屉,从右滑入) === */
 /* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
@@ -1470,8 +1470,8 @@ const exportLogsToFile = async () => {
   z-index: 201;
   outline: none;
   /* 投影由 useSidebarSlide 在 enter/leave 期间用内联样式维护，这里只是静态兜底。
-     颜色改暖（原来是冷黑 rgba(20, 23, 26, 0.08)，压在暖白界面上会发脏）。 */
-  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.12);
+     颜色改暖（原来是冷黑 rgba(var(--ink-rgb), 0.08)，压在暖白界面上会发脏）。 */
+  box-shadow: -12px 0 36px rgba(var(--ink-rgb), 0.12);
   /* 默认状态 = enter-from(屏幕外右侧)— element insert 时浏览器 paint 看不见。
      enter/leave 完全由 inline style + CSS transition 驱动(见 onSidebarEnter /
      onSidebarLeave),transform / box-shadow 状态由 inline style 维护,这里
@@ -1491,7 +1491,7 @@ const exportLogsToFile = async () => {
   justify-content: space-between;
   gap: 12px;
   padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
+  border-bottom: 1px solid rgba(var(--ink-rgb), 0.05);
   flex-shrink: 0;
 }
 .sidebar-header-text {
@@ -1504,13 +1504,13 @@ const exportLogsToFile = async () => {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #14171a;
+  color: var(--ink);
   letter-spacing: -0.02em;
 }
 .sidebar-hint {
   margin: 0;
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -1520,7 +1520,7 @@ const exportLogsToFile = async () => {
   flex-shrink: 0;
   border: none;
   background: transparent;
-  color: #7d776d;
+  color: var(--ink-3);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -1531,8 +1531,8 @@ const exportLogsToFile = async () => {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .sidebar-close:hover {
-  background: rgba(20, 23, 26, 0.05);
-  color: #14171a;
+  background: rgba(var(--ink-rgb), 0.05);
+  color: var(--ink);
 }
 
 .sidebar-body {
@@ -1545,10 +1545,10 @@ const exportLogsToFile = async () => {
 }
 .sidebar-body::-webkit-scrollbar { width: 6px; }
 .sidebar-body::-webkit-scrollbar-thumb {
-  background: rgba(20, 23, 26, 0.12);
+  background: rgba(var(--ink-rgb), 0.12);
   border-radius: 3px;
 }
-.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(20, 23, 26, 0.18); }
+.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(var(--ink-rgb), 0.18); }
 
 .version-era {
   display: flex;
@@ -1566,11 +1566,11 @@ const exportLogsToFile = async () => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 .version-era-count {
   font-size: 10px;
-  color: #9c968c;
+  color: var(--ink-4);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -1581,14 +1581,14 @@ const exportLogsToFile = async () => {
   to   { opacity: 1; transform: translateX(0); }
 }
 .version-row:active {
-  background: rgba(20, 23, 26, 0.05);
+  background: rgba(var(--ink-rgb), 0.05);
 }
 .version-row.has-status { padding-right: 8px; }
 
 .version-row-label {
   font-size: 14px;
   font-weight: 600;
-  color: #14171a;
+  color: var(--ink);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -1622,7 +1622,7 @@ const exportLogsToFile = async () => {
   line-height: 1.3;
 }
 .status-latest {
-  color: #fff;
+  color: var(--surface);
   background: linear-gradient(135deg, var(--theme-color), color-mix(in srgb, var(--theme-color) 65%, #000));
   box-shadow: 0 1px 3px color-mix(in srgb, var(--theme-color) 40%, transparent);
 }
@@ -1638,7 +1638,7 @@ const exportLogsToFile = async () => {
 .items-dialog-list {
   max-height: 420px;
   overflow: auto;
-  border: 1px solid rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(var(--ink-rgb), 0.05);
   border-radius: 12px;
 }
 
@@ -1705,9 +1705,9 @@ const exportLogsToFile = async () => {
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #14171a;
+  color: var(--ink);
 }
-.option-hint { margin: 4px 0 0; font-size: 12px; color: #7d776d; line-height: 1.5; }
+.option-hint { margin: 4px 0 0; font-size: 12px; color: var(--ink-3); line-height: 1.5; }
 
 /* ── 结果列表 ── */
 .result-list { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
@@ -1719,11 +1719,11 @@ const exportLogsToFile = async () => {
   background: var(--hover-color);
 }
 .result-icon { font-size: 16px; line-height: 1.45; flex-shrink: 0; }
-.result-row.success .result-icon { color: #10b981; }
-.result-row.error .result-icon { color: #ef4444; }
-.result-row.cancelled .result-icon { color: #f59e0b; }
+.result-row.success .result-icon { color: var(--ok); }
+.result-row.error .result-icon { color: var(--danger); }
+.result-row.cancelled .result-icon { color: var(--warn); }
 .result-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.result-name { font-size: 13px; font-weight: 600; color: #14171a; word-break: break-all; }
-.result-path { font-size: 11.5px; color: #7d776d; word-break: break-all; line-height: 1.45; }
-.result-path.error { color: #ef4444; }
+.result-name { font-size: 13px; font-weight: 600; color: var(--ink); word-break: break-all; }
+.result-path { font-size: 11.5px; color: var(--ink-3); word-break: break-all; line-height: 1.45; }
+.result-path.error { color: var(--danger); }
 </style>

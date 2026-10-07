@@ -122,19 +122,19 @@ function confirmReset() {
   gap: 14px;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(20, 23, 26, 0.03);
+  background: rgba(var(--ink-rgb), 0.03);
   text-align: left;
 }
 .preview-chip {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), 0.05);
   flex-shrink: 0;
 }
 .preview-text { min-width: 0; }
-.preview-title { font-size: 14px; font-weight: 700; color: #14171a; }
-.preview-sub { font-size: 12px; color: #9c968c; margin-top: 2px; }
+.preview-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+.preview-sub { font-size: 12px; color: var(--ink-4); margin-top: 2px; }
 .picker-area { width: 100%; display: flex; justify-content: center; padding: 8px 0; }
 .footer-spacer { flex: 1; }
 </style>

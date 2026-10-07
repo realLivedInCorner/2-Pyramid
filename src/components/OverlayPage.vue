@@ -435,7 +435,7 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  color: #14171a;
+  color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -494,9 +494,9 @@ onMounted(() => {
   margin-right: 140px; /* 增加边距，确保不遮挡无边框窗口的三个按钮 */
 }
 
-.title { font-size: 26px; font-weight: 800; color: #14171a; letter-spacing: -0.6px; margin: 0; }
+.title { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -0.6px; margin: 0; }
 
-.page-subtitle { margin: 4px 0 0; color: #7d776d; font-size: 13px; }
+.page-subtitle { margin: 4px 0 0; color: var(--ink-3); font-size: 13px; }
 
 .header-status {
   display: flex;
@@ -506,7 +506,7 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(20, 23, 26, 0.05);
+  box-shadow: 0 4px 12px rgba(var(--ink-rgb), 0.05);
   max-width: 480px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -515,13 +515,13 @@ onMounted(() => {
 
 .header-status.success {
   background: rgba(16, 185, 129, 0.10);
-  color: #10b981;
+  color: var(--ok);
   border: 1px solid #d1fae5;
 }
 
 .header-status.error {
   background: rgba(179, 38, 30, 0.06);
-  color: #ef4444;
+  color: var(--danger);
   border: 1px solid rgba(179, 38, 30, 0.16);
 }
 
@@ -554,12 +554,12 @@ onMounted(() => {
   justify-content: center;
   border-radius: 8px;
   cursor: pointer;
-  color: #7d776d;
+  color: var(--ink-3);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.icon-btn:hover { background: rgba(20, 23, 26, 0.05); color: #14171a; }
-.delete-btn { color: #9c968c; }
-.delete-btn:hover { color: #ef4444; background: rgba(179, 38, 30, 0.16); }
+.icon-btn:hover { background: rgba(var(--ink-rgb), 0.05); color: var(--ink); }
+.delete-btn { color: var(--ink-4); }
+.delete-btn:hover { color: var(--danger); background: rgba(179, 38, 30, 0.16); }
 
 /* 右栏：快速开始 */
 
@@ -569,13 +569,13 @@ onMounted(() => {
 
 /* 编辑：母包配置 */
 
-.meta-label { font-size: 13px; font-weight: 600; color: #7d776d; }
+.meta-label { font-size: 13px; font-weight: 600; color: var(--ink-3); }
 
 
 .path-value {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
-  color: #5f5a51;
+  color: var(--ink-2);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -590,10 +590,10 @@ onMounted(() => {
   height: 32px;
   padding: 0 12px;
   flex-shrink: 0;
-  border: 1px solid rgba(120, 110, 95, 0.2);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
   background: transparent;
-  color: #14171a;
+  color: var(--ink);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -602,8 +602,8 @@ onMounted(() => {
 }
 
 .select-pack-btn:hover {
-  border-color: color-mix(in srgb, #14171a 35%, transparent);
-  background: rgba(120, 110, 95, 0.06);
+  border-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  background: rgba(var(--warm-rgb), 0.06);
 }
 
 @media (max-width: 900px) {
@@ -639,34 +639,34 @@ onMounted(() => {
 }
 
 .package-btn {
-  background: #14171a;
-  color: #fff;
+  background: var(--ink);
+  color: var(--surface);
   border: none;
-  box-shadow: 0 6px 16px color-mix(in srgb, #14171a 28%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--ink) 28%, transparent);
   transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 .package-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, #14171a 88%, #000);
-  box-shadow: 0 8px 18px color-mix(in srgb, #14171a 32%, transparent);
+  background: color-mix(in srgb, var(--ink) 88%, #000);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--ink) 32%, transparent);
 }
 .package-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
 /* 弹窗样式 */
 
 .simple-dialog {
-  background: rgba(120, 110, 95, 0.06); padding: 32px; border-radius: 24px; width: 400px;
+  background: rgba(var(--warm-rgb), 0.06); padding: 32px; border-radius: 24px; width: 400px;
   /* 原来 0 25px 50px -12px rgba(20, 23, 26, 0.28) — blur 50px 太大,leave 期间
      opacity 渐变时 shadow 跟着渐变,大 blur 让 shadow "淡出拖尾" 看起来
      持续时间比 dialog 本身还长。改紧凑点(blur 32, opacity 0.18),跟
      leave 550ms 同步消失。 */
-  box-shadow: 0 16px 32px -8px rgba(20, 23, 26, 0.18);
+  box-shadow: 0 16px 32px -8px rgba(var(--ink-rgb), 0.18);
 }
 
-.simple-dialog h3 { margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #14171a; }
+.simple-dialog h3 { margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: var(--ink); }
 
 .project-input {
-  width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid #e8e4dc;
-  background: #f7f5f1; font-size: 15px; outline: none; transition: 0.2s; margin-bottom: 24px;
+  width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--surface-5);
+  background: var(--surface-2); font-size: 15px; outline: none; transition: 0.2s; margin-bottom: 24px;
 }
 
 .share-textarea {
@@ -678,13 +678,13 @@ onMounted(() => {
 
 .dialog-desc {
   font-size: 13px;
-  color: #7d776d;
+  color: var(--ink-3);
   margin-bottom: 16px;
   margin-top: -12px;
 }
 
 .share-code-box {
-  background: #f2efe9;
+  background: var(--surface-3);
   padding: 16px;
   border-radius: 12px;
   margin-bottom: 24px;
@@ -696,7 +696,7 @@ onMounted(() => {
 .share-code-box code {
   font-family: monospace;
   font-size: 12px;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .header-btns {
@@ -709,22 +709,22 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  background: #f2efe9;
+  background: var(--surface-3);
   border-radius: 12px;
   font-weight: 600;
   font-size: 14px;
 }
 
-.project-input:focus { border-color: #14171a; background: #fff; }
+.project-input:focus { border-color: var(--ink); background: var(--surface); }
 
 .dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
 
-.ghost-btn { padding: 10px 20px; border-radius: 12px; border: none; background: transparent; color: #7d776d; font-weight: 700; cursor: pointer; }
-.ghost-btn:hover { background: #f2efe9; color: #14171a; }
+.ghost-btn { padding: 10px 20px; border-radius: 12px; border: none; background: transparent; color: var(--ink-3); font-weight: 700; cursor: pointer; }
+.ghost-btn:hover { background: var(--surface-3); color: var(--ink); }
 
 .primary-btn {
   padding: 10px 20px; border-radius: 12px; border: none;
-  background: #14171a; color: #fff; font-weight: 700; cursor: pointer;
+  background: var(--ink); color: var(--surface); font-weight: 700; cursor: pointer;
   transition: all 0.2s;
 }
 .primary-btn:hover:not(:disabled) { opacity: 0.92; }
@@ -732,10 +732,10 @@ onMounted(() => {
 
 .danger-btn {
   padding: 10px 20px; border-radius: 12px; border: none;
-  background: #ef4444; color: #fff; font-weight: 700; cursor: pointer;
+  background: var(--danger); color: var(--surface); font-weight: 700; cursor: pointer;
   transition: all 0.2s;
 }
-.danger-btn:hover { background: #dc2626; }
+.danger-btn:hover { background: var(--danger); }
 
 /* 列表 ↔ 编辑：淡入淡出 + 轻微缩放（out-in，干净不叠影） */
 /* 旧的 view-fade（用 scale 的那份）已删除 —— 见文件末尾的新定义。
@@ -795,7 +795,7 @@ onMounted(() => {
   gap: 12px;
   flex-wrap: wrap;
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.14);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.14);
 }
 .editor-prereq .path-value {
   flex: 1;
@@ -805,7 +805,7 @@ onMounted(() => {
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
-  color: #14171a;
+  color: var(--ink);
 }
 
 .editor-mods { display: flex; flex-direction: column; gap: 12px; }
@@ -816,7 +816,7 @@ onMounted(() => {
   font-weight: 400;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 
 /* 三项等分。用 auto-fit 而不是固定三列 —— 窗口窄了会自动折行，不挤压 */
@@ -837,7 +837,7 @@ onMounted(() => {
   cursor: pointer;
   /* 与设置页、转换页同一套：发丝线 + 8px + 无投影 */
   background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(120, 110, 95, 0.14);
+  border: 1px solid rgba(var(--warm-rgb), 0.14);
   border-radius: 8px;
   transition: background 0.18s ease, border-color 0.18s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
   /*
@@ -850,15 +850,15 @@ onMounted(() => {
   animation-delay: calc(var(--i, 0) * 55ms);
 }
 .mod-tile:hover {
-  background: rgba(120, 110, 95, 0.06);
-  border-color: rgba(120, 110, 95, 0.3);
+  background: rgba(var(--warm-rgb), 0.06);
+  border-color: rgba(var(--warm-rgb), 0.3);
   transform: translateY(-2px);
 }
 .mod-tile:active { transform: translateY(0); }
 
-.mod-icon { color: #14171a; font-size: 19px; line-height: 1; }
-.mod-title { font-size: 14px; font-weight: 600; color: #14171a; }
-.mod-desc { font-size: 12px; font-weight: 400; line-height: 1.5; color: #7d776d; }
+.mod-icon { color: var(--ink); font-size: 19px; line-height: 1; }
+.mod-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.mod-desc { font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--ink-3); }
 
 /* 全局动作：靠右，与其它页面的 stage-actions 一致 */
 .editor-actions {
@@ -867,7 +867,7 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 16px;
-  border-top: 1px solid rgba(120, 110, 95, 0.14);
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
 }
 
 @keyframes mod-in {
@@ -913,13 +913,13 @@ onMounted(() => {
   font-weight: 400;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #7d776d;
+  color: var(--ink-3);
 }
 .list-toolbar .meta-label b {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0;
-  color: #14171a;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .toolbar-actions { display: inline-flex; align-items: center; gap: 8px; }
@@ -938,24 +938,24 @@ onMounted(() => {
 
 .list-head {
   padding: 0 4px 8px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.2);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.2);
   font-size: 10px;
   font-weight: 400;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 
 .list-row {
   min-height: 44px;
   padding: 0 4px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.09);
+  border-bottom: 1px solid rgba(var(--warm-rgb), 0.09);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 .list-row:last-child { border-bottom: none; }
-.list-row:hover { background: rgba(120, 110, 95, 0.06); }
+.list-row:hover { background: rgba(var(--warm-rgb), 0.06); }
 
 .col-name {
   display: inline-flex;
@@ -963,17 +963,17 @@ onMounted(() => {
   gap: 10px;
   min-width: 0;
   font-size: 13.5px;
-  color: #14171a;
+  color: var(--ink);
   /* 名字过长时省略，不换行 —— 换行会破坏表格式的行高一致性 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.col-name i { font-size: 15px; color: #9c968c; flex-shrink: 0; }
+.col-name i { font-size: 15px; color: var(--ink-4); flex-shrink: 0; }
 
 .col-time {
   font-size: 12px;
-  color: #7d776d;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1003,8 +1003,8 @@ onMounted(() => {
   gap: 6px;
   text-align: center;
 }
-.list-empty .empty-title { margin: 0; font-size: 14px; color: #5f5a51; }
-.list-empty .empty-hint { margin: 0; font-size: 12px; color: #9c968c; }
+.list-empty .empty-title { margin: 0; font-size: 14px; color: var(--ink-2); }
+.list-empty .empty-hint { margin: 0; font-size: 12px; color: var(--ink-4); }
 
 @media (max-width: 720px) {
   .list-head { display: none; }

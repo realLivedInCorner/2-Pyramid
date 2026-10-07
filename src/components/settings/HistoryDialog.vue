@@ -107,31 +107,31 @@ onMounted(() => {
   padding: 10px 8px;
   border-radius: 10px;
 }
-.history-item:hover { background: rgba(20, 23, 26, 0.03); }
+.history-item:hover { background: rgba(var(--ink-rgb), 0.03); }
 .history-status {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #9c968c;
+  background: var(--ink-4);
 }
-.history-status.ok { background: #10b981; }
-.history-status.fail { background: #ef4444; }
-.history-status.cancelled { background: #f59e0b; }
+.history-status.ok { background: var(--ok); }
+.history-status.fail { background: var(--danger); }
+.history-status.cancelled { background: var(--warn); }
 .history-info { flex: 1; min-width: 0; text-align: left; }
 .history-name {
   font-size: 13px;
   font-weight: 600;
-  color: #14171a;
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.history-meta { font-size: 11.5px; color: #9c968c; }
+.history-meta { font-size: 11.5px; color: var(--ink-4); }
 .history-empty {
   padding: 28px 12px;
   text-align: center;
   font-size: 13px;
-  color: #9c968c;
+  color: var(--ink-4);
 }
 </style>
