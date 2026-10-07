@@ -644,29 +644,8 @@ async function finish() {
   z-index: 1;
 }
 
-.panel-steps {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
 
-.startup-step-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: inherit;
-  background: rgba(var(--ink-rgb), 0.05);
-  color: var(--ink-4);
-  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
 
-.startup-step-dot i { font-size: 14px; }
 
 .startup-step-dot.active {
   background: var(--accent);
@@ -679,13 +658,6 @@ async function finish() {
   color: var(--accent);
 }
 
-.startup-step-line {
-  width: 16px;
-  height: 2px;
-  border-radius: 1px;
-  background: rgba(var(--ink-rgb), 0.08);
-  transition: background 0.3s ease;
-}
 
 .startup-step-line.done {
   background: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -886,30 +858,8 @@ async function finish() {
 }
 
 /* 欢迎/完成卡片 */
-.welcome-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 32px 28px;
-  background: var(--surface);
-  border: 1px solid rgba(var(--ink-rgb), 0.05);
-  border-radius: 18px;
-  box-shadow: 0 4px 20px rgba(var(--ink-rgb), 0.05);
-  text-align: center;
-}
 
-.welcome-card i {
-  font-size: 40px;
-  color: var(--accent);
-}
 
-.welcome-card p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--ink-2);
-}
 
 /* 设置行 —— 与设置页同款卡片 */
 .startup-settings {
@@ -1023,43 +973,14 @@ async function finish() {
 }
 
 /* 命名模板行内编辑器 */
-.naming-row-inline {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 16px 14px;
-}
 .naming-row-plain {
   border-top: none;
   padding-bottom: 4px;
 }
 
-.naming-input {
-  width: 100%;
-  padding: 9px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  border: 1.5px solid rgba(var(--ink-rgb), 0.12);
-  border-radius: 10px;
-  background: rgba(var(--ink-rgb), 0.05);
-  color: var(--ink);
-  outline: none;
-}
 
-.naming-input:focus {
-  border-color: var(--accent);
-  background: var(--surface);
-}
 
-.naming-preview-inline {
-  font-size: 12px;
-  color: var(--ink-3);
-  word-break: break-all;
-}
 
-.naming-preview-inline b {
-  color: var(--ink);
-}
 
 /* 分段按钮 */
 .segmented {
