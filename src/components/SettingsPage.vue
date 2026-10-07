@@ -71,6 +71,32 @@
       <!-- 全局设置优先 -->
       <section class="settings-group" v-if="shouldShowGroup('global') && inCategory('global')">
         <h3 class="group-title">{{ t('settings.groups.global') }}</h3>
+
+          <!--
+            实验功能：应用内文件浏览器。
+            默认关闭 —— 它没有安全性与可用性保证（能指向网络驱动器、超长路径，
+            也显示不出系统对话框能显示的全部内容）。关闭时所有选择一律走系统对话框，
+            走的是已知可用的那条路。
+          -->
+          <div class="setting-item" v-if="shouldShowItem('inAppPicker')">
+            <div class="item-icon">
+              <i class="ri-folder-open-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">
+                {{ t('settings.inAppPicker.label') }}
+                <span class="exp-tag">{{ t('common.experimental') }}</span>
+              </div>
+              <div class="desc">{{ t('settings.inAppPicker.desc') }}</div>
+              <div class="desc warn">{{ t('settings.inAppPicker.disclaimer') }}</div>
+            </div>
+            <div class="item-action">
+              <label class="switch">
+                <input type="checkbox" v-model="inAppPickerOn" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
           <div class="setting-item clickable" @click="openThemeDialog" v-if="shouldShowItem('theme')">
             <div class="item-icon">
               <i class="ri-palette-line" aria-hidden="true"></i>
@@ -707,7 +733,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
-import { pickFiles, pickSavePath } from '../composables/useFilePicker';
+import { pickFiles, pickSavePath, isInAppPickerEnabled, setInAppPickerEnabled } from '../composables/useFilePicker';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { useUpdater } from '../composables/useUpdater';
@@ -892,6 +918,17 @@ const onBackgroundRemoved = () => {
 const defaultThemeColor = '#14171a';
 const themeColor = ref('#14171a');
 
+/**
+ * 实验开关：应用内文件浏览器。
+ *
+ * 状态存在 composable 里而不是这里 —— useFilePicker 每次调用都要读它，
+ * 而设置页可能压根没挂载。这里只是一个双向绑定的视图。
+ */
+const inAppPickerOn = computed({
+  get: () => isInAppPickerEnabled().value,
+  set: (v: boolean) => setInAppPickerEnabled(v),
+});
+
 const localUserName = ref(props.userName || '');
 const searchQuery = ref('');
 const showVersionInfo = ref(false);
@@ -1050,6 +1087,7 @@ const settingItems = [
   { id: 'theme', group: 'global', label: t('settings.theme.label'), desc: t('settings.theme.searchDesc') },
   { id: 'background', group: 'global', label: t('settings.background.label'), desc: t('settings.background.desc') },
   { id: 'uiStyle', group: 'global', label: t('settings.uiStyle.label'), desc: t('settings.uiStyle.desc') },
+  { id: 'inAppPicker', group: 'global', label: t('settings.inAppPicker.label'), desc: t('settings.inAppPicker.desc') },
   { id: 'outputMode', group: 'convert', label: t('settings.outputMode.label'), desc: t('settings.outputMode.desc') },
   { id: 'notification', group: 'notification', label: t('settings.notification.label'), desc: t('settings.notification.desc') },
   { id: 'notificationMode', group: 'notification', label: t('settings.notificationMode.label'), desc: t('settings.notificationMode.desc') },
@@ -2092,6 +2130,31 @@ const onThemeReset = async () => {
 .switch input:checked + .slider:before { transform: translateX(18px); }
 .switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
 .switch.disabled { cursor: not-allowed; }
+
+/*
+ * 实验标签与免责说明。
+ * 形状沿用 ConversionPage 的 .exp-tag（琥珀底），但字重按规格收到 600；
+ * 免责那句用同一个琥珀色系的文字色，和普通说明区分开。
+ */
+.exp-tag {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  vertical-align: 1px;
+}
+.setting-item .desc.warn {
+  margin-top: 2px;
+  color: #b45309;
+  line-height: 1.5;
+}
 
 /* Dev-only destructive action */
 .setting-item.danger .item-icon { color: #b91c1c; }

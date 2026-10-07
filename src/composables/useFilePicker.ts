@@ -19,6 +19,28 @@
  */
 import { readonly, ref } from 'vue';
 
+/**
+ * Experimental opt-in, persisted like every other experimental flag in the
+ * app (`conversion.adaptShaders` set the pattern).
+ *
+ * Off by default. The in-app browser is an immersive-experience experiment:
+ * it has no guarantee of safety or usability — it can be pointed at network
+ * drives and very long paths, and it cannot show everything the OS can. Until
+ * someone deliberately turns it on, every pick keeps going to the system
+ * dialog, which is the known-good path.
+ */
+const STORAGE_KEY = 'fs.useInAppPicker';
+const inAppEnabled = ref(localStorage.getItem(STORAGE_KEY) === 'true');
+
+export function isInAppPickerEnabled() {
+  return inAppEnabled;
+}
+
+export function setInAppPickerEnabled(value: boolean) {
+  inAppEnabled.value = value;
+  localStorage.setItem(STORAGE_KEY, String(value));
+}
+
 export type PickerMode = 'files' | 'dir' | 'save';
 
 export interface PickerOptions {
@@ -75,12 +97,53 @@ const lastDir = ref<string | null>(null);
 
 let current: PendingPick | null = null;
 
+/**
+ * Fall back to the system dialog.
+ *
+ * Used when the experiment is off, and also reachable from inside the picker
+ * so a path the in-app browser cannot handle is never a dead end.
+ */
+async function nativePick(options: PickerOptions): Promise<PickResult> {
+  const { open, save } = await import('@tauri-apps/plugin-dialog');
+
+  // The in-app picker takes a flat extension list; the plugin takes filter
+  // groups. Rebuild the two-group shape the call sites used to pass, so the
+  // fallback behaves exactly like the code it replaced.
+  const exts = options.extensions ?? [];
+  const named = exts.filter((e) => e !== '*');
+  const filters = named.length
+    ? [{ name: 'Files', extensions: named }]
+    : undefined;
+
+  if (options.mode === 'save') {
+    return (await save({
+      defaultPath: options.defaultPath ?? options.defaultName,
+      filters,
+    })) as string | null;
+  }
+  if (options.mode === 'dir') {
+    return (await open({
+      directory: true,
+      multiple: options.multiple ?? false,
+    })) as PickResult;
+  }
+  return (await open({
+    multiple: options.multiple ?? false,
+    filters,
+  })) as PickResult;
+}
+
 function begin(options: PickerOptions): Promise<PickResult> {
   // A second pick while one is open would orphan the first promise. Cancel
   // it instead of leaving a caller awaiting forever.
   if (current) {
     current.resolve(null);
     current = null;
+  }
+
+  // Experimental and off by default — see STORAGE_KEY above.
+  if (!inAppEnabled.value) {
+    return nativePick(options);
   }
 
   // Normalise `defaultPath` here so the component only ever deals with a
@@ -133,6 +196,25 @@ export function useFilePickerState() {
     /** Settle the open picker. Safe to call when nothing is open. */
     finish: (value: PickResult) => {
       current?.resolve(value);
+    },
+    /**
+     * Hand the open pick to the system dialog instead.
+     *
+     * The in-app browser cannot reach everything the OS can — network drives
+     * and very long paths are the usual examples — so the escape is per
+     * invocation, not just a setting.
+     */
+    useNative: async () => {
+      const entry = current;
+      if (!entry) return;
+      current = null;
+      pending.value = null;
+      open.value = false;
+      try {
+        entry.resolve(await nativePick(entry.options));
+      } catch {
+        entry.resolve(null);
+      }
     },
   };
 }

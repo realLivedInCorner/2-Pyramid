@@ -592,6 +592,11 @@
       "promptRestored": "Built-in default prompt restored (takes effect after saving)",
       "connOk": "Connection OK: {msg}",
       "connFailed": "Connection failed: {msg}"
+    },
+    "inAppPicker": {
+      "label": "In-app file browser",
+      "desc": "Pick files and folders with the browser built into the app instead of the system dialog.",
+      "disclaimer": "Experimental: safety and usability are not guaranteed. It may reach network drives and very long paths, and cannot always show what the system dialog does. When off, every pick uses the system dialog."
     }
   },
   "overlay": {

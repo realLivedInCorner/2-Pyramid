@@ -17,7 +17,6 @@ import StageBackdrop from '../shell/StageBackdrop.vue';
 
 const { t } = useI18n();
 const picker = useFilePickerState();
-
 interface DirEntry {
   name: string;
   path: string;
@@ -39,13 +38,6 @@ interface FsLocation {
   path: string;
   kind: string;
 }
-
-/**
- * Set by the host page so "use the system dialog" can reach the plugin.
- * Kept as an injected callback rather than importing the plugin here: this
- * component should stay usable, and testable, without Tauri's dialog present.
- */
-const nativeFallback = ref<(() => void) | null>(null);
 
 const locations = ref<FsLocation[]>([]);
 const listing = ref<DirListing | null>(null);
@@ -329,8 +321,6 @@ watch(
 
 onMounted(() => window.addEventListener('keydown', onKeydown));
 onUnmounted(() => window.removeEventListener('keydown', onKeydown));
-
-defineExpose({ nativeFallback });
 </script>
 
 <template>
@@ -353,6 +343,8 @@ defineExpose({ nativeFallback });
             <span>{{ t('common.back') }}</span>
           </button>
           <h2 class="fb-title">{{ t(titleKey) }}</h2>
+          <!-- 实验标签：沿用 ConversionPage 那套 .exp-tag 的写法 -->
+          <span class="fb-exp">{{ t('common.experimental') }}</span>
           <span class="fb-sub">{{ t('fs.subtitle') }}</span>
         </div>
 
@@ -458,8 +450,8 @@ defineExpose({ nativeFallback });
             spellcheck="false"
           />
 
-          <!-- 退路：应用内浏览器拿不到的东西（网络驱动器、超长路径）仍有系统对话框可用 -->
-          <button v-if="nativeFallback" class="ghost-btn" @click="nativeFallback()">
+          <!-- 退路：应用内浏览器拿不到的东西（网络驱动器、超长路径）仍能交给系统对话框 -->
+          <button class="ghost-btn" @click="picker.useNative()">
             <i class="ri-external-link-line" aria-hidden="true"></i>
             <span>{{ t('fs.useNative') }}</span>
           </button>
@@ -538,6 +530,20 @@ defineExpose({ nativeFallback });
   color: #14171a;
 }
 .fb-sub { font-size: 11.5px; color: #9c968c; }
+
+/* 实验标签。与 ConversionPage 的 .exp-tag 同一形状，但按规格把字重收到 600 */
+.fb-exp {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
 
 /* 工具行 */
 .fb-tools {
