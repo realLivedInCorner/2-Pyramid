@@ -1004,7 +1004,7 @@ const exportLogsToFile = async () => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  color: #1d1d1f;
+  color: #14171a;
   overflow: hidden;
   position: relative;
   display: flex;
@@ -1026,9 +1026,9 @@ const exportLogsToFile = async () => {
   font-weight: 800;
   letter-spacing: -0.6px;
   margin: 0;
-  color: #1d1d1f;
+  color: #14171a;
 }
-.page-subtitle { margin: 4px 0 0; color: #86868b; font-size: 13px; }
+.page-subtitle { margin: 4px 0 0; color: #7d776d; font-size: 13px; }
 
 .switch-title {
   display: inline-flex;
@@ -1055,7 +1055,7 @@ const exportLogsToFile = async () => {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  color: #64748b;
+  color: #7d776d;
   background: rgba(20, 23, 26, 0.06);
   cursor: help;
   user-select: none;
@@ -1063,7 +1063,7 @@ const exportLogsToFile = async () => {
 
 
 /* 卡片：交给 App.vue 全局玻璃皮肤，只补布局 */
-.card-hint { font-size: 12px; color: #94a3b8; margin: 0; flex-shrink: 0; }
+.card-hint { font-size: 12px; color: #9c968c; margin: 0; flex-shrink: 0; }
 
 
 /* 文件 / 文件夹：对齐设置页 segmented */
@@ -1134,7 +1134,7 @@ const exportLogsToFile = async () => {
 .version-picker-label {
   font-size: 15px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -1142,7 +1142,7 @@ const exportLogsToFile = async () => {
 }
 .version-picker-range {
   font-size: 11px;
-  color: #86868b;
+  color: #7d776d;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1163,7 +1163,7 @@ const exportLogsToFile = async () => {
 }
 .version-picker-chevron {
   font-size: 18px;
-  color: #9ca3af;
+  color: #9c968c;
   transition: transform 0.22s ease, color 0.18s ease;
 }
 .version-picker:hover .version-picker-chevron { color: #14171a; }
@@ -1175,7 +1175,7 @@ const exportLogsToFile = async () => {
   justify-content: space-between;
   gap: 12px;
   font-size: 13px;
-  color: #374151;
+  color: #5f5a51;
   padding-top: 2px;
 }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
@@ -1260,7 +1260,7 @@ const exportLogsToFile = async () => {
 }
 
 .progress-section { margin-top: 4px; display: flex; flex-direction: column; gap: 12px; }
-.progress-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; }
+.progress-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5f5a51; }
 .progress-info .spin { color: #14171a; font-size: 16px; }
 .status-text { font-weight: 600; }
 
@@ -1285,19 +1285,19 @@ const exportLogsToFile = async () => {
   align-self: flex-start;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.cancel-btn:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; }
+.cancel-btn:hover:not(:disabled) { background: rgba(179, 38, 30, 0.06); border-color: #fca5a5; }
 .cancel-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
-.idle-state { color: #9ca3af; font-size: 12px; padding: 8px 0; }
+.idle-state { color: #9c968c; font-size: 12px; padding: 8px 0; }
 
 .drop-header { display: flex; align-items: center; justify-content: space-between; }
-.drop-title { font-size: 13px; font-weight: 700; color: #6b7280; letter-spacing: 0.04em; text-transform: uppercase; }
+.drop-title { font-size: 13px; font-weight: 700; color: #7d776d; letter-spacing: 0.04em; text-transform: uppercase; }
 
 /* 拖放区：更安静、主题色描边 */
 .drag-drop-frame {
-  border: 1.5px dashed color-mix(in srgb, #111827 18%, transparent);
+  border: 1.5px dashed color-mix(in srgb, #14171a 18%, transparent);
   border-radius: calc(var(--ui-radius-card) + 4px);
   padding: 28px 20px;
   text-align: center;
@@ -1324,12 +1324,12 @@ const exportLogsToFile = async () => {
 .drop-icon-container { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .drop-icon {
   font-size: 34px;
-  color: color-mix(in srgb, var(--theme-color) 70%, #111827);
+  color: color-mix(in srgb, var(--theme-color) 70%, #14171a);
   line-height: 1;
 }
 .drop-icon.success { color: #16a34a; }
 .drop-text h3 { margin: 0; font-size: 14px; font-weight: 700; color: #1f2937; }
-.drop-text p { margin: 6px 0 0; color: #9ca3af; font-size: 12px; }
+.drop-text p { margin: 6px 0 0; color: #9c968c; font-size: 12px; }
 .drop-hint { color: #d97706 !important; font-weight: 700; }
 .bedrock-warn-text { color: #b91c1c; font-weight: 600; line-height: 1.7; }
 
@@ -1344,7 +1344,7 @@ const exportLogsToFile = async () => {
 }
 .list-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px; font-size: 12px; color: #64748b;
+  padding: 10px 14px; font-size: 12px; color: #7d776d;
   background: rgba(20, 23, 26, 0.025);
   flex-shrink: 0;
 }
@@ -1380,7 +1380,7 @@ const exportLogsToFile = async () => {
 }
 .item-row:hover { background: rgba(20, 23, 26, 0.02); }
 .item-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.item-icon { width: 18px; height: 18px; color: #0f172a; display: inline-flex; align-items: center; justify-content: center; }
+.item-icon { width: 18px; height: 18px; color: #14171a; display: inline-flex; align-items: center; justify-content: center; }
 .item-icon i { font-size: 18px; line-height: 1; }
 .item-name {
   font-size: 13px;
@@ -1389,7 +1389,7 @@ const exportLogsToFile = async () => {
   white-space: nowrap;
 }
 .item-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.item-size { font-size: 12px; color: #9ca3af; }
+.item-size { font-size: 12px; color: #9c968c; }
 .remove-item-btn {
   border: none;
   background: rgba(20, 23, 26, 0.05);
@@ -1398,14 +1398,14 @@ const exportLogsToFile = async () => {
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  color: #6b7280;
+  color: #7d776d;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.remove-item-btn:hover { background: #fee2e2; color: #dc2626; }
+.remove-item-btn:hover { background: rgba(179, 38, 30, 0.16); color: #dc2626; }
 .more-row {
   padding: 10px 14px;
   border-top: 1px solid rgba(20, 23, 26, 0.04);
-  color: #64748b;
+  color: #7d776d;
   font-size: 12px;
 }
 
@@ -1436,25 +1436,25 @@ const exportLogsToFile = async () => {
 .start-conversion-button:active:not(:disabled) { transform: translateY(0); }
 
 .dialog-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
-.dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #64748b; }
+.dialog-close { border: none; background: transparent; font-size: 20px; cursor: pointer; color: #7d776d; }
 .dialog-body { margin-bottom: 1.5rem; }
 .result-summary { margin-bottom: 1rem; }
-.result-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 8px; background: #f8fafc; }
+.result-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 8px; background: #f7f5f1; }
 .result-value { font-weight: 700; }
 .result-value.success { color: #10b981; }
 .result-value.error { color: #ef4444; }
-.error-details { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: #fef2f2; border: 1px solid #fee2e2; }
+.error-details { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: rgba(179, 38, 30, 0.06); border: 1px solid rgba(179, 38, 30, 0.16); }
 .error-details h4 { margin-top: 0; color: #dc2626; font-size: 1rem; }
 .error-list { margin: 0.5rem 0 0 0; padding-left: 1.5rem; }
 .error-list li { margin-bottom: 0.25rem; color: #b91c1c; font-size: 0.9rem; }
 .dialog-footer { display: flex; gap: 12px; justify-content: flex-end; margin-top: 2rem; }
 .dialog-button { padding: 8px 20px; border-radius: 10px; border: none; background: var(--theme-color); color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .dialog-button:hover:not(:disabled) { background: color-mix(in srgb, var(--theme-color) 85%, #000); transform: translateY(-1px); }
-.dialog-button.secondary { background: #f1f5f9; color: #475569; }
-.dialog-button.secondary:hover { background: #e2e8f0; }
+.dialog-button.secondary { background: #f2efe9; color: #5f5a51; }
+.dialog-button.secondary:hover { background: #e8e4dc; }
 .dialog-button.danger { background: #ef4444; }
 .dialog-button.danger:hover:not(:disabled) { background: #dc2626; }
-.dialog-button:disabled { background: #cbd5e1; cursor: not-allowed; }
+.dialog-button:disabled { background: #ded9d0; cursor: not-allowed; }
 
 /* === Version picker sidebar (右侧抽屉,从右滑入) === */
 /* .sidebar-overlay 已统一到 shared.css —— 见那里的说明。
@@ -1504,13 +1504,13 @@ const exportLogsToFile = async () => {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   letter-spacing: -0.02em;
 }
 .sidebar-hint {
   margin: 0;
   font-size: 12px;
-  color: #64748b;
+  color: #7d776d;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -1520,7 +1520,7 @@ const exportLogsToFile = async () => {
   flex-shrink: 0;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: #7d776d;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -1532,7 +1532,7 @@ const exportLogsToFile = async () => {
 }
 .sidebar-close:hover {
   background: rgba(20, 23, 26, 0.05);
-  color: #1d1d1f;
+  color: #14171a;
 }
 
 .sidebar-body {
@@ -1566,11 +1566,11 @@ const exportLogsToFile = async () => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: #7d776d;
 }
 .version-era-count {
   font-size: 10px;
-  color: #94a3b8;
+  color: #9c968c;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -1588,7 +1588,7 @@ const exportLogsToFile = async () => {
 .version-row-label {
   font-size: 14px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #14171a;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -1705,9 +1705,9 @@ const exportLogsToFile = async () => {
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #14171a;
 }
-.option-hint { margin: 4px 0 0; font-size: 12px; color: #6b7280; line-height: 1.5; }
+.option-hint { margin: 4px 0 0; font-size: 12px; color: #7d776d; line-height: 1.5; }
 
 /* ── 结果列表 ── */
 .result-list { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
@@ -1723,7 +1723,7 @@ const exportLogsToFile = async () => {
 .result-row.error .result-icon { color: #ef4444; }
 .result-row.cancelled .result-icon { color: #f59e0b; }
 .result-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.result-name { font-size: 13px; font-weight: 600; color: #1d1d1f; word-break: break-all; }
-.result-path { font-size: 11.5px; color: #6b7280; word-break: break-all; line-height: 1.45; }
+.result-name { font-size: 13px; font-weight: 600; color: #14171a; word-break: break-all; }
+.result-path { font-size: 11.5px; color: #7d776d; word-break: break-all; line-height: 1.45; }
 .result-path.error { color: #ef4444; }
 </style>

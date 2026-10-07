@@ -138,13 +138,13 @@ function pick(entry: VersionEntry) {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
 }
 
 .sidebar-hint {
   margin-top: 4px;
   font-size: 12px;
-  color: #94a3b8;
+  color: #9c968c;
 }
 
 .sidebar-close {
@@ -154,7 +154,7 @@ function pick(entry: VersionEntry) {
   height: 32px;
   border-radius: 10px;
   cursor: pointer;
-  color: #64748b;
+  color: #7d776d;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -162,7 +162,7 @@ function pick(entry: VersionEntry) {
 
 .sidebar-close:hover {
   background: rgba(20, 23, 26, 0.08);
-  color: #1d1d1f;
+  color: #14171a;
 }
 
 .sidebar-body {
@@ -185,13 +185,13 @@ function pick(entry: VersionEntry) {
 .version-era-name {
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: #7d776d;
   letter-spacing: 0.02em;
 }
 
 .version-era-count {
   font-size: 11px;
-  color: #94a3b8;
+  color: #9c968c;
   font-variant-numeric: tabular-nums;
 }
 
@@ -250,12 +250,12 @@ function pick(entry: VersionEntry) {
 .version-row-label {
   font-size: 13.5px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
 }
 
 .version-row-meta {
   font-size: 11.5px;
-  color: #94a3b8;
+  color: #9c968c;
 }
 
 .version-row-tail {
@@ -278,7 +278,7 @@ function pick(entry: VersionEntry) {
 }
 
 .status-stable {
-  background: #ecfdf5;
+  background: rgba(16, 185, 129, 0.10);
   color: #059669;
 }
 

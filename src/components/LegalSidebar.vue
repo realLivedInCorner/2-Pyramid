@@ -188,12 +188,12 @@ watch(visible, (v) => {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
 }
 .legal-header p {
   margin: 4px 0 0;
   font-size: 12px;
-  color: #86868b;
+  color: #7d776d;
   line-height: 1.5;
   max-width: 42ch;
 }
@@ -224,10 +224,10 @@ watch(visible, (v) => {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: #475569;
+  color: #5f5a51;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.legal-file-list li:hover { background: rgba(20, 23, 26, 0.04); color: #1d1d1f; }
+.legal-file-list li:hover { background: rgba(20, 23, 26, 0.04); color: #14171a; }
 .legal-file-list li.active {
   background: color-mix(in srgb, var(--theme-color, #14171a) 10%, #fff);
   color: var(--theme-color, #14171a);
@@ -246,7 +246,7 @@ watch(visible, (v) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #9c968c;
   font-size: 13px;
 }
 
@@ -257,14 +257,14 @@ watch(visible, (v) => {
   padding: 16px 18px 20px;
   font-size: 13px;
   line-height: 1.65;
-  color: #334155;
+  color: #5f5a51;
 }
 .legal-md :deep(h1),
 .legal-md :deep(h2),
 .legal-md :deep(h3),
 .legal-md :deep(h4) {
   margin: 1.1em 0 0.5em;
-  color: #1d1d1f;
+  color: #14171a;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -282,7 +282,7 @@ watch(visible, (v) => {
   border-left: 3px solid color-mix(in srgb, var(--theme-color, #14171a) 40%, transparent);
   background: rgba(20, 23, 26, 0.03);
   border-radius: 0 8px 8px 0;
-  color: #475569;
+  color: #5f5a51;
 }
 .legal-md :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -295,8 +295,8 @@ watch(visible, (v) => {
   margin: 0 0 0.75em;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: #14171a;
+  color: #e8e4dc;
   overflow-x: auto;
 }
 .legal-md :deep(pre code) {
@@ -333,7 +333,7 @@ watch(visible, (v) => {
   border: none;
   border-radius: 10px;
   background: rgba(20, 23, 26, 0.04);
-  color: #64748b;
+  color: #7d776d;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -342,6 +342,6 @@ watch(visible, (v) => {
 }
 .legal-back-btn:hover {
   background: rgba(20, 23, 26, 0.08);
-  color: #1d1d1f;
+  color: #14171a;
 }
 </style>

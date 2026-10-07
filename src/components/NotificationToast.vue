@@ -151,7 +151,7 @@ const iconClass = computed(() => {
   flex: 1;
   font-size: calc(12px * var(--dpi-scale, 1));
   font-weight: 600;
-  color: #6c757d;
+  color: #7d776d;
 }
 
 .notification-close {
@@ -226,7 +226,7 @@ const iconClass = computed(() => {
 
 .notification-text {
   font-size: calc(13px * var(--dpi-scale, 1));
-  color: #6c757d;
+  color: #7d776d;
   line-height: 1.5;
 }
 

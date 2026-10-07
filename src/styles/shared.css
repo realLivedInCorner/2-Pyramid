@@ -15,7 +15,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: #7d776d;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -311,7 +311,7 @@
   flex-wrap: wrap;
   border-top: 1px solid var(--border-color);
 }
-.stage-hint { flex: 1; min-width: 120px; margin: 0; font-size: 12px; color: #9ca3af; }
+.stage-hint { flex: 1; min-width: 120px; margin: 0; font-size: 12px; color: #9c968c; }
 
 /* 舞台内的一个分区（区块标题 + 内容） */
 .pane { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
@@ -368,7 +368,7 @@
 .pack-state.ok i { color: #10b981; }
 .pack-state.fail i { color: #ef4444; }
 .pack-state.idle { color: #7d776d; }
-.pack-state.idle i { color: #9ca3af; }
+.pack-state.idle i { color: #9c968c; }
 
 /*
  * 弹窗入场（规格 §3.3）。

@@ -307,7 +307,7 @@ onUnmounted(() => {
  * 拿盒子对盒子会让 logo 看着偏高 4px（实测 logo 墨迹中心 38.3 / 名称墨迹中心 42.3），
  * 按墨迹中心对齐才对得上。
  */
-.brand-meta i { width: 3px; height: 3px; border-radius: 50%; background: #b8b2a6; }
+.brand-meta i { width: 3px; height: 3px; border-radius: 50%; background: #9c968c; }
 
 /* ══════════ 右上角：使用者与时钟 ══════════ */
 /*
@@ -327,7 +327,7 @@ onUnmounted(() => {
   letter-spacing: 0.1em;
   color: #6f6a60;
 }
-.who i { width: 3px; height: 3px; border-radius: 50%; background: #b8b2a6; }
+.who i { width: 3px; height: 3px; border-radius: 50%; background: #9c968c; }
 /* 时钟用等宽数字，秒位跳动时整行不会左右晃 */
 .who-time { font-variant-numeric: tabular-nums; color: #14171a; }
 

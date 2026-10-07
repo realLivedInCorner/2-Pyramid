@@ -435,7 +435,7 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  color: #1d1d1f;
+  color: #14171a;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -494,9 +494,9 @@ onMounted(() => {
   margin-right: 140px; /* 增加边距，确保不遮挡无边框窗口的三个按钮 */
 }
 
-.title { font-size: 26px; font-weight: 800; color: #1d1d1f; letter-spacing: -0.6px; margin: 0; }
+.title { font-size: 26px; font-weight: 800; color: #14171a; letter-spacing: -0.6px; margin: 0; }
 
-.page-subtitle { margin: 4px 0 0; color: #86868b; font-size: 13px; }
+.page-subtitle { margin: 4px 0 0; color: #7d776d; font-size: 13px; }
 
 .header-status {
   display: flex;
@@ -514,15 +514,15 @@ onMounted(() => {
 }
 
 .header-status.success {
-  background: #ecfdf5;
+  background: rgba(16, 185, 129, 0.10);
   color: #10b981;
   border: 1px solid #d1fae5;
 }
 
 .header-status.error {
-  background: #fef2f2;
+  background: rgba(179, 38, 30, 0.06);
   color: #ef4444;
-  border: 1px solid #fee2e2;
+  border: 1px solid rgba(179, 38, 30, 0.16);
 }
 
 /* status enter/leave 走全局 CSS class 模式(`<transition name="header-status-toast">`,
@@ -554,12 +554,12 @@ onMounted(() => {
   justify-content: center;
   border-radius: 8px;
   cursor: pointer;
-  color: #64748b;
+  color: #7d776d;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.icon-btn:hover { background: rgba(20, 23, 26, 0.05); color: #1d1d1f; }
-.delete-btn { color: #94a3b8; }
-.delete-btn:hover { color: #ef4444; background: #fee2e2; }
+.icon-btn:hover { background: rgba(20, 23, 26, 0.05); color: #14171a; }
+.delete-btn { color: #9c968c; }
+.delete-btn:hover { color: #ef4444; background: rgba(179, 38, 30, 0.16); }
 
 /* 右栏：快速开始 */
 
@@ -569,13 +569,13 @@ onMounted(() => {
 
 /* 编辑：母包配置 */
 
-.meta-label { font-size: 13px; font-weight: 600; color: #64748b; }
+.meta-label { font-size: 13px; font-weight: 600; color: #7d776d; }
 
 
 .path-value {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
-  color: #475569;
+  color: #5f5a51;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -593,7 +593,7 @@ onMounted(() => {
   border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 8px;
   background: transparent;
-  color: #1d1d1f;
+  color: #14171a;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -662,11 +662,11 @@ onMounted(() => {
   box-shadow: 0 16px 32px -8px rgba(20, 23, 26, 0.18);
 }
 
-.simple-dialog h3 { margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+.simple-dialog h3 { margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #14171a; }
 
 .project-input {
-  width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0;
-  background: #f8fafc; font-size: 15px; outline: none; transition: 0.2s; margin-bottom: 24px;
+  width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid #e8e4dc;
+  background: #f7f5f1; font-size: 15px; outline: none; transition: 0.2s; margin-bottom: 24px;
 }
 
 .share-textarea {
@@ -678,13 +678,13 @@ onMounted(() => {
 
 .dialog-desc {
   font-size: 13px;
-  color: #64748b;
+  color: #7d776d;
   margin-bottom: 16px;
   margin-top: -12px;
 }
 
 .share-code-box {
-  background: #f1f5f9;
+  background: #f2efe9;
   padding: 16px;
   border-radius: 12px;
   margin-bottom: 24px;
@@ -696,7 +696,7 @@ onMounted(() => {
 .share-code-box code {
   font-family: monospace;
   font-size: 12px;
-  color: #0f172a;
+  color: #14171a;
 }
 
 .header-btns {
@@ -709,7 +709,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  background: #f1f5f9;
+  background: #f2efe9;
   border-radius: 12px;
   font-weight: 600;
   font-size: 14px;
@@ -719,8 +719,8 @@ onMounted(() => {
 
 .dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
 
-.ghost-btn { padding: 10px 20px; border-radius: 12px; border: none; background: transparent; color: #64748b; font-weight: 700; cursor: pointer; }
-.ghost-btn:hover { background: #f1f5f9; color: #0f172a; }
+.ghost-btn { padding: 10px 20px; border-radius: 12px; border: none; background: transparent; color: #7d776d; font-weight: 700; cursor: pointer; }
+.ghost-btn:hover { background: #f2efe9; color: #14171a; }
 
 .primary-btn {
   padding: 10px 20px; border-radius: 12px; border: none;

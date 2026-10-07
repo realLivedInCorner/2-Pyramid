@@ -113,7 +113,7 @@ onMounted(() => {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #94a3b8;
+  background: #9c968c;
 }
 .history-status.ok { background: #10b981; }
 .history-status.fail { background: #ef4444; }
@@ -122,16 +122,16 @@ onMounted(() => {
 .history-name {
   font-size: 13px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #14171a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.history-meta { font-size: 11.5px; color: #94a3b8; }
+.history-meta { font-size: 11.5px; color: #9c968c; }
 .history-empty {
   padding: 28px 12px;
   text-align: center;
   font-size: 13px;
-  color: #94a3b8;
+  color: #9c968c;
 }
 </style>

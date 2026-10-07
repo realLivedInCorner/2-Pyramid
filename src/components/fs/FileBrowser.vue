@@ -639,7 +639,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   white-space: nowrap;
 }
 .fb-crumb:hover { background: rgba(120, 110, 95, 0.09); color: #14171a; }
-.fb-sep { color: #b8b2a6; font-size: 12px; }
+.fb-sep { color: #9c968c; font-size: 12px; }
 
 .fb-filter {
   display: inline-flex;
@@ -760,7 +760,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 .fb-row:hover { background: rgba(120, 110, 95, 0.05); }
 .fb-row.on { background: rgba(20, 23, 26, 0.08); }
 /* 被扩展名过滤掉的文件仍在列表里，只是选不中 —— 见脚本注释 */
-.fb-row.dim { color: #b8b2a6; cursor: default; }
+.fb-row.dim { color: #9c968c; cursor: default; }
 .fb-row.dim .c-name i { color: #cfc9bf; }
 .fb-row.dim:hover { background: transparent; }
 

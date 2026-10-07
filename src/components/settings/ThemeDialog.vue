@@ -133,8 +133,8 @@ function confirmReset() {
   flex-shrink: 0;
 }
 .preview-text { min-width: 0; }
-.preview-title { font-size: 14px; font-weight: 700; color: #1d1d1f; }
-.preview-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.preview-title { font-size: 14px; font-weight: 700; color: #14171a; }
+.preview-sub { font-size: 12px; color: #9c968c; margin-top: 2px; }
 .picker-area { width: 100%; display: flex; justify-content: center; padding: 8px 0; }
 .footer-spacer { flex: 1; }
 </style>

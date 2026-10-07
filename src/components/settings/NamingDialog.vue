@@ -96,7 +96,7 @@ function save() {
   gap: 8px;
   margin-top: 8px;
 }
-.naming-hint-label { font-size: 12px; font-weight: 700; color: #64748b; }
+.naming-hint-label { font-size: 12px; font-weight: 700; color: #7d776d; }
 .naming-tag-btn {
   display: flex;
   align-items: baseline;
@@ -116,11 +116,11 @@ function save() {
   color: var(--theme-color, #14171a);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.naming-tag-desc { font-size: 12px; color: #94a3b8; }
+.naming-tag-desc { font-size: 12px; color: #9c968c; }
 .naming-preview {
   margin-top: 8px;
   font-size: 12.5px;
-  color: #64748b;
+  color: #7d776d;
   word-break: break-all;
 }
 </style>

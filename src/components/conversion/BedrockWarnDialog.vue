@@ -35,7 +35,7 @@ const emit = defineEmits<{ confirm: [] }>();
 .bedrock-warn-text {
   text-align: left;
   line-height: 1.65;
-  color: #374151;
+  color: #5f5a51;
   font-size: 13.5px;
 }
 </style>

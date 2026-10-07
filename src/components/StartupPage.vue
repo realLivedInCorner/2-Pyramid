@@ -520,7 +520,7 @@ async function finish() {
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
+  background: #f7f5f1;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
@@ -584,13 +584,13 @@ async function finish() {
   font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.4px;
-  color: #1a1a2e;
+  color: #14171a;
   line-height: 1.2;
 }
 
 .top-brand-tagline {
   font-size: 11.5px;
-  color: #94a3b8;
+  color: #9c968c;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -623,7 +623,7 @@ async function finish() {
   font-weight: 700;
   font-family: inherit;
   background: rgba(20, 23, 26, 0.06);
-  color: #94a3b8;
+  color: #9c968c;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -682,7 +682,7 @@ async function finish() {
   font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.4px;
-  color: #111827;
+  color: #14171a;
   text-align: center;
 }
 
@@ -690,7 +690,7 @@ async function finish() {
   margin: 0 0 26px;
   font-size: 13.5px;
   line-height: 1.7;
-  color: #6b7280;
+  color: #7d776d;
   text-align: center;
   max-width: 380px;
 }
@@ -778,7 +778,7 @@ async function finish() {
 .lang-name {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: #5f5a51;
 }
 
 /* 名字输入 */
@@ -793,7 +793,7 @@ async function finish() {
   top: 50%;
   transform: translateY(-50%);
   font-size: 18px;
-  color: #9ca3af;
+  color: #9c968c;
   pointer-events: none;
 }
 
@@ -805,7 +805,7 @@ async function finish() {
   border: 2px solid rgba(20, 23, 26, 0.1);
   border-radius: 14px;
   background: #fff;
-  color: #1a1a2e;
+  color: #14171a;
   outline: none;
   transition: all 0.25s ease;
 }
@@ -816,13 +816,13 @@ async function finish() {
 }
 
 .startup-input::placeholder {
-  color: #9ca3af;
+  color: #9c968c;
 }
 
 .field-hint {
   margin: 12px 0 0;
   font-size: 12.5px;
-  color: #94a3b8;
+  color: #9c968c;
   text-align: center;
 }
 
@@ -849,7 +849,7 @@ async function finish() {
   margin: 0;
   font-size: 14px;
   line-height: 1.7;
-  color: #475569;
+  color: #5f5a51;
 }
 
 /* 设置行 —— 与设置页同款卡片 */
@@ -892,7 +892,7 @@ async function finish() {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #86868b;
+  color: #7d776d;
 }
 
 .startup-setting-row {
@@ -955,12 +955,12 @@ async function finish() {
 .startup-setting-label {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: #14171a;
 }
 
 .startup-setting-desc {
   font-size: 12px;
-  color: #9ca3af;
+  color: #9c968c;
 }
 
 /* 命名模板行内编辑器 */
@@ -983,7 +983,7 @@ async function finish() {
   border: 1.5px solid rgba(20, 23, 26, 0.12);
   border-radius: 10px;
   background: rgba(20, 23, 26, 0.04);
-  color: #1a1a2e;
+  color: #14171a;
   outline: none;
 }
 
@@ -994,12 +994,12 @@ async function finish() {
 
 .naming-preview-inline {
   font-size: 12px;
-  color: #64748b;
+  color: #7d776d;
   word-break: break-all;
 }
 
 .naming-preview-inline b {
-  color: #0f172a;
+  color: #14171a;
 }
 
 /* 分段按钮 */
@@ -1019,7 +1019,7 @@ async function finish() {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #6b7280;
+  color: #7d776d;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -1032,7 +1032,7 @@ async function finish() {
 }
 
 .seg-btn:hover:not(.active) {
-  color: #374151;
+  color: #5f5a51;
 }
 
 /* 开关 */
@@ -1145,12 +1145,12 @@ async function finish() {
 
 .startup-btn-ghost {
   background: rgba(20, 23, 26, 0.05);
-  color: #6b7280;
+  color: #7d776d;
 }
 
 .startup-btn-ghost:hover {
   background: rgba(20, 23, 26, 0.08);
-  color: #374151;
+  color: #5f5a51;
   transform: translateY(-1px);
 }
 
@@ -1166,7 +1166,7 @@ async function finish() {
   padding: 0;
   justify-content: center;
   background: transparent;
-  color: #94a3b8;
+  color: #9c968c;
   font-size: 17px;
 }
 
@@ -1213,7 +1213,7 @@ async function finish() {
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 700;
-  color: #475569;
+  color: #5f5a51;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
@@ -1253,20 +1253,20 @@ async function finish() {
 .startup-backup-head i { font-size: 22px; color: var(--theme-color, #14171a); }
 .startup-backup-head h3 {
   margin: 0; flex: 1 1 auto;
-  font-size: 16px; font-weight: 800; color: #0f172a;
+  font-size: 16px; font-weight: 800; color: #14171a;
 }
 .startup-backup-close {
   background: transparent; border: none;
   font-size: 18px; line-height: 1;
-  color: #94a3b8; cursor: pointer;
+  color: #9c968c; cursor: pointer;
   width: 28px; height: 28px;
   border-radius: 8px;
   transition: background 0.15s, color 0.15s;
 }
-.startup-backup-close:hover { background: rgba(20, 23, 26, 0.06); color: #475569; }
+.startup-backup-close:hover { background: rgba(20, 23, 26, 0.06); color: #5f5a51; }
 .startup-backup-desc {
   margin: 0;
-  font-size: 12.5px; line-height: 1.5; color: #475569;
+  font-size: 12.5px; line-height: 1.5; color: #5f5a51;
 }
 .startup-backup-list {
   list-style: none;
@@ -1283,10 +1283,10 @@ async function finish() {
 }
 .startup-backup-list li .label {
   flex: 0 0 140px;
-  color: #64748b; font-weight: 600;
+  color: #7d776d; font-weight: 600;
 }
 .startup-backup-list li .value {
-  flex: 1 1 auto; color: #0f172a; font-weight: 700;
+  flex: 1 1 auto; color: #14171a; font-weight: 700;
 }
 .startup-backup-foot {
   display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;

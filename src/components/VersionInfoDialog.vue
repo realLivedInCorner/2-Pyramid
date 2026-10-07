@@ -63,7 +63,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
   align-items: center;
   gap: 14px;
   padding: 20px 0 22px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f2efe9;
   margin-bottom: 20px;
 }
 
@@ -85,7 +85,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
   background: transparent;
   font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: #14171a;
   cursor: pointer;
   font-family: inherit;
   padding: 0;
@@ -94,7 +94,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
 }
 
 .version-tag:hover {
-  color: var(--theme-color, #0f172a);
+  color: var(--theme-color, #14171a);
 }
 
 .version-build-mode {
@@ -112,13 +112,13 @@ const emit = defineEmits<{ tapVersion: [] }>();
 .dev-hint {
   font-size: 12px;
   font-weight: 600;
-  color: var(--theme-color, #64748b);
+  color: var(--theme-color, #7d776d);
 }
 
 .version-facts {
   display: flex;
   flex-direction: column;
-  border: 1px solid #eef2f7;
+  border: 1px solid #f0ede8;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.65);
   overflow: hidden;
@@ -133,19 +133,19 @@ const emit = defineEmits<{ tapVersion: [] }>();
 }
 
 .fact-row + .fact-row {
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid #f0ede8;
 }
 
 .fact-label {
   font-size: 13px;
-  color: #64748b;
+  color: #7d776d;
   font-weight: 600;
 }
 
 .fact-value {
   font-size: 13px;
   font-weight: 800;
-  color: #0f172a;
+  color: #14171a;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.2px;

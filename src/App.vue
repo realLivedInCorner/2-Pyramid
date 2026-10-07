@@ -903,7 +903,7 @@ onMounted(async () => {
    --bg-color: #ffffff; 
    --sidebar-bg: #f8f9fa; 
    --text-color: #212529; 
-   --text-secondary: #6c757d; 
+   --text-secondary: #7d776d; 
    --border-color: #e9ecef; 
    --hover-color: rgba(20, 23, 26, 0.05); 
    --primary-color: var(--theme-color); 
@@ -1153,7 +1153,7 @@ onMounted(async () => {
    font-size: 13px;
    font-weight: 600;
    font-family: inherit;
-   color: #374151;
+   color: #5f5a51;
    cursor: pointer;
    flex-shrink: 0;
    user-select: none;
@@ -1164,7 +1164,7 @@ onMounted(async () => {
    color: inherit;
  }
  .app-container .back-btn:hover {
-   color: #111827;
+   color: #14171a;
    transform: translateY(-1px);
  }
  .app-container .back-btn:active {
@@ -1875,21 +1875,21 @@ onMounted(async () => {
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; flex-shrink: 0;
 }
-.toast-safe .toast-icon { background: #fef2f2; color: #dc2626; }
+.toast-safe .toast-icon { background: rgba(179, 38, 30, 0.06); color: #dc2626; }
 .toast-optional .toast-icon { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); }
-.toast-success .toast-icon { background: #ecfdf5; color: #10b981; }
+.toast-success .toast-icon { background: rgba(16, 185, 129, 0.10); color: #10b981; }
 .toast-success { cursor: default; }
 .toast-success:hover { transform: none; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.15); }
 .toast-text { flex: 1; min-width: 0; }
-.toast-title { font-size: 14px; font-weight: 700; color: #1d1d1f; }
-.toast-desc { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.toast-title { font-size: 14px; font-weight: 700; color: #14171a; }
+.toast-desc { font-size: 12px; color: #7d776d; margin-top: 2px; }
 .toast-close {
   width: 28px; height: 28px; border-radius: 50%; border: none;
-  background: rgba(20, 23, 26, 0.05); color: #9ca3af; cursor: pointer;
+  background: rgba(20, 23, 26, 0.05); color: #9c968c; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; flex-shrink: 0; transition: 0.2s;
 }
-.toast-close:hover { background: rgba(20, 23, 26, 0.1); color: #1d1d1f; }
+.toast-close:hover { background: rgba(20, 23, 26, 0.1); color: #14171a; }
 
 .toast-slide-enter-active {
   transition:
@@ -1945,7 +1945,7 @@ onMounted(async () => {
 .conv-guard-header h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   margin: 0;
 }
 
@@ -1955,7 +1955,7 @@ onMounted(async () => {
 
 .conv-guard-body p {
   font-size: 14px;
-  color: #6c757d;
+  color: #7d776d;
   margin: 0;
   line-height: 1.6;
 }
@@ -1981,7 +1981,7 @@ onMounted(async () => {
 }
 
 .conv-guard-btn.primary {
-  background: #1d1d1f;
+  background: #14171a;
   color: #fff;
 }
 
@@ -1990,12 +1990,12 @@ onMounted(async () => {
 }
 
 .conv-guard-btn.secondary {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f2efe9;
+  color: #5f5a51;
 }
 
 .conv-guard-btn.secondary:hover {
-  background: #e2e8f0;
+  background: #e8e4dc;
 }
 
 /* 弹层：遮罩只做透明度，面板单独软缩放。

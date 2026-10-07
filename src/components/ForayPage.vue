@@ -562,7 +562,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  color: #1d1d1f;
+  color: #14171a;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -593,14 +593,14 @@ onMounted(() => {
   font-weight: 800;
   letter-spacing: -0.6px;
   margin: 0;
-  color: #1d1d1f;
+  color: #14171a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .page-subtitle {
   margin: 4px 0 0;
-  color: #86868b;
+  color: #7d776d;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
@@ -636,7 +636,7 @@ onMounted(() => {
 .ghost-btn {
   border: 1px solid rgba(20, 23, 26, 0.1);
   background: rgba(255, 255, 255, 0.72);
-  color: #1d1d1f;
+  color: #14171a;
   font-weight: 600;
   font-size: 13px;
   padding: 8px 12px;
@@ -693,7 +693,7 @@ onMounted(() => {
 .card-title {
   font-size: 13px;
   font-weight: 700;
-  color: #6b7280;
+  color: #7d776d;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin: 6px 0 0;
@@ -742,7 +742,7 @@ onMounted(() => {
   border-radius: 8px;
   padding: 6px 8px;
   cursor: pointer;
-  color: #1d1d1f;
+  color: #14171a;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -761,7 +761,7 @@ onMounted(() => {
 .tree-link {
   border: none;
   background: none;
-  color: #1d1d1f;
+  color: #14171a;
   cursor: pointer;
   text-align: left;
   padding: 2px 0;
@@ -776,7 +776,7 @@ onMounted(() => {
 }
 .kind-tag {
   font-size: 10px;
-  color: #9ca3af;
+  color: #9c968c;
   flex-shrink: 0;
 }
 .issue-list {
@@ -796,7 +796,7 @@ onMounted(() => {
 }
 .issue-src {
   font-weight: 700;
-  color: #6b7280;
+  color: #7d776d;
 }
 .issue-path {
   font-family: ui-monospace, Consolas, monospace;
@@ -808,7 +808,7 @@ onMounted(() => {
   color: #b45309;
 }
 .muted {
-  color: #9ca3af;
+  color: #9c968c;
 }
 .small {
   font-size: 12px;
@@ -882,7 +882,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: #6b7280;
+  color: #7d776d;
   font-weight: 600;
 }
 .field input,
@@ -894,7 +894,7 @@ onMounted(() => {
   border-radius: var(--ui-radius-btn, 10px);
   border: 1px solid rgba(20, 23, 26, 0.08);
   background: rgba(255, 255, 255, 0.78);
-  color: #1d1d1f;
+  color: #14171a;
   font-size: 13px;
   font-family: inherit;
   resize: vertical;
@@ -940,7 +940,7 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 800;
-  color: #1d1d1f;
+  color: #14171a;
 }
 .modal-body {
   padding: 16px 18px 20px;

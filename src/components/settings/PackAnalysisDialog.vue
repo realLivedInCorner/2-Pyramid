@@ -131,23 +131,23 @@ async function copy() {
   gap: 8px; margin-bottom: 12px;
 }
 .meta-grid > div { display: flex; flex-direction: column; gap: 2px; }
-.meta-grid b { font-size: 11px; color: #86868b; font-weight: 600; }
-.meta-grid span { font-size: 13px; color: #1a1a2e; font-family: ui-monospace, Consolas, monospace; }
+.meta-grid b { font-size: 11px; color: #7d776d; font-weight: 600; }
+.meta-grid span { font-size: 13px; color: #14171a; font-family: ui-monospace, Consolas, monospace; }
 .section { margin: 12px 0; }
-.section-title { font-size: 12px; font-weight: 700; color: #6b7280; margin-bottom: 6px; }
+.section-title { font-size: 12px; font-weight: 700; color: #7d776d; margin-bottom: 6px; }
 .layer-row {
   display: flex; gap: 10px; align-items: center; padding: 5px 8px;
   border-radius: 8px; background: rgba(20, 23, 26, 0.03); margin-bottom: 4px; font-size: 12px;
 }
-.layer-name { flex: 1; min-width: 0; word-break: break-all; color: #1a1a2e; }
+.layer-name { flex: 1; min-width: 0; word-break: break-all; color: #14171a; }
 .layer-fmt { font-family: ui-monospace, Consolas, monospace; color: #14171a; }
-.layer-stat { color: #6b7280; white-space: nowrap; }
+.layer-stat { color: #7d776d; white-space: nowrap; }
 .layer-stat.hit { color: #b45309; font-weight: 700; }
 .warnings .warn-row { font-size: 12px; color: #b45309; line-height: 1.6; }
 .raw { margin-top: 10px; }
-.raw summary { cursor: pointer; font-size: 12px; color: #6b7280; }
+.raw summary { cursor: pointer; font-size: 12px; color: #7d776d; }
 .raw pre {
   max-height: 220px; overflow: auto; margin-top: 6px; padding: 10px;
-  background: #0f172a; color: #e2e8f0; border-radius: 10px; font-size: 11px;
+  background: #14171a; color: #e8e4dc; border-radius: 10px; font-size: 11px;
 }
 </style>

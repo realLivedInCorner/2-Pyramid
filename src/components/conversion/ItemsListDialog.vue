@@ -71,7 +71,7 @@ const emit = defineEmits<{ remove: [index: number] }>();
 .item-name {
   font-size: 13px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #14171a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -86,13 +86,13 @@ const emit = defineEmits<{ remove: [index: number] }>();
 
 .item-size {
   font-size: 11.5px;
-  color: #94a3b8;
+  color: #9c968c;
 }
 
 .remove-item-btn {
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #9c968c;
   cursor: pointer;
   font-size: 16px;
   line-height: 1;

@@ -1509,7 +1509,7 @@ const onThemeReset = async () => {
   width: 100%; height: 100%; min-height: 0;
   /* Background gradient + aurora ::before are provided by App.vue's
      `.page-shell > *` rule so all three pages render identically. */
-  color: #1d1d1f;
+  color: #14171a;
   display: flex; flex-direction: column; overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   position: relative;
@@ -1557,7 +1557,7 @@ const onThemeReset = async () => {
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: #9c968c;
   font-size: 18px;
 }
 
@@ -1590,7 +1590,7 @@ const onThemeReset = async () => {
   text-overflow: ellipsis;
 }
 
-.page-subtitle { margin: 6px 0 0; color: #86868b; font-size: 13px; }
+.page-subtitle { margin: 6px 0 0; color: #7d776d; font-size: 13px; }
 .dev-hint {
   font-size: 12px;
   font-weight: 700;
@@ -1608,7 +1608,7 @@ const onThemeReset = async () => {
   border-radius: 12px;
   background: rgba(20, 23, 26, 0.04);
   border: 1px solid rgba(20, 23, 26, 0.06);
-  color: #0f172a;
+  color: #14171a;
   margin: 10px 0 12px;
   user-select: text;
 }
@@ -1685,7 +1685,7 @@ const onThemeReset = async () => {
   align-items: center;
   gap: 8px;
   margin: 0;
-  color: #0f172a;
+  color: #14171a;
   text-transform: none;
   letter-spacing: 0;
   font-size: 14px;
@@ -1712,7 +1712,7 @@ const onThemeReset = async () => {
 .dev-sub {
   margin: 0 0 12px 15px;
   font-size: 12px;
-  color: #86868b;
+  color: #7d776d;
   line-height: 1.5;
 }
 
@@ -1740,7 +1740,7 @@ const onThemeReset = async () => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: #ded9d0;
   flex-shrink: 0;
   box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
 }
@@ -1765,12 +1765,12 @@ const onThemeReset = async () => {
 .live-text b {
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #14171a;
 }
 
 .live-text span {
   font-size: 11.5px;
-  color: #64748b;
+  color: #7d776d;
 }
 
 .live-stats {
@@ -1790,7 +1790,7 @@ const onThemeReset = async () => {
   border: 1px solid rgba(20, 23, 26, 0.05);
   font-size: 12px;
   font-weight: 700;
-  color: #334155;
+  color: #5f5a51;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1831,11 +1831,11 @@ const onThemeReset = async () => {
 .setting-item.is-disabled { opacity: 0.45; }
 .segmented.disabled { pointer-events: none; }
 
-.item-icon { width: 40px; color: #111827; display: inline-flex; align-items: center; justify-content: center; }
+.item-icon { width: 40px; color: #14171a; display: inline-flex; align-items: center; justify-content: center; }
 .item-icon i { font-size: 20px; line-height: 1; }
 .item-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.item-info .label { font-size: 15px; font-weight: 600; color: #1d1d1f; }
-.item-info .desc { font-size: 12px; color: #86868b; }
+.item-info .label { font-size: 15px; font-weight: 600; color: #14171a; }
+.item-info .desc { font-size: 12px; color: #7d776d; }
 
 .item-meta {
   display: flex;
@@ -1848,13 +1848,13 @@ const onThemeReset = async () => {
 .meta-value {
   font-size: 13px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   font-variant-numeric: tabular-nums;
 }
 .meta-sub {
   font-size: 11px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #9c968c;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1879,7 +1879,7 @@ const onThemeReset = async () => {
   background: color-mix(in srgb, var(--theme-color) 12%, transparent);
   color: var(--theme-color);
 }
-.btn-text.secondary { background: rgba(20, 23, 26, 0.06); color: #334155; }
+.btn-text.secondary { background: rgba(20, 23, 26, 0.06); color: #5f5a51; }
 .btn-text:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 转换历史列表（对话框内） */
@@ -1910,7 +1910,7 @@ const onThemeReset = async () => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #94a3b8;
+  color: #9c968c;
   font-size: 13px;
 }
 .bg-preview-empty i { font-size: 30px; }
@@ -1923,7 +1923,7 @@ const onThemeReset = async () => {
   flex: 0 0 76px;
   font-size: 13px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: #14171a;
 }
 .bg-range {
   flex: 1 1 auto;
@@ -1933,7 +1933,7 @@ const onThemeReset = async () => {
   flex: 0 0 42px;
   text-align: right;
   font-size: 12px;
-  color: #64748b;
+  color: #7d776d;
 }
 
 /* Syncing 遮罩：中央旋转圆圈 + Syncing... */
@@ -1951,7 +1951,7 @@ const onThemeReset = async () => {
   border-radius: inherit;
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #14171a;
 }
 .bg-syncing i {
   font-size: 26px;
@@ -1978,14 +1978,14 @@ const onThemeReset = async () => {
 }
 .history-status.ok { background: #10b981; }
 .history-status.fail { background: #ef4444; }
-.history-status.cancelled { background: #94a3b8; }
+.history-status.cancelled { background: #9c968c; }
 .history-info { flex: 1; min-width: 0; }
 .history-name {
   font-size: 13px; font-weight: 600; color: #1e293b;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.history-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-.history-empty { padding: 20px 0; text-align: center; color: #94a3b8; font-size: 13px; }
+.history-meta { font-size: 12px; color: #9c968c; margin-top: 2px; }
+.history-empty { padding: 20px 0; text-align: center; color: #9c968c; font-size: 13px; }
 
 /* 输出命名模板编辑器（对话框内） */
 .naming-dialog { width: 480px; max-width: 90vw; }
@@ -2002,7 +2002,7 @@ const onThemeReset = async () => {
   border: 1.5px solid rgba(20, 23, 26, 0.12);
   border-radius: 10px;
   background: rgba(20, 23, 26, 0.04);
-  color: #1a1a2e;
+  color: #14171a;
   outline: none;
 }
 .naming-input:focus { border-color: var(--theme-color); background: #fff; }
@@ -2012,7 +2012,7 @@ const onThemeReset = async () => {
   gap: 8px;
   flex-wrap: wrap;
 }
-.naming-hint-label { font-size: 12px; color: #94a3b8; min-width: 76px; }
+.naming-hint-label { font-size: 12px; color: #9c968c; min-width: 76px; }
 .naming-tag-btn {
   display: flex;
   flex-direction: column;
@@ -2030,23 +2030,23 @@ const onThemeReset = async () => {
   font-size: 12px;
   font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
-  color: #475569;
+  color: #5f5a51;
 }
 .naming-tag-btn:hover .naming-tag-token { color: var(--theme-color); }
 .naming-tag-desc {
   font-size: 10.5px;
-  color: #94a3b8;
+  color: #9c968c;
   line-height: 1.2;
 }
 .naming-preview {
   font-size: 12.5px;
-  color: #64748b;
+  color: #7d776d;
   padding: 8px 12px;
   border-radius: 10px;
   background: rgba(20, 23, 26, 0.03);
   word-break: break-all;
 }
-.naming-preview b { color: #0f172a; }
+.naming-preview b { color: #14171a; }
 
 .inline-input {
   padding: 7px 14px;
@@ -2056,7 +2056,7 @@ const onThemeReset = async () => {
   border: 1.5px solid rgba(20, 23, 26, 0.12);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.8);
-  color: #1a1a2e;
+  color: #14171a;
   outline: none;
   transition: all 0.2s ease;
   width: 160px;
@@ -2067,7 +2067,7 @@ const onThemeReset = async () => {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-color) 12%, transparent);
 }
 .inline-input::placeholder {
-  color: #9ca3af;
+  color: #9c968c;
 }
 
 .item-action { display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; }
@@ -2091,7 +2091,7 @@ const onThemeReset = async () => {
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: #6b7280;
+  color: #7d776d;
   font-weight: 600;
 }
 .foray-ai-grid input,
@@ -2103,7 +2103,7 @@ const onThemeReset = async () => {
   border-radius: var(--ui-radius-btn, 10px);
   border: 1px solid rgba(20, 23, 26, 0.08);
   background: rgba(255, 255, 255, 0.8);
-  color: #1d1d1f;
+  color: #14171a;
   font-size: 13px;
   font-family: inherit;
 }
@@ -2114,8 +2114,8 @@ const onThemeReset = async () => {
   align-items: center;
 }
 .foray-ai-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; width: 100%; }
-.foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #6b7280; font-weight: 600; }
-.foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(20, 23, 26, 0.08); background: rgba(255,255,255,0.8); color: #1d1d1f; font: inherit; font-weight: 500; }
+.foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #7d776d; font-weight: 600; }
+.foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(20, 23, 26, 0.08); background: rgba(255,255,255,0.8); color: #14171a; font: inherit; font-weight: 500; }
 .foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--theme-color, #14171a); font-weight: 600; }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -2172,11 +2172,11 @@ const onThemeReset = async () => {
   letter-spacing: 0.3px;
   vertical-align: middle;
 }
-.status-loading      { background: #f1f5f9; color: #64748b; }
+.status-loading      { background: #f2efe9; color: #7d776d; }
 .status-busy         { background: #dbeafe; color: #1d4ed8; }
 .status-registered   { background: #dcfce7; color: #15803d; }
 .status-unregistered { background: #fef3c7; color: #b45309; }
-.status-partial      { background: #fee2e2; color: #b91c1c; }
+.status-partial      { background: rgba(179, 38, 30, 0.16); color: #b91c1c; }
 
 /* 弹窗骨架（overlay/content/header/body/footer）走全局 shared.css */
 .log-toolbar {
@@ -2217,14 +2217,14 @@ const onThemeReset = async () => {
   accent-color: var(--theme-color, #14171a);
 }
 .dialog-checkbox-text {
-  font-weight: 700; font-size: 13px; color: #0f172a;
+  font-weight: 700; font-size: 13px; color: #14171a;
 }
 .dialog-checkbox-hint {
   display: block;
   margin-top: 2px;
-  font-size: 11.5px; color: #64748b; line-height: 1.4;
+  font-size: 11.5px; color: #7d776d; line-height: 1.4;
 }
-.dialog-label { font-size: 12px; color: #64748b; }
+.dialog-label { font-size: 12px; color: #7d776d; }
 .dialog-input {
   border: 1px solid rgba(20, 23, 26, 0.08);
   border-radius: 10px; padding: 10px 12px; font-size: 13px;
@@ -2253,7 +2253,7 @@ const onThemeReset = async () => {
 
 .swatch-label {
   font-size: 11px;
-  color: #94a3b8;
+  color: #9c968c;
 }
 
 .color-swatch {
@@ -2293,7 +2293,7 @@ const onThemeReset = async () => {
 }
 
 .preview-title { font-weight: 700; font-size: 14px; }
-.preview-sub { font-size: 12px; color: #64748b; }
+.preview-sub { font-size: 12px; color: #7d776d; }
 
 .picker-area {
   margin-top: 12px;
@@ -2304,9 +2304,9 @@ const onThemeReset = async () => {
 
 .color-value {
   font-size: 13px;
-  color: #64748b;
+  color: #7d776d;
 }
-.dialog-hint { font-size: 12px; color: #94a3b8; margin: 0; }
+.dialog-hint { font-size: 12px; color: #9c968c; margin: 0; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 
 /* .dialog-pop-* 规则已删,SettingsPage 的 dialog 走 App.vue 全局规则。

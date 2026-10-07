@@ -367,7 +367,7 @@ onMounted(loadSettings);
 }
 
 /* 15px / 600：与 shared.css 的 .dialog-header h3 同一档。
-   原来是 18px/700 + 冷蓝 #0f172a —— 层级由字号与留白建立，不靠字重压人 */
+   原来是 18px/700 + 冷蓝 #14171a —— 层级由字号与留白建立，不靠字重压人 */
 .panel-title {
   margin: 0;
   font-size: 15px;
@@ -437,7 +437,7 @@ onMounted(loadSettings);
 .outline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* 页内块：一枚暖色发丝边 + 8px 圆角，无投影。
-   原来 2px #f1f5f9 冷灰描边 + 12px 圆角，看着像另一种控件 */
+   原来 2px #f2efe9 冷灰描边 + 12px 圆角，看着像另一种控件 */
 .outline-card {
   display: flex;
   align-items: center;

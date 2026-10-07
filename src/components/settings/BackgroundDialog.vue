@@ -249,7 +249,7 @@ async function remove() {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #94a3b8;
+  color: #9c968c;
   font-size: 13px;
 }
 .bg-preview-empty i { font-size: 28px; }
@@ -264,14 +264,14 @@ async function remove() {
   flex-shrink: 0;
   font-size: 12.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #7d776d;
 }
 .bg-range { flex: 1; accent-color: var(--theme-color, #14171a); }
 .bg-opacity-val {
   width: 40px;
   text-align: right;
   font-size: 12px;
-  color: #64748b;
+  color: #7d776d;
   font-variant-numeric: tabular-nums;
 }
 .bg-syncing {
@@ -287,7 +287,7 @@ async function remove() {
   border-radius: 20px;
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
+  color: #7d776d;
   z-index: 2;
 }
 .bg-syncing i { font-size: 28px; color: var(--theme-color, #14171a); }

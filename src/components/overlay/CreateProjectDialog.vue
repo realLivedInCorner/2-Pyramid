@@ -52,7 +52,7 @@ function submit() {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   text-align: center;
 }
 .project-input {

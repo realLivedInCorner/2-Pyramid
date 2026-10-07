@@ -93,12 +93,12 @@ async function confirm() {
   grid-column: 2;
   font-size: 13.5px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #14171a;
 }
 .dialog-checkbox-hint {
   grid-column: 2;
   font-size: 12px;
-  color: #94a3b8;
+  color: #9c968c;
   line-height: 1.5;
 }
 </style>

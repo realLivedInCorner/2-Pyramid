@@ -114,14 +114,14 @@ const failures = computed(() =>
 
 .result-label {
   font-size: 13px;
-  color: #64748b;
+  color: #7d776d;
   font-weight: 600;
 }
 
 .result-value {
   font-size: 13px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   font-variant-numeric: tabular-nums;
 }
 
@@ -141,14 +141,14 @@ const failures = computed(() =>
 .error-details h4 {
   margin: 0 0 8px;
   font-size: 13px;
-  color: #64748b;
+  color: #7d776d;
 }
 
 .error-list {
   margin: 0;
   padding-left: 18px;
   font-size: 12.5px;
-  color: #6b7280;
+  color: #7d776d;
   line-height: 1.55;
 }
 </style>

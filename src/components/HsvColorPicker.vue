@@ -248,7 +248,7 @@ syncFromProps();
 
 .color-value {
   font-size: 12px;
-  color: #64748b;
+  color: #7d776d;
   font-variant-numeric: tabular-nums;
 }
 </style>

@@ -56,12 +56,12 @@ function submit() {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   text-align: center;
 }
 .dialog-desc {
   font-size: 12.5px;
-  color: #94a3b8;
+  color: #9c968c;
   line-height: 1.55;
 }
 .share-textarea {

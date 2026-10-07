@@ -80,7 +80,7 @@ function cancel() {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #14171a;
   text-align: center;
   user-select: all;
 }
