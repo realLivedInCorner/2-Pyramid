@@ -42,7 +42,14 @@ const sourceHandling = ref<'ask' | 'delete' | 'keep'>('ask')
 const openOutputAfterConvert = ref<boolean>(true)
 const updateChannel = ref<'master' | 'unstable' | 'both'>('master')
 const autoCheckUpdate = ref(true)
-const conversionThreads = ref(2)
+/**
+ * 性能档位。与设置页同一个设置、同一个值域（balanced / performance）、
+ * 同一个配置字段 `performance_mode`。
+ *
+ * 原来这里是 `conversionThreads`（1 / 2 / 4），但设置页已经把它改名并写
+ * `performance_mode` —— 旧值写进去设置页读不出来，用户在这里的选择会被丢掉。
+ */
+const performanceMode = ref<'balanced' | 'performance'>('balanced')
 const namingTemplate = ref('[Ver][Name]')
 /**
  * 命名模板的实时预览。
@@ -176,7 +183,7 @@ async function finish() {
         notificationMode: notificationMode.value,
         sourceHandling: sourceHandling.value,
         openOutputAfterConvert: openOutputAfterConvert.value,
-        conversionThreads: conversionThreads.value,
+        performanceMode: performanceMode.value,
         outputNaming: namingTemplate.value,
         updateChannel: updateChannel.value,
         autoCheckUpdate: autoCheckUpdate.value,
@@ -334,13 +341,26 @@ async function finish() {
                       <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('oobe.step4.outputModeFixed') }}</button>
                     </div>
                   </div>
+                                  <!--
+                                    性能档位。这里原本是「并发数」（1 / 2 / 4），两个问题：
+                                      1. 它找 settings.conversionThreads，而这个键在两个语言
+                                         文件里都不存在 —— 界面上显示的是原始键名
+                                      2. 设置页已把这个设置改名为「性能档位」并写
+                                         performance_mode，这一行还在写 conversion_threads，
+                                         两边各写各的，用户在这里的选择会被设置页丢掉
+                                    现在与设置页对齐：同一个 label、同一个值域、同一个字段。
+                                  -->
                                   <div class="startup-setting-row">
                                     <div class="item-icon">
                                       <i class="ri-cpu-line" aria-hidden="true"></i>
                                     </div>
                                     <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('settings.conversionThreads.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('settings.conversionThreads.desc') }}</span>
+                                      <span class="startup-setting-label">{{ t('settings.performanceMode.label') }}</span>
+                                      <span class="startup-setting-desc">{{ t('settings.performanceMode.balancedDesc') }}</span>
+                                    </div>
+                                    <div class="segmented">
+                                      <button class="seg-btn" :class="{ active: performanceMode === 'balanced' }" @click="performanceMode = 'balanced'">{{ t('settings.performanceMode.balanced') }}</button>
+                                      <button class="seg-btn" :class="{ active: performanceMode === 'performance' }" @click="performanceMode = 'performance'">{{ t('settings.performanceMode.performance') }}</button>
                                     </div>
 <div class="startup-setting-row">
                     <div class="item-icon">
