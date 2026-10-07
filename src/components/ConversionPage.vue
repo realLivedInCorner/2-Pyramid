@@ -282,7 +282,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { pickFiles, pickDirectory, pickSavePath } from '../composables/useFilePicker';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useNotification } from '../composables/useNotification';
@@ -646,14 +646,18 @@ watch(showVersionPicker, (open) => {
 
 const triggerPicker = async () => {
   try {
-    const result = await open({
-      multiple: true,
-      directory: importMode.value === 'folder',
-      filters: importMode.value === 'file' ? [
-        { name: t('conversion.resourcePackFilter'), extensions: ['zip', 'mcpack'] },
-        { name: t('conversion.allFilesFilter'), extensions: ['*'] }
-      ] : undefined
-    });
+    // 应用内浏览器。原来是一个调用同时表达两种模式（directory 开关），
+    // 这里拆成两个入口 —— 组件本身也是按模式分岔的，接得上。
+    const isFolder = importMode.value === 'folder';
+    const result = isFolder
+      ? await pickDirectory({ multiple: true })
+      // 'zip','mcpack' 之外还放 '*'：原生用第二个过滤器组表达「所有文件」，
+      // 这里一个扁平列表，含通配符就等于不做扩展名限制（见 FileBrowser 的注释）。
+      : await pickFiles({
+          multiple: true,
+          startDir: null,
+          extensions: ['zip', 'mcpack', '*'],
+        });
 
     if (result) {
       const paths = Array.isArray(result) ? result : [result];
@@ -968,12 +972,10 @@ const exportLogsToFile = async () => {
   }
 
   try {
-    const savePath = await save({
-      filters: [
-        { name: t('conversion.logFileFilter'), extensions: ['log'] },
-        { name: t('conversion.allFilesFilter'), extensions: ['*'] }
-      ],
-      defaultPath: `conversion_log_${new Date().toISOString().replace(/[:.]/g, '-')}.log`
+    const savePath = await pickSavePath({
+      // 'log' 之外放 '*'：原生第二个过滤器组是「所有文件」，这里是同名替代
+      extensions: ['log', '*'],
+      defaultName: `conversion_log_${new Date().toISOString().replace(/[:.]/g, '-')}.log`,
     });
 
     if (savePath) {

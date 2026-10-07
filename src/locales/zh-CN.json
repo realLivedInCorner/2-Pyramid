@@ -968,6 +968,7 @@
     "useNative": "改用系统对话框",
     "titleFiles": "选择文件",
     "titleDir": "选择文件夹",
-    "titleSave": "另存为"
+    "titleSave": "另存为",
+    "allFiles": "所有文件"
   }
 }

@@ -968,6 +968,7 @@
     "useNative": "Use the system dialog instead",
     "titleFiles": "Select files",
     "titleDir": "Select a folder",
-    "titleSave": "Save as"
+    "titleSave": "Save as",
+    "allFiles": "All files"
   }
 }

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickFiles } from "../../composables/useFilePicker";
 import { resolveImageUrl } from "../../utils/assetUrl";
 import { useNotification } from "../../composables/useNotification";
 
@@ -64,14 +64,11 @@ function close() {
 
 async function pickImage() {
   try {
-    const selected = await open({
-      multiple: false,
-      filters: [
-        {
-          name: t("settings.background.filter"),
-          extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"],
-        },
-      ],
+    // 走应用内浏览器。filters 收敛成一串扩展名 —— 原生那个
+    // `[{ name, extensions }]` 组概念在这里没有对应物。
+    const selected = await pickFiles({
+      titleKey: "settings.background.filter",
+      extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"],
     });
     if (selected && typeof selected === "string") {
       draftFile.value = selected;

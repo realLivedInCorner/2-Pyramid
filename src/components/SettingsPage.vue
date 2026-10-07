@@ -707,7 +707,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n'
-import { save } from '@tauri-apps/plugin-dialog';
+import { pickFiles, pickSavePath } from '../composables/useFilePicker';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { useUpdater } from '../composables/useUpdater';
@@ -971,12 +971,7 @@ const packAnalysis = ref<PackAnalysis | null>(null);
 
 async function analyzePack() {
   try {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const picked = await open({
-      multiple: false,
-      directory: false,
-      filters: [{ name: 'Resource Pack', extensions: ['zip', 'mcpack'] }],
-    });
+    const picked = await pickFiles({ extensions: ['zip', 'mcpack'] });
     if (!picked || typeof picked !== 'string') return;
     packAnalysis.value = await invoke<PackAnalysis>('analyze_pack', { path: picked });
     showAnalysisDialog.value = true;
@@ -1196,9 +1191,9 @@ const exportActionRecords = async () => {
       .toISOString()
       .replace(/[-:T]/g, '')
       .slice(0, 14);
-    const dest = await save({
-      defaultPath: `2pyramid-actions-${stamp}.2amr`,
-      filters: [{ name: '2amr', extensions: ['2amr'] }],
+    const dest = await pickSavePath({
+      extensions: ['2amr'],
+      defaultName: `2pyramid-actions-${stamp}.2amr`,
     });
     if (!dest) return;
     const count = await invoke<number>('export_action_records', { dest });

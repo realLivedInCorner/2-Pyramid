@@ -2,7 +2,7 @@
 import { onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
+import { pickSavePath } from "../../composables/useFilePicker";
 import { useNotification } from "../../composables/useNotification";
 
 const { t } = useI18n();
@@ -37,9 +37,11 @@ async function refresh() {
 async function exportLog(scope: "session" | "disk" = "session", raw = false) {
   try {
     const defaultPath = await invoke<string | null>("get_log_path");
-    const dest = await save({
+    // 这里原来传的是 plugin-dialog 的 defaultPath —— 一个完整路径。
+    // pickSavePath 也接受同样的形状：目录成为起始位置，末段预填进文件名框。
+    const dest = await pickSavePath({
+      extensions: ["log", "txt"],
       defaultPath: defaultPath || undefined,
-      filters: [{ name: "Log", extensions: ["log", "txt"] }],
     });
     if (!dest) return;
     const result = await invoke<LogExportResult>("export_logs", {

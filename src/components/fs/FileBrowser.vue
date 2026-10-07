@@ -54,13 +54,40 @@ const error = ref<string | null>(null);
 
 const filter = ref('');
 const showHidden = ref(false);
+/**
+ * "All files" escape hatch.
+ *
+ * The native dialog offered a second filter group named "All files"; a flat
+ * extension list has no way to express that, and treating `'*'` as "filter
+ * nothing" silently disables filtering altogether. So filtering is on by
+ * default and this toggle is the equivalent of switching groups.
+ */
+const showAll = ref(false);
 const selected = ref<Set<string>>(new Set());
 const saveName = ref('');
 const listEl = ref<HTMLElement | null>(null);
 
 const mode = computed(() => picker.pending.value?.options.mode ?? 'files');
 const multiple = computed(() => picker.pending.value?.options.multiple ?? false);
-const extensions = computed(() => picker.pending.value?.options.extensions ?? []);
+/**
+ * Extension filter, lower-case, without the dot. Empty means "no restriction".
+ *
+ * `'*'` is stripped rather than honoured: it used to mean "filter nothing",
+ * which quietly turned the conversion page's pack filter into no filter at
+ * all — every `.txt` in the folder became selectable. The picker's "all
+ * files" toggle covers that case instead.
+ */
+const filtered = computed(() => {
+  const raw = (picker.pending.value?.options.extensions ?? [])
+    .filter((e) => e !== '*')
+    .map((e) => e.toLowerCase());
+  if (showAll.value) return [];
+  return raw;
+});
+/** True when this invocation has an extension restriction to escape from. */
+const hasExtensionFilter = computed(() =>
+  (picker.pending.value?.options.extensions ?? []).some((e) => e !== '*'),
+);
 
 /**
  * Window title. Defaults by mode so a call site only has to pass `titleKey`
@@ -85,7 +112,7 @@ function label(loc: FsLocation) {
 /** Extension test, lower-cased. An empty filter list means "everything". */
 function matchesExtension(name: string, isDir: boolean) {
   if (isDir) return true;
-  const exts = extensions.value;
+  const exts = filtered.value;
   if (!exts.length) return true;
   const dot = name.lastIndexOf('.');
   if (dot < 0) return false;
@@ -208,8 +235,13 @@ function enterEntry(e: DirEntry) {
 
 async function confirm() {
   if (mode.value === 'dir') {
-    const one = [...selected.value][0];
-    picker.finish(one ?? null);
+    // Folder mode can be multi-select too — the conversion page imports
+    // several packs at once — so the shape has to follow `multiple`, not
+    // the mode. Single-select keeps returning a bare string so the existing
+    // call sites do not need a `[0]`.
+    const picked = [...selected.value];
+    if (!picked.length) return picker.finish(null);
+    picker.finish(multiple.value ? picked : picked[0]);
     return;
   }
   if (mode.value === 'save') {
@@ -282,6 +314,9 @@ watch(
   async (entry) => {
     if (!entry) return;
     filter.value = '';
+    // Reset per invocation, or a previous "all files" would leak into a
+    // picker that explicitly asked for a filter.
+    showAll.value = false;
     selected.value = new Set();
     error.value = null;
     listing.value = null;
@@ -339,6 +374,11 @@ defineExpose({ nativeFallback });
           <label class="fb-hidden">
             <input v-model="showHidden" type="checkbox" />
             <span>{{ t('fs.showHidden') }}</span>
+          </label>
+          <!-- 原生对话框的第二个过滤器组「所有文件」在这里的等价物 -->
+          <label v-if="hasExtensionFilter" class="fb-hidden">
+            <input v-model="showAll" type="checkbox" />
+            <span>{{ t('fs.allFiles') }}</span>
           </label>
         </div>
 

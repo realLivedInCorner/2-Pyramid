@@ -172,7 +172,7 @@ import { ref, onMounted, reactive } from 'vue';
 import StageBackdrop from './shell/StageBackdrop.vue';
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { pickFiles, pickSavePath } from '../composables/useFilePicker';
 import ItemNameDialog from './ItemNameDialog.vue';
 import ItemSizeDialog from './ItemSizeDialog.vue';
 import VisualDialog from './VisualDialog.vue';
@@ -360,9 +360,9 @@ const confirmDeleteOverlay = async () => {
 
 const selectParentPack = async () => {
   try {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: t('overlay.resourcePackFilter'), extensions: ['zip', 'mcpack'] }]
+    const selected = await pickFiles({
+      titleKey: 'overlay.resourcePackFilter',
+      extensions: ['zip', 'mcpack'],
     });
     if (selected) {
       const path = selected as string;
@@ -394,9 +394,9 @@ const handlePackage = async () => {
   const defaultName = (currentOverlay.name || t('overlay.defaultPackName')).replace(/[\\/:*?"<>|]/g, '_');
   let picked: string | null = null;
   try {
-    picked = await save({
-      filters: [{ name: t('overlay.zipFilter', { defaultValue: '资源包 ZIP' }), extensions: ['zip'] }],
-      defaultPath: `${defaultName}.zip`
+    picked = await pickSavePath({
+      extensions: ['zip'],
+      defaultName: `${defaultName}.zip`,
     });
   } catch {
     picked = null;

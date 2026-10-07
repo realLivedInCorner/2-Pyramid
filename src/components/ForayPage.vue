@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "vue-i18n";
+import { pickFiles } from "../composables/useFilePicker";
 
 const { t } = useI18n();
 
@@ -82,11 +83,8 @@ async function refreshRom() {
 
 async function pickFile() {
   try {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const p = await open({
-      multiple: false,
-      filters: [{ name: "zip", extensions: ["zip", "mcpack"] }],
-    });
+    // 走应用内浏览器，不再动态 import 原生对话框插件
+    const p = await pickFiles({ extensions: ["zip", "mcpack"] });
     if (typeof p === "string") await openFromPath(p);
   } catch (e: any) {
     err.value = String(e);

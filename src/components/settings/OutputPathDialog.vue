@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickDirectory } from "../../composables/useFilePicker";
 import { invoke } from "@tauri-apps/api/core";
 
 const { t } = useI18n();
@@ -16,7 +16,7 @@ watch(visible, (openDlg) => {
 
 async function browse() {
   try {
-    const dir = await open({ directory: true, multiple: false });
+    const dir = await pickDirectory();
     if (dir && typeof dir === "string") draft.value = dir;
   } catch (e) {
     console.error("pickOutputFolder failed", e);

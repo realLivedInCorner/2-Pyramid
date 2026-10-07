@@ -31,17 +31,33 @@ export interface PickerOptions {
    * user cannot tell whether the file is missing or merely filtered.
    */
   extensions?: string[];
-  /** `files` mode only. */
-  multiple?: boolean;
-  /** `save` mode only: the name to pre-fill. */
+  /** Multi-select. Defaults to on for `files`, off for `dir` and `save`. */
+  multiple?: boolean;  /** `save` mode only: the name to pre-fill. */
   defaultName?: string;
+  /**
+   * `save` mode only: a full path whose folder becomes the start directory
+   * and whose basename pre-fills the name box.
+   *
+   * Exists so a call site can pass `get_log_path()`'s result straight
+   * through, exactly as the native `save({ defaultPath })` accepted it —
+   * the wiring stays a substitution rather than a rewrite.
+   */
+  defaultPath?: string;
   /** Where to start. Falls back to the remembered directory. */
   startDir?: string | null;
 }
 
+/** Split a path into its folder and leaf, tolerating both separators. */
+function splitPath(path: string): { dir: string | null; base: string } {
+  const match = /^(.*)[\\/]([^\\/]*)$/.exec(path);
+  if (!match) return { dir: null, base: path };
+  // Keep the trailing separator on drive roots ("C:\") — dropping it turns
+  // the root into the drive letter, which then fails to list.
+  return { dir: match[1] || null, base: match[2] };
+}
+
 /** What the picker resolves to. `files` yields a list, the others a path. */
 export type PickResult = string | string[] | null;
-
 interface PendingPick {
   options: Required<Pick<PickerOptions, 'mode' | 'multiple'>> & PickerOptions;
   resolve: (value: PickResult) => void;
@@ -67,11 +83,27 @@ function begin(options: PickerOptions): Promise<PickResult> {
     current = null;
   }
 
+  // Normalise `defaultPath` here so the component only ever deals with a
+  // start directory and a name.
+  let { startDir = null, defaultName } = options;
+  if (options.defaultPath) {
+    const { dir, base } = splitPath(options.defaultPath);
+    if (dir) startDir = dir;
+    if (base && !defaultName) defaultName = base;
+  }
+
   return new Promise<PickResult>((resolve) => {
     const entry: PendingPick = {
       options: {
-        multiple: options.mode === 'files',
+        // Spread first, then the derived defaults — the other way round an
+        // explicit `multiple: undefined` in the caller's object would win.
         ...options,
+        // Defaults to false, matching the native plugin this replaces.
+        // Several call sites test `typeof x === 'string'`; defaulting to
+        // multi-select would hand them an array and break them silently.
+        multiple: options.multiple ?? false,
+        startDir,
+        defaultName,
       },
       resolve: (value) => {
         // Any terminal path clears the slot so the next pick starts clean.
@@ -105,14 +137,28 @@ export function useFilePickerState() {
   };
 }
 
+/**
+ * Result type follows `multiple`, exactly as the native plugin's did:
+ * multi-select yields a list, single-select a bare path, cancel `null`.
+ * The overloads exist so call sites keep their existing `typeof x ===
+ * 'string'` / `Array.isArray(x)` checks without a cast.
+ */
+export function pickFiles(
+  options: Omit<PickerOptions, 'mode'> & { multiple: true },
+): Promise<string[] | null>;
+export function pickFiles(options?: Omit<PickerOptions, 'mode'>): Promise<string | null>;
 export function pickFiles(options: Omit<PickerOptions, 'mode'> = {}) {
-  return begin({ mode: 'files', ...options });
+  return begin({ mode: 'files', ...options }) as Promise<string | string[] | null>;
 }
 
+export function pickDirectory(
+  options: Omit<PickerOptions, 'mode'> & { multiple: true },
+): Promise<string[] | null>;
+export function pickDirectory(options?: Omit<PickerOptions, 'mode'>): Promise<string | null>;
 export function pickDirectory(options: Omit<PickerOptions, 'mode'> = {}) {
-  return begin({ mode: 'dir', ...options });
+  return begin({ mode: 'dir', ...options }) as Promise<string | string[] | null>;
 }
 
 export function pickSavePath(options: Omit<PickerOptions, 'mode'> = {}) {
-  return begin({ mode: 'save', ...options });
+  return begin({ mode: 'save', ...options }) as Promise<string | null>;
 }
