@@ -974,6 +974,14 @@
     "titleFiles": "Select files",
     "titleDir": "Select a folder",
     "titleSave": "Save as",
-    "allFiles": "All files"
+    "allFiles": "All files",
+    "err": {
+      "denied": "You do not have permission to open this folder",
+      "missing": "This folder no longer exists",
+      "not-dir": "That is not a folder",
+      "io": "Could not read this folder",
+      "badName": "The name cannot contain a path separator or ..",
+      "badChar": "The name cannot contain \\ / : * ? \" < > |"
+    }
   }
 }

@@ -974,6 +974,14 @@
     "titleFiles": "选择文件",
     "titleDir": "选择文件夹",
     "titleSave": "另存为",
-    "allFiles": "所有文件"
+    "allFiles": "所有文件",
+    "err": {
+      "denied": "无权访问此文件夹",
+      "missing": "这个文件夹不存在或已被移动",
+      "not-dir": "这不是一个文件夹",
+      "io": "读取失败",
+      "badName": "名称不能包含路径分隔符或 ..",
+      "badChar": "名称不能包含 \\ / : * ? \" < > |"
+    }
   }
 }

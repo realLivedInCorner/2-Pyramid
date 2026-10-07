@@ -42,7 +42,24 @@ interface FsLocation {
 const locations = ref<FsLocation[]>([]);
 const listing = ref<DirListing | null>(null);
 const loading = ref(false);
-const error = ref<string | null>(null);
+/** `{ code, detail }` from the backend — see FsError in fs_browse.rs. */
+const error = ref<{ code: string; detail: string } | null>(null);
+
+/**
+ * Turn a backend error code into a sentence.
+ *
+ * Codes rather than prose: matching on the OS message to tell "denied" from
+ * "missing" breaks the moment a locale or a Windows version words it
+ * differently. The raw detail stays available as a tooltip, where it is
+ * genuinely useful for diagnosis.
+ */
+const errorText = computed(() => {
+  if (!error.value) return '';
+  const known = ['denied', 'missing', 'not-dir'];
+  return known.includes(error.value.code)
+    ? t(`fs.err.${error.value.code}`)
+    : t('fs.err.io');
+});
 
 const filter = ref('');
 const showHidden = ref(false);
@@ -187,7 +204,13 @@ async function navigate(path: string) {
     await nextTick();
     listEl.value?.scrollTo({ top: 0 });
   } catch (e) {
-    error.value = String(e);
+    // Tauri hands back the serialised FsError object. Anything else (a
+    // panic, a missing command) is shown as a generic io failure rather
+    // than dumped raw into the list.
+    const err = e as { code?: string; detail?: string };
+    error.value = typeof err?.code === 'string'
+      ? { code: err.code, detail: err.detail ?? '' }
+      : { code: 'io', detail: String(e) };
     // Keep the previous listing on screen: a failed jump is easier to
     // recover from when you can still see where you were.
   } finally {
@@ -225,6 +248,23 @@ function enterEntry(e: DirEntry) {
   else confirm();
 }
 
+/**
+ * Validate the typed name before it is joined onto the current folder.
+ *
+ * Mirrors `safe_leaf` in fs_browse.rs. A name containing a separator or `..`
+ * would resolve somewhere the user never navigated to — they could get there
+ * by browsing, so this is a correctness guard rather than a security
+ * boundary, but silently saving to the wrong place is still wrong.
+ */
+const saveNameError = computed(() => {
+  if (mode.value !== 'save') return '';
+  const n = saveName.value.trim();
+  if (!n) return '';
+  if (n === '.' || n === '..' || /[\\/]/.test(n)) return t('fs.err.badName');
+  if (/[:*?"<>|]/.test(n)) return t('fs.err.badChar');
+  return '';
+});
+
 async function confirm() {
   if (mode.value === 'dir') {
     // Folder mode can be multi-select too — the conversion page imports
@@ -239,7 +279,7 @@ async function confirm() {
   if (mode.value === 'save') {
     const name = saveName.value.trim();
     const dir = listing.value?.path;
-    if (!name || !dir) return;
+    if (!name || !dir || saveNameError.value) return;
     const sep = dir.endsWith('\\') || dir.endsWith('/') ? '' : navigator.userAgent.includes('Windows') ? '\\' : '/';
     picker.finish(`${dir}${sep}${name}`);
     return;
@@ -253,7 +293,7 @@ function cancel() {
 
 const canConfirm = computed(() => {
   if (mode.value === 'dir') return selected.value.size > 0;
-  if (mode.value === 'save') return saveName.value.trim().length > 0;
+  if (mode.value === 'save') return saveName.value.trim().length > 0 && !saveNameError.value;
   return selected.value.size > 0;
 });
 
@@ -402,7 +442,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
             <div ref="listEl" class="fb-list">
               <p v-if="loading" class="fb-state">{{ t('fs.loading') }}</p>
-              <p v-else-if="error" class="fb-state err">{{ error }}</p>
+              <!-- 友好文案 + 原始信息放 tooltip。绝不把 OS 报错原文丢到列表里 -->
+              <p v-else-if="error" class="fb-state err" :title="error.detail">{{ errorText }}</p>
               <p v-else-if="!visible.length" class="fb-state">{{ t('fs.empty') }}</p>
 
               <!-- v-for 不能和 v-else 写在同一个元素上：Vue 3 里 v-if 的优先级
@@ -445,10 +486,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
             v-if="mode === 'save'"
             v-model="saveName"
             class="fb-name"
+            :class="{ bad: !!saveNameError }"
             type="text"
             :placeholder="t('fs.fileName')"
             spellcheck="false"
           />
+          <span v-if="saveNameError" class="fb-name-err">{{ saveNameError }}</span>
 
           <!-- 退路：应用内浏览器拿不到的东西（网络驱动器、超长路径）仍能交给系统对话框 -->
           <button class="ghost-btn" @click="picker.useNative()">
@@ -781,6 +824,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   outline: none;
 }
 .fb-name:focus { border-color: rgba(20, 23, 26, 0.4); }
+.fb-name.bad { border-color: #b3261e; }
+.fb-name-err { font-size: 11.5px; color: #b3261e; white-space: nowrap; }
 
 /* fill-mode 用 backwards：both / forwards 会永久保留末态，元素成为包含块。
    基线里也不放 opacity: 0 —— backwards 动画结束会回落到基线，那样内容会消失。 */

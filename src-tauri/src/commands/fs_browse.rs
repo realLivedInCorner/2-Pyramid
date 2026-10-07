@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 /// real resource-pack folder.
 const MAX_ENTRIES: usize = 5000;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct DirEntry {
     pub name: String,
     pub path: String,
@@ -43,7 +43,7 @@ pub struct DirEntry {
     pub hidden: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct DirListing {
     /// The directory actually read. May differ from the requested path when
     /// the request was relative or contained `..`.
@@ -66,6 +66,91 @@ pub struct FsLocation {
     pub path: String,
     /// `"drive" | "home" | "desktop" | "documents" | "downloads"`
     pub kind: String,
+}
+
+/// A listing failure the UI can explain.
+///
+/// A bare `String` forced the frontend to pattern-match on English prose to
+/// decide between "access denied" and "this folder is gone". A stable `code`
+/// lets it pick the right sentence and keep `detail` for the log and the
+/// tooltip, where the raw OS message is actually useful.
+#[derive(Serialize, Debug)]
+pub struct FsError {
+    /// `"denied" | "missing" | "not-dir" | "io"`
+    pub code: String,
+    /// The raw OS message. Shown on hover, never as the headline.
+    pub detail: String,
+}
+
+impl FsError {
+    fn new(code: &str, detail: impl Into<String>) -> Self {
+        Self {
+            code: code.to_string(),
+            detail: detail.into(),
+        }
+    }
+}
+
+/// Map an `io::Error` to a code the UI has a sentence for.
+///
+/// `ErrorKind` is used rather than `raw_os_error` so the mapping also works
+/// on the Unix builds, even though the Windows codes are the ones that
+/// actually show up here.
+fn classify(err: &std::io::Error, path: &Path) -> FsError {
+    use std::io::ErrorKind;
+    let code = match err.kind() {
+        ErrorKind::PermissionDenied => "denied",
+        ErrorKind::NotFound => "missing",
+        _ => "io",
+    };
+    FsError::new(code, format!("{}: {}", path.display(), err))
+}
+
+/// Strip the Windows extended-length prefix for display.
+///
+/// `fs::canonicalize` returns `\\?\C:\Users\...` (or `\\?\UNC\server\share`),
+/// which is an implementation detail of bypassing MAX_PATH. Users typed
+/// `D:\`, so that is what they should see. Every filesystem call still goes
+/// through `canonicalize`, which re-adds the prefix internally — stripping it
+/// here loses no capability, it only stops leaking the trick into the UI.
+fn for_display(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{}", rest);
+    }
+    if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        return rest.to_string();
+    }
+    raw.into_owned()
+}
+
+/// Reject names that would escape the directory being browsed.
+///
+/// Only relevant to the save-as flow, where a typed name is appended to the
+/// current folder. Without this a name of `..\..\Windows\System32\x` would
+/// resolve somewhere the user never navigated to.
+pub(crate) fn safe_leaf(name: &str) -> Result<&str, FsError> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(FsError::new("bad-name", "empty name"));
+    }
+    // Separators and the parent reference are the whole attack: either one
+    // lets the caller climb out of the current directory.
+    if trimmed.contains(['/', '\\']) || trimmed == ".." || trimmed == "." {
+        return Err(FsError::new(
+            "bad-name",
+            format!("name must not contain a path separator: {trimmed}"),
+        ));
+    }
+    // Windows also forbids these outright; catching them here gives a much
+    // better message than the OS error would.
+    if trimmed.contains([':', '*', '?', '"', '<', '>', '|']) {
+        return Err(FsError::new(
+            "bad-name",
+            format!("name contains a reserved character: {trimmed}"),
+        ));
+    }
+    Ok(trimmed)
 }
 
 /// Case-insensitive natural ordering: compares digit runs as numbers so
@@ -166,23 +251,27 @@ fn modified_ms(meta: &std::fs::Metadata) -> Option<u64> {
 ///
 /// Returns an error only when the directory itself cannot be read. Problems
 /// with individual entries are skipped — see the module docs.
+///
+/// Note the two distinct paths in play: `dir` is the canonicalised form used
+/// for every filesystem call (it carries the `\\?\` prefix on Windows), while
+/// everything handed back to the frontend goes through [`for_display`] so the
+/// UI shows `D:\` rather than `\\?\D:\`.
 #[tauri::command]
-pub fn list_dir(path: String) -> Result<DirListing, String> {
+pub fn list_dir(path: String) -> Result<DirListing, FsError> {
     use std::fs;
 
     let requested = PathBuf::from(&path);
-    // Canonicalising gives the frontend a clean absolute path to display and
-    // makes "up one level" correct even when the request was relative.
-    // It also fails fast on a path that does not exist, which is the one
-    // case worth surfacing as an error.
     let dir = fs::canonicalize(&requested)
-        .map_err(|e| format!("Cannot open {}: {}", requested.display(), e))?;
+        .map_err(|e| classify(&e, &requested))?;
 
     if !dir.is_dir() {
-        return Err(format!("Not a directory: {}", dir.display()));
+        return Err(FsError::new(
+            "not-dir",
+            format!("{} is not a directory", for_display(&dir)),
+        ));
     }
 
-    let read = fs::read_dir(&dir).map_err(|e| format!("Cannot read {}: {}", dir.display(), e))?;
+    let read = fs::read_dir(&dir).map_err(|e| classify(&e, &dir))?;
 
     let mut entries: Vec<DirEntry> = Vec::new();
     let mut truncated = false;
@@ -196,7 +285,7 @@ pub fn list_dir(path: String) -> Result<DirListing, String> {
 
         let is_dir = meta.is_dir();
         entries.push(DirEntry {
-            path: item.path().to_string_lossy().into_owned(),
+            path: for_display(&item.path()),
             hidden: is_hidden(&name, &meta),
             size: if is_dir { 0 } else { meta.len() },
             modified: modified_ms(&meta),
@@ -218,8 +307,8 @@ pub fn list_dir(path: String) -> Result<DirListing, String> {
     });
 
     Ok(DirListing {
-        path: dir.to_string_lossy().into_owned(),
-        parent: dir.parent().map(|p| p.to_string_lossy().into_owned()),
+        path: for_display(&dir),
+        parent: dir.parent().map(for_display),
         entries,
         truncated,
     })
@@ -385,6 +474,70 @@ mod tests {
     fn list_dir_rejects_a_missing_path() {
         let missing = std::env::temp_dir().join("2pyr_definitely_not_here_9f3a");
         let _ = std::fs::remove_dir_all(&missing);
-        assert!(list_dir(missing.to_string_lossy().into_owned()).is_err());
+        let err = list_dir(missing.to_string_lossy().into_owned()).unwrap_err();
+        assert_eq!(err.code, "missing");
+    }
+
+    /// The UI must never see the `\\?\` long-path prefix.
+    ///
+    /// `canonicalize` adds it on Windows to bypass MAX_PATH; leaking it makes
+    /// the breadcrumb read `\\?\D:\` and confuses anyone who then types that
+    /// path somewhere else. Driven through `list_dir` rather than by calling
+    /// `for_display` directly, because the prefix has to be absent from the
+    /// *output*, whatever produces it.
+    #[test]
+    fn list_dir_never_returns_the_long_path_prefix() {
+        let dir = std::env::temp_dir().join("2pyr_prefix_test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let listing = list_dir(dir.to_string_lossy().into_owned()).unwrap();
+        assert!(!listing.path.starts_with(r"\\?\"), "path leaked: {}", listing.path);
+        if let Some(parent) = &listing.parent {
+            assert!(!parent.starts_with(r"\\?\"), "parent leaked: {parent}");
+        }
+        for e in &listing.entries {
+            assert!(!e.path.starts_with(r"\\?\"), "entry leaked: {}", e.path);
+        }
+        assert_eq!(for_display(&dir), listing.path);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn display_strips_both_prefix_forms() {
+        assert_eq!(for_display(Path::new(r"\\?\D:\Games")), r"D:\Games");
+        // UNC shares use a different spelling; the result must stay a UNC path.
+        assert_eq!(
+            for_display(Path::new(r"\\?\UNC\server\share\dir")),
+            r"\\server\share\dir"
+        );
+        // Anything without the prefix is passed through untouched.
+        assert_eq!(for_display(Path::new(r"D:\plain")), r"D:\plain");
+    }
+
+    /// The save-as flow appends a typed name to the current folder, so a name
+    /// containing a separator would silently resolve outside it.
+    #[test]
+    fn safe_leaf_refuses_to_escape_the_directory() {
+        assert!(safe_leaf("pack.zip").is_ok());
+        assert!(safe_leaf("  spaced.zip  ").is_ok());
+
+        for bad in [
+            r"..\..\Windows\System32\x.dll",
+            "../../etc/passwd",
+            "..",
+            ".",
+            "",
+            "   ",
+            r"sub\dir",
+            "sub/dir",
+            "C:evil",
+            "bad:name",
+            "star*",
+            "question?",
+        ] {
+            assert!(safe_leaf(bad).is_err(), "should have been refused: {bad:?}");
+        }
     }
 }
