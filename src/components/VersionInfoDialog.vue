@@ -120,7 +120,7 @@ const emit = defineEmits<{ tapVersion: [] }>();
   flex-direction: column;
   border: 1px solid var(--surface-4);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.65);
+  background: var(--panel-3);
   overflow: hidden;
 }
 

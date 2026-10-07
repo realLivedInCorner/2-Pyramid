@@ -1102,7 +1102,7 @@ const exportLogsToFile = async () => {
   align-items: center;
   gap: 14px;
   /* 发丝线 + 暖白面，不用主题色描边和内高光 —— 与设置页同一套 */
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--panel-3);
   border: 1px solid rgba(var(--warm-rgb), 0.2);
   padding: 12px 14px;
   border-radius: 8px;
@@ -1301,14 +1301,14 @@ const exportLogsToFile = async () => {
   border-radius: calc(var(--ui-radius-card) + 4px);
   padding: 28px 20px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.45);
+  background: var(--panel-2);
   transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
   flex-shrink: 0;
 }
 .drag-drop-frame:hover {
   border-color: color-mix(in srgb, var(--theme-color) 40%, transparent);
-  background: color-mix(in srgb, var(--theme-color) 4%, rgba(255,255,255,0.55));
+  background: color-mix(in srgb, var(--theme-color) 4%, var(--panel-2));
 }
 .drag-drop-frame.is-dragover {
   border-color: var(--theme-color);
@@ -1334,7 +1334,7 @@ const exportLogsToFile = async () => {
 .bedrock-warn-text { color: var(--danger); font-weight: 600; line-height: 1.7; }
 
 .selected-items-list {
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--panel-3);
   border-radius: calc(var(--ui-radius-card) + 2px);
   border: 1px solid rgba(var(--ink-rgb), 0.05);
   overflow: hidden;

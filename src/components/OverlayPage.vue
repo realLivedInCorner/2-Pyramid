@@ -836,7 +836,7 @@ onMounted(() => {
   font-family: inherit;
   cursor: pointer;
   /* 与设置页、转换页同一套：发丝线 + 8px + 无投影 */
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--panel-2);
   border: 1px solid rgba(var(--warm-rgb), 0.14);
   border-radius: 8px;
   transition: background 0.18s ease, border-color 0.18s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);

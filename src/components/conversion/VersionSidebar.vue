@@ -210,7 +210,7 @@ function pick(entry: VersionEntry) {
   padding: 12px 14px;
   border: 1px solid rgba(var(--ink-rgb), 0.05);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--panel-3);
   cursor: pointer;
   text-align: left;
   font-family: inherit;

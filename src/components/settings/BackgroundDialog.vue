@@ -282,7 +282,7 @@ async function remove() {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--panel-3);
   backdrop-filter: blur(4px);
   border-radius: 20px;
   font-size: 13px;

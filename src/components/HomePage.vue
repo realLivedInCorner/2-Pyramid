@@ -518,7 +518,7 @@ onUnmounted(() => {
   height: 36px;
   border: 1px solid rgba(var(--ink-rgb), 0.18);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--panel-2);
   color: var(--ink);
   font-family: inherit;
   font-size: 16px;

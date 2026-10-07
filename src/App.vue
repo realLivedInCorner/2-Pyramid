@@ -1016,35 +1016,35 @@ onMounted(async () => {
    /* 玻璃卡片：光斑层 + 中心实边缘透的径向渐变 */
    --ui-card-surface:
      radial-gradient(520px circle at var(--glare-x) var(--glare-y),
-       rgba(255, 255, 255, 0.42), transparent 46%),
+       var(--panel-1), transparent 46%),
      radial-gradient(125% 160% at 50% 32%,
-       rgba(255, 255, 255, 0.93) 52%,
-       rgba(255, 255, 255, 0.34) 100%);
+       var(--panel-4) 52%,
+       var(--panel-1) 100%);
    /* 玻璃按钮：光斑层 + 半透明白 */
    --ui-btn-surface:
      radial-gradient(260px circle at var(--glare-x) var(--glare-y),
-       rgba(255, 255, 255, 0.5), transparent 55%),
-     rgba(255, 255, 255, 0.72);
+       var(--panel-2), transparent 55%),
+     var(--panel-3);
    --ui-blur: 20px;
    --ui-saturate: 1.5;
    --ui-radius-card: 14px;
    --ui-radius-btn: 8px;
    /* 玻璃层次：顶部高光 + 边缘光 + 悬浮投影 */
    --ui-shadow:
-     inset 0 1px 1px rgba(255, 255, 255, 0.75),
-     inset 0 -1px 1px rgba(255, 255, 255, 0.18),
-     inset 1px 0 1px rgba(255, 255, 255, 0.35),
+     inset 0 1px 1px var(--panel-3),
+     inset 0 -1px 1px var(--panel-1),
+     inset 1px 0 1px var(--panel-1),
      0 10px 30px rgba(var(--ink-rgb), 0.12),
      0 2px 6px rgba(var(--ink-rgb), 0.05);
    --ui-shadow-hover:
-     inset 0 1px 1px rgba(255, 255, 255, 0.85),
-     inset 0 -1px 1px rgba(255, 255, 255, 0.22),
-     inset 1px 0 1px rgba(255, 255, 255, 0.4),
+     inset 0 1px 1px var(--panel-4),
+     inset 0 -1px 1px var(--panel-1),
+     inset 1px 0 1px var(--panel-1),
      0 16px 40px rgba(var(--ink-rgb), 0.12),
      0 4px 10px rgba(var(--ink-rgb), 0.08);
-   --ui-border: 1px solid rgba(255, 255, 255, 0.55);
+   --ui-border: 1px solid var(--panel-2);
    --ui-btn-shadow:
-     inset 0 1px 1px rgba(255, 255, 255, 0.7),
+     inset 0 1px 1px var(--panel-3),
      0 3px 10px rgba(var(--ink-rgb), 0.08);
  }
 
@@ -1216,7 +1216,7 @@ onMounted(async () => {
  .startup-root .seg-btn.active {
    background:
      radial-gradient(240px circle at var(--glare-x) var(--glare-y),
-       rgba(255, 255, 255, 0.5), transparent 55%),
+       var(--panel-2), transparent 55%),
      color-mix(in srgb, var(--theme-color) 16%, var(--surface));
    box-shadow: var(--ui-btn-shadow);
  }
@@ -1296,7 +1296,7 @@ onMounted(async () => {
    z-index: 1002; 
    -webkit-app-region: no-drag; 
    backdrop-filter: blur(10px); 
-   background-color: rgba(255, 255, 255, 0.1); 
+   background-color: var(--panel-1); 
    border-radius: var(--radius-medium); 
    padding: 4px; 
  } 
@@ -1790,7 +1790,7 @@ onMounted(async () => {
    left: 50%; 
    width: 5px; 
    height: 5px; 
-   background: rgba(255, 255, 255, 0.5); 
+   background: var(--panel-2); 
    opacity: 0; 
    border-radius: 100%; 
    transform: scale(1, 1) translate(-50%, -50%); 

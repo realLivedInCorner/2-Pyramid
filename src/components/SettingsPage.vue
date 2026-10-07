@@ -1566,7 +1566,7 @@ const onThemeReset = async () => {
   padding: 10px 16px 10px 44px;
   border-radius: 8px;
   border: 1px solid rgba(var(--warm-rgb), 0.2);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--panel-3);
   font-size: 14px;
   transition: all 0.3s;
   outline: none;
@@ -1786,7 +1786,7 @@ const onThemeReset = async () => {
   gap: 5px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--panel-3);
   border: 1px solid rgba(var(--ink-rgb), 0.05);
   font-size: 12px;
   font-weight: 700;
@@ -1807,7 +1807,7 @@ const onThemeReset = async () => {
 /* 开发者卡片：略深、边缘绿描边 */
 .dev-group .group-card {
   border-color: rgba(5, 150, 105, 0.12);
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--panel-3);
 }
 
 .dev-group .setting-item.clickable.danger:hover {
@@ -1945,7 +1945,7 @@ const onThemeReset = async () => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--panel-4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-radius: inherit;
@@ -2055,7 +2055,7 @@ const onThemeReset = async () => {
   font-weight: 500;
   border: 1.5px solid rgba(var(--ink-rgb), 0.12);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--panel-3);
   color: var(--ink);
   outline: none;
   transition: all 0.2s ease;
@@ -2102,7 +2102,7 @@ const onThemeReset = async () => {
   padding: 10px 12px;
   border-radius: var(--ui-radius-btn, 10px);
   border: 1px solid rgba(var(--ink-rgb), 0.08);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--panel-3);
   color: var(--ink);
   font-size: 13px;
   font-family: inherit;
@@ -2115,7 +2115,7 @@ const onThemeReset = async () => {
 }
 .foray-ai-form { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; width: 100%; }
 .foray-ai-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-3); font-weight: 600; }
-.foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(var(--ink-rgb), 0.08); background: rgba(255,255,255,0.8); color: var(--ink); font: inherit; font-weight: 500; }
+.foray-ai-form input, .foray-ai-form select, .foray-ai-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--ui-radius-btn, 10px); border: 1px solid rgba(var(--ink-rgb), 0.08); background: var(--panel-3); color: var(--ink); font: inherit; font-weight: 500; }
 .foray-ai-msg { margin: 8px 0 0; font-size: 12px; color: var(--theme-color, var(--ink)); font-weight: 600; }
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -2261,7 +2261,7 @@ const onThemeReset = async () => {
   height: 22px;
   border-radius: 6px;
   border: 1px solid rgba(var(--ink-rgb), 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6);
+  box-shadow: inset 0 0 0 1px var(--panel-2);
 }
 
 .reset-swatch {

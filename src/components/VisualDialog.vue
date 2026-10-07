@@ -448,7 +448,7 @@ onMounted(loadSettings);
   white-space: normal;
   border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--panel-2);
   color: var(--ink-2);
   font-family: inherit;
   font-size: 13px;
@@ -546,7 +546,7 @@ onMounted(loadSettings);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--panel-4);
   /* 底色由用户决定，可能很浅；描影保证可读 —— 原来是 rgba(0,0,0,·) 冷黑 */
   text-shadow: 0 1px 2px rgba(var(--ink-rgb), 0.45);
   pointer-events: none;

@@ -635,7 +635,7 @@ onMounted(() => {
 }
 .ghost-btn {
   border: 1px solid rgba(var(--ink-rgb), 0.12);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--panel-3);
   color: var(--ink);
   font-weight: 600;
   font-size: 13px;
@@ -721,7 +721,7 @@ onMounted(() => {
   padding: 8px 10px;
   border-radius: var(--ui-radius-btn, 10px);
   border: 1px solid rgba(var(--ink-rgb), 0.08);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--panel-3);
   font-size: 12px;
 }
 .tree {
@@ -860,7 +860,7 @@ onMounted(() => {
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid rgba(var(--ink-rgb), 0.12);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--panel-3);
   font: inherit;
 }
 .toolbar input[type="color"] {
@@ -893,7 +893,7 @@ onMounted(() => {
   padding: 10px 12px;
   border-radius: var(--ui-radius-btn, 10px);
   border: 1px solid rgba(var(--ink-rgb), 0.08);
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--panel-3);
   color: var(--ink);
   font-size: 13px;
   font-family: inherit;
@@ -912,7 +912,7 @@ onMounted(() => {
   padding: 24px;
 }
 .modal {
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--panel-4);
   border-radius: 16px;
   border: 1px solid rgba(var(--ink-rgb), 0.08);
   box-shadow: 0 24px 60px rgba(var(--ink-rgb), 0.28);
@@ -976,7 +976,7 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--panel-4);
   border-radius: 999px;
   padding: 6px 10px;
 }
@@ -984,7 +984,7 @@ onMounted(() => {
   width: min(96vw, 1400px);
   height: min(80vh, 900px);
   overflow: auto;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--panel-4);
   border-radius: 12px;
 }
 .lightbox-img {
