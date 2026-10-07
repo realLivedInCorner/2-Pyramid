@@ -313,8 +313,11 @@ async function finish() {
           </div>
 
                     <div v-else-if="step === 2" class="startup-step" key="welcome">
-                      <h2 class="step-title">{{ stepMeta.title }}</h2>
-                      <p class="step-desc">{{ stepMeta.desc }}</p>
+                      <!--
+                        这里不再重复标题与描述：它们已由左下角的 .panel-subject
+                        统一承担。恢复内容时把原块的 <h2 class="step-title"> 一并
+                        带了回来，导致这一步的标题在页面上出现了两次。
+                      -->
                       <div class="welcome-card">
                         <i class="ri-hand-heart-line" aria-hidden="true"></i>
                         <p>{{ t('oobe.step3.card', { name: userName }) }}</p>
@@ -341,28 +344,20 @@ async function finish() {
                       <button class="seg-btn" :class="{ active: outputMode === 'fixed' }" @click="outputMode = 'fixed'">{{ t('oobe.step4.outputModeFixed') }}</button>
                     </div>
                   </div>
-                                  <!--
-                                    性能档位。这里原本是「并发数」（1 / 2 / 4），两个问题：
-                                      1. 它找 settings.conversionThreads，而这个键在两个语言
-                                         文件里都不存在 —— 界面上显示的是原始键名
-                                      2. 设置页已把这个设置改名为「性能档位」并写
-                                         performance_mode，这一行还在写 conversion_threads，
-                                         两边各写各的，用户在这里的选择会被设置页丢掉
-                                    现在与设置页对齐：同一个 label、同一个值域、同一个字段。
-                                  -->
-                                  <div class="startup-setting-row">
-                                    <div class="item-icon">
-                                      <i class="ri-cpu-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('settings.performanceMode.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('settings.performanceMode.balancedDesc') }}</span>
-                                    </div>
-                                    <div class="segmented">
-                                      <button class="seg-btn" :class="{ active: performanceMode === 'balanced' }" @click="performanceMode = 'balanced'">{{ t('settings.performanceMode.balanced') }}</button>
-                                      <button class="seg-btn" :class="{ active: performanceMode === 'performance' }" @click="performanceMode = 'performance'">{{ t('settings.performanceMode.performance') }}</button>
-                                    </div>
-<div class="startup-setting-row">
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-cpu-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.performanceMode.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.performanceMode.balancedDesc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: performanceMode === 'balanced' }" @click="performanceMode = 'balanced'">{{ t('settings.performanceMode.balanced') }}</button>
+                      <button class="seg-btn" :class="{ active: performanceMode === 'performance' }" @click="performanceMode = 'performance'">{{ t('settings.performanceMode.performance') }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
                     <div class="item-icon">
                       <i class="ri-delete-bin-2-line" aria-hidden="true"></i>
                     </div>
@@ -379,110 +374,109 @@ async function finish() {
                 </div>
 
                 <!-- 通知 -->
-                                <div class="startup-group-card">
-                                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.notification') }}</h3>
-                                  <div class="startup-setting-row">
-                                    <div class="item-icon">
-                                      <i class="ri-notification-3-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
-                                      <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
-                                    </div>
-                                    <label class="switch">
-                                      <input type="checkbox" v-model="notificationEnabled" />
-                                      <span class="slider"></span>
-                                    </label>
-                                  </div>
-                                  <div class="startup-setting-row" v-if="notificationEnabled">
-                                    <div class="item-icon">
-                                      <i class="ri-window-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
-                                    </div>
-                                    <div class="segmented">
-                                      <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
-                                      <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
-                                      <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
-                                    </div>
-                                  </div>
-                                  <div class="startup-setting-row">
-                                    <div class="item-icon">
-                                      <i class="ri-external-link-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
-                                    </div>
-                                    <label class="switch">
-                                      <input type="checkbox" v-model="openOutputAfterConvert" />
-                                      <span class="slider"></span>
-                                    </label>
-                                  </div>
-                                </div>
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.notification') }}</h3>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-notification-3-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('oobe.step4.notification') }}</span>
+                      <span class="startup-setting-desc">{{ t('oobe.step4.notificationDesc') }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="notificationEnabled" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                  <div class="startup-setting-row" v-if="notificationEnabled">
+                    <div class="item-icon">
+                      <i class="ri-window-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.notificationMode.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.notificationMode.desc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: notificationMode === 'system' }" @click="notificationMode = 'system'">{{ t('settings.notificationMode.system') }}</button>
+                      <button class="seg-btn" :class="{ active: notificationMode === 'app' }" @click="notificationMode = 'app'">{{ t('settings.notificationMode.app') }}</button>
+                      <button class="seg-btn" :class="{ active: notificationMode === 'both' }" @click="notificationMode = 'both'">{{ t('settings.notificationMode.both') }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-external-link-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('oobe.step4.openOutputAfterConvert.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('oobe.step4.openOutputAfterConvert.desc') }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="openOutputAfterConvert" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                </div>
 
-                                <!-- 更新 -->
-                                <div class="startup-group-card">
-                                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.update') }}</h3>
-                                  <div class="startup-setting-row">
-                                    <div class="item-icon">
-                                      <i class="ri-git-branch-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('settings.updateChannel.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('settings.updateChannel.desc') }}</span>
-                                    </div>
-                                    <div class="segmented">
-                                      <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="updateChannel = 'master'">{{ t('settings.updateChannel.stable') }}</button>
-                                      <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="updateChannel = 'unstable'">{{ t('settings.updateChannel.unstable') }}</button>
-                                      <button class="seg-btn" :class="{ active: updateChannel === 'both' }" @click="updateChannel = 'both'">{{ t('settings.updateChannel.both') }}</button>
-                                    </div>
-                                  </div>
-                                  <div class="startup-setting-row">
-                                    <div class="item-icon">
-                                      <i class="ri-refresh-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('settings.autoCheckUpdate.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('settings.autoCheckUpdate.desc') }}</span>
-                                    </div>
-                                    <label class="switch">
-                                      <input type="checkbox" v-model="autoCheckUpdate" />
-                                      <span class="slider"></span>
-                                    </label>
-                                  </div>
-                                </div>
+                <!-- 更新 -->
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">{{ t('oobe.step4.groups.update') }}</h3>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-git-branch-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.updateChannel.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.updateChannel.desc') }}</span>
+                    </div>
+                    <div class="segmented">
+                      <button class="seg-btn" :class="{ active: updateChannel === 'master' }" @click="updateChannel = 'master'">{{ t('settings.updateChannel.stable') }}</button>
+                      <button class="seg-btn" :class="{ active: updateChannel === 'unstable' }" @click="updateChannel = 'unstable'">{{ t('settings.updateChannel.unstable') }}</button>
+                      <button class="seg-btn" :class="{ active: updateChannel === 'both' }" @click="updateChannel = 'both'">{{ t('settings.updateChannel.both') }}</button>
+                    </div>
+                  </div>
+                  <div class="startup-setting-row">
+                    <div class="item-icon">
+                      <i class="ri-refresh-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.autoCheckUpdate.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.autoCheckUpdate.desc') }}</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" v-model="autoCheckUpdate" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                </div>
 
-                                <!-- 命名 -->
-                                <div class="startup-group-card">
-                                  <h3 class="startup-group-title">{{ t('settings.outputNaming.label') }}</h3>
-                                  <div class="startup-setting-row naming-row-plain">
-                                    <div class="item-icon">
-                                      <i class="ri-file-text-line" aria-hidden="true"></i>
-                                    </div>
-                                    <div class="startup-setting-info">
-                                      <span class="startup-setting-label">{{ t('settings.outputNaming.label') }}</span>
-                                      <span class="startup-setting-desc">{{ t('settings.outputNaming.desc') }}</span>
-                                    </div>
-                                  </div>
-                                  <div class="naming-row-inline">
-                                    <input
-                                      v-model="namingTemplate"
-                                      class="naming-input"
-                                      spellcheck="false"
-                                      :placeholder="t('settings.outputNaming.placeholder')"
-                                    />
-                                    <div class="naming-preview-inline">
-                                      {{ t('settings.outputNaming.preview') }}:
-                                      <b>{{ namingPreview }}</b>
-                                    </div>
-                                  </div>
+                <!-- 命名 -->
+                <div class="startup-group-card">
+                  <h3 class="startup-group-title">{{ t('settings.outputNaming.label') }}</h3>
+                  <div class="startup-setting-row naming-row-plain">
+                    <div class="item-icon">
+                      <i class="ri-file-text-line" aria-hidden="true"></i>
+                    </div>
+                    <div class="startup-setting-info">
+                      <span class="startup-setting-label">{{ t('settings.outputNaming.label') }}</span>
+                      <span class="startup-setting-desc">{{ t('settings.outputNaming.desc') }}</span>
+                    </div>
+                  </div>
+                  <div class="naming-row-inline">
+                    <input
+                      v-model="namingTemplate"
+                      class="naming-input"
+                      spellcheck="false"
+                      :placeholder="t('settings.outputNaming.placeholder')"
+                    />
+                    <div class="naming-preview-inline">
+                      {{ t('settings.outputNaming.preview') }}:
+                      <b>{{ namingPreview }}</b>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
         </div>
 
           <div v-else class="startup-step" key="done">
