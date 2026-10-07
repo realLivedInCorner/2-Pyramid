@@ -346,4 +346,45 @@ mod tests {
             }
         }
     }
+
+    /// `list_dir` against a real directory.
+    ///
+    /// The comparator tests above never touch the filesystem, and the command
+    /// is the part that actually ships — without this, nothing proved it reads
+    /// a disk, sorts, or reports a parent correctly.
+    #[test]
+    fn list_dir_reads_a_real_directory() {
+        let dir = std::env::temp_dir().join("2pyr_list_dir_test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("beta")).unwrap();
+        std::fs::create_dir_all(dir.join("Alpha")).unwrap();
+        std::fs::write(dir.join("1.20.zip"), b"xx").unwrap();
+        std::fs::write(dir.join("1.9.zip"), b"x").unwrap();
+
+        let listing = list_dir(dir.to_string_lossy().into_owned()).unwrap();
+
+        let names: Vec<&str> = listing.entries.iter().map(|e| e.name.as_str()).collect();
+        // Folders first, then natural order — not lexicographic, which would
+        // put "1.20" ahead of "1.9".
+        assert_eq!(names, vec!["Alpha", "beta", "1.9.zip", "1.20.zip"]);
+        assert!(listing.parent.is_some(), "a temp dir always has a parent");
+        assert!(!listing.truncated);
+
+        let sized = listing.entries.iter().find(|e| e.name == "1.9.zip").unwrap();
+        assert_eq!(sized.size, 1);
+        assert!(!sized.is_dir);
+        assert!(sized.modified.is_some());
+        // Directories report zero bytes rather than the directory's own size,
+        // which is meaningless and platform-dependent.
+        assert_eq!(listing.entries.iter().find(|e| e.name == "beta").unwrap().size, 0);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_dir_rejects_a_missing_path() {
+        let missing = std::env::temp_dir().join("2pyr_definitely_not_here_9f3a");
+        let _ = std::fs::remove_dir_all(&missing);
+        assert!(list_dir(missing.to_string_lossy().into_owned()).is_err());
+    }
 }
