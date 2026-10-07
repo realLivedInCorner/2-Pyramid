@@ -43,11 +43,17 @@
     </script>
     <div id="app"></div>
     <style>
-      :root { --theme-color: #14171a; }
+      :root { --theme-color: #14171a; --boot-bg: #f4f2ee; }
+      /*
+       * 这里用字面量而不是 var(--bg)：index.html 在 shared.css 之前解析，
+       * 令牌还没定义。启动页只有这一屏，单独维护一份可以接受 ——
+       * 但必须和 shared.css 的 --bg / 深色值保持一致，否则深色下会闪一下浅色。
+       */
       html, body {
         overflow: hidden;
-        background-color: #f4f2ee;
+        background-color: var(--boot-bg);
       }
+      html[data-theme='dark'] { --boot-bg: #1a1815; }
 
       .boot {
         position: fixed; inset: 0; z-index: 9999;

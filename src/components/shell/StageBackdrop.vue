@@ -120,7 +120,17 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   right: 0;
   /* 高度逐级递减 —— 这是「越往上越小」的来源，不靠整面透视 */
   height: var(--h);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.26) 100%);
+  /*
+   * 用 --stair-a/--stair-b 而不是写死白 0.5/0.26。
+   * 浅色下这是一层白釉（白叠暖白，几乎看不见），深色下同样 alpha 的白
+   * 会变成发亮的白板 —— 同样 alpha，浅叠深的感知对比远强于深叠浅。
+   * 所以两套主题给的是不同量级，不是同一个值。
+   */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, var(--stair-a)) 0%,
+    rgba(255, 255, 255, var(--stair-b)) 100%
+  );
   border-top: 1px solid rgba(var(--warm-rgb), 0.14);
   border-left: 1px solid rgba(var(--warm-rgb), 0.09);
 }
@@ -160,10 +170,17 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
 .bg-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(128% 104% at 46% 44%, rgba(244, 242, 238, 0) 46%, rgba(214, 208, 198, 0.5) 100%);
+  /* 收边。两种主题的方向相反：浅色下边缘压深（纸的暗角），
+     深色下边缘反而要更暗才收得住，所以 --vignette-rgb 在两套里取值不同。 */
+  background: radial-gradient(
+    128% 104% at 46% 44%,
+    rgba(var(--vignette-rgb), 0) 46%,
+    rgba(var(--vignette-rgb), 0.5) 100%
+  );
 }
 
-/* 纸纹：细颗粒噪点。纯 CSS 渐变做不出这个质感，用 SVG 湍流 */
+/* 纸纹：细颗粒噪点。纯 CSS 渐变做不出这个质感，用 SVG 湍流。
+   深色下 multiply 会把噪点压没，改用 screen 才看得见颗粒。 */
 .bg-grain {
   position: absolute;
   inset: 0;
@@ -171,6 +188,7 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
+[data-theme='dark'] .bg-grain { mix-blend-mode: screen; opacity: 0.03; }
 
 /* 未显现：整层退到不可见，由父级在合适时机切成 .on */
 .stage-bg:not(.on) .stairs,
