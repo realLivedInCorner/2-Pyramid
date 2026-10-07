@@ -19,11 +19,11 @@
     -->
     <header class="brand hm-block">
       <div class="brand-top">
-        <img class="brand-mark" :src="logo" alt="" aria-hidden="true" />
-        <span class="brand-name"><SplitText :text="'2-Pyramid'" :stagger="30" :delay="120" :active="bootPhase >= 2" /></span>
+        <img class="brand-mark r-in" :src="logo" alt="" aria-hidden="true" :style="{ '--r-i': 0 }" />
+        <span class="brand-name r-in" :style="{ '--r-i': 1 }"><SplitText :text="'2-Pyramid'" :stagger="30" :delay="120" :active="bootPhase >= 2" /></span>
       </div>
-      <span class="brand-tag">{{ t('oobe.asideTagline') }}</span>
-      <span class="brand-meta">
+      <span class="brand-tag r-in" :style="{ '--r-i': 2 }">{{ t('oobe.asideTagline') }}</span>
+      <span class="brand-meta r-in" :style="{ '--r-i': 3 }">
         v{{ appVersion }}<template v-if="appIsBeta"> Beta</template>
         <i aria-hidden="true"></i>
         {{ t('home.engineReady') }}
@@ -52,9 +52,9 @@
         <i class="ri-sun-line tt-sun" aria-hidden="true"></i>
         <i class="ri-moon-line tt-moon" aria-hidden="true"></i>
       </button>
-      <span class="who-name">{{ userName || '—' }}</span>
+      <span class="who-name r-in" :style="{ '--r-i': 8 }">{{ userName || '—' }}</span>
       <i aria-hidden="true"></i>
-      <span class="who-time">{{ clock }}</span>
+      <span class="who-time r-in" :style="{ '--r-i': 9 }">{{ clock }}</span>
     </div>
 
     <!-- 纯装饰：阶梯标记 + 十字准星 + 刻度尺。没有文字，也不可交互 -->
@@ -69,17 +69,17 @@
       刻意不放按钮、不放切换器 —— 一个角落塞四五样东西，重心就又偏了。
     -->
     <div class="subject hm-block">
-      <span class="tiny">MODULE / SELECT</span>
+      <span class="tiny r-in" :style="{ '--r-i': 4 }">MODULE / SELECT</span>
       <div :key="selected" class="subject-body">
-        <div class="counter">
+        <div class="counter r-in" :style="{ '--r-i': 5 }">
           <span class="cur">{{ pad(selected + 1) }}</span>
           <i>/</i>
           <span class="total">{{ pad(modules.length) }}</span>
         </div>
-        <h1 class="name">
+        <h1 class="name r-in" :style="{ '--r-i': 6 }">
           <SplitText :text="t(current.label)" :stagger="42" :delay="0" :active="bootPhase >= 2" />
         </h1>
-        <span class="name-en">{{ current.en }}</span>
+        <span class="name-en r-in" :style="{ '--r-i': 7 }">{{ current.en }}</span>
       </div>
     </div>
 

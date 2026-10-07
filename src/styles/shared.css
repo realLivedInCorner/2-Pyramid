@@ -234,18 +234,20 @@
 ::view-transition-new(root) {
   z-index: 2;
   /*
-   * 四个墨点沿**对角线**落笔：左上最早、右下殿后，起点 x 也随之左右错开
-   * （-6% / 0% / 6% / -2%）。都在同一列上的话，前沿会是一条竖直的弧，
-   * 而不是斜着扫过去。
+   * 四个墨点沿**对角线**落笔，位置由 JS 注入（--ink-pos-*）。
    *
-   * 每个墨点的过渡带宽度也不同（6/9/7/5），边缘软硬不一 —— 统一的过渡带
-   * 会让四个圆看起来是同一个图章盖了四次。
+   * 位置交给 JS 的原因：切入方向要能在「上切」和「下切」之间交替。
+   * 上切时四点贴上边缘横排、向下胀开；下切时贴下边缘、向上胀开。
+   * 写死在 CSS 里就只能有一个方向。
+   *
+   * 每个墨点的过渡带宽度仍不同（6/9/7/5）—— 统一的过渡带会让四个圆
+   * 看起来是同一个图章盖了四次。
    */
   mask-image:
-    radial-gradient(circle at -6% 8%, #000 var(--ink-a), transparent calc(var(--ink-a) + 6%)),
-    radial-gradient(circle at 0% 38%, #000 var(--ink-b), transparent calc(var(--ink-b) + 9%)),
-    radial-gradient(circle at 6% 68%, #000 var(--ink-c), transparent calc(var(--ink-c) + 7%)),
-    radial-gradient(circle at -2% 94%, #000 var(--ink-d), transparent calc(var(--ink-d) + 5%));
+    radial-gradient(circle at var(--ink-pos-a, -6% 8%), #000 var(--ink-a), transparent calc(var(--ink-a) + 6%)),
+    radial-gradient(circle at var(--ink-pos-b, 0% 38%), #000 var(--ink-b), transparent calc(var(--ink-b) + 9%)),
+    radial-gradient(circle at var(--ink-pos-c, 6% 68%), #000 var(--ink-c), transparent calc(var(--ink-c) + 7%)),
+    radial-gradient(circle at var(--ink-pos-d, -2% 94%), #000 var(--ink-d), transparent calc(var(--ink-d) + 5%));
   mask-composite: add;
   -webkit-mask-composite: source-over;
   /*
@@ -295,6 +297,41 @@
   animation: none;
 }
 .motion-reduced ::view-transition-old(root) { display: none; }
+
+/*
+ * ══ 主题切换时的文本刷新 ═════════════════════════════════════════════
+ *
+ * 逐字「重新落墨」：每个字从偏下、略糊、半透明，归位到清晰。
+ *
+ * 时序上刻意压在墨水收尾处起步（见 useTheme 里的 TEXT_DELAY），
+ * 而不是动画一结束才开始 —— 两段中间空一拍会读成两个不相干的效果。
+ *
+ * 用 backwards 而不是 both：both / forwards 会永久保留末态里的 translate，
+ * 元素因此成为包含块（这个坑本项目踩过四次）。基线里也不能放 opacity: 0，
+ * 否则 backwards 动画结束回落到基线时文字会消失。
+ */
+.refreshing .r-in {
+  animation: text-refresh 520ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: calc(var(--rd, 0ms) + var(--r-i, 0) * 26ms);
+}
+
+@keyframes text-refresh {
+  from {
+    opacity: 0.25;
+    filter: blur(3px);
+    translate: 0 5px;
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refreshing .r-in { animation: none; }
+}
+.motion-reduced .refreshing .r-in { animation: none; }
 
 /* ── 文本按钮 ── */.btn-text {
   display: inline-flex;
