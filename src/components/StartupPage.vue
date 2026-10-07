@@ -849,7 +849,18 @@ async function finish() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /*
+   * **必须是 `safe center`，不能是 `center`。**
+   *
+   * 内容比容器高时（设置步就是），普通的 center 会把头部推到视口之上，
+   * 而且**滚不回去** —— 实测标题和 ONBOARDING / STEP 计数整块消失，
+   * 看着像没渲染，其实是滚动位置够不到。`safe` 关键字让它在放不下时
+   * 退化为 flex-start，内容从头开始、可以正常滚动。
+   *
+   * 同一个坑在 .panel-content 的旧版（align-items: flex-end）上踩过一次，
+   * 那次是横向的同类问题。
+   */
+  justify-content: safe center;
   gap: 28px;
   padding: 24px 36px;
   min-height: 0;
