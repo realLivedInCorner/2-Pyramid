@@ -123,7 +123,7 @@ async function copy() {
 .shape-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .shape-badge {
   padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
-  background: rgba(20, 23, 26, 0.07); color: #14171a;
+  background: rgba(20, 23, 26, 0.08); color: #14171a;
 }
 .shape-badge.warn { background: rgba(217, 119, 6, 0.14); color: #b45309; }
 .meta-grid {

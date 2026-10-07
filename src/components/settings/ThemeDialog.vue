@@ -129,7 +129,7 @@ function confirmReset() {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.05);
   flex-shrink: 0;
 }
 .preview-text { min-width: 0; }

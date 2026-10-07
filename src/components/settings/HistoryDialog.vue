@@ -107,7 +107,7 @@ onMounted(() => {
   padding: 10px 8px;
   border-radius: 10px;
 }
-.history-item:hover { background: rgba(20, 23, 26, 0.02); }
+.history-item:hover { background: rgba(20, 23, 26, 0.03); }
 .history-status {
   width: 8px;
   height: 8px;

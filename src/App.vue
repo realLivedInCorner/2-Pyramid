@@ -912,8 +912,8 @@ onMounted(async () => {
    --warning-color: var(--theme-color); 
    --danger-color: var(--theme-color); 
    --shadow-light: 0 2px 4px rgba(20, 23, 26, 0.05); 
-   --shadow-medium: 0 4px 8px rgba(20, 23, 26, 0.1); 
-   --shadow-heavy: 0 8px 16px rgba(20, 23, 26, 0.15); 
+   --shadow-medium: 0 4px 8px rgba(20, 23, 26, 0.12); 
+   --shadow-heavy: 0 8px 16px rgba(20, 23, 26, 0.18); 
    --radius-small: 6px;
    --radius-medium: 12px;
    --radius-large: 20px;
@@ -1029,14 +1029,14 @@ onMounted(async () => {
      inset 0 1px 1px rgba(255, 255, 255, 0.75),
      inset 0 -1px 1px rgba(255, 255, 255, 0.18),
      inset 1px 0 1px rgba(255, 255, 255, 0.35),
-     0 10px 30px rgba(20, 23, 26, 0.10),
+     0 10px 30px rgba(20, 23, 26, 0.12),
      0 2px 6px rgba(20, 23, 26, 0.05);
    --ui-shadow-hover:
      inset 0 1px 1px rgba(255, 255, 255, 0.85),
      inset 0 -1px 1px rgba(255, 255, 255, 0.22),
      inset 1px 0 1px rgba(255, 255, 255, 0.4),
-     0 16px 40px rgba(20, 23, 26, 0.14),
-     0 4px 10px rgba(20, 23, 26, 0.07);
+     0 16px 40px rgba(20, 23, 26, 0.12),
+     0 4px 10px rgba(20, 23, 26, 0.08);
    --ui-border: 1px solid rgba(255, 255, 255, 0.55);
    --ui-btn-shadow:
      inset 0 1px 1px rgba(255, 255, 255, 0.7),
@@ -1049,8 +1049,8 @@ onMounted(async () => {
    --ui-btn-surface: #e9ebef;
    --ui-blur: 0px;
    --ui-saturate: 1;
-   --ui-shadow: 0 1px 3px rgba(20, 23, 26, 0.06);
-   --ui-shadow-hover: 0 3px 10px rgba(20, 23, 26, 0.09);
+   --ui-shadow: 0 1px 3px rgba(20, 23, 26, 0.05);
+   --ui-shadow-hover: 0 3px 10px rgba(20, 23, 26, 0.08);
    --ui-border: 1px solid rgba(20, 23, 26, 0.05);
    --ui-btn-shadow: 0 1px 2px rgba(20, 23, 26, 0.05);
  }
@@ -1111,7 +1111,7 @@ onMounted(async () => {
     玻璃叠成"嵌套两层按钮"的观感） */
  .app-container .segmented,
  .startup-root .segmented {
-   background: rgba(20, 23, 26, 0.045);
+   background: rgba(20, 23, 26, 0.05);
    border-radius: calc(var(--ui-radius-btn) + 2px);
    padding: 3px;
  }
@@ -1182,7 +1182,7 @@ onMounted(async () => {
    -webkit-backdrop-filter: none;
  }
  .app-container .dialog-close:hover {
-   background: rgba(20, 23, 26, 0.06);
+   background: rgba(20, 23, 26, 0.05);
    box-shadow: none;
    transform: none;
  }
@@ -1316,7 +1316,7 @@ onMounted(async () => {
  } 
  
  .window-button:hover { 
-   background-color: rgba(20, 23, 26, 0.1); 
+   background-color: rgba(20, 23, 26, 0.12); 
    color: var(--primary-color); 
  } 
  
@@ -1861,14 +1861,14 @@ onMounted(async () => {
 .toast-card {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 18px; border-radius: 16px;
-  background: #fff; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.15);
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  background: #fff; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.18);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   cursor: pointer; max-width: 380px;
   transition: all 0.2s;
 }
 .toast-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(20, 23, 26, 0.2);
+  box-shadow: 0 16px 40px rgba(20, 23, 26, 0.18);
 }
 .toast-icon {
   width: 36px; height: 36px; border-radius: 50%;
@@ -1879,7 +1879,7 @@ onMounted(async () => {
 .toast-optional .toast-icon { background: color-mix(in srgb, var(--theme-color) 10%, transparent); color: var(--theme-color); }
 .toast-success .toast-icon { background: rgba(16, 185, 129, 0.10); color: #10b981; }
 .toast-success { cursor: default; }
-.toast-success:hover { transform: none; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.15); }
+.toast-success:hover { transform: none; box-shadow: 0 12px 36px rgba(20, 23, 26, 0.18); }
 .toast-text { flex: 1; min-width: 0; }
 .toast-title { font-size: 14px; font-weight: 700; color: #14171a; }
 .toast-desc { font-size: 12px; color: #7d776d; margin-top: 2px; }
@@ -1889,7 +1889,7 @@ onMounted(async () => {
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; flex-shrink: 0; transition: 0.2s;
 }
-.toast-close:hover { background: rgba(20, 23, 26, 0.1); color: #14171a; }
+.toast-close:hover { background: rgba(20, 23, 26, 0.12); color: #14171a; }
 
 .toast-slide-enter-active {
   transition:
@@ -1926,7 +1926,7 @@ onMounted(async () => {
 .conv-guard-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 23, 26, 0.5);
+  background: rgba(20, 23, 26, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1939,7 +1939,7 @@ onMounted(async () => {
   border-radius: 16px;
   padding: 24px;
   width: 400px;
-  box-shadow: 0 20px 60px rgba(20, 23, 26, 0.2);
+  box-shadow: 0 20px 60px rgba(20, 23, 26, 0.18);
 }
 
 .conv-guard-header h3 {

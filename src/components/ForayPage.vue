@@ -634,7 +634,7 @@ onMounted(() => {
   font-size: 13px;
 }
 .ghost-btn {
-  border: 1px solid rgba(20, 23, 26, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.12);
   background: rgba(255, 255, 255, 0.72);
   color: #14171a;
   font-weight: 600;
@@ -817,8 +817,8 @@ onMounted(() => {
 .code-block {
   margin: 0;
   padding: 12px 14px;
-  background: rgba(20, 23, 26, 0.04);
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   border-radius: var(--ui-radius-card, 14px);
   font-size: 12px;
   line-height: 1.5;
@@ -859,14 +859,14 @@ onMounted(() => {
   width: 68px;
   padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(20, 23, 26, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.12);
   background: rgba(255, 255, 255, 0.8);
   font: inherit;
 }
 .toolbar input[type="color"] {
   width: 36px;
   height: 28px;
-  border: 1px solid rgba(20, 23, 26, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.12);
   border-radius: 8px;
   background: #fff;
 }
@@ -934,7 +934,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
 }
 .modal-head h3 {
   margin: 0;

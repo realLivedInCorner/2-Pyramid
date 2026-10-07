@@ -48,7 +48,7 @@ const emit = defineEmits<{ copy: [] }>();
 .share-code-box {
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   word-break: break-all;
 }
 .share-code-box code {

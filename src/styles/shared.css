@@ -23,11 +23,11 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 .btn-text:hover {
-  background: rgba(120, 110, 95, 0.07);
+  background: rgba(120, 110, 95, 0.06);
   color: #14171a;
 }
 .btn-text.secondary {
-  background: rgba(120, 110, 95, 0.055);
+  background: rgba(120, 110, 95, 0.06);
 }
 
 /* ── 幽灵按钮（对话框 / 侧栏 / 流程舞台） ── */
@@ -51,7 +51,7 @@
 }
 .ghost-btn i { font-size: 15px; line-height: 1; }
 .ghost-btn:hover {
-  background: rgba(120, 110, 95, 0.08);
+  background: rgba(120, 110, 95, 0.09);
   color: #14171a;
 }
 
@@ -59,7 +59,7 @@
 .segmented {
   display: inline-flex;
   background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(120, 110, 95, 0.18);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 8px;
   padding: 3px;
   gap: 3px;
@@ -81,7 +81,7 @@
   /* 用白面 + 发丝内描边，不用主题色淡面 —— 主题色留给主操作按钮 */
   background: #fff;
   color: #14171a;
-  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.12);
 }
 
 /* ── 帮助问号 ── */
@@ -134,7 +134,7 @@
   position: fixed;
   inset: 0;
   /* 暖色遮罩。原来的 rgba(15,23,42,…) 是冷蓝灰，压在暖白界面上会发脏 */
-  background: rgba(28, 24, 18, 0.34);
+  background: rgba(20, 23, 26, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,10 +148,10 @@
   width: 420px;
   max-width: 90vw;
   background: #fff;
-  border: 1px solid rgba(120, 110, 95, 0.18);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 16px 40px rgba(28, 24, 18, 0.14);
+  box-shadow: 0 16px 40px rgba(20, 23, 26, 0.12);
   max-height: min(86vh, 760px);
   overflow: hidden;
   display: flex;
@@ -249,10 +249,10 @@
   color: #5f5a51;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.dialog-footer .btn-text:hover { background: rgba(120, 110, 95, 0.08); }
+.dialog-footer .btn-text:hover { background: rgba(120, 110, 95, 0.09); }
 /* .secondary 在模板里用了 23 次，和默认态同义（安静态）—— 显式写出来，免得上游改默认态时它被带跑 */
 .dialog-footer .btn-text.secondary { color: #5f5a51; background: transparent; }
-.dialog-footer .btn-text.secondary:hover { background: rgba(120, 110, 95, 0.08); }
+.dialog-footer .btn-text.secondary:hover { background: rgba(120, 110, 95, 0.09); }
 .dialog-footer .btn-text.danger { color: #b3261e; }
 .dialog-footer .btn-text.danger:hover { background: rgba(179, 38, 30, 0.08); }
 .dialog-footer .btn-text.primary {
@@ -289,10 +289,10 @@
 .stage-panel::-webkit-scrollbar { width: 6px; }
 .stage-panel::-webkit-scrollbar-track { background: transparent; }
 .stage-panel::-webkit-scrollbar-thumb {
-  background: rgba(120, 110, 95, 0.16);
+  background: rgba(120, 110, 95, 0.14);
   border-radius: 3px;
 }
-.stage-panel::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.28); }
+.stage-panel::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.3); }
 
 .stage-head { flex-shrink: 0; }
 .stage-title { margin: 0; font-size: 18px; font-weight: 600; color: #14171a; }
@@ -408,7 +408,7 @@
   position: fixed;
   inset: 0;
   /* 暖色遮罩，和 .dialog-overlay 同一支 */
-  background: rgba(28, 24, 18, 0.34);
+  background: rgba(20, 23, 26, 0.28);
   z-index: 200;
 }
 
@@ -425,8 +425,8 @@
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-left: 1px solid rgba(120, 110, 95, 0.16);
+  border-left: 1px solid rgba(120, 110, 95, 0.14);
   /* 阴影由 useSidebarSlide 在运行时用内联样式控制（enter 淡入 / leave 淡出），
      这里给一个静态兜底值，供未接该 composable 的抽屉使用 */
-  box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
+  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.12);
 }

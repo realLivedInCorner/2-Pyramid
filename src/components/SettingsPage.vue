@@ -1606,8 +1606,8 @@ const onThemeReset = async () => {
   font-size: 14px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(20, 23, 26, 0.04);
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   color: #14171a;
   margin: 10px 0 12px;
   user-select: text;
@@ -1827,7 +1827,7 @@ const onThemeReset = async () => {
 }
 .setting-item:last-child { border-bottom: none; }
 .setting-item.clickable { cursor: pointer; }
-.setting-item.clickable:hover { background: rgba(20, 23, 26, 0.02); }
+.setting-item.clickable:hover { background: rgba(20, 23, 26, 0.03); }
 .setting-item.is-disabled { opacity: 0.45; }
 .segmented.disabled { pointer-events: none; }
 
@@ -1879,7 +1879,7 @@ const onThemeReset = async () => {
   background: color-mix(in srgb, var(--theme-color) 12%, transparent);
   color: var(--theme-color);
 }
-.btn-text.secondary { background: rgba(20, 23, 26, 0.06); color: #5f5a51; }
+.btn-text.secondary { background: rgba(20, 23, 26, 0.05); color: #5f5a51; }
 .btn-text:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 转换历史列表（对话框内） */
@@ -1899,7 +1899,7 @@ const onThemeReset = async () => {
   height: 180px;
   border-radius: 14px;
   border: 1px solid rgba(20, 23, 26, 0.08);
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1962,7 +1962,7 @@ const onThemeReset = async () => {
   flex-direction: column;
   max-height: 420px;
   overflow-y: auto;
-  border-top: 1px solid rgba(20, 23, 26, 0.06);
+  border-top: 1px solid rgba(20, 23, 26, 0.05);
 }
 .history-item {
   display: flex;
@@ -2001,7 +2001,7 @@ const onThemeReset = async () => {
   font-family: inherit;
   border: 1.5px solid rgba(20, 23, 26, 0.12);
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   color: #14171a;
   outline: none;
 }
@@ -2124,7 +2124,7 @@ const onThemeReset = async () => {
 }
 .slider:before {
   position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(20, 23, 26, 0.1);
+  box-shadow: 0 2px 4px rgba(20, 23, 26, 0.12);
 }
 .switch input:checked + .slider { background-color: #14171a; }
 .switch input:checked + .slider:before { transform: translateX(18px); }
@@ -2205,11 +2205,11 @@ const onThemeReset = async () => {
   padding: 10px 12px;
   margin-top: 8px;
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   cursor: pointer;
   transition: background 0.15s;
 }
-.dialog-checkbox-row:hover { background: rgba(20, 23, 26, 0.07); }
+.dialog-checkbox-row:hover { background: rgba(20, 23, 26, 0.08); }
 .dialog-checkbox-row input[type="checkbox"] {
   margin-top: 2px;
   width: 16px; height: 16px;
@@ -2260,7 +2260,7 @@ const onThemeReset = async () => {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  border: 1px solid rgba(20, 23, 26, 0.1);
+  border: 1px solid rgba(20, 23, 26, 0.12);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6);
 }
 
@@ -2281,8 +2281,8 @@ const onThemeReset = async () => {
   gap: 14px;
   padding: 12px;
   border-radius: 14px;
-  background: rgba(20, 23, 26, 0.04);
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
+  border: 1px solid rgba(20, 23, 26, 0.05);
 }
 
 .preview-chip {
@@ -2394,7 +2394,7 @@ const onThemeReset = async () => {
   border-radius: 6px;
 }
 .setting-item.clickable:hover {
-  background: rgba(120, 110, 95, 0.055);
+  background: rgba(120, 110, 95, 0.06);
 }
 
 /* 分组之间靠留白分隔，不再靠卡片边界 */

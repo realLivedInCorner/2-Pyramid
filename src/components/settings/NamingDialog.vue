@@ -102,7 +102,7 @@ function save() {
   align-items: baseline;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   border-radius: 10px;
   background: transparent;
   cursor: pointer;

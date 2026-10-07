@@ -121,7 +121,7 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   /* 高度逐级递减 —— 这是「越往上越小」的来源，不靠整面透视 */
   height: var(--h);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.26) 100%);
-  border-top: 1px solid rgba(120, 110, 95, 0.13);
+  border-top: 1px solid rgba(120, 110, 95, 0.14);
   border-left: 1px solid rgba(120, 110, 95, 0.09);
 }
 
@@ -150,7 +150,7 @@ const tiers = Array.from({ length: TIERS * (COPIES + 1) }, (_, i) => {
   inset: 0;
   background-image: repeating-linear-gradient(
     118deg,
-    rgba(120, 110, 95, 0.055) 0 1px,
+    rgba(120, 110, 95, 0.06) 0 1px,
     transparent 1px 13px
   );
   mask-image: linear-gradient(200deg, #000 0%, transparent 62%);

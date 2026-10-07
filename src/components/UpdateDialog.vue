@@ -315,7 +315,7 @@ onUnmounted(() => {
 /* 转圈：底环不能太浅，否则静止时看不出是个环（动画被减动效关掉时尤其明显） */
 .ud-spinner {
   width: 36px; height: 36px;
-  border: 3px solid rgba(120, 110, 95, 0.16);
+  border: 3px solid rgba(120, 110, 95, 0.14);
   border-top-color: #14171a;
   border-radius: 50%;
   animation: ud-spin 0.7s linear infinite;
@@ -343,7 +343,7 @@ onUnmounted(() => {
   background: rgba(179, 38, 30, 0.08); color: #b3261e; border-color: rgba(179, 38, 30, 0.22);
 }
 .priority-minor, .priority-optional {
-  background: rgba(120, 110, 95, 0.07); color: #5f5a51; border-color: rgba(120, 110, 95, 0.16);
+  background: rgba(120, 110, 95, 0.06); color: #5f5a51; border-color: rgba(120, 110, 95, 0.14);
 }
 .priority-patch {
   background: rgba(5, 150, 105, 0.09); color: #059669; border-color: rgba(5, 150, 105, 0.2);
@@ -385,7 +385,7 @@ onUnmounted(() => {
 .ud-notes {
   align-self: stretch; display: flex; flex-direction: column;
   margin-top: 2px; overflow: hidden; text-align: left;
-  background: rgba(120, 110, 95, 0.045);
+  background: rgba(120, 110, 95, 0.06);
   border: 1px solid rgba(120, 110, 95, 0.14);
   border-radius: 8px;
 }
@@ -425,17 +425,17 @@ onUnmounted(() => {
 .ud-md :deep(strong) { color: #14171a; font-weight: 600; }
 .ud-md :deep(a) {
   color: #14171a; font-weight: 500; text-decoration: none;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.35);
+  border-bottom: 1px solid rgba(120, 110, 95, 0.3);
 }
 .ud-md :deep(a:hover) { border-bottom-color: #14171a; }
 .ud-md :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11.5px; padding: 1px 5px; border-radius: 6px;
-  background: rgba(120, 110, 95, 0.1); color: #14171a;
+  background: rgba(120, 110, 95, 0.09); color: #14171a;
 }
 .ud-md :deep(pre) {
   margin: 8px 0; padding: 10px 12px; border-radius: 8px; overflow-x: auto;
-  background: rgba(120, 110, 95, 0.07);
+  background: rgba(120, 110, 95, 0.06);
   border: 1px solid rgba(120, 110, 95, 0.14);
 }
 .ud-md :deep(pre code) { padding: 0; background: transparent; color: #14171a; }
@@ -443,7 +443,7 @@ onUnmounted(() => {
   margin: 8px 0; padding: 6px 12px;
   border-left: 2px solid rgba(120, 110, 95, 0.3);
   border-radius: 0 8px 8px 0;
-  background: rgba(120, 110, 95, 0.05);
+  background: rgba(120, 110, 95, 0.06);
   color: #7d776d;
 }
 .ud-md :deep(hr) { margin: 12px 0; border: none; border-top: 1px solid rgba(120, 110, 95, 0.14); }

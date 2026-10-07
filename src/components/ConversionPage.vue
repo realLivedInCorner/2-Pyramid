@@ -1056,7 +1056,7 @@ const exportLogsToFile = async () => {
   font-size: 11px;
   font-weight: 800;
   color: #7d776d;
-  background: rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
   cursor: help;
   user-select: none;
 }
@@ -1069,7 +1069,7 @@ const exportLogsToFile = async () => {
 /* 文件 / 文件夹：对齐设置页 segmented */
 .import-tabs {
   display: inline-flex;
-  background: rgba(20, 23, 26, 0.045);
+  background: rgba(20, 23, 26, 0.05);
   border-radius: calc(var(--ui-radius-btn) + 4px);
   padding: 3px;
   gap: 3px;
@@ -1093,7 +1093,7 @@ const exportLogsToFile = async () => {
   color: #14171a;
   /* 去掉两层投影（环境影 + 1px 描边影）—— 那是卡片语言的遗留。
      设置页的分段按钮已经统一成「白面 + 发丝内描边」，这里跟上。 */
-  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.12);
 }
 
 /* === Version picker === */
@@ -1103,7 +1103,7 @@ const exportLogsToFile = async () => {
   gap: 14px;
   /* 发丝线 + 暖白面，不用主题色描边和内高光 —— 与设置页同一套 */
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(120, 110, 95, 0.18);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   padding: 12px 14px;
   border-radius: 8px;
   font-family: inherit;
@@ -1116,7 +1116,7 @@ const exportLogsToFile = async () => {
 }
 .version-picker:hover {
   border-color: color-mix(in srgb, var(--theme-color) 38%, transparent);
-  box-shadow: 0 4px 16px rgba(20, 23, 26, 0.10);
+  box-shadow: 0 4px 16px rgba(20, 23, 26, 0.12);
   transform: translateY(-1px);
 }
 .version-picker:active { transform: translateY(0); }
@@ -1233,7 +1233,7 @@ const exportLogsToFile = async () => {
   height: 18px;
   border-radius: 50%;
   box-sizing: border-box;
-  border: 1px solid rgba(120, 110, 95, 0.32);
+  border: 1px solid rgba(120, 110, 95, 0.3);
   background: transparent;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
@@ -1345,7 +1345,7 @@ const exportLogsToFile = async () => {
 .list-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px; font-size: 12px; color: #7d776d;
-  background: rgba(20, 23, 26, 0.025);
+  background: rgba(20, 23, 26, 0.03);
   flex-shrink: 0;
 }
 .list-actions { display: flex; align-items: center; gap: 8px; }
@@ -1375,10 +1375,10 @@ const exportLogsToFile = async () => {
 .item-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px;
-  border-top: 1px solid rgba(20, 23, 26, 0.04);
+  border-top: 1px solid rgba(20, 23, 26, 0.05);
   transition: background 0.15s ease;
 }
-.item-row:hover { background: rgba(20, 23, 26, 0.02); }
+.item-row:hover { background: rgba(20, 23, 26, 0.03); }
 .item-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .item-icon { width: 18px; height: 18px; color: #14171a; display: inline-flex; align-items: center; justify-content: center; }
 .item-icon i { font-size: 18px; line-height: 1; }
@@ -1404,7 +1404,7 @@ const exportLogsToFile = async () => {
 .remove-item-btn:hover { background: rgba(179, 38, 30, 0.16); color: #dc2626; }
 .more-row {
   padding: 10px 14px;
-  border-top: 1px solid rgba(20, 23, 26, 0.04);
+  border-top: 1px solid rgba(20, 23, 26, 0.05);
   color: #7d776d;
   font-size: 12px;
 }
@@ -1470,8 +1470,8 @@ const exportLogsToFile = async () => {
   z-index: 201;
   outline: none;
   /* 投影由 useSidebarSlide 在 enter/leave 期间用内联样式维护，这里只是静态兜底。
-     颜色改暖（原来是冷黑 rgba(20, 23, 26, .08)，压在暖白界面上会发脏）。 */
-  box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
+     颜色改暖（原来是冷黑 rgba(20, 23, 26, 0.08)，压在暖白界面上会发脏）。 */
+  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.12);
   /* 默认状态 = enter-from(屏幕外右侧)— element insert 时浏览器 paint 看不见。
      enter/leave 完全由 inline style + CSS transition 驱动(见 onSidebarEnter /
      onSidebarLeave),transform / box-shadow 状态由 inline style 维护,这里
@@ -1491,7 +1491,7 @@ const exportLogsToFile = async () => {
   justify-content: space-between;
   gap: 12px;
   padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
   flex-shrink: 0;
 }
 .sidebar-header-text {
@@ -1548,7 +1548,7 @@ const exportLogsToFile = async () => {
   background: rgba(20, 23, 26, 0.12);
   border-radius: 3px;
 }
-.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(20, 23, 26, 0.22); }
+.sidebar-body::-webkit-scrollbar-thumb:hover { background: rgba(20, 23, 26, 0.18); }
 
 .version-era {
   display: flex;
@@ -1581,7 +1581,7 @@ const exportLogsToFile = async () => {
   to   { opacity: 1; transform: translateX(0); }
 }
 .version-row:active {
-  background: rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
 }
 .version-row.has-status { padding-right: 8px; }
 
@@ -1638,7 +1638,7 @@ const exportLogsToFile = async () => {
 .items-dialog-list {
   max-height: 420px;
   overflow: auto;
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   border-radius: 12px;
 }
 

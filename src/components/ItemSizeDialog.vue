@@ -261,7 +261,7 @@ onMounted(() => {
   /* 顶部避开浮动窗口控制按钮 */
   padding: 56px 1.5rem 1rem;
   background: #fff;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -399,7 +399,7 @@ onMounted(() => {
 .panel-footer {
   padding: 12px 1.5rem;
   background: #fff;
-  border-top: 1px solid rgba(20, 23, 26, 0.06);
+  border-top: 1px solid rgba(20, 23, 26, 0.05);
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -440,7 +440,7 @@ onMounted(() => {
 }
 
 .back-btn {
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   color: #7d776d;
   transition: background 0.15s ease, color 0.15s ease;
 }

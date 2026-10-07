@@ -622,7 +622,7 @@ async function finish() {
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
-  background: rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
   color: #9c968c;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -711,7 +711,7 @@ async function finish() {
   gap: 10px;
   padding: 26px 16px 20px;
   background: #fff;
-  border: 2px solid rgba(20, 23, 26, 0.07);
+  border: 2px solid rgba(20, 23, 26, 0.08);
   border-radius: 18px;
   cursor: pointer;
   transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -802,7 +802,7 @@ async function finish() {
   padding: 15px 20px 15px 46px;
   font-size: 16px;
   font-family: inherit;
-  border: 2px solid rgba(20, 23, 26, 0.1);
+  border: 2px solid rgba(20, 23, 26, 0.12);
   border-radius: 14px;
   background: #fff;
   color: #14171a;
@@ -834,7 +834,7 @@ async function finish() {
   gap: 14px;
   padding: 32px 28px;
   background: #fff;
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   border-radius: 18px;
   box-shadow: 0 4px 20px rgba(20, 23, 26, 0.05);
   text-align: center;
@@ -905,7 +905,7 @@ async function finish() {
   min-width: 0;
 }
 .startup-setting-row:hover {
-  background: rgba(20, 23, 26, 0.02);
+  background: rgba(20, 23, 26, 0.03);
 }
 
 /* 行内控件不参与压缩（否则分段按钮会被挤掉、正文被压成竖排） */
@@ -982,7 +982,7 @@ async function finish() {
   font-family: inherit;
   border: 1.5px solid rgba(20, 23, 26, 0.12);
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   color: #14171a;
   outline: none;
 }
@@ -1068,7 +1068,7 @@ async function finish() {
   background: #fff;
   border-radius: 50%;
   transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(20, 23, 26, 0.15);
+  box-shadow: 0 1px 3px rgba(20, 23, 26, 0.18);
 }
 
 .switch input:checked + .slider {
@@ -1093,10 +1093,10 @@ async function finish() {
   gap: 6px;
   padding: 6px;
   background: #fff;
-  border: 1px solid rgba(20, 23, 26, 0.06);
+  border: 1px solid rgba(20, 23, 26, 0.05);
   border-radius: 999px;
   box-shadow:
-    0 10px 34px rgba(20, 23, 26, 0.10),
+    0 10px 34px rgba(20, 23, 26, 0.12),
     0 2px 8px rgba(20, 23, 26, 0.05);
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
 }
@@ -1104,8 +1104,8 @@ async function finish() {
 .nav-pill:hover {
   transform: translateY(-3px);
   box-shadow:
-    0 16px 40px rgba(20, 23, 26, 0.13),
-    0 4px 12px rgba(20, 23, 26, 0.07);
+    0 16px 40px rgba(20, 23, 26, 0.12),
+    0 4px 12px rgba(20, 23, 26, 0.08);
 }
 
 .startup-btn {
@@ -1208,7 +1208,7 @@ async function finish() {
   align-items: center;
   gap: 6px;
   background: transparent;
-  border: 1px dashed rgba(20, 23, 26, 0.15);
+  border: 1px dashed rgba(20, 23, 26, 0.18);
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 12px;
@@ -1219,7 +1219,7 @@ async function finish() {
 }
 .startup-restore-btn i { font-size: 14px; }
 .startup-restore-btn:hover {
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   border-color: var(--theme-color, #14171a);
   color: var(--theme-color, #14171a);
 }
@@ -1242,7 +1242,7 @@ async function finish() {
   background: #fff;
   border-radius: 18px;
   padding: 22px 22px 18px;
-  box-shadow: 0 24px 48px rgba(20, 23, 26, 0.22);
+  box-shadow: 0 24px 48px rgba(20, 23, 26, 0.18);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1263,7 +1263,7 @@ async function finish() {
   border-radius: 8px;
   transition: background 0.15s, color 0.15s;
 }
-.startup-backup-close:hover { background: rgba(20, 23, 26, 0.06); color: #5f5a51; }
+.startup-backup-close:hover { background: rgba(20, 23, 26, 0.05); color: #5f5a51; }
 .startup-backup-desc {
   margin: 0;
   font-size: 12.5px; line-height: 1.5; color: #5f5a51;

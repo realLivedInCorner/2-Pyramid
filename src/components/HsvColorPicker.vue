@@ -165,7 +165,7 @@ syncFromProps();
   overflow: hidden;
   border: 1px solid #111;
   box-shadow:
-    0 0 0 1px rgba(20, 23, 26, 0.35),
+    0 0 0 1px rgba(20, 23, 26, 0.28),
     0 8px 20px rgba(20, 23, 26, 0.12),
     0 0 18px color-mix(in srgb, var(--picker-color) 28%, transparent);
   cursor: crosshair;
@@ -189,7 +189,7 @@ syncFromProps();
   height: 12px;
   border: 2px solid #fff;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(20, 23, 26, 0.4), 0 0 12px color-mix(in srgb, var(--picker-color) 60%, transparent);
+  box-shadow: 0 0 0 2px rgba(20, 23, 26, 0.45), 0 0 12px color-mix(in srgb, var(--picker-color) 60%, transparent);
   transform: translate(-6px, -6px);
   pointer-events: none;
 }
@@ -218,7 +218,7 @@ syncFromProps();
   border-radius: 50%;
   background: var(--picker-color);
   border: 2px solid #111;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(20, 23, 26, 0.25);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(20, 23, 26, 0.28);
   cursor: pointer;
   margin-top: -4px;
 }
@@ -229,7 +229,7 @@ syncFromProps();
   border-radius: 50%;
   background: var(--picker-color);
   border: 2px solid #111;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(20, 23, 26, 0.25);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--picker-color) 70%, transparent), 0 2px 8px rgba(20, 23, 26, 0.28);
   cursor: pointer;
 }
 

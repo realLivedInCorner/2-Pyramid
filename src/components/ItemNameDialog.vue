@@ -178,7 +178,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-16px 0 48px rgba(28, 24, 18, 0.18)' });
+} = useSidebarSlide({ shadow: '-16px 0 48px rgba(20, 23, 26, 0.18)' });
 
 const selectedLang = ref('zh_cn');
 const searchText = ref('');
@@ -531,7 +531,7 @@ onMounted(async () => {
      这里只保证 element insert 那一帧不闪。 */
   transform: translateX(100%);
   /* 抽屉是真的浮起来的元素，投影保留；冷灰换成暖色中性投影 */
-  box-shadow: -16px 0 48px rgba(28, 24, 18, 0.18);
+  box-shadow: -16px 0 48px rgba(20, 23, 26, 0.18);
   will-change: transform, box-shadow;
 }
 
@@ -575,8 +575,8 @@ onMounted(async () => {
   cursor: pointer;
   outline: none;
 }
-.lang-select:hover { border-color: rgba(120, 110, 95, 0.38); }
-.lang-select:focus-visible { border-color: rgba(20, 23, 26, 0.4); }
+.lang-select:hover { border-color: rgba(120, 110, 95, 0.3); }
+.lang-select:focus-visible { border-color: rgba(20, 23, 26, 0.45); }
 
 .panel-body {
   flex: 1;
@@ -625,8 +625,8 @@ onMounted(async () => {
 /* 焦点环用 outline 而不是 box-shadow：投影按规格只留给真正浮起的元素。
    outline-offset 取负值，让环画在输入框内侧、不撑动同行元素。 */
 .search-input:focus {
-  border-color: rgba(20, 23, 26, 0.4);
-  outline: 2px solid rgba(20, 23, 26, 0.1);
+  border-color: rgba(20, 23, 26, 0.45);
+  outline: 2px solid rgba(20, 23, 26, 0.12);
   outline-offset: -1px;
 }
 .search-input::placeholder { color: #9c968c; }
@@ -647,10 +647,10 @@ onMounted(async () => {
 .lang-list-container::-webkit-scrollbar { width: 8px; }
 .lang-list-container::-webkit-scrollbar-track { background: transparent; }
 .lang-list-container::-webkit-scrollbar-thumb {
-  background: rgba(120, 110, 95, 0.22);
+  background: rgba(120, 110, 95, 0.2);
   border-radius: 6px;
 }
-.lang-list-container::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.36); }
+.lang-list-container::-webkit-scrollbar-thumb:hover { background: rgba(120, 110, 95, 0.3); }
 
 /* 双列平铺：条目数常在千条以上，单列会把一半横向空间空着 */
 .lang-grid {
@@ -685,12 +685,12 @@ onMounted(async () => {
 }
 /* 行不是浮起物：只换底色和发丝线，不加投影 */
 .lang-item:hover {
-  border-color: rgba(120, 110, 95, 0.26);
-  background: rgba(120, 110, 95, 0.045);
+  border-color: rgba(120, 110, 95, 0.3);
+  background: rgba(120, 110, 95, 0.06);
 }
 .lang-item.is-modified {
-  border-color: rgba(120, 110, 95, 0.32);
-  background: rgba(120, 110, 95, 0.07);
+  border-color: rgba(120, 110, 95, 0.3);
+  background: rgba(120, 110, 95, 0.06);
 }
 
 .item-key {
@@ -699,7 +699,7 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: 500;
   color: #7d776d;
-  background: rgba(120, 110, 95, 0.1);
+  background: rgba(120, 110, 95, 0.09);
   padding: 3px 6px;
   border-radius: 6px;
   overflow: hidden;
@@ -710,7 +710,7 @@ onMounted(async () => {
 /* 改过的条目把键名提到墨色 —— 比给整行染色更省事，也不会和 hover 撞色 */
 .lang-item.is-modified .item-key {
   color: #14171a;
-  background: rgba(120, 110, 95, 0.16);
+  background: rgba(120, 110, 95, 0.14);
 }
 
 .input-group {
@@ -735,8 +735,8 @@ onMounted(async () => {
   transition: border-color 0.15s ease;
 }
 .edit-input:focus {
-  border-color: rgba(20, 23, 26, 0.4);
-  outline: 2px solid rgba(20, 23, 26, 0.1);
+  border-color: rgba(20, 23, 26, 0.45);
+  outline: 2px solid rgba(20, 23, 26, 0.12);
   outline-offset: -1px;
 }
 .edit-input::placeholder { color: #9c968c; }
@@ -756,7 +756,7 @@ onMounted(async () => {
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 .style-btn:hover {
-  border-color: rgba(120, 110, 95, 0.38);
+  border-color: rgba(120, 110, 95, 0.3);
   background: rgba(120, 110, 95, 0.06);
   color: #14171a;
 }
@@ -806,10 +806,10 @@ onMounted(async () => {
   position: fixed;
   width: 260px;
   background: #fff;
-  border: 1px solid rgba(120, 110, 95, 0.18);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: 0 12px 32px rgba(28, 24, 18, 0.16);
+  box-shadow: 0 12px 32px rgba(20, 23, 26, 0.18);
   z-index: 2000;
   display: flex;
   flex-direction: column;
@@ -848,7 +848,7 @@ onMounted(async () => {
 .color-swatch {
   aspect-ratio: 1;
   border-radius: 6px;
-  border: 1px solid rgba(120, 110, 95, 0.24);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   cursor: pointer;
   transition: transform 120ms var(--ease-spring);
 }
@@ -878,8 +878,8 @@ onMounted(async () => {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .format-btn:hover {
-  background: rgba(120, 110, 95, 0.07);
-  border-color: rgba(120, 110, 95, 0.32);
+  background: rgba(120, 110, 95, 0.06);
+  border-color: rgba(120, 110, 95, 0.3);
 }
 .format-btn.reset { color: #b3261e; }
 .format-btn.reset:hover {
@@ -902,7 +902,7 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: 500;
   color: #14171a;
-  background: rgba(120, 110, 95, 0.12);
+  background: rgba(120, 110, 95, 0.14);
   padding: 3px 10px;
   border-radius: 6px;
   margin-right: auto;

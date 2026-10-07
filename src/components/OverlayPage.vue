@@ -603,7 +603,7 @@ onMounted(() => {
 
 .select-pack-btn:hover {
   border-color: color-mix(in srgb, #14171a 35%, transparent);
-  background: rgba(120, 110, 95, 0.055);
+  background: rgba(120, 110, 95, 0.06);
 }
 
 @media (max-width: 900px) {
@@ -654,8 +654,8 @@ onMounted(() => {
 /* 弹窗样式 */
 
 .simple-dialog {
-  background: rgba(120, 110, 95, 0.055); padding: 32px; border-radius: 24px; width: 400px;
-  /* 原来 0 25px 50px -12px rgba(20, 23, 26, 0.25) — blur 50px 太大,leave 期间
+  background: rgba(120, 110, 95, 0.06); padding: 32px; border-radius: 24px; width: 400px;
+  /* 原来 0 25px 50px -12px rgba(20, 23, 26, 0.28) — blur 50px 太大,leave 期间
      opacity 渐变时 shadow 跟着渐变,大 blur 让 shadow "淡出拖尾" 看起来
      持续时间比 dialog 本身还长。改紧凑点(blur 32, opacity 0.18),跟
      leave 550ms 同步消失。 */
@@ -837,7 +837,7 @@ onMounted(() => {
   cursor: pointer;
   /* 与设置页、转换页同一套：发丝线 + 8px + 无投影 */
   background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(120, 110, 95, 0.16);
+  border: 1px solid rgba(120, 110, 95, 0.14);
   border-radius: 8px;
   transition: background 0.18s ease, border-color 0.18s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
   /*
@@ -850,7 +850,7 @@ onMounted(() => {
   animation-delay: calc(var(--i, 0) * 55ms);
 }
 .mod-tile:hover {
-  background: rgba(120, 110, 95, 0.055);
+  background: rgba(120, 110, 95, 0.06);
   border-color: rgba(120, 110, 95, 0.3);
   transform: translateY(-2px);
 }
@@ -949,13 +949,13 @@ onMounted(() => {
 .list-row {
   min-height: 44px;
   padding: 0 4px;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.11);
+  border-bottom: 1px solid rgba(120, 110, 95, 0.09);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 .list-row:last-child { border-bottom: none; }
-.list-row:hover { background: rgba(120, 110, 95, 0.05); }
+.list-row:hover { background: rgba(120, 110, 95, 0.06); }
 
 .col-name {
   display: inline-flex;

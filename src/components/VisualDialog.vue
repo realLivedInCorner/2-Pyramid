@@ -177,7 +177,7 @@ const {
   onBeforeLeave,
   onLeave,
   onAfterLeave,
-} = useSidebarSlide({ shadow: '-12px 0 36px rgba(28, 24, 18, 0.12)' });
+} = useSidebarSlide({ shadow: '-12px 0 36px rgba(20, 23, 26, 0.12)' });
 
 const isSaving = ref(false);
 const saveStatus = ref<{ text: string, type: 'success' | 'error' } | null>(null);
@@ -353,7 +353,7 @@ onMounted(loadSettings);
   transform: translateX(100%);
   /* 抽屉是真脱离文档流的浮层，投影保留（卡片才一律不要）—— 但换成暖色。
      取值必须与 useSidebarSlide 传入的 inline 投影一致，否则进场瞬间会闪一下 */
-  box-shadow: -12px 0 36px rgba(28, 24, 18, 0.12);
+  box-shadow: -12px 0 36px rgba(20, 23, 26, 0.12);
   /* 靠右贴边，单靠投影分不出边界；补一条暖色发丝线，和页面分隔线同一支 */
   border-left: 1px solid rgba(120, 110, 95, 0.14);
   will-change: transform, box-shadow;
@@ -446,7 +446,7 @@ onMounted(loadSettings);
   /* App.vue 的 `.app-container button` 会给按钮挂 nowrap + overflow:hidden，
      两列布局下「彩虹描边（其他显卡）」会被直接切掉 —— 这里显式恢复折行 */
   white-space: normal;
-  border: 1px solid rgba(120, 110, 95, 0.18);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.6);
   color: #5f5a51;
@@ -457,13 +457,13 @@ onMounted(loadSettings);
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
 .outline-card:hover {
-  border-color: rgba(120, 110, 95, 0.36);
+  border-color: rgba(120, 110, 95, 0.3);
   background: #fff;
   color: #14171a;
 }
 
 /* 选中态用墨色描边，与首页一致；主题色只留给主操作按钮 */
-.outline-card.active { border-color: rgba(20, 23, 26, 0.5); background: rgba(20, 23, 26, 0.035); }
+.outline-card.active { border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.03); }
 .outline-card.active .outline-name { color: #14171a; }
 
 /* 色板：50% 圆点，与开关滑块、状态点同一档圆角 */
@@ -473,7 +473,7 @@ onMounted(loadSettings);
   flex-shrink: 0;
   border-radius: 50%;
   /* 浅色色板（无描边 / 白色）需要一圈发丝线才看得出边界 —— 暖色，不用 rgba(0,0,0,·) */
-  border: 1px solid rgba(120, 110, 95, 0.22);
+  border: 1px solid rgba(120, 110, 95, 0.2);
 }
 
 /* 名字最长的是「彩虹描边（其他显卡）」，两列下必然折行，行高压到 1.35 才不散 */
@@ -484,7 +484,7 @@ onMounted(loadSettings);
   padding: 12px;
   border-radius: 8px;
   /* 暖色淡面替掉原来的 rgba(20, 23, 26, 0.03) + #eef2f7 冷边 */
-  background: rgba(120, 110, 95, 0.05);
+  background: rgba(120, 110, 95, 0.06);
   border: 1px solid rgba(120, 110, 95, 0.14);
   display: flex;
   flex-direction: column;
@@ -509,7 +509,7 @@ onMounted(loadSettings);
   width: 36px;
   height: 28px;
   padding: 0;
-  border: 1px solid rgba(120, 110, 95, 0.22);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 6px;
   background: none;
   cursor: pointer;
@@ -533,7 +533,7 @@ onMounted(loadSettings);
 .gradient-preview {
   height: 44px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 110, 95, 0.18);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -548,7 +548,7 @@ onMounted(loadSettings);
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.94);
   /* 底色由用户决定，可能很浅；描影保证可读 —— 原来是 rgba(0,0,0,·) 冷黑 */
-  text-shadow: 0 1px 2px rgba(28, 24, 18, 0.55);
+  text-shadow: 0 1px 2px rgba(20, 23, 26, 0.45);
   pointer-events: none;
 }
 
@@ -566,7 +566,7 @@ onMounted(loadSettings);
   inset: 0;
   cursor: pointer;
   /* 未选中态用暖灰：原 #cbd5e1 是冷板岩灰 */
-  background-color: rgba(120, 110, 95, 0.28);
+  background-color: rgba(120, 110, 95, 0.3);
   transition: background-color 0.2s ease;
   border-radius: 999px;
 }
@@ -584,7 +584,7 @@ onMounted(loadSettings);
 input:checked + .slider { background-color: #14171a; }
 input:checked + .slider:before { transform: translateX(18px); }
 /* 原生 checkbox 已被压成 0×0，键盘聚焦只能画在轨道上才看得见 */
-input:focus-visible + .slider { outline: 2px solid rgba(20, 23, 26, 0.4); outline-offset: 2px; }
+input:focus-visible + .slider { outline: 2px solid rgba(20, 23, 26, 0.45); outline-offset: 2px; }
 
 .panel-footer {
   padding: 12px 1.5rem;

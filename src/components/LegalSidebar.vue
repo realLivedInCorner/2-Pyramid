@@ -180,7 +180,7 @@ watch(visible, (v) => {
   justify-content: space-between;
   gap: 12px;
   padding: 1.25rem 1.5rem 1rem;
-  border-bottom: 1px solid rgba(20, 23, 26, 0.06);
+  border-bottom: 1px solid rgba(20, 23, 26, 0.05);
   flex-shrink: 0;
 }
 .legal-header-text { min-width: 0; flex: 1; }
@@ -209,7 +209,7 @@ watch(visible, (v) => {
   list-style: none;
   margin: 0;
   padding: 10px;
-  border-right: 1px solid rgba(20, 23, 26, 0.06);
+  border-right: 1px solid rgba(20, 23, 26, 0.05);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -227,7 +227,7 @@ watch(visible, (v) => {
   color: #5f5a51;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.legal-file-list li:hover { background: rgba(20, 23, 26, 0.04); color: #14171a; }
+.legal-file-list li:hover { background: rgba(20, 23, 26, 0.05); color: #14171a; }
 .legal-file-list li.active {
   background: color-mix(in srgb, var(--theme-color, #14171a) 10%, #fff);
   color: var(--theme-color, #14171a);
@@ -289,7 +289,7 @@ watch(visible, (v) => {
   font-size: 12px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: rgba(20, 23, 26, 0.06);
+  background: rgba(20, 23, 26, 0.05);
 }
 .legal-md :deep(pre) {
   margin: 0 0 0.75em;
@@ -321,7 +321,7 @@ watch(visible, (v) => {
   display: flex;
   justify-content: flex-end;
   padding: 12px 16px;
-  border-top: 1px solid rgba(20, 23, 26, 0.06);
+  border-top: 1px solid rgba(20, 23, 26, 0.05);
   background: #fff;
 }
 .legal-back-btn {
@@ -332,7 +332,7 @@ watch(visible, (v) => {
   padding: 0 16px;
   border: none;
   border-radius: 10px;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   color: #7d776d;
   font-family: inherit;
   font-size: 13px;

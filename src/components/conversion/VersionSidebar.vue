@@ -149,7 +149,7 @@ function pick(entry: VersionEntry) {
 
 .sidebar-close {
   border: none;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   width: 32px;
   height: 32px;
   border-radius: 10px;

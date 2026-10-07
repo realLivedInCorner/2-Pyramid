@@ -563,7 +563,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.fb-back:hover { background: rgba(120, 110, 95, 0.08); color: #14171a; }
+.fb-back:hover { background: rgba(120, 110, 95, 0.09); color: #14171a; }
 .fb-title {
   margin: 0;
   /* 规格：阶段标题 18/600。比页面主标题轻 —— 这是个临时视图，不是顶层页面 */
@@ -612,7 +612,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.fb-up:hover:not(:disabled) { background: rgba(120, 110, 95, 0.08); color: #14171a; }
+.fb-up:hover:not(:disabled) { background: rgba(120, 110, 95, 0.09); color: #14171a; }
 .fb-up:disabled { opacity: 0.35; cursor: default; }
 
 /* 面包屑：过长时横向滚动而不是折行，路径永远是一行 */
@@ -711,9 +711,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 }
 .fb-loc i { font-size: 14px; color: #9c968c; flex-shrink: 0; }
 .fb-loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fb-loc:hover { background: rgba(120, 110, 95, 0.07); }
+.fb-loc:hover { background: rgba(120, 110, 95, 0.06); }
 /* 选中 = 墨色，和全局「静默优先、选中才亮」一致 */
-.fb-loc.on { background: rgba(20, 23, 26, 0.06); color: #14171a; font-weight: 500; }
+.fb-loc.on { background: rgba(20, 23, 26, 0.05); color: #14171a; font-weight: 500; }
 .fb-loc.on i { color: #14171a; }
 
 .fb-list-wrap { display: flex; flex-direction: column; min-height: 0; }
@@ -747,7 +747,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   min-height: 36px;
   padding: 0 10px;
   border: none;
-  border-bottom: 1px solid rgba(120, 110, 95, 0.08);
+  border-bottom: 1px solid rgba(120, 110, 95, 0.09);
   border-radius: 6px;
   background: transparent;
   font-family: inherit;
@@ -757,7 +757,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.fb-row:hover { background: rgba(120, 110, 95, 0.05); }
+.fb-row:hover { background: rgba(120, 110, 95, 0.06); }
 .fb-row.on { background: rgba(20, 23, 26, 0.08); }
 /* 被扩展名过滤掉的文件仍在列表里，只是选不中 —— 见脚本注释 */
 .fb-row.dim { color: #9c968c; cursor: default; }
@@ -815,7 +815,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   width: 240px;
   height: 34px;
   padding: 0 11px;
-  border: 1px solid rgba(120, 110, 95, 0.22);
+  border: 1px solid rgba(120, 110, 95, 0.2);
   border-radius: 8px;
   background: #fff;
   font-family: inherit;
@@ -823,7 +823,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   color: #14171a;
   outline: none;
 }
-.fb-name:focus { border-color: rgba(20, 23, 26, 0.4); }
+.fb-name:focus { border-color: rgba(20, 23, 26, 0.45); }
 .fb-name.bad { border-color: #b3261e; }
 .fb-name-err { font-size: 11.5px; color: #b3261e; white-space: nowrap; }
 

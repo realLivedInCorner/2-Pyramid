@@ -238,7 +238,7 @@ async function remove() {
   width: 100%;
   height: 160px;
   border-radius: 14px;
-  background: rgba(20, 23, 26, 0.04);
+  background: rgba(20, 23, 26, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;

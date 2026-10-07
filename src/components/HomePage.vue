@@ -346,7 +346,7 @@ onUnmounted(() => {
 }
 
 /* 十字准星 */
-.deco-cross { position: relative; width: 17px; height: 17px; color: rgba(20, 23, 26, 0.3); }
+.deco-cross { position: relative; width: 17px; height: 17px; color: rgba(20, 23, 26, 0.28); }
 .deco-cross::before,
 .deco-cross::after { content: ""; position: absolute; background: currentColor; }
 .deco-cross::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
@@ -354,17 +354,17 @@ onUnmounted(() => {
 
 /* 阶梯标记：五级递增的细条，是品牌阶梯锥的缩小记号 */
 .deco-steps { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
-.deco-steps i { width: 4px; background: rgba(20, 23, 26, 0.24); }
+.deco-steps i { width: 4px; background: rgba(20, 23, 26, 0.28); }
 .deco-steps i:nth-child(1) { height: 4px; }
 .deco-steps i:nth-child(2) { height: 7px; }
 .deco-steps i:nth-child(3) { height: 10px; }
 .deco-steps i:nth-child(4) { height: 13px; }
-.deco-steps i:nth-child(5) { height: 16px; background: rgba(20, 23, 26, 0.36); }
+.deco-steps i:nth-child(5) { height: 16px; background: rgba(20, 23, 26, 0.28); }
 
 /* 刻度尺：每 4 格一根长刻度 */
 .deco-scale { display: flex; align-items: flex-end; gap: 4px; height: 15px; }
-.deco-scale i { width: 1px; height: 6px; background: rgba(20, 23, 26, 0.26); }
-.deco-scale i:nth-child(4n + 1) { height: 14px; background: rgba(20, 23, 26, 0.38); }
+.deco-scale i { width: 1px; height: 6px; background: rgba(20, 23, 26, 0.28); }
+.deco-scale i:nth-child(4n + 1) { height: 14px; background: rgba(20, 23, 26, 0.45); }
 
 /* ══════════ 左下：我在看什么 ══════════ */
 .subject {
@@ -468,7 +468,7 @@ onUnmounted(() => {
   border: none;
   padding: 0;
   border-radius: 3px;
-  background: rgba(20, 23, 26, 0.2);
+  background: rgba(20, 23, 26, 0.18);
   cursor: pointer;
   transition: width 0.26s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.18s ease;
 }
