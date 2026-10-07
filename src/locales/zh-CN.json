@@ -38,7 +38,9 @@
     "engineReady": "引擎就绪",
     "navConvert": "材质转换",
     "navOverlay": "覆盖制作",
-    "navSettings": "偏好设置"
+    "navSettings": "偏好设置",
+    "themeToLight": "切换到浅色",
+    "themeToDark": "切换到深色"
   },
   "conversion": {
     "stepRunDone": "转换完成",

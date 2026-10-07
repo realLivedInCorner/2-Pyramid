@@ -38,7 +38,9 @@
     "engineReady": "Engine ready",
     "navConvert": "Convert",
     "navOverlay": "Overlay",
-    "navSettings": "Settings"
+    "navSettings": "Settings",
+    "themeToLight": "Switch to light",
+    "themeToDark": "Switch to dark"
   },
   "conversion": {
     "stepRunDone": "Conversion complete",

@@ -76,8 +76,7 @@
  * 语义色在深底上要提亮，浅色那套（#b3261e 等）压不住深背景，会糊成一片。
  */
 [data-theme='dark'] {
-  --bg: #1a1815;
-  --surface: #232019;
+  --bg: #1a1815;  --surface: #232019;
   --surface-2: #201d1a;
   --surface-3: #262320;
   --surface-4: #2b2723;
@@ -103,6 +102,43 @@
   --stair-a: 0.055;
   --stair-b: 0.02;
   --vignette-rgb: 10, 9, 8;
+}
+
+/*
+ * 主题切换过渡。
+ *
+ * 只在切换的那 320ms 里挂上 `.theme-switching`，不常驻 —— 常驻意味着全局
+ * 每个元素的所有颜色变化都要过一次合成，悬停、选中、列表滚动全部背上这笔开销。
+ * 一次性付清更划算。
+ *
+ * `!important` 是必要的：被覆盖的属性本来就带着各自的 transition（悬停用
+ * 0.15s、面板用 0.25s），不强制统一的话切换时各走各的节奏，看起来是散的。
+ */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition:
+    background-color 320ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color 320ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    color 320ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    fill 320ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) !important;
+}
+
+/* 减少动效时不铺这段过渡（composable 那边也会跳过挂类，这里是双保险） */
+.motion-reduced .theme-switching,
+.motion-reduced .theme-switching *,
+.motion-reduced .theme-switching *::before,
+.motion-reduced .theme-switching *::after {
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-switching,
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
+  }
 }
 
 /* ── 文本按钮 ── */

@@ -31,11 +31,27 @@
     </header>
 
     <!--
-      右上角：使用者与时钟 + 一组纯装饰。
+      右上角：主题切换 + 使用者与时钟 + 一组纯装饰。
       窗口控制按钮占据 y 10–54，所以这一列从 y 64 起排 —— 不与之重叠。
       时钟走的是本地时间，每秒一次；组件卸载时清掉定时器。
     -->
     <div class="who hm-block">
+      <!--
+        主题切换。放在状态行最左 —— 它是个控件，但这一行本来就是右上角的
+        「chrome」，比塞进右下角的导航组里更合适（那里是翻页，不是设置）。
+        图标两个都在 DOM 里，靠 class 交叉淡入淡出：换图标比换 SVG 更省事，
+        也让旋转过渡有个连续的载体。
+      -->
+      <button
+        class="theme-toggle"
+        :class="{ dark: isDark }"
+        :aria-label="isDark ? t('home.themeToLight') : t('home.themeToDark')"
+        :title="isDark ? t('home.themeToLight') : t('home.themeToDark')"
+        @click="toggleTheme"
+      >
+        <i class="ri-sun-line tt-sun" aria-hidden="true"></i>
+        <i class="ri-moon-line tt-moon" aria-hidden="true"></i>
+      </button>
       <span class="who-name">{{ userName || '—' }}</span>
       <i aria-hidden="true"></i>
       <span class="who-time">{{ clock }}</span>
@@ -100,10 +116,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import logo from '../assets/logo-512.png';
 import { useAppInfo } from '../composables/useAppInfo';
+import { useTheme } from '../composables/useTheme';
 import SplitText from './SplitText.vue';
 import StageBackdrop from './shell/StageBackdrop.vue';
 
 const { t } = useI18n();
+const { isDark, toggleTheme } = useTheme();
 const props = withDefaults(
   defineProps<{
     userName?: string;
@@ -326,6 +344,54 @@ onUnmounted(() => {
   font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--ink-3);
+}
+
+/*
+ * 主题切换。两个图标都在 DOM 里，靠 transform + opacity 交叉：
+ * 换图标靠 class 切，但过渡有个连续的载体 —— 太阳转出去、月亮转进来，
+ * 是同一个旋转的两个相位，而不是两张图硬切。
+ */
+.theme-toggle {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  margin-right: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink-3);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.theme-toggle:hover { background: rgba(var(--warm-rgb), 0.09); color: var(--ink); }
+
+.theme-toggle i {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 17px 是这对图标的下限：15px 时太阳读作一团星芒、月牙读作一个撇，
+     在「状态行里的小图标」这个尺寸上认不出是什么。 */
+  font-size: 17px;
+  transition:
+    transform 420ms var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
+    opacity 220ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+/* 浅色：太阳在位，月亮转到下方待命 */
+.tt-sun  { transform: rotate(0deg)   scale(1);    opacity: 1; }
+.tt-moon { transform: rotate(-90deg) scale(0.4);  opacity: 0; }
+/* 深色：对调。弹簧曲线让这一步有一点回弹，不是线性平移 */
+.theme-toggle.dark .tt-sun  { transform: rotate(90deg)  scale(0.4); opacity: 0; }
+.theme-toggle.dark .tt-moon { transform: rotate(0deg)   scale(1);   opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle i { transition: opacity 0.12s ease; }
+  .tt-sun, .tt-moon,
+  .theme-toggle.dark .tt-sun,
+  .theme-toggle.dark .tt-moon { transform: none; }
 }
 .who i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
 /* 时钟用等宽数字，秒位跳动时整行不会左右晃 */
