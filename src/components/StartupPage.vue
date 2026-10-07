@@ -266,6 +266,21 @@ async function finish() {
         用计数表达「第几件 / 共几件」，进度条式的圆点在这里是多余的。
       -->
       <div class="panel-content">
+        <!--
+          步骤标题与计数。放在内容**之前**并整体居中 ——
+          OOBE 是向导不是工作台，用户此刻只有一件事要做，居中反而减少扫视距离。
+          首页那条「不用居中元素」的约束针对的是长时间停留的工作界面，
+          不适用于这里（用户原话：因为不是主页）。
+        -->
+        <div class="panel-subject">
+          <span class="kicker-label">ONBOARDING / STEP</span>
+          <div class="kicker-count">
+            <b>{{ pad(step + 1) }}</b><i>/</i>{{ pad(totalSteps) }}
+          </div>
+          <h1 class="step-title">{{ stepMeta.title }}</h1>
+          <p class="step-desc">{{ stepMeta.desc }}</p>
+        </div>
+
         <Transition name="startup-slide" mode="out-in">
           <!-- Step 1: Language -->
           <div v-if="step === 0" class="startup-step" key="lang">
@@ -490,16 +505,6 @@ async function finish() {
 
       <!-- 底部药丸导航 -->
       <div class="panel-bottom">
-        <div class="panel-subject">
-          <span class="kicker-label">ONBOARDING / STEP</span>
-          <div class="kicker-count">
-            <b>{{ pad(step + 1) }}</b><i>/</i>{{ pad(totalSteps) }}
-          </div>
-          <h1 class="step-title">{{ stepMeta.title }}</h1>
-          <p class="step-desc">{{ stepMeta.desc }}</p>
-        </div>
-
-        <!-- 右下：动作。与左下标题同一条基线 -->
         <div class="panel-nav">
         <div class="nav-pill">
           <button
@@ -752,6 +757,7 @@ async function finish() {
 .kicker-count {
   display: inline-flex;
   align-items: baseline;
+  justify-content: center;
   gap: 4px;
   margin-top: 6px;
   font-size: 15px;
@@ -831,17 +837,25 @@ async function finish() {
  * 视口之上并裁掉，而且滚不上去**（实测恢复全部设置后，顶部「转换」组
  * 整块消失）。auto margin 在溢出时退化为 0，内容从头开始、可以正常滚动。
  */
+/*
+ * 内容居中的一个竖直列：标题在上、交互内容在下。
+ *
+ * 这里**刻意居中** —— OOBE 是向导不是工作台。首页那条「不用居中元素」的
+ * 约束针对的是长时间停留、需要反复扫视的工作界面；向导里用户只有一件事
+ * 要做，居中减少扫视距离。（用户原话：因为不是主页。）
+ */
 .panel-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding: 24px 36px 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px 36px;
   min-height: 0;
   overflow-y: auto;
 }
 .panel-content > * {
-  margin-top: auto;
   flex-shrink: 0;
 }
 
@@ -851,17 +865,18 @@ async function finish() {
  */
 .panel-bottom {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 0 36px 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 36px 30px;
   flex-shrink: 0;
 }
 
+/* 标题块：居中列 */
 .panel-subject {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   min-width: 0;
 }
 
@@ -870,7 +885,7 @@ async function finish() {
   max-width: 500px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
 }
 
 /* 设置步骤内容更多：放宽容器，避免卡片被挤成单字竖排 */
@@ -891,7 +906,7 @@ async function finish() {
   letter-spacing: -0.03em;
   line-height: 1.04;
   color: var(--ink);
-  text-align: left;
+  text-align: center;
 }
 
 .step-desc {
@@ -901,8 +916,8 @@ async function finish() {
   line-height: 1.6;
   letter-spacing: 0.02em;
   color: var(--ink-3);
-  text-align: left;
-  max-width: 380px;
+  text-align: center;
+  max-width: 460px;
 }
 
 /* 语言卡 */
@@ -1257,8 +1272,7 @@ async function finish() {
  */
 .panel-nav {
   display: flex;
-  justify-content: flex-end;
-  /* 左右内边距交给 .panel-bottom —— 两处都设会让动作区和标题对不齐 */
+  justify-content: center;
   padding: 0;
   flex-shrink: 0;
 }
