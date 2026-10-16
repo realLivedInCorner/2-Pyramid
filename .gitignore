@@ -142,6 +142,9 @@ tools/store/*.png
 /docs/compose/foray-design/
 
 # 商店提交文案与清单：与 `tools/store/` 同属发布物料，随版本变动，不入库。
+# `tools/store/whats-new-*.md` 就是该目录 README 里说的「每次提交都要换」的那份，
+# 此前只排除了 docs/compose 那一侧的副本，这一侧漏了。
+tools/store/whats-new-*.md
 /docs/compose/ms-store-checklist.md
 /docs/compose/ms-store-listing-en.md
 /docs/compose/ms-store-listing-zh.md
