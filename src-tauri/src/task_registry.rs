@@ -57,6 +57,12 @@ pub const REGISTRY: &[TaskMeta] = &[
     TaskMeta { name: "generate_pale_planks", task_type: TaskType::Parallel, tier: Tier::Architect },
     TaskMeta { name: "generate_poplar_planks", task_type: TaskType::Parallel, tier: Tier::Architect },
     TaskMeta { name: "generate_tricky_trials_breeze", task_type: TaskType::Parallel, tier: Tier::Architect },
+    // **这一次追加的是新能力，不是"补登记"**（与表里其它 88 项的来历不同）：
+    // 1.21.4 物品模型定义此前在本仓库**完全不存在**（`item_definition` 全库 0 处命中），
+    // 因此它在旧闭包注册表里也从来没有过——这不是"漏抄一项"，而是"新增一项功能"。
+    // 放在 Architect 段的**末尾**：它的读写对象（`models/item` / `items`）与前面每一项都不相交，
+    // 顺序对它没有语义影响，放末尾就不会扰动既有 88 项的相对顺序。
+    TaskMeta { name: "generate_item_definitions", task_type: TaskType::Parallel, tier: Tier::Architect },
     TaskMeta { name: "fix_clock_compass", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
     TaskMeta { name: "fix_brewing_stand_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
     TaskMeta { name: "fix_particles", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
@@ -121,6 +127,13 @@ pub const REGISTRY: &[TaskMeta] = &[
     TaskMeta { name: "reverse_fix_smithing2_villager2_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },
     TaskMeta { name: "reverse_overlay_icons", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
     TaskMeta { name: "reverse_cut_gui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
+    // **同一次新增的另一半**：OptiFine CIT（`optifine/cit/**/*.properties`）→ 1.21.4+ 物品定义。
+    // 阶段是 **Surgeon** 而不是 Architect：它读的 `optifine/cit/**` 由 Eraser 级的
+    // `rename_mcpatcher_to_optifine`（槽位 8→9）改名产生，放 Architect 会在改名之前跑，
+    // 于是永远看不到文件（空跑）。挂在 `(46,55)`：默认定义已由上一项在 `(42,46)` 写好。
+    // 类型标 `Exclusive` 与它的 `decl()`（`exclusive(true)`）一致——它要读别的任务
+    // 可能刚写过的 `assets/minecraft/items/`，声明独占换确定性。
+    TaskMeta { name: "generate_cit_item_definitions", task_type: TaskType::Exclusive, tier: Tier::Surgeon },
 ];
 
 /// **不在** [`REGISTRY`] 里、但会出现在计划中的任务的阶段。
@@ -155,16 +168,29 @@ mod tests {
     use super::*;
     use std::collections::BTreeSet;
 
-    /// **表形状守卫**（§9.125）：88 项、无重名，且三个阶段/三种并发类型都有实例。
+    /// **表形状守卫**（§9.125）：90 项、无重名，且三个阶段/三种并发类型都有实例。
     ///
-    /// 为什么钉住 88 这个数：这张表是「驱动取阶段的数据源」，**少一项就会让某个原生任务
+    /// 为什么钉住这个数：这张表是「驱动取阶段的数据源」，**少一项就会让某个原生任务
     /// 在 `native_placements` 里查不到阶段**，从而静默换到另一侧 ⇒ 产物分叉（§9.124 的风险）。
     /// 谁要动这个数，必须同时解释清楚上面那句话。
+    ///
+    /// **88 → 90 的理由（2026-10，1.21.4+ 物品模型定义）**：新增**两个**任务，
+    /// 它们是同一块能力的两条输入路径，缺一不可：
+    ///
+    /// * `generate_item_definitions`（Architect / Parallel）—— 把旧包
+    ///   `models/item/*.json` 的 `overrides` 升成 `assets/minecraft/items/*.json`；
+    /// * `generate_cit_item_definitions`（Surgeon / Exclusive）—— 把包里的 **OptiFine CIT**
+    ///   （`optifine/cit/**/*.properties`）升成同一批物品定义里的 `select` 分支。
+    ///
+    /// 这两条**不是**从旧闭包注册表里漏抄的项——1.21.4 物品定义在本仓库此前完全不存在
+    /// （`item_definition` / `custom_model_data` 全库 0 处命中），是**新能力**；
+    /// 它们仍必须进这张表，因为 `native_run` 只从这里取放置侧
+    /// （少了它，`native_for` 的派发永远不会被调用）。
     #[test]
     fn registry_shape_is_pinned() {
-        assert_eq!(REGISTRY.len(), 88, "元数据表项数必须与旧注册表一致");
+        assert_eq!(REGISTRY.len(), 90, "元数据表项数必须与旧注册表一致");
         let names: BTreeSet<&str> = REGISTRY.iter().map(|m| m.name).collect();
-        assert_eq!(names.len(), 88, "出现重名：表里每个任务名必须唯一");
+        assert_eq!(names.len(), 90, "出现重名：表里每个任务名必须唯一");
 
         // 三种阶段都必须有实例，否则「阶段」这个维度事实上没被覆盖
         for tier in [Tier::Eraser, Tier::Architect, Tier::Surgeon] {

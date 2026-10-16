@@ -399,6 +399,62 @@ where
     };
     phases.open_s = clock.elapsed().as_secs_f32();
     clock = std::time::Instant::now();
+
+    // **§9.155：管线一开始就把 `pack.mcmeta` 写成目标格式。**
+    //
+    // ## 修的是什么
+    //
+    // `adapt_java_shaders`（§9.85）与 1.21.4+ 物品定义两项都**从包里读目标格式**：
+    //
+    // ```ignore
+    // let target = tx.view().mcmeta().ok().and_then(|m| m.effective_format()).unwrap_or(88);
+    // ```
+    //
+    // §9.85 的注释论证过这是安全的，理由是"驱动的收尾步骤把同一个 `target_version`
+    // 写进 `pack.mcmeta`（`write_pack_format`），所以从包里读出的值与传进来的那个是**同一个数**"。
+    // **那段论证是错的，实测反例就在眼前**：收尾写 `pack.mcmeta` 的是传给 `run_native` 的
+    // `tail` 回调，而它在**全部任务之后**才跑（本函数末尾的 `tail(&mut tx)`）。
+    // 于是**任务执行期间**包里的 `pack.mcmeta` 仍然是**源**格式。
+    //
+    // 实测（本次新增的 `modern_item_definitions_survive_the_whole_pipeline` 抓出）：
+    // fixture 源格式 34、目标 55，`generate_item_definitions` 里读到的目标是 **34**，
+    // 于是 `target < 46` 分支把整个任务空转掉——产物里一个 `items/*.json` 都没有，
+    // **全程没有任何错误或警告**。这正是"最坏的失败形态"。
+    //
+    // ## 为什么改成"管线开始时写成目标格式"
+    //
+    // 任务**需要**的是目标格式（它们在做目标格式的适配），而源格式在开始转换那一刻
+    // 就已经不再有意义——转换的定义就是"把源格式的包改成目标格式的包"。
+    // 把 `pack.mcmeta` 提前定成目标格式，让「任务读到的格式」与「`NativeContext` 里的
+    // `target_pack_format`」**恒等**，而不是靠"两处恰好会写成一样"这种巧合。
+    //
+    // ## 为什么不改驱动签名
+    //
+    // 备选方案是把 `target_version` 透传进执行体。但 `native_for` 有约 45 个返回点，
+    // 每个都要多带一个参数（§9.84 已经因为同类改动两次编译不过）；而本方案只动**一处**，
+    // 且顺带把 §9.85 那条"靠巧合正确"的论证换成了一条**结构性**保证。
+    //
+    // ## 产物是否变化
+    //
+    // 收尾的 `tail` 回调**照旧**把 `pack.mcmeta` 改成目标格式，因此**最终产物逐字节不变**。
+    // 中间态多了这一层写入，但没有任何序列化发生在它之前。
+    // 这一点由冻结基线（`real_pack_content_baseline_is_frozen`）与全套夹具闸门把关。
+    if opts.target_version != opts.source_version
+        && pack.view().resolve("pack.mcmeta").is_some()
+    {
+        let mut tx = pack.tx("pin-target-format");
+        if let Ok(current) = tx.text("pack.mcmeta") {
+            if let Ok(next) =
+                crate::pack::version_converter::rewrite_pack_mcmeta_text(&current, opts.target_version)
+            {
+                tx.put("pack.mcmeta", next.into_bytes())?;
+                let layer = tx.into_layer();
+                pack.commit(layer);
+            }
+        }
+    }
+    phases.open_s += clock.elapsed().as_secs_f32();
+    clock = std::time::Instant::now();
     // **§9.144：workdir 只在 `Output::Dir` 时才是真源。**
     //
     // `Output::Zip` 由 `write_zip` 直接从 `pack` 视图序列化，**从不读 workdir**；
@@ -1101,6 +1157,20 @@ fn native_for(
         }
         if let Some((decl, run)) = crate::natives::arch_gen3::lookup(name) {
             return Some(("arch_gen3", decl, run));
+        }
+        // `generate_item_definitions`（1.21.4+ 物品模型定义）：计划里挂在 `(42,46)`。
+        // 与其它生成类任务同在 `switches.textures` 之下——它的读写对象是
+        // `assets/minecraft/models/item` 与 `assets/minecraft/items`，同属"资源"侧。
+        // 目标格式由任务自己从 `pack.mcmeta` 读（同 `adapt_java_shaders`，§9.85），
+        // 因此不需要改驱动签名。
+        if let Some((decl, run)) = crate::natives::item_definitions::lookup(name) {
+            return Some(("item_definitions", decl, run));
+        }
+        // `generate_cit_item_definitions`（OptiFine CIT → 1.21.4+ 物品定义）：
+        // 与上面一项同族（都写 `assets/minecraft/items/`），但输入是 `optifine/cit/**`，
+        // 因此是独立任务、独立阶段（Surgeon）。同样由任务自己读 `pack.mcmeta` 拿目标格式。
+        if let Some((decl, run)) = crate::natives::cit_item_definitions::lookup(name) {
+            return Some(("cit_item_definitions", decl, run));
         }
         // Surgeon 早期组：槽位在旧批次之前，因此与前阶段原生任务同侧（见 `EARLY_NATIVES`）。
         if let Some((decl, run)) = crate::natives::surgeon_early::lookup(name) {
@@ -1957,6 +2027,129 @@ mod tests {
     ///
     /// 指纹变化时用 `AROM_BASELINE_DUMP=<路径>` 导出**逐条目清单**，
     /// 与仓库内 `tools/arom-baseline.txt` 逐行 diff 即可定位是哪些文件变了。
+    /// **1.21.4+ 物品模型定义的整条管线验收**（两段合成一条）。
+    ///
+    /// 为什么必须有这一条：两个新任务的**单元测试各自都过了**，但单元测试证明的是
+    /// 「任务自己写对了文件」，证明不了「它们在真实计划里挂对了位置」——
+    /// 而这块能力最容易错的就是**位置**：
+    ///
+    /// * `generate_item_definitions` 挂在 `(42,46)`：早一步（42 还没到）或晚一步
+    ///   （进旧批次）都会让产物分叉；
+    /// * `generate_cit_item_definitions` 挂在 `(46,55)`：它读 `optifine/cit/**`，
+    ///   而该目录由 Eraser 级的 `rename_mcpatcher_to_optifine`（槽位 8→9）从
+    ///   `mcpatcher/cit/**` 改名而来。**若挂早一个阶段，它就永远看不到文件**——
+    ///   而这种错误在单元测试里根本不会暴露（单元测试直接造好 `optifine/` 目录）。
+    ///
+    /// 因此本用例**只从 `mcpatcher/cit/` 出发**（不预置 `optifine/`），走完整的
+    /// `34 → 55` 计划，要求两条链都真的跑通。
+    #[test]
+    fn modern_item_definitions_survive_the_whole_pipeline() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("items_fixture.zip");
+        {
+            let f = std::fs::File::create(&input).expect("create fixture");
+            let mut zip = zip::ZipWriter::new(f);
+            let opts = zip::write::FileOptions::default();
+            let mut add = |name: &str, body: Vec<u8>| {
+                zip.start_file(name, opts).expect("start");
+                zip.write_all(&body).expect("write");
+            };
+            add(
+                "pack.mcmeta",
+                br#"{"pack":{"pack_format":34,"description":"items"}}"#.to_vec(),
+            );
+            // ① 原版 `overrides` 机制：弓（含 CMD 自定义外观）
+            add(
+                "assets/minecraft/models/item/bow.json",
+                br#"{"parent":"item/generated",
+                     "textures":{"layer0":"item/bow"},
+                     "overrides":[{"predicate":{"custom_model_data":1000},"model":"mypack:item/ruby_bow"}]}"#
+                    .to_vec(),
+            );
+            // ② OptiFine CIT 机制：**故意放在旧路径 `mcpatcher/`**，逼着改名任务先跑
+            add(
+                "assets/minecraft/mcpatcher/cit/ruby/ruby_sword.properties",
+                b"type=item\nitems=diamond_sword\ntexture=ruby_sword.png\nnbt.CustomModelData=7\n"
+                    .to_vec(),
+            );
+            add(
+                "assets/minecraft/mcpatcher/cit/ruby/ruby_sword.png",
+                png((16, 16)),
+            );
+            zip.finish().expect("finish");
+        }
+
+        // 前置：两个任务都必须真的在这条路径的**计划里**（否则下面的断言会因为
+        // 一个更无聊的原因失败——"任务根本没跑"，而不是"跑错了"）。
+        {
+            let sched = crate::arom::engine::scheduler::Scheduler::new();
+            let plan = sched.plan(34, 55).expect("plan");
+            for name in ["generate_item_definitions", "generate_cit_item_definitions"] {
+                assert!(
+                    plan.iter().any(|t| t == name),
+                    "{name} 不在 34→55 的计划里：{plan:?}"
+                );
+                assert!(
+                    native_for(name, &NativeSwitches::all()).is_some(),
+                    "{name} 在计划里但派发表里没有实现"
+                );
+            }
+        }
+        let (out, _report) =
+            native_output_v2(&input, tmp.path(), 55, 34, NativeSwitches::all(), false, "items");
+        let pack = Pack::open_zip(&out, &SafeLimits::preserving_current(), None).expect("open out");
+
+        // ① `overrides` 的那条腿：弓的定义存在，且外层接上了包的 CMD 表
+        let bow = pack
+            .view()
+            .json("assets/minecraft/items/bow.json")
+            .expect("bow 的物品定义必须存在");
+        assert_eq!(bow["model"]["property"], "minecraft:has_component");
+        assert_eq!(
+            bow["model"]["on_true"]["entries"][0]["model"]["model"],
+            "mypack:item/ruby_bow"
+        );
+
+        // ② CIT 的那条腿：定义 + 生成的模型 + 被搬进标准贴图目录的图
+        let sword = pack
+            .view()
+            .json("assets/minecraft/items/diamond_sword.json")
+            .expect("CIT 生成的物品定义必须存在");
+        assert_eq!(sword["model"]["type"], "minecraft:select");
+        assert_eq!(sword["model"]["cases"][0]["when"], 7);
+        assert_eq!(
+            sword["model"]["cases"][0]["model"]["model"],
+            "minecraft:cit/ruby/ruby_sword"
+        );
+        let model = pack
+            .view()
+            .json("assets/minecraft/models/cit/ruby/ruby_sword.json")
+            .expect("CIT 生成的模型必须存在");
+        assert_eq!(model["parent"], "minecraft:item/handheld", "`_sword` 后缀 ⇒ 手持类");
+        assert_eq!(model["textures"]["layer0"], "cit/ruby/ruby_sword");
+        assert!(
+            pack.view()
+                .resolve("assets/minecraft/textures/cit/ruby/ruby_sword.png")
+                .is_some(),
+            "CIT 贴图必须被搬进 assets/minecraft/textures/（否则客户端加载不到）"
+        );
+        // **旧路径原样保留——这是实测出来的事实，不是"应该"。**
+        //
+        // `rename_mcpatcher_to_optifine` 挂在 `(7,8)` 边上，而 34→55 的转换路径是
+        // 34→42→46→55，**根本不经过那条边**。所以 `mcpatcher/cit/**` 会留在包里，
+        // CIT 任务**不能**依赖那次改名——它同时扫 `mcpatcher/cit` 与 `optifine/cit`
+        // （`cit_item_definitions::ROOTS`）。
+        //
+        // 本断言就是这个决定的守卫：哪天有人"顺手"把 CIT 任务改成只扫 `optifine/`，
+        // 这里会红，而不是让所有 1.7 时代的老包**静默丢掉全部 CIT**。
+        assert!(
+            pack.view()
+                .resolve("assets/minecraft/mcpatcher/cit/ruby/ruby_sword.properties")
+                .is_some(),
+            "34→55 不经过 (7,8)，mcpatcher/ 应原样保留（CIT 任务必须自己兼容它）"
+        );
+    }
+
     #[test]
     #[ignore]
     fn real_pack_content_baseline_is_frozen() {

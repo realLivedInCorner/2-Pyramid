@@ -301,6 +301,46 @@ pub mod arch_gen_breeze;
 #[path = "architect/arch_gen3.rs"]
 pub mod arch_gen3;
 
+/// **1.21.4+ 物品模型定义生成**：`generate_item_definitions`。
+///
+/// **它补的是一个整块缺失的能力**：1.21.4（pack_format 46）起，Minecraft 用
+/// `assets/<ns>/items/<name>.json` 的**物品模型定义**取代了 `models/item/*.json` 里的
+/// `overrides` + `CustomModelData` 谓词机制。本仓库此前对此**一处代码都没有**
+/// （`item_definition` / `custom_model_data` 全库 0 处命中），因此旧包转到 46+ 以后，
+/// 弓的拉弦、时钟与指南针的帧动画、皮革甲染色、盔甲纹饰、以及**全部 `CustomModelData`
+/// 自定义外观**都会静默失效——客户端不报错，只是不显示。
+///
+/// 与同目录其它 `architect/*` 任务的**根本差别**：那些任务把**贴图**按像素照抄旧实现，
+/// 本任务没有"旧实现"可照抄——1.21.4 之前根本不存在物品定义这个东西。因此它的正确性
+/// 建立在**官方数据**上：`architect/item-definitions.json` 由
+/// `tools/gen-item-definitions.py` **从官方客户端 jar 重新提取**
+/// （脚本读 jar 自报的 `pack_version.resource` 当格式号，不写死数字）。
+///
+/// **刻意不抄任何第三方实现的数据文件**：本项目是 MIT，而那份参考实现是 GPL-3.0-only，
+/// 其数据文件随仓库分发、受同一许可覆盖。从官方 jar 重生成同时满足
+/// 「权威」「可复现」「无许可风险」三条，代价只是跑一次脚本。
+#[path = "architect/item_definitions.rs"]
+pub mod item_definitions;
+
+/// **OptiFine CIT → 1.21.4+ 物品定义**：`generate_cit_item_definitions`。
+///
+/// [`item_definitions`] 处理的是**原版 `overrides` 机制**；本模块处理的是**另一条来源**：
+/// 包里的 OptiFine CIT（`optifine/cit/**/*.properties`）。两者最终写在同一个目录
+/// （`assets/minecraft/items/`），但输入、条件语言、能力边界都完全不同，因此分成两个任务。
+///
+/// **为什么必须单独做**：CIT 是"不改物品、只改贴图"的机制，靠 `nbt.CustomModelData=N`、
+/// `damage=`、`enchantments=` 这类条件选图。1.21.4+ 的物品定义**只能表达模型选择与染色**，
+/// 因此其中**只有 `nbt.CustomModelData`** 有等价写法（= `minecraft:custom_model_data`
+/// 组件的 `main` 字段）；其余条件**如实跳过并记 note**——把 `enchantments=` 硬翻成
+/// "有任何附魔就换皮"会把作者精确的条件放宽成近似条件，比不转换更糟。
+///
+/// **阶段是 Surgeon 而不是 Architect**：它读 `optifine/cit/**`，而该目录在旧包里叫
+/// `mcpatcher/cit/**`，由 Eraser 级的 `rename_mcpatcher_to_optifine`（计划槽位在 8→9）
+/// 改名而来。放在 Architect 会在改名**之前**跑，于是永远看不到文件。挂在 `(46,55)` 边上，
+/// 此时 [`item_definitions`] 已在 `(42,46)` 写好默认定义，本任务在其上追加 `select` 分支。
+#[path = "surgeon/cit_item_definitions.rs"]
+pub mod cit_item_definitions;
+
 /// **Surgeon 早期组**（计划里排在最前面的几个 Surgeon 旧任务）。
 ///
 /// 为什么这组能**逐个**边迁边验（而不像 §9.51 说的「必须整阶段」）：它们的槽位在旧批次**之前**，

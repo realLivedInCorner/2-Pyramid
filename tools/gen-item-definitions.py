@@ -23,7 +23,7 @@
 产出的数据文件
 ==============
 
-`src-tauri/src/assets/item-definitions.json`——按 `pack_format` 索引：
+`src-tauri/src/natives/architect/item-definitions.json`——按 `pack_format` 索引：
 
     {
       "source": { ... 每个 jar 的 sha256 / 版本号 / pack_format ... },
@@ -71,7 +71,7 @@ import zipfile
 VERSIONS = ["1.21.4", "1.21.8", "1.21.10", "1.21.11", "26.2"]
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(REPO, "src-tauri", "src", "assets", "item-definitions.json")
+OUT = os.path.join(REPO, "src-tauri", "src", "natives", "architect", "item-definitions.json")
 
 
 def mc_dir() -> str:
@@ -96,32 +96,46 @@ def resource_format(raw: bytes) -> int:
     pv = json.loads(raw)["pack_version"]
     if "resource" in pv:
         return int(pv["resource"])
-    return int(pv["resource_major"]) * 1000 + int(pv.get("resource_minor", 0))
+    # `resource_major` 就是 pack_format 本身（69 / 75 / 88 …），
+    # 不是在它后面再拼小版本——本数据集里 `resource_minor` 恒为 0。
+    return int(pv["resource_major"])
+
+
+# 这两类**不是资源包里能用的物品定义**，收录它们只会让数据文件白白变大：
+#
+# * `minecraft:special`（1.21.4 有 59 条：床/箱子/旗帜/盾/潜影盒/潮涌核心……）
+#   由客户端硬编码渲染器画，`base` 只提供变换与纹理提示。
+#   **它的外观无法被物品模型定义改写**，因此转换器永远不会引用它。
+# * `minecraft:constant`（1.21.8 起出现，1.21.4 没有）是**数据包侧**的写法
+#   （把某个组件值钉成常量），资源包定义里根本不会出现。
+NOT_A_TEMPLATE = {"minecraft:special", "minecraft:constant"}
 
 
 def is_interesting(definition: dict) -> bool:
     """是否需要收录这条定义。
 
-    剔除两类——它们占官方 1385 条里的 1156 条，但转换器不需要模板：
+    剔除三类——它们占官方 1385 条里的 1200 条以上，但转换器不需要模板：
 
-    * `minecraft:model` 且**除 type/model 外没有别的键**（没有 tints）；
-    * 引用的模型就是自身（`minecraft:item/<name>` 或 `minecraft:block/<name>`，
-      后者是方块物品，例如 `acacia_button` → `minecraft:block/acacia_button`）。
+    * [`NOT_A_TEMPLATE`] 里的两种类型（见那里的说明）；
+    * `minecraft:model` 且**除 type/model 外没有别的键**（没有 tints）——
+      转换器可以一行生成 `{"type":"minecraft:model","model":"minecraft:item/<name>"}`；
+    * 带 tints 的 `minecraft:model` 里，引用的模型就是自身的那部分（同样是可生成的）。
 
-    剩下的是真正带「结构」的定义：`select`（纹饰/乐器/配色）、
-    `range_dispatch`（时钟 64 帧、指南针 32 帧、弩的拉弦）、`condition`（弓/钓鱼竿/盾），
-    以及 `special`（盾/床/箱子/旗帜这类由硬编码渲染器画的物品）和带 `tints` 的染色物品。
+    剩下的是真正带「结构」的定义：`select`（盔甲纹饰 / 山羊角乐器 / 旗帜图案）、
+    `range_dispatch`（时钟 64 帧、指南针 32 帧、弩的拉弦、`use_cycle`）、
+    `condition`（弓 / 钓鱼竿 / 鞘翅 / 盾 / 望远镜），以及带 `tints` 的染色物品
+    （皮革甲、树叶、刷怪蛋）。实测 1.21.4 收录 162 条、26.2 收录 118 条。
     """
     model = definition.get("model")
     if not isinstance(model, dict):
         return False
-    if model.get("type") != "minecraft:model":
+    kind = model.get("type")
+    if kind in NOT_A_TEMPLATE:
+        return False
+    if kind != "minecraft:model":
         return True
-    extra = set(model) - {"type", "model"}
-    if extra:
-        # 带 tints 的：染色皮革甲、树叶、刷怪蛋……
-        return True
-    return False
+    # 带 tints（或别的键）的才留：纯 `{type, model}` 是可生成的。
+    return bool(set(model) - {"type", "model"})
 
 
 def extract(version: str) -> tuple[int, dict, str]:

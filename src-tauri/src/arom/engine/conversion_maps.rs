@@ -53,8 +53,27 @@ impl ConversionMaps {
         // 拆成两条会让先写的那条静默失效（此前的 generate_snow_bucket 就是这样丢的）。
         forward.insert((6, 7), vec!["generate_snow_bucket".to_string(), "adapt_java_shaders".to_string()]);
         reverse.insert((7, 6), vec!["adapt_java_shaders".to_string()]);
-        forward.insert((42, 46), vec!["fix2_horse_ui".to_string(), "fix_armor_models".to_string(), "generate_pale_planks".to_string(), "adapt_java_shaders".to_string()]);
-        forward.insert((46, 55), vec!["adapt_java_shaders".to_string()]);
+        forward.insert((42, 46), vec!["fix2_horse_ui".to_string(), "fix_armor_models".to_string(), "generate_pale_planks".to_string(), "generate_item_definitions".to_string(), "adapt_java_shaders".to_string()]);
+        // **1.21.4+ 物品模型定义的两条腿**（同一次转换里各跑一次，见 §9.134 的 `seen` 去重）：
+        //
+        // * `generate_item_definitions` 挂在 **(42,46)**：物品定义这个机制**在 46 才诞生**，
+        //   因此边界的定义方就是这一条边。它把 `models/item/*.json` 的 `overrides` 升上来。
+        // * `generate_cit_item_definitions` 挂在 **(46,55)**：46 之后的第一条边，
+        //   此时默认定义已由上一项写好，本项在其上追加 `select` 分支。
+        //
+        // **为什么不顺便把 `generate_cit_item_definitions` 也挂到 (42,46)**：它读
+        // `optifine/cit/**`，而**现代转换路径根本不会经过 `(7,8)`**（`rename_mcpatcher_to_optifine`
+        // 所在的那条边）——34→55 的路径是 34→42→46→55。所以旧包的 `mcpatcher/cit/**`
+        // 会**原样留在包里**。这一点由本任务自己处理（它同时扫 `mcpatcher/cit` 与
+        // `optifine/cit`，见 `cit_item_definitions::ROOTS`），而不是靠一条**永远不跑**的改名边。
+        //
+        // 这条修正来自实测：`modern_item_definitions_survive_the_whole_pipeline` 一开始
+        // 断言"CIT 任务跑在改名之后"，结果产物里 `mcpatcher/` 原封不动、`items/diamond_sword.json`
+        // 根本没生成——**因为那条改名边压根不在路径上**。
+        //
+        // 两条都**只登记一处**：`get_tasks_for_path_with_rules` 按 `seen` 去重，
+        // 重复登记不会让它们多跑一次，只会让计划里多出永远不生效的条目。
+        forward.insert((46, 55), vec!["generate_cit_item_definitions".to_string(), "adapt_java_shaders".to_string()]);
         forward.insert((55, 63), vec![]);
         forward.insert((63, 64), vec![]);
         forward.insert((64, 69), vec!["generate_copper_ingot".to_string(), "generate_copper_block".to_string(), "generate_copper_tools".to_string(), "generate_copper_armor_models".to_string()]);

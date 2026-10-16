@@ -791,4 +791,57 @@ mod tests {
             assert!(maps.reverse.contains_key(&key), "reverse 缺少区间 {:?}", key);
         }
     }
+
+    /// **1.21.4+ 物品模型定义的两个任务必须挂在正确的版本边上**。
+    ///
+    /// 这两条的位置**是有语义的**，不是随便挑的边：
+    ///
+    /// * `generate_item_definitions` 必须在 `(42,46)`——物品定义这个机制在 46 才诞生，
+    ///   挂在更早的边上会写到不存在的机制上，挂在更晚的边上则漏掉从头升上来的包；
+    /// * `generate_cit_item_definitions` 必须在 `(46,55)`——46 之后的第一条边，
+    ///   此时默认定义已由上一项写好，它在**最外层**包一个 `select`。
+    ///
+    /// 本用例把这两条钉死，并且**证明它们各自只出现一处**——
+    /// `get_tasks_for_path_with_rules` 按 `seen` 去重，重复登记不会让任务多跑一次，
+    /// 只会让计划里多出永远不生效的死条目（后来者会以为它在那些边上生效）。
+    #[test]
+    fn modern_item_definition_tasks_sit_on_the_right_edges() {
+        let maps = ConversionMaps::new();
+        assert!(
+            has(&maps.forward, (42, 46), "generate_item_definitions"),
+            "(42,46) 丢失 generate_item_definitions：物品定义在 46 才诞生，必须挂在这条边"
+        );
+        assert!(
+            has(&maps.forward, (46, 55), "generate_cit_item_definitions"),
+            "(46,55) 丢失 generate_cit_item_definitions"
+        );
+
+        // 每个任务在整张前向表里**恰好出现一次**（不是"至少一次"）
+        for name in [
+            "generate_item_definitions",
+            "generate_cit_item_definitions",
+        ] {
+            let edges: Vec<(u32, u32)> = maps
+                .forward
+                .iter()
+                .filter(|(_, tasks)| tasks.iter().any(|t| t == name))
+                .map(|(edge, _)| *edge)
+                .collect();
+            assert_eq!(
+                edges.len(),
+                1,
+                "`{name}` 应当只在一条边上登记，实际在 {edges:?}"
+            );
+        }
+        // 反向：46 之前的边上**一个都不该有**（那是死条目，且会误导）
+        for (edge, tasks) in maps.forward.iter() {
+            if edge.1 <= 42 {
+                assert!(
+                    !tasks.iter().any(|t| t.starts_with("generate_item_definition")
+                        || t.starts_with("generate_cit_item")),
+                    "{edge:?} 不该登记物品定义任务（那是 46 之后的事）"
+                );
+            }
+        }
+    }
 }
