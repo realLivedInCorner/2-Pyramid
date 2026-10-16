@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { useLanguage, type SupportedLocale } from '../composables/useLanguage'
@@ -155,18 +155,41 @@ function prevStep() {
 }
 
 /**
- * 下拉框改变语言。
+ * 语言下拉。
  *
- * **不自动跳下一步** —— <select> 的 change 每次选择都触发，用户在两个语言
- * 之间来回比较时会反复播放墨水切换。推进交给「下一步」按钮，
- * 这也符合下拉框本身的语义（选择 ≠ 提交）。
+ * 自绘而不是原生 <select>：原生展开后的列表由系统绘制，DOM 里不存在那些
+ * 选项，动画够不到。自绘才能做「展开过渡 + 选项逐个落位 + 箭头旋转」。
+ *
+ * **选择不自动跳下一步** —— 用户在两个语言之间来回比较时会反复播放墨水
+ * 切换。推进交给「下一步」，这也符合下拉框的语义（选择 ≠ 提交）。
  */
-function onLangSelect(e: Event) {
-  const lang = (e.target as HTMLSelectElement).value as SupportedLocale
+const langOptions: { value: SupportedLocale; label: string }[] = [
+  { value: 'zh-CN', label: 'oobe.step1.zh' },
+  { value: 'en-US', label: 'oobe.step1.en' },
+]
+
+const langOpen = ref(false)
+const currentLangLabel = computed(
+  () => langOptions.find((o) => o.value === selectedLang.value)?.label ?? langOptions[0].label,
+)
+
+function pickLang(lang: SupportedLocale) {
+  langOpen.value = false
   if (lang === selectedLang.value) return
   selectedLang.value = lang
   setLanguage(lang)
 }
+
+/** 点面板外部收起。用捕获阶段，免得被内部按钮的 click 拦住。 */
+function onDocClick(e: MouseEvent) {
+  if (!langOpen.value) return
+  const el = e.target as HTMLElement | null
+  if (el?.closest('.lang-select')) return
+  langOpen.value = false
+}
+
+onMounted(() => document.addEventListener('click', onDocClick, true))
+onUnmounted(() => document.removeEventListener('click', onDocClick, true))
 
 function quitApp() {
   // 退出整个应用（与主界面的 Ctrl+Shift+Q 同路径）
@@ -301,16 +324,35 @@ async function finish() {
               <span class="lang-globe" aria-hidden="true">
                 <i class="ri-global-line"></i>
               </span>
-              <span class="lang-select">
-                <select
-                  :value="selectedLang"
+              <span class="lang-select" :class="{ open: langOpen }">
+                <button
+                  type="button"
+                  class="lang-trigger"
+                  aria-haspopup="listbox"
+                  :aria-expanded="langOpen"
                   :aria-label="t('oobe.step1.title')"
-                  @change="onLangSelect"
+                  @click="langOpen = !langOpen"
+                  @keydown.esc="langOpen = false"
                 >
-                  <option value="zh-CN">{{ t('oobe.step1.zh') }}</option>
-                  <option value="en-US">{{ t('oobe.step1.en') }}</option>
-                </select>
-                <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+                  <span class="lang-value">{{ t(currentLangLabel) }}</span>
+                  <i class="ri-arrow-down-s-line lang-caret" aria-hidden="true"></i>
+                </button>
+
+                <ul class="lang-list" role="listbox">
+                  <li
+                    v-for="(opt, i) in langOptions"
+                    :key="opt.value"
+                    role="option"
+                    :aria-selected="selectedLang === opt.value"
+                    class="lang-option"
+                    :class="{ active: selectedLang === opt.value }"
+                    :style="{ '--i': i }"
+                    @click="pickLang(opt.value)"
+                  >
+                    <span>{{ t(opt.label) }}</span>
+                    <i class="ri-check-line" aria-hidden="true"></i>
+                  </li>
+                </ul>
               </span>
             </div>
 
@@ -965,18 +1007,23 @@ async function finish() {
 }
 .lang-globe i { font-size: 30px; line-height: 1; }
 
-/* 下拉框：原生 select + 自绘箭头（appearance: none 去掉系统外观） */
+/* ── 语言下拉（自绘） ── */
 .lang-select {
   position: relative;
   display: inline-flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
 }
-.lang-select select {
-  appearance: none;
-  -webkit-appearance: none;
+
+/* 触发器 */
+.lang-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 208px;
   height: 40px;
-  padding: 0 38px 0 16px;
+  padding: 0 14px 0 16px;
   font: inherit;
   font-size: 14px;
   color: var(--ink);
@@ -984,22 +1031,110 @@ async function finish() {
   border: 1px solid rgba(var(--ink-rgb), 0.12);
   border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
-.lang-select select:hover { border-color: rgba(var(--ink-rgb), 0.22); }
-.lang-select select:focus-visible {
+.lang-trigger:hover { border-color: rgba(var(--ink-rgb), 0.22); }
+.lang-trigger:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
-/* 展开的列表由系统绘制，能控制的只有这一层 */
-.lang-select option { color: var(--ink); background: var(--surface); }
-.lang-select > i {
-  position: absolute;
-  right: 12px;
+/* 展开时触发器保持「热」的状态，和列表连成一个整体 */
+.lang-select.open .lang-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.lang-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 箭头旋转 —— 展开时转 180°，是这套控件唯一的「状态指示」 */
+.lang-caret {
   font-size: 18px;
   color: var(--ink-3);
+  flex-shrink: 0;
+  transition: transform 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+              color 0.2s ease;
+}
+.lang-select.open .lang-caret { transform: rotate(180deg); color: var(--accent); }
+
+/*
+ * 列表：默认收起（不可点、不可见），展开时落位。
+ * 收起态用 visibility 而不是 display，这样过渡才有东西可动 ——
+ * display 是离散属性，切换时不会有动画。
+ */
+.lang-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid rgba(var(--ink-rgb), 0.1);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(var(--ink-rgb), 0.12), 0 2px 6px rgba(var(--ink-rgb), 0.06);
+  transform-origin: top center;
+  transform: translateY(-6px) scaleY(0.96);
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    visibility 0s linear 0.28s;
+}
+.lang-select.open .lang-list {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scaleY(1);
+  transition:
+    opacity 0.2s ease,
+    transform 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    visibility 0s;
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lang-option:hover { background: rgba(var(--ink-rgb), 0.05); color: var(--ink); }
+.lang-option.active { color: var(--ink); }
+/* 勾只在选中项上显示 —— 强调来自「被选中」，不是给每一项都加装饰 */
+.lang-option i { font-size: 15px; color: var(--accent); opacity: 0; }
+.lang-option.active i { opacity: 1; }
+
+/* 选项逐个落位：--i 由 v-for 注入 */
+.lang-select.open .lang-option {
+  animation: lang-item-in 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms + 40ms);
+}
+@keyframes lang-item-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 减少动效：只切换可见性，不做位移 */
+.motion-reduced .lang-list,
+.motion-reduced .lang-select.open .lang-list { transition: none; transform: none; }
+.motion-reduced .lang-caret { transition: none; }
+.motion-reduced .lang-select.open .lang-option { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .lang-list, .lang-select.open .lang-list { transition: none; transform: none; }
+  .lang-caret { transition: none; }
+  .lang-select.open .lang-option { animation: none; }
 }
 
 /* 名字输入 */

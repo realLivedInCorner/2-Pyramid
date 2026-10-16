@@ -912,8 +912,8 @@
     },
     "step3": {
       "title": "欢迎，{name}！",
-      "desc": "很高兴认识您。2-Pyramid 是现代化通用多版本资源包转换器，让版本迁移更轻松。",
-      "card": "很高兴见到您，{name}！再完成几个简单设置就能开始使用。"
+      "desc": "2-Pyramid 是现代化通用多版本资源包转换器，让版本迁移更轻松",
+      "card": "再完成几个简单设置就能开始使用。"
     },
     "step4": {
       "title": "快速设置",
@@ -927,7 +927,7 @@
       "outputModeDesc": "转换后的文件保存位置",
       "outputModeFollow": "跟随源文件",
       "outputModeFixed": "固定目录",
-      "notification": "通知",
+      "notification": "完成时通知",
       "notificationDesc": "转换完成时接收通知",
       "sourceHandling": {
         "label": "原包处理",
@@ -943,12 +943,12 @@
     },
     "step5": {
       "title": "一切就绪，{name}！",
-      "desc": "您已准备好开始使用 2-Pyramid。随时拖入资源包开始转换吧！",
-      "card": "一切准备就绪，{name}！点击「开始使用」进入 2-Pyramid。"
+      "desc": "随时可以在设置里调整刚才的选择",
+      "card": "点击「开始使用」进入 2-Pyramid。"
     },
     "importBackup": {
       "cta": "导入上次的设置",
-      "previewTitle": "导入上次的设置?",
+      "previewTitle": "导入上次的设置？",
       "previewBody": "检测到上次会话的备份。导入后会恢复以下设置并跳过 OOBE 直接进入主页。",
       "confirmBtn": "导入并继续"
     }

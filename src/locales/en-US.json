@@ -912,8 +912,8 @@
     },
     "step3": {
       "title": "Welcome, {name}!",
-      "desc": "Great to meet you. 2-Pyramid is a modern universal multi-version Minecraft resource pack converter.",
-      "card": "Great to see you, {name}! Just a few quick options and you're ready to go."
+      "desc": "2-Pyramid is a modern universal multi-version Minecraft resource pack converter, making version migration easier",
+      "card": "A few quick settings and you're ready to go."
     },
     "step4": {
       "title": "Quick Settings",
@@ -927,7 +927,7 @@
       "outputModeDesc": "Where converted files are saved",
       "outputModeFollow": "Follow Source",
       "outputModeFixed": "Fixed Directory",
-      "notification": "Notifications",
+      "notification": "Notify on completion",
       "notificationDesc": "Receive alerts when conversion completes",
       "sourceHandling": {
         "label": "Source Pack Handling",
@@ -943,8 +943,8 @@
     },
     "step5": {
       "title": "All Set, {name}!",
-      "desc": "You're ready to start using 2-Pyramid. Drag in a resource pack anytime to begin converting!",
-      "card": "Everything is ready, {name}! Click \"Get Started\" to enter 2-Pyramid."
+      "desc": "You can change any of these later in Settings",
+      "card": "Click \"Get Started\" to enter 2-Pyramid."
     },
     "importBackup": {
       "cta": "Import previous settings",
