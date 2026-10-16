@@ -16,57 +16,134 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # 必须 Windows：这是 Windows 桌面应用，tauri build 的 NSIS 目标与
+    # installer-app 都只能在 Windows 上编。
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: 解析 tag 与 news 文件
         id: meta
+        shell: pwsh
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          $tag = $env:GITHUB_REF_NAME
           # tag `v2.201.0` → 版本号 `2.201.0`
-          VERSION="${TAG#v}"
-          NEWS="docs/compose/releases/news-${VERSION}.md"
+          $version = $tag -replace '^v', ''
+          $news = "docs/compose/releases/news-$version.md"
 
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          "version=$version" >> $env:GITHUB_OUTPUT
 
-          if [ ! -f "$NEWS" ]; then
-            echo "::error::找不到 $NEWS —— 发布前需要先在 docs/compose/releases/ 下写好这一版的说明。可用文件："
-            ls -1 docs/compose/releases/ 2>/dev/null || echo "（目录不存在）"
+          if (-not (Test-Path $news)) {
+            Write-Host "::error::找不到 $news —— 发布前需要先在 docs/compose/releases/ 下写好这一版的说明。"
+            Write-Host "现有文件："
+            Get-ChildItem docs/compose/releases -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
             exit 1
-          fi
-          echo "news=${NEWS}" >> "$GITHUB_OUTPUT"
-          echo "已找到 $NEWS（$(wc -c < "$NEWS") 字节）"
+          }
+          "news=$news" >> $env:GITHUB_OUTPUT
+          Write-Host "已找到 $news（$((Get-Item $news).Length) 字节）"
 
       - name: 校验版本号与仓库一致
+        shell: pwsh
         run: |
-          # 发布时版本号散落在多处，tag 与 package.json 不一致说明漏改了某一步。
+          # 发布时版本号散落在 10 处，tag 与 package.json 不一致说明漏改了某一步。
           # tools/set_version.py --check 会逐处比对，不一致就以非零码退出。
-          python3 tools/set_version.py --check
+          python tools/set_version.py --check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Rust 构建产物
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/target
+            installer-app/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: 安装前端依赖
+        run: |
+          npm ci
+          if (Test-Path installer-app/package.json) {
+            if (Test-Path installer-app/package-lock.json) { cd installer-app; npm ci; cd .. }
+            else { cd installer-app; npm install; cd .. }
+          }
+        shell: pwsh
+
+      - name: 构建安装包（不含 MSIX）
+        shell: pwsh
+        run: |
+          # --skip-msix：**这是有意的分工**。
+          #
+          # MSIX 需要 Windows SDK 的 makeappx，并且商店包要由商店侧签名；
+          # 本地跑比放进 CI 更可控，也不必将签名相关的东西暴露给运行器。
+          # 因此远程只负责 EXE，MSIX 留在本地用同一条流水线打：
+          #     python tools/build_release.py
+          #
+          # --no-bump：BUILD 由 build.rs 在 release 编译时自增。CI 里要的是
+          # 「提交里那个 BUILD 值」，不是「CI 跑一次就变一个」——否则同一 tag
+          # 重跑会得到不同编号的产物。
+          python tools/build_release.py --skip-msix --no-bump
         env:
-          # 该脚本只读文件，不需要任何凭据
-          PYTHONIOENCODING: utf-8
+          # tauri build 在无交互环境下的行为
+          CI: true
+
+      - name: 收集产物
+        id: artifacts
+        shell: pwsh
+        run: |
+          $version = "${{ steps.meta.outputs.version }}"
+          $files = @()
+          # 版本化安装包与其校验文件
+          $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.exe" -ErrorAction SilentlyContinue
+          $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.sha256" -ErrorAction SilentlyContinue
+
+          if ($files.Count -eq 0) {
+            Write-Host "::error::release/ 下没有找到安装包。构建步骤可能没产出预期文件名。"
+            Write-Host "release/ 目录内容："
+            Get-ChildItem release -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+            exit 1
+          }
+
+          $files | ForEach-Object {
+            Write-Host "  产物：$($_.Name)  $([math]::Round($_.Length/1MB,2)) MB"
+          }
+          # GITHUB_OUTPUT 要求 `name=value` 形式；直接追裸路径会被拒绝。
+          # 用单行空格分隔传参给 gh release create。
+          "paths=$($files.FullName -join ' ')" >> $env:GITHUB_OUTPUT
 
       - name: 创建 GitHub Release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 先确认这个 tag 还没有 Release，避免重复触发时失败
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            echo "::error::${GITHUB_REF_NAME} 已存在 Release。若要改内容，请先在网页上删除它，或手动编辑。"
+          $tag = $env:GITHUB_REF_NAME
+          # 先确认这个 tag 还没有 Release，避免重跑时失败
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "::error::$tag 已存在 Release。要改内容请先在网页上删除它，或手动编辑。"
             exit 1
-          fi
+          }
 
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${{ steps.meta.outputs.version }}" \
-            --notes-file "${{ steps.meta.outputs.news }}" \
-            --verify-tag
+          $files = "${{ steps.artifacts.outputs.paths }}" -split ' '
+          gh release create $tag `
+            --title "${{ steps.meta.outputs.version }}" `
+            --notes-file "${{ steps.meta.outputs.news }}" `
+            --verify-tag `
+            @files
 
       - name: 输出结果
+        shell: pwsh
         run: |
-          echo "### 已发布 ${{ steps.meta.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "正文取自 \`${{ steps.meta.outputs.news }}\`。" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "> 安装包**不由本工作流构建**：签名与 NSIS/MSIX 打包在本地跑" >> "$GITHUB_STEP_SUMMARY"
-          echo "> \`tools/build_release.py\`（见 \`tools/release/README.md\`），产物手工上传。" >> "$GITHUB_STEP_SUMMARY"
+          @"
+          ### 已发布 ${{ steps.meta.outputs.version }}
+
+          正文取自 ``${{ steps.meta.outputs.news }}``，安装包由本工作流构建并附加。
+
+          **MSIX 不在本工作流内** —— 它需要 Windows SDK 的 makeappx，且商店包由商店侧签名，
+          因此留在本地用同一条流水线打：``python tools/build_release.py``（不加 ``--skip-msix``）。
+          "@ >> $env:GITHUB_STEP_SUMMARY
