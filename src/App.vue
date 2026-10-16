@@ -143,7 +143,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
      };
    }
    if (currentPage.value === "settings") {
-    return { animationStyle: animationStyle.value, devMode: devMode.value, userName: userName.value, editorMode: editorMode.value };
+    return { devMode: devMode.value, userName: userName.value, editorMode: editorMode.value };
    }
    if (currentPage.value === "home") {
     return { userName: userName.value, bootPhase: bootPhase.value };
@@ -152,7 +152,6 @@ import { resolveImageUrl } from "./utils/assetUrl";
  }); 
   
  
- const animationStyle = ref<string>("fade-scale");
 type AnimationSpeed = "slow" | "normal" | "fast";
 type AnimationEnabled = "on" | "off" | "system";
 const animationSpeed = ref<AnimationSpeed>("normal");
@@ -161,10 +160,6 @@ const systemReducedMotion = ref(false);
 const devMode = ref<boolean>(false);
 const userName = ref<string>("");
 
- const updateAnimationStyle = (value: string) => {
-   animationStyle.value = value;
-   localStorage.setItem("animationStyle", value);
- };
 
  const updateAnimationSpeed = (value: AnimationSpeed) => {
    animationSpeed.value = value;
@@ -534,11 +529,6 @@ onMounted(async () => {
       console.warn('[window] failed to subscribe to onFocusChanged:', e);
     }
   }
-      const savedAnimationStyle = localStorage.getItem("animationStyle");
-      if (savedAnimationStyle) {
-       animationStyle.value = savedAnimationStyle;
-     }
-
      const savedThemeColor = localStorage.getItem("themeColor"); 
      if (savedThemeColor) { 
        applyThemeColor(savedThemeColor); 
@@ -776,14 +766,13 @@ onMounted(async () => {
  
      <main class="main-content"> 
        <div class="page-content"> 
-         <Transition :name="animationStyle"> 
+         <Transition name="fade-scale"> 
            <div class="page-shell" :key="currentPage" :data-anim-speed="animationSpeed" :data-nav-dir="navDir"> 
              <component
                :is="pageComponent"
                v-bind="pageProps"
                @switch-page="switchPage"
                @leave="onForayLeave"
-               @update:animation-style="updateAnimationStyle"
                @update:animation-speed="updateAnimationSpeed"
                @update:animation-enabled="updateAnimationEnabled"
                @update:dev-mode="updateDevMode"

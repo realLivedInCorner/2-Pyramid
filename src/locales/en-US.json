@@ -413,7 +413,7 @@
     },
     "animationEnabled": {
       "label": "Interface Animations",
-      "desc": "When on, pages and dialogs transition smoothly. Off or follow system reduces motion.",
+      "desc": "Pages and dialogs transition smoothly. Off disables motion; Follow system defers to your OS reduce-motion setting.",
       "searchDesc": "On / Follow system / Off",
       "on": "On",
       "system": "Follow system",
@@ -421,10 +421,10 @@
     },
     "animationSpeed": {
       "label": "Animation Speed",
-      "desc": "Controls page transition and stagger speed",
+      "desc": "How fast pages transition and elements appear in sequence. Takes effect immediately.",
       "searchDesc": "Slow / Normal / Fast",
       "slow": "Slow",
-      "normal": "Graceful",
+      "normal": "Normal",
       "fast": "Fast"
     },
     "updateChannel": {
@@ -599,6 +599,11 @@
       "label": "In-app file browser",
       "desc": "Pick files and folders with the browser built into the app instead of the system dialog.",
       "disclaimer": "Experimental: safety and usability are not guaranteed. It may reach network drives and very long paths, and cannot always show what the system dialog does. When off, every pick uses the system dialog."
+    },
+    "animationPreview": {
+      "label": "Preview",
+      "desc": "Plays the current speed once, so you can compare without leaving this page",
+      "replay": "Replay"
     }
   },
   "overlay": {

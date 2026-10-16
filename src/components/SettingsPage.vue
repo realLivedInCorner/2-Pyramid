@@ -464,6 +464,36 @@
               </div>
             </div>
           </div>
+<!--
+            效果预览。
+
+            这一栏原来有两个问题：改完必须离开设置页才能看到区别，
+            总开关关掉后速率行只是变灰、也不说明原因。
+            预览带用**真实的** --motion-stagger-* 变量播放 —— 它们由
+            .page-shell[data-anim-speed] 提供，预览带在其内部直接继承，
+            所以看到的快慢就是实际会发生的快慢，不是另做一套示意动画。
+          -->
+          <div class="setting-item" v-if="shouldShowItem('animationSpeed')">
+            <div class="item-icon">
+              <i class="ri-play-circle-line" aria-hidden="true"></i>
+            </div>
+            <div class="item-info">
+              <div class="label">{{ t('settings.animationPreview.label') }}</div>
+              <div class="desc">{{ t('settings.animationPreview.desc') }}</div>
+            </div>
+            <div class="item-action">
+              <div
+                class="anim-preview"
+                :class="{ 'is-static': animationEnabled === 'off' }"
+                :key="previewRound"
+              >
+                <span v-for="n in 5" :key="n" :style="{ '--i': n - 1 }"></span>
+              </div>
+              <button class="seg-btn" type="button" @click="previewRound++">
+                {{ t('settings.animationPreview.replay') }}
+              </button>
+            </div>
+          </div>
       </section>
 
       <!-- 关闭行为设置已移除：关闭窗口现在始终直接退出应用 -->
@@ -802,6 +832,11 @@ type AnimationSpeed = 'slow' | 'normal' | 'fast';
 type AnimationEnabled = 'on' | 'off' | 'system';
 const animationSpeed = ref<AnimationSpeed>('normal');
 const animationEnabled = ref<AnimationEnabled>('system');
+/*
+ * 预览重播计数器。改档位或点「重播」时自增；:key 变化让预览带重新挂载，
+ * CSS 动画随之从头播放 —— 比手动增删 class 再强制 reflow 干净。
+ */
+const previewRound = ref(0);
 const animationSpeedOptions: { value: AnimationSpeed; labelKey: string }[] = [
   { value: 'slow', labelKey: 'settings.animationSpeed.slow' },
   { value: 'normal', labelKey: 'settings.animationSpeed.normal' },
@@ -1425,6 +1460,8 @@ watch(notificationMode, (val) => {
 watch(animationSpeed, (val) => {
   localStorage.setItem('animationSpeed', val);
   emit('update:animation-speed', val);
+  // 换档位立刻重播，否则看不到新速度
+  previewRound.value++;
 });
 
 watch(animationEnabled, (val) => {
@@ -2384,6 +2421,47 @@ const onThemeReset = async () => {
  *   · 悬停给极淡的暖色，不要卡片的整块变色
  * 行内容本身（item-icon / item-info / item-action）沿用原来的样式。
  */
+/*
+ * 动效预览带。
+ *
+ * 五根竖条按 --motion-stagger-* 依次升起。这三个变量由
+ * .page-shell[data-anim-speed] 定义，预览带位于其内部、直接继承，
+ * 所以它播的就是当前档位的真实快慢，而不是另做一套示意动画。
+ */
+.anim-preview {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 26px;
+  padding: 0 2px;
+}
+.anim-preview span {
+  width: 5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: anim-preview-rise var(--motion-stagger-dur, 520ms)
+    cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(
+    var(--motion-stagger-base, 0ms) + var(--i, 0) * var(--motion-stagger-step, 48ms)
+  );
+}
+.anim-preview span:nth-child(1) { height: 40%; }
+.anim-preview span:nth-child(2) { height: 70%; }
+.anim-preview span:nth-child(3) { height: 100%; }
+.anim-preview span:nth-child(4) { height: 70%; }
+.anim-preview span:nth-child(5) { height: 40%; }
+
+@keyframes anim-preview-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 总开关关闭时不播 —— 与真实行为一致，否则预览就是在骗人 */
+.anim-preview.is-static span { animation: none; opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-preview span { animation: none; opacity: 1; transform: none; }
+}
+
 .settings-group > .setting-item:last-of-type {
   border-bottom: none;
 }
