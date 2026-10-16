@@ -5,6 +5,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+// 安装器没有主题设置界面，深色跟随系统；判据、核对过的权限与兜底见 theme.ts 文件头。
+import { initTheme } from "./theme";
 
 interface InstallContext {
   updateMode: boolean;
@@ -56,6 +58,8 @@ const progressTotal = ref(0);
 const progressName = ref("");
 const progressPercent = ref(0);
 let unlistenProgress: UnlistenFn | null = null;
+// 主题的取消订阅（内联脚本定的首帧色 + 这里订阅的系统切换）
+let unlistenTheme: (() => void) | null = null;
 let runningPoll: number | null = null;
 
 const totalSteps = computed(() => (updateMode.value ? updateTotalSteps : installTotalSteps));
@@ -79,6 +83,17 @@ async function refreshAppRunning() {
 }
 
 onMounted(async () => {
+  // 主题先定下来再拉安装上下文：它决定首屏配色，晚一步用户就会看到一次色闪。
+  // 首帧那次已由 index.html 的内联脚本做完（同步、不走 IPC），
+  // 这里补的是 Tauri 窗口主题那一路判据与「系统切换时跟着变」。
+  // 外面再包一层 try：配色是装饰，绝不能让「装不上」由它引起 ——
+  // initTheme 内部已经吞掉了 IPC 异常，这里是给以后改动留的保险。
+  try {
+    unlistenTheme = await initTheme();
+  } catch (e) {
+    console.warn("[installer] theme init failed, fallback to light:", e);
+  }
+
   try {
     const ctx = await invoke<InstallContext>("get_install_context");
     uninstallMode.value = ctx.uninstallMode;
@@ -139,6 +154,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  if (unlistenTheme) {
+    unlistenTheme();
+    unlistenTheme = null;
+  }
   if (unlistenProgress) {
     unlistenProgress();
     unlistenProgress = null;
@@ -512,7 +531,13 @@ const retryFromUpdateOverview = () => {
           <button class="btn ghost" @click="closeWindow">关闭</button>
         </div>
         <div v-else-if="failed" class="status-actions">
-          <button v-if="step === 3" class="btn ghost" @click="prev">返回重试</button>
+          <!--
+            失败时可以退回上一步重试。
+            原来写的是 v-if="step === 3"，但这个面板本身在 v-else-if="step === 4"
+            分支内 —— 在 step 4 里判断 step 3 恒为假，按钮从上线起从未渲染过。
+            卸载模式不回退：卸载没有「上一步」可重试。
+          -->
+          <button v-if="!uninstallMode" class="btn ghost" @click="prev">返回重试</button>
           <button class="btn ghost" @click="closeWindow">关闭</button>
         </div>
         <div v-else class="status-actions">
@@ -613,6 +638,28 @@ const retryFromUpdateOverview = () => {
 </template>
 
 <style>
+/*
+ * ══ 颜色全部走令牌 ════════════════════════════════════════════════════
+ *
+ * 令牌在 src/styles/tokens.css（安装器自带的一份，值与主程序的 shared.css 对齐），
+ * 本文件里没有任何写死的颜色值。
+ *
+ * 迁移前这里有 90 处硬编码，用的是另一套调色板：14 处 Bootstrap 蓝 #007bff、
+ * 8 处冷板岩灰 #94a3b8、3 处 #6b7280 …。主程序早就不用它们了 —— 暖白纸面上
+ * 压一个高饱和冷蓝，纸感直接没了；#94a3b8 当正文在浅色底上实测只有 2.29:1，
+ * 连 3:1 都不到。替换规则：
+ *   · 强调色一律 var(--accent)（浅色 = 墨色 #14171a，深色自动提亮成 #929496）；
+ *   · 中性叠加用 rgba(var(--ink-rgb), α)（阴影/压暗）或 rgba(var(--warm-rgb), α)
+ *     （发丝线/悬停染色），不写死黑 —— 深色下 --ink-rgb 会翻成浅色，
+ *     写死的黑在近黑底上什么都画不出来；
+ *   · 玻璃面按原 alpha 就近落到 --panel-1..4（深色下它们弱一个数量级，
+ *     写死的 rgba(255,255,255,·) 在深色下会变成一块块发光的白板）；
+ *   · 语义色 --danger / --warn / --ok，淡底用 color-mix(…, transparent) 派生，
+ *     这样深色下同一行代码自动跟着语义色变亮。
+ *
+ * ⚠ alpha 不是照抄的：--warm-rgb 是 120,110,95，同一个 alpha 比纯黑淡得多。
+ *   换算表（浅色、底 #f4f2ee、叠完每通道差 ≤3）见 tokens.css 文件头。
+ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body, #app {
@@ -624,8 +671,8 @@ html, body, #app {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(165deg, #f6f8fd 0%, #eef2fb 55%, #e8edf9 100%);
-  color: #1a1a2e;
+  background: linear-gradient(165deg, var(--surface-2) 0%, var(--bg) 55%, var(--surface-3) 100%);
+  color: var(--ink);
   overflow: hidden;
   position: relative;
 }
@@ -644,13 +691,13 @@ html, body, #app {
   border: none;
   border-radius: 9px;
   background: transparent;
-  color: #64748b;
+  color: var(--ink-3);
   font-size: 18px;
   cursor: pointer;
   -webkit-app-region: no-drag;
   transition: all 0.15s;
 }
-.window-close:hover { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.window-close:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 
 /* 顶部品牌 */
 .top-brand {
@@ -660,11 +707,11 @@ html, body, #app {
   padding: 28px 40px 0;
 }
 
-.logo { width: 42px; height: 42px; color: #007bff; }
+.logo { width: 42px; height: 42px; color: var(--accent); }
 
 .top-brand-text { display: flex; flex-direction: column; gap: 1px; }
 .top-brand-name { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
-.top-brand-tag { font-size: 12px; color: #94a3b8; }
+.top-brand-tag { font-size: 12px; color: var(--ink-3); }
 
 .beta-badge {
   font-style: normal;
@@ -673,8 +720,11 @@ html, body, #app {
   padding: 1px 7px;
   margin-left: 6px;
   border-radius: 999px;
-  background: rgba(249, 115, 22, 0.14);
-  color: #ea580c;
+  /* Beta 是「提醒」不是「错误」：走 --warn 语义色。
+     原来写死的 #ea580c / rgba(249,115,22,·) 是 Tailwind 橙，主程序用的是 --warn 这一对，
+     而且 --warn-tint / --warn 在深色下会自动换成低透明的琥珀底（见 tokens.css）。 */
+  background: var(--warn-tint);
+  color: var(--warn);
   vertical-align: 1px;
 }
 
@@ -692,25 +742,28 @@ html, body, #app {
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 12.5px; font-weight: 700;
-  background: rgba(0, 0, 0, 0.07);
-  color: #94a3b8;
+  background: rgba(var(--warm-rgb), 0.12);
+  color: var(--ink-4);
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .step-dot i { font-size: 14px; }
 .step-dot.active {
-  background: #007bff;
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(0, 123, 255, 0.4);
+  background: var(--accent);
+  /* 叠在强调色上的文字用 --surface：浅色下强调色是墨色、--surface 是白（17.99:1），
+     深色下强调色提亮成 #929496、--surface 变成深面 #232019（5.34:1）—— 一份声明两套主题都成立。
+     写死 #fff 在深色下只剩 3.04:1，过不了 AA 正文 4.5:1。 */
+  color: var(--surface);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.step-dot.done { background: rgba(0, 123, 255, 0.18); color: #007bff; }
+.step-dot.done { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 
 .step-line {
   width: 34px; height: 2px;
   border-radius: 1px;
-  background: rgba(0, 0, 0, 0.09);
+  background: rgba(var(--warm-rgb), 0.16);
   transition: background 0.3s ease;
 }
-.step-line.done { background: rgba(0, 123, 255, 0.45); }
+.step-line.done { background: color-mix(in srgb, var(--accent) 45%, transparent); }
 
 /* 内容 */
 .content {
@@ -733,11 +786,19 @@ html, body, #app {
   text-align: center;
 }
 
-.panel-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #111827; }
-.panel-desc { font-size: 14px; color: #6b7280; line-height: 1.7; max-width: 480px; }
+/* 标题原来是 #111827（冷黑）。这套设计里只有一种墨色：--ink。
+   #111827 在主程序里早被换掉了 —— 暖白纸面上它偏蓝，和暖灰放一起会发脏。 */
+.panel-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--ink); }
+.panel-desc { font-size: 14px; color: var(--ink-2); line-height: 1.7; max-width: 480px; }
 
 .feature-row { display: flex; gap: 14px; width: 100%; margin-top: 8px; }
 
+/*
+ * 玻璃面。原来写死 rgba(255,255,255,0.8) + 白边 —— 深色下这就是一块发光的白板，
+ * 白边更是直接消失（白压白）。现在：面走 --panel-3（深色下只有 6% 白），
+ * 边改走 --warm-rgb 发丝线（主程序的卡片/幽灵按钮都是这条线），
+ * 投影用 --ink-rgb（深色下翻成浅色，成为一层极淡的抬升）。
+ */
 .feature {
   flex: 1;
   display: flex;
@@ -745,16 +806,16 @@ html, body, #app {
   align-items: center;
   gap: 6px;
   padding: 22px 16px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--panel-3);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 8px 24px rgba(var(--ink-rgb), 0.05);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
-.feature i { font-size: 26px; color: #007bff; }
+.feature i { font-size: 26px; color: var(--accent); }
 .feature b { font-size: 14px; }
-.feature span { font-size: 12px; color: #94a3b8; }
+.feature span { font-size: 12px; color: var(--ink-3); }
 
 .github-card {
   width: 100%;
@@ -763,18 +824,18 @@ html, body, #app {
   gap: 14px;
   margin-top: 8px;
   padding: 16px 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--panel-3);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 8px 24px rgba(var(--ink-rgb), 0.05);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   text-align: left;
 }
-.github-card > i { font-size: 30px; color: #1a1a2e; }
+.github-card > i { font-size: 30px; color: var(--ink); }
 .github-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .github-text b { font-size: 14px; }
-.github-text span { font-size: 12.5px; color: #94a3b8; }
+.github-text span { font-size: 12.5px; color: var(--ink-3); }
 
 /* ── 覆盖更新页 ── */
 .update-version-card {
@@ -784,10 +845,10 @@ html, body, #app {
   justify-content: center;
   gap: 18px;
   padding: 20px 24px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--panel-3);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 8px 24px rgba(var(--ink-rgb), 0.05);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
@@ -803,7 +864,7 @@ html, body, #app {
 .uv-label {
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--ink-4);
 }
 
 .uv-value {
@@ -813,12 +874,12 @@ html, body, #app {
   font-variant-numeric: tabular-nums;
 }
 
-.uv-value.old { color: #64748b; }
-.uv-value.new { color: #007bff; }
+.uv-value.old { color: var(--ink-3); }
+.uv-value.new { color: var(--accent); }
 
 .uv-arrow {
   font-size: 22px;
-  color: #94a3b8;
+  color: var(--ink-4);
   flex-shrink: 0;
 }
 
@@ -835,14 +896,14 @@ html, body, #app {
   align-items: flex-start;
   gap: 12px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: var(--panel-2);
+  border: 1px solid rgba(var(--warm-rgb), 0.14);
   border-radius: 14px;
 }
 
 .update-facts .fact > i {
   font-size: 18px;
-  color: #007bff;
+  color: var(--accent);
   margin-top: 2px;
   flex-shrink: 0;
 }
@@ -856,12 +917,12 @@ html, body, #app {
 
 .update-facts .fact b {
   font-size: 13.5px;
-  color: #111827;
+  color: var(--ink);
 }
 
 .update-facts .fact span {
   font-size: 12.5px;
-  color: #6b7280;
+  color: var(--ink-2);
   line-height: 1.5;
 }
 
@@ -881,9 +942,9 @@ html, body, #app {
   flex-direction: column;
   gap: 9px;
   padding: 14px 16px;
-  border: 1.5px dashed rgba(0, 0, 0, 0.12);
+  border: 1.5px dashed rgba(var(--warm-rgb), 0.28);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--panel-2);
 }
 
 .check-row {
@@ -891,24 +952,24 @@ html, body, #app {
   align-items: center;
   gap: 9px;
   font-size: 13.5px;
-  color: #334155;
+  color: var(--ink-2);
   cursor: pointer;
   user-select: none;
 }
 .check-row input {
   width: 16px;
   height: 16px;
-  accent-color: #007bff;
+  accent-color: var(--accent);
   cursor: pointer;
   margin: 0;
 }
-.check-row i { font-size: 15px; color: #007bff; }
+.check-row i { font-size: 15px; color: var(--accent); }
 
 .align-hint {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #007bff;
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -917,15 +978,20 @@ html, body, #app {
   padding: 12px 15px;
   font-size: 13.5px;
   font-family: inherit;
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  border: 1.5px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1a1a2e;
+  background: var(--panel-4);
+  color: var(--ink);
   outline: none;
 }
-.dir-input:focus { border-color: #007bff; }
+/* 聚焦环用 color-mix 派生而不是另取一个蓝：强调色换掉时它跟着换。
+   16% 与主程序输入框的聚焦环同档（0 0 0 3px color-mix(accent 16%, transparent)）。 */
+.dir-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
 
-.hint { width: 100%; text-align: left; font-size: 12.5px; color: #94a3b8; line-height: 1.6; }
+.hint { width: 100%; text-align: left; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
 
 .eula-box {
   width: 100%;
@@ -935,11 +1001,13 @@ html, body, #app {
   overflow-y: auto;
   padding: 14px 16px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  /* EULA 是「凹陷的读稿区」：比卡片暗一档。原来是 rgba(0,0,0,0.04)，
+     换成暖灰后 alpha 要抬到 0.07 才是同一个明度（叠完 #ebe9e4 vs #eae8e4）。 */
+  background: rgba(var(--warm-rgb), 0.07);
+  border: 1px solid rgba(var(--warm-rgb), 0.16);
   font-size: 12.5px;
   line-height: 1.7;
-  color: #374151;
+  color: var(--ink-2);
   white-space: pre-wrap;
   text-align: left;
 }
@@ -956,14 +1024,17 @@ html, body, #app {
 .progress-track {
   width: 100%; height: 12px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(var(--warm-rgb), 0.12);
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #007bff, #60a5fa);
+  /* 原来是一条 蓝 → 浅蓝 的渐变（#007bff → #60a5fa）。设计系统里的进度是单色的
+     （主程序 UpdateDialog 的 .ud-progress-fill 就是 background: var(--ink)），
+     这里取 --accent：浅色下是墨色，深色下自动提亮成浅灰，两端都看得见。 */
+  background: var(--accent);
   transition: width 0.25s ease;
 }
 
@@ -973,7 +1044,7 @@ html, body, #app {
   align-items: center;
   font-size: 13px;
   font-weight: 700;
-  color: #007bff;
+  color: var(--accent);
 }
 
 .progress-file {
@@ -981,7 +1052,7 @@ html, body, #app {
   margin-left: 16px;
   font-weight: 500;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--ink-4);
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
@@ -1000,17 +1071,30 @@ html, body, #app {
   font-size: 14px;
   font-weight: 600;
 }
-.status.ok { background: #ecfdf5; color: #15803d; }
-.status.ok i { font-size: 30px; animation: status-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.status.err { background: #fef2f2; color: #b91c1c; }
+/*
+ * 状态面板。淡底一律用 color-mix(语义色, transparent) 派生，不写死「淡绿/淡红/淡蓝」——
+ * 深色下那三块写死的浅底会变成三块发光的色板，而语义色自己会变亮，派生底跟着走。
+ *
+ * ⚠ .ok 的文字**不能**用 --ok：浅色下 #10b981 压在这层 10% 绿底上实测只有 2.08:1
+ *   （旧配色 #15803d on #ecfdf5 是 4.76:1），等于把「安装完成」这句话洗掉。
+ *   主程序里 --ok 也只用在图标上，正文始终是墨色 —— 这里照同一套：
+ *   语义色给图标，文字用 --ink（14.72:1）。
+ */
+.status.ok { background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ink); }
+.status.ok i { font-size: 30px; color: var(--ok); animation: status-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+/* 6% 与主程序 .cancel-btn:hover / .toast-safe 的 danger 底同档：
+   --danger 压在上面浅色 5.33:1、深色 4.49:1，都在 AA 正文线上下。 */
+.status.err { background: color-mix(in srgb, var(--danger) 6%, transparent); color: var(--danger); }
 .status.err i { font-size: 30px; }
-.status.working { background: #eff6ff; color: #2563eb; }
+.status.working { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); }
 .status.working i { font-size: 30px; }
 .status.warn {
   flex-direction: row;
   align-items: center;
-  background: #fffbeb;
-  color: #b45309;
+  /* --warn-tint / --warn 是一对：深色下 tint 会从 #fef3c7 变成 14% 琥珀，
+     浅色那对写死的话深色下就是一块亮黄板。 */
+  background: var(--warn-tint);
+  color: var(--warn);
   text-align: left;
   gap: 12px;
 }
@@ -1049,10 +1133,14 @@ html, body, #app {
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn.primary { background: #007bff; color: #fff; box-shadow: 0 4px 14px rgba(0, 123, 255, 0.35); }
+/* 主操作按钮：--accent 面 + --surface 字，与主程序一致
+   （shared.css / StartupPage / ItemSizeDialog 的主按钮都是这一对）。
+   写死 #fff 在深色下是白字压提亮后的强调色 #929496，实测 3.04:1，
+   过不了 AA 正文 4.5:1；--surface（深色下是 #232019）压上去是 5.34:1。 */
+.btn.primary { background: var(--accent); color: var(--surface); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
 .btn.primary:hover:not(:disabled) { transform: scale(1.04); }
-.btn.ghost { background: rgba(0, 0, 0, 0.05); color: #475569; }
-.btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.09); }
+.btn.ghost { background: rgba(var(--warm-rgb), 0.09); color: var(--ink-2); }
+.btn.ghost:hover:not(:disabled) { background: rgba(var(--warm-rgb), 0.16); }
 .btn.sm {
   height: 32px;
   padding: 0 12px;
@@ -1073,17 +1161,17 @@ html, body, #app {
   align-items: center;
   gap: 8px;
   padding: 7px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: var(--panel-4);
+  border: 1px solid rgba(var(--warm-rgb), 0.2);
   border-radius: 999px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 10px 30px rgba(var(--ink-rgb), 0.12);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
 }
 .nav-pill:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 16px 40px rgba(var(--ink-rgb), 0.16);
 }
 
 .pill-btn {
@@ -1100,12 +1188,14 @@ html, body, #app {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .pill-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.pill-btn.primary { background: #007bff; color: #fff; box-shadow: 0 4px 14px rgba(0, 123, 255, 0.35); }
+.pill-btn.primary { background: var(--accent); color: var(--surface); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
 .pill-btn.primary:hover:not(:disabled) { transform: scale(1.05); }
-.pill-btn.ghost { background: rgba(0, 0, 0, 0.05); color: #6b7280; }
-.pill-btn.ghost:hover:not(:disabled) { background: rgba(0, 0, 0, 0.09); transform: scale(1.05); }
-.pill-btn.danger { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
-.pill-btn.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); transform: scale(1.05); }
+.pill-btn.ghost { background: rgba(var(--warm-rgb), 0.09); color: var(--ink-2); }
+.pill-btn.ghost:hover:not(:disabled) { background: rgba(var(--warm-rgb), 0.16); transform: scale(1.05); }
+/* 卸载是危险操作，但按钮本身是淡底 + 危险色文字（主程序 .cancel-btn 的做法），
+   不做成实心红 —— 向导里唯一实心的应该只有主操作。 */
+.pill-btn.danger { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.pill-btn.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 20%, transparent); transform: scale(1.05); }
 
 .ri-spin { display: inline-block; }
 </style>

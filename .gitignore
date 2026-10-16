@@ -50,6 +50,11 @@ temp_overlay/
 .BUILD_LAST_USED
 payload.zip
 
+# 安装器的前端构建产物（dist-installer/）：与主程序 dist/ 同理，
+# 是构建输出不是源码；其中 remixicon 的 svg 单文件就有 3 MB。
+installer-app/dist/
+installer-app/dist-installer/
+
 # Release artifacts (build pipeline output)
 release/
 /store/

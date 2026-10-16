@@ -3,7 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      这页两种配色都支持。深色系统上，样式表加载前的那一瞬间画布就是深色，
+      而不是先闪一块白（tokens.css 到得比首帧晚，中间这段空白由它兜住）。
+    -->
+    <meta name="color-scheme" content="light dark" />
     <title>2-Pyramid 安装器</title>
+    <script>
+      /*
+       * 首帧之前定主题。
+       *
+       * 这里只用 matchMedia，**不走 Tauri 的窗口主题 API** —— 那个要等一次 IPC
+       * 往返，回来之前浏览器已经用浅色画过一帧，深色用户每次启动都会先闪一下白。
+       * 为什么可以只信 matchMedia、IPC 那一路补判放在哪、两边不一致时听谁的，
+       * 见 src/theme.ts 的文件头（那里写清了核对过的权限与判据）。
+       *
+       * 必须放在 <body> 之前：放到后面就晚了，浏览器已经用浅色画过一帧。
+       */
+      (function () {
+        try {
+          var dark = window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          /* 老 WebView 没有 matchMedia：按浅色走，theme.ts 里还有一次机会 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
