@@ -261,7 +261,7 @@
 
 - 移除 `vite.config.js`（`vue-tsc -b` 误产物，且 Vite 会优先加载它）。
 - Overlay 页误删的自定义内容侧栏恢复挂载。
-- 动作监视协议补全：`SHOT` / `CLICK` / `STATUS` / `CLEAR` / `MON ON|OFF`；导出 `.2amr` 写入真实视口尺寸与多事件类型（click/input/change/keydown）。
+- 动作记录协议补全；导出 `.2amr` 写入真实视口尺寸与多事件类型（click/input/change/keydown）。
 
 ### Removed
 
@@ -497,7 +497,7 @@
 - **更新系统**：基于 GitHub Releases 的检查 / 下载 / 静默安装，支持 `Safe-` / `Stable-` / `UnStable-` 前缀优先级与稳定 / 测试双通道。
 - **界面定制**：自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、动画速率三档、中英双语。
 - **输出命名模板**：`[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符 + 实时预览。
-- **其他**：转换历史记录、桌面 Toast 通知、单实例端口锁、动作监视（`--action-monitor` / `2PYR_ACTION_MONITOR=1`）、OKAY 风格日志、无边框窗口（关闭即退出）。
+- **其他**：转换历史记录、桌面 Toast 通知、单实例端口锁、动作记录（后续版本已移除 CLI 开关）、OKAY 风格日志、无边框窗口（关闭即退出）。
 
 ### Changed
 
