@@ -103,14 +103,26 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: 缓存 Rust 构建产物
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            src-tauri/target
-            installer-app/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          # 两个 crate 各自的工作目录。
+          #
+          # 为什么不用 actions/cache 手写：手写要缓存整个 `src-tauri/target`，
+          # 那是 776 MB（实测），而且 Cargo.lock 一变就存一份新的 ——
+          # GitHub 免费额度是 10 GB/仓库，十几次发布就撑满，
+          # 之后旧缓存被挤掉，又回到冷启动，且更难预测。
+          # 这个 action 只缓存依赖与 ~/.cargo，体积小一个量级，
+          # 并按工具链/哈希/profile 分层，不会每次锁文件一变就存整份。
+          #
+          # **它解决不了 tag 之间的缓存隔离。** GitHub 的缓存按 ref 作用域，
+          # `v2.201.0` 存的缓存 `Stable-2.201.0` 读不到（实测：键完全一致，
+          # 连 restore-keys 前缀都没匹配到，日志写 `Cache not found`）。
+          # 所以每次发布仍是冷编译，约 12 分钟 —— 这是 tag 触发式发布的固有代价。
+          # 要消除它只能从 master 预热，但那要给每次推送都加一轮完整编译，
+          # 为省发布时的几分钟不值得。
+          workspaces: |
+            src-tauri -> target
+            installer-app/src-tauri -> target
 
       - name: 安装前端依赖
         shell: pwsh
