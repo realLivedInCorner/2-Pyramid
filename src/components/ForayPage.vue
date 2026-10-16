@@ -566,8 +566,13 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Microsoft YaHei", sans-serif;
+  /*
+   * 字体栈与全局一致（CJK 优先，中英同源）。
+   * 这一条原本跨两行书写，上一轮的批量字体替换只改了第一行开头，
+   * 第二行残留下来，导致 "Microsoft YaHei" 在栈里出现两次。
+   */
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 .header-section {
   z-index: 5;
