@@ -145,6 +145,11 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
     // Actions are serialised as a JSON string under `actions=` so the
     // toast page can `JSON.parse(decodeURIComponent(...))` them. We
     // also URL-encode the JSON itself so commas / quotes survive.
+    //
+    // 主题也走这条通道（`theme=`）：toast 页面是独立窗口，拿不到主窗口
+    // <html> 上的 data-theme，得有人告诉它。每次通知都重新读一遍 —— 见
+    // read_theme_mode 的说明，这个值不能缓存。
+    let theme_mode = read_theme_mode();
     let actions_param = if payload.actions.is_empty() {
         String::new()
     } else {
@@ -164,12 +169,13 @@ pub async fn show_toast(app: AppHandle, payload: ToastPayload) -> Result<(), Str
     };
 
     let url = format!(
-        "toast.html?title={}&body={}&kind={}&duration={}&label={}{}",
+        "toast.html?title={}&body={}&kind={}&duration={}&label={}&theme={}{}",
         urlencoding_encode(&payload.title),
         urlencoding_encode(&payload.body),
         urlencoding_encode(&payload.kind),
         effective_duration,
         urlencoding_encode(&label),
+        urlencoding_encode(&theme_mode),
         actions_param,
     );
 
@@ -418,6 +424,28 @@ fn evict_overflow(app: &AppHandle) {
             let _ = w.close();
         }
     }
+}
+
+/// 取当前主题模式，供 toast 页面的 `?theme=` 参数使用。
+///
+/// **每次调用都重新读一次配置文件，故意不缓存。** toast 窗口是每条通知新建、
+/// 关掉即销毁的，缓存在这里的值没有任何生命周期可以依附：一旦缓存，用户在
+/// 设置里把主题改成深色之后，新弹出的通知仍然会按旧主题画（窗口是新的，值
+/// 却是旧的），表现成"主题设置对通知不生效"。
+///
+/// 归一化跟前端 useTheme.ts 保持一致：只认 "light" / "dark"；"system"、字段
+/// 缺失、以及配置文件被手改成的其它值，一律回落 "system"（跟随系统）。配置
+/// 文件是会被手改的，不能假设它总是干净的 —— 这一点与 config.rs 里
+/// `update_config` 的白名单式归一化同一个理由。
+///
+/// 注意这里只传"模式"，不传"系统当前是深是浅"：system 档由页面用
+/// `prefers-color-scheme` 自己判，WebView2 的颜色偏好本来就跟随系统。
+fn read_theme_mode() -> String {
+    crate::commands::config::read_config_file()
+        .ok()
+        .and_then(|c| c.theme_mode)
+        .filter(|m| m == "light" || m == "dark")
+        .unwrap_or_else(|| "system".to_string())
 }
 
 fn chrono_timestamp_ms() -> u64 {

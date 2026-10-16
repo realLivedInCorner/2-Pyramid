@@ -4,9 +4,100 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>2-Pyramid Toast</title>
+    <script>
+      /*
+       * 首帧之前定主题。
+       *
+       * 这个窗口是**每条通知新建一个**、活几秒钟就关掉的，所以主题没有地方可以
+       * 缓存：Rust 侧的 `show_toast` 每次重新读一遍配置里的 `theme_mode`，和其它
+       * payload 一起塞进 URL（`?theme=light|dark|system`）。在 Rust 侧缓存的话，
+       * 用户在设置里换了主题之后，新弹出的通知还会按旧主题画 —— 窗口是新的，
+       * 值却是旧的。
+       *
+       * 这里读 URL 而不是让 Rust 用 initialization_script 注入，有两个原因：一是
+       * payload 本来就全走 URL 这一条通道，为了一个值再开一条就多一份要同步的
+       * 东西；二是初始化脚本在文档刚创建时执行，DOM 还没解析完，`data-theme`
+       * 未必挂得上，退到 DOMContentLoaded 又晚于首帧 —— 那正是这里要避免的。
+       *
+       * "system" 交给 prefers-color-scheme 判：WebView2 的颜色偏好本来就跟系统
+       * 走，和 index.html 里主窗口的首帧脚本用同一个判据，两边不会出现一个跟
+       * 系统、一个不跟的情况。
+       *
+       * 这段必须在 <style> 之前（index.html 同一条规矩）：挂晚了，深色用户会先
+       * 看到一帧白卡。也**不监听** matchMedia 的 change —— 这张卡最多活 15 秒
+       * （配置里 toast_duration_ms 的上限），为它挂一个常驻监听只会多一份分支。
+       */
+      (function () {
+        var mode = new URLSearchParams(window.location.search).get('theme') || 'system';
+        var dark =
+          mode === 'dark' ||
+          (mode !== 'light' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        // 浅色 = 不挂属性（约定：没有 data-theme 就是浅色）
+        if (dark) document.documentElement.dataset.theme = 'dark';
+      })();
+    </script>
     <style>
-      /* Reset / transparent background so the window itself stays
-         invisible — the rounded card is the only thing visible. */
+      /*
+       * ══ 设计令牌（副本）════════════════════════════════════════════════
+       *
+       * toast 是一个**独立的 WebviewWindow**，不加载主程序的 CSS、也不跑
+       * main.ts，shared.css 里的令牌在这里一个都不存在。而 var() 取不到值
+       * 不报错，只会静默回落到兜底色 —— 深色下就是一块白卡。这份副本就是
+       * 为此存在。
+       *
+       * 唯一真源仍然是 shared.css，这里只是缓存：**值必须与它逐字一致**，
+       * 改那边就要回来改这里。只抄这张卡用得到的 10 个；面阶 --surface-2…6、
+       * 面层 --panel-1…4、--bg、--warn-tint / --warn-line 在 toast 里没有
+       * 落点，抄过来只会让人以为它们是活的。
+       *
+       * 深色靠 <html data-theme="dark">，**没有这个属性就是浅色** —— 与主程序
+       * 同一约定（useTheme.ts）。属性由上面那个内联脚本在首帧前挂上。
+       */
+      :root {
+        /* 卡面与文字阶梯 */
+        --surface: #ffffff;
+        --ink: #14171a;
+        --ink-3: #6f6a61;
+        --ink-4: #8c877e;
+        /* 浓淡载体：发丝线、投影、悬停染色都走这两个（见 shared.css 的说明） */
+        --ink-rgb: 20, 23, 26;
+        --warm-rgb: 120, 110, 95;
+        /* 语义色 */
+        --danger: #b3261e;
+        --warn: #b45309;
+        --ok: #10b981;
+        /*
+         * 强调色：一切强调都用它，不再直接用 --theme-color。浅色下两者相同，
+         * 深色下它保色相提明度（见下）。
+         *
+         * 注意这个窗口拿不到用户选的 --theme-color —— App.vue 是把它以**内联
+         * 样式**写在主窗口的 <html> 上的，两个窗口是两个文档，不共享。所以这里
+         * 走兜底值，也就是主程序的默认强调色。兜底值必须是 #14171a，不是原
+         * 来的 #007bff（Bootstrap 蓝，主程序里早就不存在这个颜色了）。
+         */
+        --accent: var(--theme-color, #14171a);
+      }
+
+      [data-theme='dark'] {
+        --surface: #232019;
+        --ink: #f2efe9;
+        --ink-3: #8e887d;
+        --ink-4: #6f6a60;
+        /* 由黑转白：深色下"浓"的方向反过来，画的是浅色 */
+        --ink-rgb: 255, 252, 245;
+        --warm-rgb: 150, 143, 132;
+        --danger: #e5534b;
+        --warn: #d29922;
+        --ok: #3fb950;
+        --accent: color-mix(in oklab, var(--theme-color, #14171a) 42%, #ffffff);
+      }
+
+      /*
+       * 窗口本身必须完全透明：卡的四个圆角要透出桌面。这不是配色而是窗口级
+       * 要求（Rust 侧 .transparent(true)），所以不给它令牌。
+       */
       html, body {
         margin: 0; padding: 0; width: 100%; height: 100%;
         background: transparent !important;
@@ -27,11 +118,23 @@
         gap: 10px;
         padding: 10px 32px 10px 12px;
         border-radius: 12px;
-        background: rgba(255, 255, 255, 0.96);
+        /*
+         * 卡面用 --surface（纯色），不用 --panel-4（浅色下是白 90%）。
+         * 这张卡浮在**任意桌面内容**上，不是浮在应用底色上，所以最坏情况要按
+         * 深色壁纸算：白 90% 叠纯黑得 #e6e6e6，正文 --ink-3 压上去只剩
+         * 4.30:1，低于 AA 正文的 4.5。--surface 没有这个下限（实测 5.37:1 /
+         * 深色 4.62:1），代价只是浅色卡面从"白 96%"变成纯白，肉眼分不出。
+         */
+        background: var(--surface);
+        /* 投影与发丝线都走墨色三元组：深色下一起翻成浅色。
+           0.18 这一档和应用内那条更新提示（App.vue 的 .toast-card 内联样式）
+           取的是同一个值，桌面上的 toast 和窗口里的 toast 才不会像两个东西。 */
         box-shadow:
-          0 12px 28px rgba(0, 0, 0, 0.18),
-          0 4px 10px rgba(0, 0, 0, 0.10),
-          inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+          0 12px 28px rgba(var(--ink-rgb), 0.18),
+          0 4px 10px rgba(var(--ink-rgb), 0.10),
+          inset 0 0 0 1px rgba(var(--ink-rgb), 0.05);
+        /* 静态时被纯色卡面完全盖住，留着是为了退场：那 260ms 是整卡淡出，
+           模糊过的桌面底会短暂透出来，去掉就没有这层"溶掉"的观感 */
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         animation: toast-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -65,15 +168,21 @@
         width: 30px; height: 30px;
         border-radius: 8px;
         display: flex; align-items: center; justify-content: center;
-        color: #fff;
+        /*
+         * 字色用 --surface，不是原来写死的 #fff。原因是深色下语义色和强调色都
+         * 是**亮**的，白字压不住：实测 #fff 在 --ok #3fb950 上只有 2.54:1，
+         * 图标基本消失；--surface 在深色下是 #232019，翻过来是 6.40:1。
+         * 浅色下 --surface 就是 #ffffff，与改动前逐像素相同。
+         */
+        color: var(--surface);
         font-size: 15px;
-        background: var(--theme-color, #007bff);
-        box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color, #007bff) 35%, transparent);
+        background: var(--accent);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent);
       }
-      .toast-icon.success { background: #10b981; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35); }
-      .toast-icon.error   { background: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35); }
-      .toast-icon.warning { background: #f59e0b; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35); }
-      .toast-icon.info    { background: #007bff; box-shadow: 0 4px 12px rgba(0, 123, 255, 0.35); }
+      .toast-icon.success { background: var(--ok); box-shadow: 0 4px 12px color-mix(in srgb, var(--ok) 35%, transparent); }
+      .toast-icon.error   { background: var(--danger); box-shadow: 0 4px 12px color-mix(in srgb, var(--danger) 35%, transparent); }
+      .toast-icon.warning { background: var(--warn); box-shadow: 0 4px 12px color-mix(in srgb, var(--warn) 35%, transparent); }
+      .toast-icon.info    { background: var(--accent); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent); }
       .toast-body {
         flex: 1 1 auto; min-width: 0;
         display: flex; flex-direction: column; justify-content: center; gap: 3px;
@@ -81,13 +190,18 @@
       }
       .toast-title {
         font-size: 13px; font-weight: 700;
-        color: #0f172a;
+        color: var(--ink);
         line-height: 1.3;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
+      /*
+       * 正文用 --ink-3：shared.css 里这一档就是按正文对比度反推的（正文需
+       * ≥4.5:1），实测浅色 5.37:1、深色 4.62:1，两边都过。原来的 #475569 是
+       * Tailwind 的 slate-600，冷灰，和主程序这套暖灰不是一个色系。
+       */
       .toast-text {
         font-size: 12px; font-weight: 500;
-        color: #475569;
+        color: var(--ink-3);
         line-height: 1.35;
         display: -webkit-box;
         -webkit-line-clamp: 2;
@@ -99,7 +213,8 @@
         position: absolute;
         left: 0; bottom: 0;
         height: 3px; width: 100%;
-        background: var(--theme-color, #007bff);
+        /* 进度条是"卡还活着"的指示，不是状态色：三种类型都用强调色 */
+        background: var(--accent);
         opacity: 0.85;
         transform-origin: left;
         animation: toast-progress linear forwards;
@@ -115,14 +230,16 @@
         border-radius: 6px;
         display: flex; align-items: center; justify-content: center;
         background: transparent;
-        color: #64748b;
+        color: var(--ink-4);
         cursor: pointer;
         font-size: 15px;
         line-height: 1;
         border: none;
         transition: background 0.15s, color 0.15s;
       }
-      .toast-close:hover { background: rgba(0,0,0,0.08); color: #0f172a; }
+      /* 与 shared.css 的 .dialog-close 同一套：暖灰 9% 悬停 + 文字提到 --ink。
+         不用写死的黑 8% —— 深色下那会变成一块比卡还暗的脏点。 */
+      .toast-close:hover { background: rgba(var(--warm-rgb), 0.09); color: var(--ink); }
 
       /* Action buttons row (e.g. “Open output folder”). Shown only
          when the payload includes `actions`. Hidden otherwise so the
@@ -135,8 +252,8 @@
       }
       .toast-action-btn {
         border: none;
-        background: color-mix(in srgb, var(--theme-color, #007bff) 12%, transparent);
-        color: var(--theme-color, #007bff);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        color: var(--accent);
         padding: 5px 12px;
         border-radius: 8px;
         font-size: 12px;
@@ -148,7 +265,7 @@
         gap: 4px;
       }
       .toast-action-btn:hover {
-        background: color-mix(in srgb, var(--theme-color, #007bff) 20%, transparent);
+        background: color-mix(in srgb, var(--accent) 20%, transparent);
       }
       .toast-action-btn:active { transform: scale(0.96); }
       .toast-action-btn i { font-size: 14px; }
@@ -158,11 +275,17 @@
          card itself focuses the main window. */
       .toast-card.clickable { cursor: pointer; }
       .toast-card.clickable:hover {
-        background: rgba(255, 255, 255, 1);
+        /*
+         * 悬停把卡面往暖灰方向推 8%（浅色 #f4f3f2 / 深色 #2c2922）。
+         * 用 color-mix 而不是 rgba(var(--warm-rgb), 0.08)：后者是**半透明**
+         * 的，叠在透明窗口上等于把桌面透出来，卡面会当场花掉。这一条在两种
+         * 主题下都成立，不用给深色单开例外。
+         */
+        background: color-mix(in srgb, rgb(var(--warm-rgb)) 8%, var(--surface));
         box-shadow:
-          0 16px 36px rgba(0, 0, 0, 0.22),
-          0 6px 14px rgba(0, 0, 0, 0.12),
-          inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+          0 16px 36px rgba(var(--ink-rgb), 0.22),
+          0 6px 14px rgba(var(--ink-rgb), 0.12),
+          inset 0 0 0 1px rgba(var(--ink-rgb), 0.06);
       }
       /* The default right padding already clears the close button;
          action rows sit below the text inside the body. */
