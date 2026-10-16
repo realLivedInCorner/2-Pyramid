@@ -545,7 +545,7 @@ async function finish() {
                       :placeholder="t('settings.outputNaming.placeholder')"
                     />
                     <div class="naming-preview-inline">
-                      {{ t('settings.outputNaming.preview') }}:
+                      {{ t('settings.outputNaming.preview') }}：
                       <b>{{ namingPreview }}</b>
                     </div>
                   </div>
@@ -1334,6 +1334,91 @@ async function finish() {
 .naming-row-plain {
   border-top: none;
   padding-bottom: 4px;
+}
+
+/*
+ * 欢迎卡片（OOBE 第 3、5 步）。
+ *
+ * **原来这个类没有任何样式。** 只有 App.vue 的全局规则给了背景/边框/圆角/阴影，
+ * 没有 padding —— 实测卡片 padding: 0px，里面的 <i> 是 display:inline 的 16×16，
+ * 贴左上角 1px 处。也就是图标不是「卡片图标」，而是正文第一行的一个字符，
+ * 看起来像一行乱入的字形。
+ *
+ * 这里照设置行 .item-icon 的既有规范做：36×36、圆角 10px、强调色 12% 底。
+ * 卡片改成「徽章 + 文字」的水平排布，与设置行的读法一致。
+ */
+.welcome-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  max-width: 560px;
+  text-align: left;
+}
+.welcome-card > i {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.welcome-card > p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/*
+ * 命名模板行。
+ *
+ * 这个类和它的两个子元素**原来都没有样式**：<input> 与预览都是裸的块级元素，
+ * 预览行没有换行约束，长文件名会把文字顶出卡片右边缘（实测被裁切）。
+ */
+.naming-row-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  padding: 2px 16px 16px;
+}
+.naming-input {
+  flex: 1 1 220px;
+  /* 不加 min-width:0，flex 子项默认 min-width:auto，长内容会把行撑破 */
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid rgba(var(--ink-rgb), 0.12);
+  border-radius: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.naming-input:hover { border-color: rgba(var(--ink-rgb), 0.22); }
+.naming-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.naming-preview-inline {
+  /* 整行独占一行，长文件名换行而不是溢出 */
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  word-break: break-all;
+}
+.naming-preview-inline b {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 
