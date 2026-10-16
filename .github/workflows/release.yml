@@ -1,14 +1,28 @@
 name: Release
 
-# 触发：推送形如 `v2.201.0` 的 tag。
+# 触发：推送带**渠道前缀**的 tag。
 #
-# 为什么用 tag 而不是 push 到 master：发布是一个**显式动作**。挂在 master 上会
-# 让每次合并都变成一次潜在发布，而版本号、CHANGELOG、news 文件三者的就绪状态
-# 无法在 push 那一刻自动判定。tag 是人明确说「这一版发了」的信号。
+# 前缀不是装饰，是更新器的协议 —— `src-tauri/src/updater.rs` 的 `parse_tag`
+# 按第一个 `-` 前的内容决定优先级与通道：
+#
+#     Safe-2.0.2      强制安装（Safe）
+#     Stable-2.0.2    稳定通道
+#     UnStable-*      测试通道
+#     Beta-*          测试通道
+#     v2.0.1          无前缀，按普通处理
+#
+# 所以**不能只写 `v*`**：那样打出来的 tag 会落进「无前缀」分支，
+# `is_test_tag` 也认不出测试版，渠道就错了。
+#
+# 为什么用 tag 而不是 push 到 master：发布是显式动作。版本号、CHANGELOG、
+# news 文件三者的就绪状态无法在 push 那一刻判定，tag 是人说「这一版发了」。
 on:
   push:
     tags:
-      - 'v*'
+      - 'Stable-*'
+      - 'Safe-*'
+      - 'Beta-*'
+      - 'UnStable-*'
 
 # 创建 Release 需要写权限；默认的 GITHUB_TOKEN 是只读的。
 permissions:
@@ -16,37 +30,70 @@ permissions:
 
 jobs:
   release:
-    # 必须 Windows：这是 Windows 桌面应用，tauri build 的 NSIS 目标与
-    # installer-app 都只能在 Windows 上编。
+    # 必须 Windows：这是 Windows 桌面应用，NSIS 目标与 installer-app
+    # 都只能在 Windows 上编。
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: 解析 tag 与 news 文件
+      - name: 解析 tag、渠道与 news 文件
         id: meta
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $tag = $env:GITHUB_REF_NAME
-          # tag `v2.201.0` → 版本号 `2.201.0`
-          $version = $tag -replace '^v', ''
+
+          # 渠道前缀 → 版本号。与 updater.rs 的 parse_tag 保持同一套规则，
+          # 两处不一致就会出现「tag 说是 Beta，更新器当成 Stable」。
+          $prefix = ($tag -split '-')[0]
+          $version = $tag.Substring($prefix.Length + 1)
+
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "无法从 tag '$tag' 解析出版本号"
+          }
+
+          # Safe-/Stable-/UnStable-/Beta- 是渠道前缀；其余按无前缀处理，
+          # 与 updater 的 strip_v 行为一致（去掉前导 v）。
+          $channel = switch ($prefix) {
+            'Safe'     { 'Safe' }
+            'Stable'   { 'Stable' }
+            'UnStable' { 'Beta' }
+            'Beta'     { 'Beta' }
+            default    { 'Stable' }
+          }
+          $isBeta = $channel -eq 'Beta'
+
           $news = "docs/compose/releases/news-$version.md"
-
-          "version=$version" >> $env:GITHUB_OUTPUT
-
           if (-not (Test-Path $news)) {
-            Write-Host "::error::找不到 $news —— 发布前需要先在 docs/compose/releases/ 下写好这一版的说明。"
-            Write-Host "现有文件："
-            Get-ChildItem docs/compose/releases -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+            Write-Host "::error::找不到 $news"
+            Write-Host "发布前需要先在 docs/compose/releases/ 下写好这一版的说明。现有文件："
+            Get-ChildItem docs/compose/releases -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host "  $($_.Name)" }
             exit 1
           }
+
+          # 标题格式来自 tools/release/README.md 的发布清单：
+          #     --title "2-Pyramid Stable x.y.z-BUILDnnnnn"
+          # BUILD 取自仓库文件（构建只读不写），所以这里读到的就是产物里的编号。
+          $build = (Get-Content BUILD -Raw).Trim()
+          $product = if ($isBeta) { "2-Pyramid Beta $version-BUILD$build" }
+                     else         { "2-Pyramid Stable $version-BUILD$build" }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "channel=$channel" >> $env:GITHUB_OUTPUT
+          "is_beta=$($isBeta.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           "news=$news" >> $env:GITHUB_OUTPUT
-          Write-Host "已找到 $news（$((Get-Item $news).Length) 字节）"
+          "title=$product" >> $env:GITHUB_OUTPUT
+          Write-Host "tag=$tag  版本=$version  渠道=$channel  BUILD=$build"
+          Write-Host "标题=$product"
+          Write-Host "news=$news（$((Get-Item $news).Length) 字节）"
 
       - name: 校验版本号与仓库一致
         shell: pwsh
         run: |
-          # 发布时版本号散落在 10 处，tag 与 package.json 不一致说明漏改了某一步。
-          # tools/set_version.py --check 会逐处比对，不一致就以非零码退出。
+          # 版本号散落在 10 处，tag 与 package.json 不一致说明漏改了某一步。
+          # 这个脚本的头部记录过一次真实事故：installer-app 漏改，
+          # 导致「2.7.0 的安装包显示成 2.6.0」。
           python tools/set_version.py --check
 
       - uses: actions/setup-node@v4
@@ -73,27 +120,24 @@ jobs:
           # 第一次跑发布就是这个样子。显式设置，让失败停在它发生的地方。
           $ErrorActionPreference = 'Stop'
 
-          # package-lock.json 里的 147 个 resolved URL 指向 registry.npmmirror.com
-          # （生成它时那台机器配了国内镜像）。CI 走这些 URL 会撞 422，
-          # 因为镜像上缺 @volar/typescript 的某个版本。
-          #
-          # 固定用官方源，并让 npm 忽略 lock 里写死的 host —— 公共仓库不该
-          # 依赖某台机器的镜像配置，别人克隆下来也会撞同一个问题。
+          # package-lock.json 的 resolved URL 现在指向 registry.npmjs.org；
+          # 这里再固定一次，避免运行器或缓存引入别的源。
           npm config set registry https://registry.npmjs.org/
           npm config set replace-registry-host always
 
-          npm ci
+          cmd /c npm ci
           if ($LASTEXITCODE -ne 0) { throw "根目录 npm ci 失败（exit $LASTEXITCODE）" }
 
           # 装完就验：缺了 vue-tsc 的话，vue-tsc -b 会在后面才炸
-          if (-not (Test-Path "node_modules/.bin/vue-tsc.cmd") -and -not (Test-Path "node_modules/.bin/vue-tsc")) {
+          if (-not (Test-Path "node_modules/.bin/vue-tsc.cmd") -and
+              -not (Test-Path "node_modules/.bin/vue-tsc")) {
             throw "node_modules/.bin 里没有 vue-tsc —— 依赖没有装全"
           }
 
           if (Test-Path installer-app/package.json) {
             # installer-app 没有 lock 文件，所以用 install 而不是 ci
             Push-Location installer-app
-            npm install
+            cmd /c npm install
             if ($LASTEXITCODE -ne 0) { throw "installer-app 依赖安装失败（exit $LASTEXITCODE）" }
             Pop-Location
           }
@@ -101,44 +145,43 @@ jobs:
       - name: 构建安装包（不含 MSIX）
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           # --skip-msix：**这是有意的分工**。
           #
-          # MSIX 需要 Windows SDK 的 makeappx，并且商店包要由商店侧签名；
-          # 本地跑比放进 CI 更可控，也不必将签名相关的东西暴露给运行器。
-          # 因此远程只负责 EXE，MSIX 留在本地用同一条流水线打：
-          #     python tools/build_release.py --skip-installer
+          # MSIX 需要 Windows SDK 的 makeappx，商店包由商店侧签名，
+          # 签名相关的材料不该出现在运行器上。远程只出 EXE，
+          # MSIX 在本地用同一条流水线打（不加 --skip-msix）。
           #
-          # 不加 --bump：BUILD 取自仓库里提交的值，构建只读不写。
-          # 这样 CI 出的 EXE 与本地出的 MSIX 编号一致 —— 它们是同一个版本的两半，
-          # 编号不同就无法回答「这个 MSIX 对应哪次构建」。要推进编号就在提交里改
-          # （tools/bump_build.py），和版本号一样是显式动作。
+          # 不加 --bump：BUILD 取自仓库里提交的值，构建只读不写，
+          # 这样 CI 的 EXE 与本地 MSIX 编号一致 —— 它们是同一版本的两半。
           python tools/build_release.py --skip-msix
+          if ($LASTEXITCODE -ne 0) { throw "构建失败（exit $LASTEXITCODE）" }
         env:
-          # tauri build 在无交互环境下的行为
           CI: true
 
       - name: 收集产物
         id: artifacts
         shell: pwsh
         run: |
-          $version = "${{ steps.meta.outputs.version }}"
+          $ErrorActionPreference = 'Stop'
+          # 发布清单第 51 行：资产**只发 EXE + .sha256**，
+          # 应用内更新器强制校验 .sha256；MSIX 不进 Releases。
           $files = @()
-          # 版本化安装包与其校验文件
           $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.exe" -ErrorAction SilentlyContinue
-          $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.sha256" -ErrorAction SilentlyContinue
+          $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.exe.sha256" -ErrorAction SilentlyContinue
 
-          if ($files.Count -eq 0) {
-            Write-Host "::error::release/ 下没有找到安装包。构建步骤可能没产出预期文件名。"
-            Write-Host "release/ 目录内容："
+          # 只挑这一版的，避免把历史产物一起传上去
+          $files = $files | Where-Object { $_.Name -like "*${{ steps.meta.outputs.version }}*" }
+
+          if ($files.Count -lt 2) {
+            Write-Host "::error::release/ 下没找到这一版的安装包与校验文件（需要 2 个，找到 $($files.Count) 个）"
+            Write-Host "release/ 内容："
             Get-ChildItem release -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
             exit 1
           }
 
-          $files | ForEach-Object {
-            Write-Host "  产物：$($_.Name)  $([math]::Round($_.Length/1MB,2)) MB"
-          }
-          # GITHUB_OUTPUT 要求 `name=value` 形式；直接追裸路径会被拒绝。
-          # 用单行空格分隔传参给 gh release create。
+          $files | ForEach-Object { Write-Host "  产物：$($_.Name)  $([math]::Round($_.Length/1MB,2)) MB" }
+          # GITHUB_OUTPUT 要求 `name=value`；gh release create 用空格分隔接收
           "paths=$($files.FullName -join ' ')" >> $env:GITHUB_OUTPUT
 
       - name: 创建 GitHub Release
@@ -146,29 +189,43 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $tag = $env:GITHUB_REF_NAME
-          # 先确认这个 tag 还没有 Release，避免重跑时失败
+
+          # 同一个 tag 已有 Release 就停下，避免重跑时覆盖已发布的内容
           gh release view $tag 2>$null
           if ($LASTEXITCODE -eq 0) {
-            Write-Host "::error::$tag 已存在 Release。要改内容请先在网页上删除它，或手动编辑。"
-            exit 1
+            throw "$tag 已存在 Release。要改内容请先在网页上删除它，或手动编辑。"
           }
 
           $files = "${{ steps.artifacts.outputs.paths }}" -split ' '
-          gh release create $tag `
-            --title "${{ steps.meta.outputs.version }}" `
-            --notes-file "${{ steps.meta.outputs.news }}" `
-            --verify-tag `
-            @files
+          $ghArgs = @(
+            'release', 'create', $tag,
+            '--title', "${{ steps.meta.outputs.title }}",
+            '--notes-file', "${{ steps.meta.outputs.news }}",
+            '--verify-tag'
+          )
+          # 稳定版标 latest；测试版标 prerelease。
+          # 这与 updater 的 is_test_tag（认 UnStable-/Beta-）是同一套语义。
+          if ("${{ steps.meta.outputs.is_beta }}" -eq 'true') {
+            $ghArgs += '--prerelease'
+          } else {
+            $ghArgs += '--latest'
+          }
+
+          gh @ghArgs @files
+          if ($LASTEXITCODE -ne 0) { throw "gh release create 失败（exit $LASTEXITCODE）" }
 
       - name: 输出结果
         shell: pwsh
         run: |
           @"
-          ### 已发布 ${{ steps.meta.outputs.version }}
+          ### 已发布 ${{ steps.meta.outputs.title }}
 
-          正文取自 ``${{ steps.meta.outputs.news }}``，安装包由本工作流构建并附加。
+          - tag：``${{ github.ref_name }}``（渠道前缀 ${{ steps.meta.outputs.channel }}）
+          - 正文：``${{ steps.meta.outputs.news }}``
+          - 资产：安装包 EXE 与 ``.sha256``（应用内更新器强制校验后者）
 
-          **MSIX 不在本工作流内** —— 它需要 Windows SDK 的 makeappx，且商店包由商店侧签名，
-          因此留在本地用同一条流水线打：``python tools/build_release.py``（不加 ``--skip-msix``）。
+          **MSIX 不在本工作流内**，也不进 Releases —— 它需要 Windows SDK 的 makeappx，
+          商店包由商店侧签名。本地用同一条流水线打：``python tools/build_release.py --skip-installer``
           "@ >> $env:GITHUB_STEP_SUMMARY
