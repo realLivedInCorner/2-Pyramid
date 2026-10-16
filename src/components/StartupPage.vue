@@ -663,7 +663,7 @@ async function finish() {
   /* 底色交给 StageBackdrop，这里必须透明 —— 否则会盖住阶梯背景。
      原本是 background: var(--surface-2)，那正是阶梯被埋掉的原因。 */
   background: transparent;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
 }
 
@@ -974,7 +974,14 @@ async function finish() {
    */
   font-size: 40px;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  /*
+   * 字距 0，不要负字距。
+   *
+   * 原来是 -0.03em（40px 下即 -1.2px）。负字距是拉丁大标题的收紧技巧，
+   * 中文是满 em 方块字，负字距会让相邻字互相挤压、笔画贴到一起。
+   * 中文标题只需要正常字面间距。
+   */
+  letter-spacing: 0;
   line-height: 1.04;
   color: var(--ink);
   text-align: center;
@@ -985,7 +992,14 @@ async function finish() {
   /* 落在标题下方，占首页「英文副题」那一行 */
   font-size: 12px;
   line-height: 1.6;
-  letter-spacing: 0.02em;
+  /*
+   * 中文不加字距。
+   *
+   * letter-spacing 是拉丁排版技巧（大写字母需要拉开）。中文是等宽方块字，
+   * 加正字距会在字间塞进空隙，而标点/数字/拉丁的宽度又不同，
+   * 结果是疏密不均、看着散架。
+   */
+  letter-spacing: 0;
   color: var(--ink-3);
   text-align: center;
   max-width: 460px;
@@ -1201,7 +1215,14 @@ async function finish() {
   /* 列宽不足 380px 就自动变单列，避免卡片过窄导致正文逐字换行 */
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: 14px;
-  align-items: start;
+  /*
+   * stretch 而不是 start。
+   *
+   * start 让每张卡片按自身内容高度收缩，同一排的两张卡片高度不同
+   * （实测 233 vs 252、188 vs 171），底边参差不齐 —— 栅格看起来是散的。
+   * stretch 让同排卡片等高、底边对齐。
+   */
+  align-items: stretch;
 }
 
 .startup-group-card {
@@ -1228,9 +1249,16 @@ async function finish() {
 .startup-group-title {
   margin: 0;
   padding: 12px 16px 6px;
-  font-size: 12px;
+  /*
+   * 13px 而不是 12px。
+   *
+   * 分组标题是它下面若干设置项的父级，原来 12px 比项目标签的 14px 还小，
+   * 层级是倒的 —— 读起来像注脚，不像段落标题。
+   */
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
+  line-height: 1.5;
   color: var(--ink-3);
 }
 
@@ -1325,6 +1353,11 @@ async function finish() {
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
+  /*
+   * 补上明确行高。其余文本都有定值，只有这里落在 normal；
+   * 中英混排时 normal 会随回退字体变化，行框高度不稳定。
+   */
+  line-height: 1.4;
   font-family: inherit;
   border: none;
   border-radius: 8px;

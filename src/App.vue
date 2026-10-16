@@ -878,7 +878,7 @@ onMounted(async () => {
  html, body { 
    height: 100%; 
    min-height: 100%;
-   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+   font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
    /* 与主页底色一致；不要 background-attachment:fixed，部分 WebView 左缘会露缝 */
    background-color: var(--bg-color);
    background-image: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%);
@@ -1014,7 +1014,19 @@ onMounted(async () => {
        var(--panel-1), transparent 46%),
      radial-gradient(125% 160% at 50% 32%,
        var(--panel-4) 52%,
-       var(--panel-1) 100%);
+       var(--panel-1) 100%),
+   /*
+    * 兜底实色。**这一层是必需的。**
+    *
+    * 上面两层都是半透明（--panel-1 是 35% 白），第一层还是跟随鼠标的光斑，
+    * 于是卡片没有自己的底色 —— 显示的是「背后那块东西模糊后的结果」。
+    * 背后是阶梯背景，不同位置明暗不同，实测同一套卡片样式在同一屏上的
+    * 最大亮度差达 66/255：右列压在亮台阶上就是白的，左列压在暗处就发灰。
+    *
+    * 补一层近乎不透明的暖白后，每张卡片的底色由自己决定；
+    * 仍留约 12% 透光，玻璃感不丢，但不再随位置漂移。
+    */
+   color-mix(in srgb, var(--surface) 88%, var(--bg));
    /* 玻璃按钮：光斑层 + 半透明白 */
    --ui-btn-surface:
      radial-gradient(260px circle at var(--glare-x) var(--glare-y),

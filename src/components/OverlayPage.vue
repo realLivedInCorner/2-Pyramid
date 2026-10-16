@@ -436,7 +436,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* 翻页视口：两页绝对定位叠在同一层，才能看见「一页推出、一页推入」 */

@@ -1511,7 +1511,7 @@ const onThemeReset = async () => {
      `.page-shell > *` rule so all three pages render identically. */
   color: var(--ink);
   display: flex; flex-direction: column; overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   position: relative;
 }
 
