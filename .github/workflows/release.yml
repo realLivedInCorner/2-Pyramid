@@ -66,13 +66,37 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: 安装前端依赖
-        run: |
-          npm ci
-          if (Test-Path installer-app/package.json) {
-            if (Test-Path installer-app/package-lock.json) { cd installer-app; npm ci; cd .. }
-            else { cd installer-app; npm install; cd .. }
-          }
         shell: pwsh
+        run: |
+          # PowerShell 默认**不因非零退出码中止**，于是 `npm ci` 失败后这一步
+          # 会「成功」，错误在二十行之后才以「vue-tsc 找不到」的形式冒出来。
+          # 第一次跑发布就是这个样子。显式设置，让失败停在它发生的地方。
+          $ErrorActionPreference = 'Stop'
+
+          # package-lock.json 里的 147 个 resolved URL 指向 registry.npmmirror.com
+          # （生成它时那台机器配了国内镜像）。CI 走这些 URL 会撞 422，
+          # 因为镜像上缺 @volar/typescript 的某个版本。
+          #
+          # 固定用官方源，并让 npm 忽略 lock 里写死的 host —— 公共仓库不该
+          # 依赖某台机器的镜像配置，别人克隆下来也会撞同一个问题。
+          npm config set registry https://registry.npmjs.org/
+          npm config set replace-registry-host always
+
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw "根目录 npm ci 失败（exit $LASTEXITCODE）" }
+
+          # 装完就验：缺了 vue-tsc 的话，vue-tsc -b 会在后面才炸
+          if (-not (Test-Path "node_modules/.bin/vue-tsc.cmd") -and -not (Test-Path "node_modules/.bin/vue-tsc")) {
+            throw "node_modules/.bin 里没有 vue-tsc —— 依赖没有装全"
+          }
+
+          if (Test-Path installer-app/package.json) {
+            # installer-app 没有 lock 文件，所以用 install 而不是 ci
+            Push-Location installer-app
+            npm install
+            if ($LASTEXITCODE -ne 0) { throw "installer-app 依赖安装失败（exit $LASTEXITCODE）" }
+            Pop-Location
+          }
 
       - name: 构建安装包（不含 MSIX）
         shell: pwsh
