@@ -134,7 +134,16 @@ tools/store/*.png
 # ── `docs/compose/releases/` 发版说明：**本地保留、不入库** ──
 # 与上面的设计日志同理：逐版本的发布公告留在本地即可，入库会让仓库随版本线性膨胀；
 # CHANGELOG 才是面向用户的权威记录。
-/docs/compose/releases/
+#
+# **例外：`news-<版本>.md` 必须入库。**
+# 它是 GitHub Release 的正文，由 `.github/workflows/release.yml` 在打 tag 时读取 ——
+# 工作流只能读仓库里的文件，不入库就等于发布时读不到。
+#
+# 注意写的是 `/*` 而不是把目录整个排除：**父目录被排除时无法再放行其中的文件**，
+# git 不会进入被排除的目录，下面的 `!` 规则永远不会被求值。用 `/*` 排除的是
+# 「目录里的内容」，目录本身仍可被遍历，`!` 才能生效。
+/docs/compose/releases/*
+!/docs/compose/releases/news-*.md
 
 # ── 本地工作件：保留在磁盘、不入版本控制 ──
 

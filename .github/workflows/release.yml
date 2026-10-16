@@ -1,0 +1,72 @@
+name: Release
+
+# 触发：推送形如 `v2.201.0` 的 tag。
+#
+# 为什么用 tag 而不是 push 到 master：发布是一个**显式动作**。挂在 master 上会
+# 让每次合并都变成一次潜在发布，而版本号、CHANGELOG、news 文件三者的就绪状态
+# 无法在 push 那一刻自动判定。tag 是人明确说「这一版发了」的信号。
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 创建 Release 需要写权限；默认的 GITHUB_TOKEN 是只读的。
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析 tag 与 news 文件
+        id: meta
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # tag `v2.201.0` → 版本号 `2.201.0`
+          VERSION="${TAG#v}"
+          NEWS="docs/compose/releases/news-${VERSION}.md"
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [ ! -f "$NEWS" ]; then
+            echo "::error::找不到 $NEWS —— 发布前需要先在 docs/compose/releases/ 下写好这一版的说明。可用文件："
+            ls -1 docs/compose/releases/ 2>/dev/null || echo "（目录不存在）"
+            exit 1
+          fi
+          echo "news=${NEWS}" >> "$GITHUB_OUTPUT"
+          echo "已找到 $NEWS（$(wc -c < "$NEWS") 字节）"
+
+      - name: 校验版本号与仓库一致
+        run: |
+          # 发布时版本号散落在多处，tag 与 package.json 不一致说明漏改了某一步。
+          # tools/set_version.py --check 会逐处比对，不一致就以非零码退出。
+          python3 tools/set_version.py --check
+        env:
+          # 该脚本只读文件，不需要任何凭据
+          PYTHONIOENCODING: utf-8
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 先确认这个 tag 还没有 Release，避免重复触发时失败
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "::error::${GITHUB_REF_NAME} 已存在 Release。若要改内容，请先在网页上删除它，或手动编辑。"
+            exit 1
+          fi
+
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${{ steps.meta.outputs.version }}" \
+            --notes-file "${{ steps.meta.outputs.news }}" \
+            --verify-tag
+
+      - name: 输出结果
+        run: |
+          echo "### 已发布 ${{ steps.meta.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "正文取自 \`${{ steps.meta.outputs.news }}\`。" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> 安装包**不由本工作流构建**：签名与 NSIS/MSIX 打包在本地跑" >> "$GITHUB_STEP_SUMMARY"
+          echo "> \`tools/build_release.py\`（见 \`tools/release/README.md\`），产物手工上传。" >> "$GITHUB_STEP_SUMMARY"
