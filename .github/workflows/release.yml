@@ -82,12 +82,13 @@ jobs:
           # MSIX 需要 Windows SDK 的 makeappx，并且商店包要由商店侧签名；
           # 本地跑比放进 CI 更可控，也不必将签名相关的东西暴露给运行器。
           # 因此远程只负责 EXE，MSIX 留在本地用同一条流水线打：
-          #     python tools/build_release.py
+          #     python tools/build_release.py --skip-installer
           #
-          # --no-bump：BUILD 由 build.rs 在 release 编译时自增。CI 里要的是
-          # 「提交里那个 BUILD 值」，不是「CI 跑一次就变一个」——否则同一 tag
-          # 重跑会得到不同编号的产物。
-          python tools/build_release.py --skip-msix --no-bump
+          # 不加 --bump：BUILD 取自仓库里提交的值，构建只读不写。
+          # 这样 CI 出的 EXE 与本地出的 MSIX 编号一致 —— 它们是同一个版本的两半，
+          # 编号不同就无法回答「这个 MSIX 对应哪次构建」。要推进编号就在提交里改
+          # （tools/bump_build.py），和版本号一样是显式动作。
+          python tools/build_release.py --skip-msix
         env:
           # tauri build 在无交互环境下的行为
           CI: true

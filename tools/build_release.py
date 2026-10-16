@@ -4,7 +4,7 @@
 流程：
   1. 前端构建（vue-tsc + vite）
   2. `tauri build --no-bundle`：编译主程序并嵌入前端资源（不打包）。
-     BUILD 构建号由主程序 build.rs 在 release 编译时自动递增——
+     BUILD 构建号取自仓库根的 BUILD 文件，构建只读不写——
      这是唯一的递增点
   3. 收集产物到 release/staging/（exe、UImage、overlay、legal）
   4. 把 staging 打成 payload.zip，内嵌进独立安装器项目
@@ -23,7 +23,7 @@
 用法：
   python tools/build_release.py              # 正式版：staging + 安装器 EXE + MSIX
   python tools/build_release.py --beta       # beta 渠道
-  python tools/build_release.py --no-bump    # 不递增 BUILD（2PYR_NO_BUMP=1）
+  python tools/build_release.py --bump       # 递增 BUILD（默认不递增，见下）
   python tools/build_release.py --skip-installer  # 只出 staging
   python tools/build_release.py --skip-msix       # 不打 MSIX
   python tools/build_release.py --sign-msix       # 签名 MSIX（sideload 测试）
@@ -552,7 +552,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="2-Pyramid 发布流水线（Windows：EXE → GitHub Releases，MSIX → Microsoft Store）"
     )
-    parser.add_argument("--no-bump", action="store_true", help="不递增 BUILD 版本")
+    parser.add_argument(
+        "--no-bump",
+        action="store_true",
+        help="[保留兼容] BUILD 默认已不自增，此开关不再有作用",
+    )
+    parser.add_argument(
+        "--bump",
+        action="store_true",
+        help="递增 BUILD 并写回仓库（默认不递增：BUILD 取提交里的值，保证 CI 产物与本地 MSIX 编号一致）",
+    )
     parser.add_argument("--skip-installer", action="store_true", help="只构建产物，不生成安装器 EXE")
     parser.add_argument("--skip-msix", action="store_true", help="不生成 MSIX")
     parser.add_argument(
@@ -566,14 +575,31 @@ def main() -> None:
     version = read_version()
     channel = "beta" if args.beta else "stable"
     channel_env = {"2PYR_CHANNEL": channel, "VITE_CHANNEL": channel}
-    if args.no_bump:
+
+    # ── BUILD 编号：默认不自增 ────────────────────────────────────────────
+    #
+    # 原先是「release 编译时由 build.rs 自增一次」。那让 BUILD 变成**编译的副产物**，
+    # 于是同一个版本在 CI 编译和本地编译会得到不同编号：CI 出一份 EXE、
+    # 本地再出一份 MSIX，两者的 BUILD 对不上，而它们是同一个版本的两半。
+    #
+    # 现在 BUILD 是**提交里的一个值**（仓库根 BUILD 文件），构建只读不写。
+    # CI 与本地读同一个数，于是天然一致；要推进编号就在提交里改它
+    # （tools/bump_build.py），和版本号一样是显式动作。
+    #
+    # 第二次编译（--features store）本来就强制跳过，这里统一由默认值覆盖。
+    if not args.bump:
         channel_env["2PYR_NO_BUMP"] = "1"
+    build_number = read_build()
+
     if args.sign_msix:
         os.environ["2PYR_SIGN_MSIX"] = "1"
     print(
-        f"==> 2-Pyramid 发布流水线 · 版本 {version} · 渠道 {channel}"
+        f"==> 2-Pyramid 发布流水线 · 版本 {version} · BUILD {build_number} · 渠道 {channel}"
         f"（{'测试' if args.beta else '正式'}版）"
     )
+    if args.bump:
+        print("    [注意] --bump 已启用：本次编译会把 BUILD 递增并写回仓库，")
+        print("           因此这个编号**不是**提交里的值，与 CI 产物会不一致。")
 
     # ── 版本号守门：七处 + 两个 Cargo.lock + README 徽章必须一致 ──────────
     # 2026-10-03 的事故：installer-app 的版本漏改，导致「2.7.0 的安装包显示成
@@ -623,9 +649,9 @@ def main() -> None:
         try:
             # 商店包：feature=store，不含 updater / explorer 外部进程调用。
             #
-            # 注意：这是同一版本的**第二次编译**，BUILD 已在上面的主程序编译时
-            # 递增过一次（build.rs 是唯一递增点）。这里必须显式跳过递增，
-            # 否则每次发布 BUILD 都会 +2。
+            # 注意：这是同一版本的**第二次编译**（--features store）。
+            # 默认已经不自增（见 main 里的说明），这里再显式置一次是为了
+            # 万一有人加了 --bump：同一版本编译两次绝不能让编号 +2。
             store_env = {**channel_env, "2PYR_NO_BUMP": "1"}
             run(
                 ["npx", "tauri", "build", "--no-bundle", "--features", "store"],

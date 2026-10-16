@@ -99,7 +99,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `python tools/build_release.py --skip-msix` / `--sign-msix` | 跳过 MSIX / 签名 MSIX（sideload 测试） |
 | `npm run bump:build:show` / `bump:build:set` | 查看 / 手动设置 BUILD 构建号 |
 
-> 构建号说明：`BUILD` 文件由主程序 `build.rs` 在 release 编译时**唯一递增一次**；`--no-bump` 通过环境变量 `2PYR_NO_BUMP=1` 完全跳过递增。
+> 构建号说明：`BUILD` 是**提交里的一个值**，构建只读不写。CI 出的 EXE 与本地出的 MSIX 因此编号一致 —— 它们是同一个版本的两半，编号不同就无法回答「这个 MSIX 对应哪次构建」。要推进编号用 `tools/bump_build.py`，和版本号一样是显式动作。
 
 ### 🔄 更新机制
 
@@ -227,7 +227,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   ├── msi/  msix/            MSI 与 MSIX 打包资源与包身份
 │   ├── gen-task-registry.ps1  校验 task_registry 的 88 项元数据不被格式化改动
 │   └── arom-baseline.txt      冻结内容基线的逐条目清单（4018 行）
-├── BUILD                      构建号（release 编译自动递增）
+├── BUILD                      构建号（提交里的固定值，构建只读）
 ├── CHANGELOG.md               更新日志
 ├── legal/                     EULA / 隐私 / 免责 / 第三方声明 / 安全 / 贡献（中英双语）
 └── release/                   构建产物（已 gitignore）
@@ -336,7 +336,7 @@ Common scripts:
 | `python tools/build_release.py --skip-msix` / `--sign-msix` | Skip MSIX / sign MSIX (sideload testing) |
 | `npm run bump:build:show` / `bump:build:set` | Show / manually set the `BUILD` number |
 
-> `BUILD` is incremented exactly once per release build by `build.rs`; `--no-bump` skips it via `2PYR_NO_BUMP=1`.
+> `BUILD` is a committed value that builds read but never write, so the CI-built EXE and the locally-built MSIX carry the same number -- they are two halves of one release. Advance it with `tools/bump_build.py`, as an explicit act.
 
 ### 🔄 Updates
 
@@ -464,7 +464,7 @@ The binary has three headless modes; all are **read-only or self-contained** and
 │   ├── msi/  msix/            MSI & MSIX packaging resources and package identity
 │   ├── gen-task-registry.ps1  Guards the 88 registry entries against format churn
 │   └── arom-baseline.txt      Per-entry list of the frozen content baseline (4018 lines)
-├── BUILD                      Build number (auto-incremented on release builds)
+├── BUILD                      Build number (committed; builds only read it)
 ├── CHANGELOG.md               Changelog
 ├── legal/                     EULA / Privacy / Disclaimer / Notices / Security / Contributing
 └── release/                   Build artifacts (gitignored)

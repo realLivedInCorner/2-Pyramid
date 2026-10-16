@@ -33,7 +33,7 @@
 npm run buildrelease      # EXE 安装器 + .sha256 + MSIX（Store 用）
 ```
 
-- `BUILD` 必须**只 +1**（`2PYR_NO_BUMP=1` 已用于 MSIX 的第二次编译；若 +2 说明该机制回归）。
+- `BUILD` 应当是**提交里那个值**（构建只读不写）。发布前确认它比上一版大 1；要推进就用 `tools/bump_build.py`，别指望编译去改它。
 - 发布版二进制冒烟：`release\staging\2-pyramid.exe --analyze <包>` 与 `--convert <小包>`。
 - 哈希一致性：本地 `*.sha256` 必须与 GitHub 计算的 digest 相同（`gh release view --json assets`）。
 - MSIX：`Identity Version` 正确、`NotSigned`（商店会自行签名）。
