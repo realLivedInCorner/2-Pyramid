@@ -35,7 +35,7 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 
 - 运行 `cargo fmt`（若仓库未强制 rustfmt 配置，保持与邻近代码一致）
 - `cargo clippy` 能过则过；新代码避免新增 `unwrap()` 于非测试路径
-- 转换逻辑请放在 `src-tauri/src/natives/`（按角色分组：`eraser/` / `architect/` / `surgeon/`），每个任务一个模块；
+- 转换逻辑请放在 `src-tauri/src/natives/`（按角色分组：`eraser/` / `architect/` / `surgeon/` / `reverse/`），每个任务一个模块；
   引擎与调度在 `src-tauri/src/arom/`（`engine/scheduler.rs` 负责规划与按阶段分桶）
 - 任务**元数据**（名字 / 类型 / 阶段）登记在 `src-tauri/src/task_registry.rs`，改动后跑
   `pwsh tools/gen-task-registry.ps1` 校验；**不要**把业务写进 `invoke_conversion.rs`
@@ -45,7 +45,7 @@ npm run 2pyr          # Tauri dev（Rust + Vite）
 ### 前端 / Vue
 
 - TypeScript + `<script setup>`
-- 文案走 `src/locales/zh-CN.json` 与 `en-US.json`，**两边都要写**
+- 文案走 `src/locales/zh-CN.json` 与 `en-US.json`，**两边都必须写**
 - 视觉与交互对齐现有全局玻璃卡片与主题色 token
 
 ### 提交信息

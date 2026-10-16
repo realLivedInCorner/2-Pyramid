@@ -229,7 +229,7 @@
       "viewReport": "View full report"
     },
     "ifaso": {
-      "note": "Cross-link entry placeholder. Cross-software use follows the other party's license."
+      "note": "Cross-software use follows the other party's license."
     },
     "report": {
       "title": "AI report",
@@ -333,9 +333,9 @@
       "label": "Legal Notices",
       "desc": "Browse EULA, privacy, disclaimer and third-party notices",
       "title": "Legal Notices",
-      "hint": "EULA, disclaimer, privacy and third-party notices are installed under legal/ and also live in the repo legal/ folder.",
+      "hint": "Legal documents ship with the installer, under legal/ in the install directory.",
       "openFolder": "Open legal folder",
-      "browse": "Browse legal files",
+      "browse": "Open the legal folder",
       "pickFile": "Select a file on the left"
     },
     "outputPath": {
@@ -478,7 +478,7 @@
       "logWindowTitle": "Runtime Log",
       "exportActions": "Export Action Records (.2amr)",
       "exportActionsDesc": "Export action-monitor records as a .2amr file for Action Mon3tr playback",
-      "exportActionsSuccess": "Exported {count} records: {path}",
+      "exportActionsSuccess": "Exported {count} action records",
       "exportActionsFailed": "Export failed: {error}",
       "clearActions": "Clear Action Records",
       "clearActionsDesc": "Drop in-memory action frames (settings unchanged)",

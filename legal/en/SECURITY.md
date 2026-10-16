@@ -1,6 +1,6 @@
 # Security Policy
 
-**Effective date:** 2026-10-06  
+**Effective date:** 2026-10-16  
 **Scope:** 2-Pyramid main app, first-party installer, and installers from official release channels.
 
 ---
@@ -9,7 +9,7 @@
 
 | Line | Support |
 |------|---------|
-| Current line (**2.200.x**, latest stable / Stable tag) | Security fixes prioritized |
+| Current line (**2.201.x**, latest stable / Stable tag) | Security fixes prioritized |
 | Latest Beta | Best effort; no SLA |
 | Older stables (**2.7.x and earlier**) | Upgrade recommended; usually no backports |
 
@@ -29,7 +29,7 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 
 - **Local-first:** conversions do not upload files by default; see `PRIVACY.md`
 - **Update integrity (mandatory):** releases **must** ship `.sha256`; the updater verifies the hash after download — **mismatches are refused and deleted, and any release without a `.sha256` asset (or whose checksum cannot be fetched) is refused outright** (updates that cannot be proven intact are never installed)
-- **Download allowlist:** installers and hashes only from `github.com` / `objects.githubusercontent.com` **and their subdomains** (the code is `host == "github.com" || host.ends_with(".github.com")`). The China mirror `cdn.5eggpack.top` is retired and has been removed from the update path
+- **Download allowlist:** installers and hashes only from `github.com` and its subdomains, plus hosts **exactly equal to** `objects.githubusercontent.com` (subdomains of that host are not allowlisted). See `is_allowed_download_url` in `src-tauri/src/updater.rs`.
 - **Loopback only:** the app binds loopback addresses only — the single-instance lock on `127.0.0.1:24157` (same-port delivery), plus an action-stream port `127.0.0.1:24159` in debug builds. **It never listens on an external interface**
 - **CSP:** the WebView restricts script and resource origins
 - **No admin rights:** install uses HKCU; no UAC elevation required

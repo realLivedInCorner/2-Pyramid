@@ -1,6 +1,6 @@
 # Disclaimer
 
-**Effective date:** 2026-10-06
+**Effective date:** 2026-10-16
 
 Please read this carefully before using 2-Pyramid. Installing or using the software means you have read the following. If you do not agree, stop using the official builds (you may still obtain the source under MIT and build it yourself).
 
@@ -35,14 +35,14 @@ The software includes many third-party open-source libraries. See [`THIRD-PARTY-
 
 If you enable **Foray** AI analysis:
 
-1. The feature is **optional and off by default**; once enabled, the **default tier is 1** — tiers ≥1 send the **pack directory tree and extension statistics** (up to 500 relative paths, no pixel data) to the configured endpoint; **tier 0 sends nothing and calls no external API**; higher tiers send more, see section 4 of `PRIVACY.md`.
+1. The feature is **optional and off by default**; once enabled, the **default tier is 1** — tiers ≥1 send the **pack directory tree and extension statistics** (up to 500 relative paths); **textures are sent as a summary only** (dimensions, mean colour, histogram) and **pixel data is never sent** to the configured endpoint; **tier 0 sends nothing and calls no external API**; higher tiers send more, see section 4 of `PRIVACY.md`.
 2. Requests go only to **your** configured OpenAI-compatible `baseURL`. The authors do not operate, proxy, or store your API key or analysis content.
 3. **Availability, accuracy, compliance, retention, and security of any model, relay, or cloud service are between you and that provider.** They are not the responsibility of 2-Pyramid authors or contributors.
 4. Prompts and tier descriptions are viewable and editable locally; review them before sending file copies that may be sensitive.
 
 ## 6. Updates and security
 
-**Silent deploy**: if you install via a silent script (--silent and related flags), you are treated as having read this disclaimer and [EULA.md](./EULA.md). Custom install dir / shortcuts / uninstall behavior follow the installer arguments. The fixed-name package (2-Pyramid-Installer.exe) is for deploy scripts and update channels only; it does not change license terms. Microsoft Store MSIX installs are governed by store terms together with this disclaimer.
+**Silent deploy**: if you install via a silent script (`--silent` / `/silent` / `/S` / `-s` / `--quiet` / `/quiet`), the installer does not display this disclaimer; the full text ships in the package's `legal/` directory and is worth reading.
 
 
 In-app updates download installers only from this repository's GitHub Releases and verify SHA-256. If you obtain installers from unofficial channels, security and integrity are your responsibility.
@@ -53,7 +53,7 @@ To the maximum extent permitted by law, 2-Pyramid Studio and contributors are no
 
 ## 8. Credits
 
-The project has drawn on ideas from other tools and authors in the community. Credits are in-app under Settings → Version Info and in `README.md`. Credits express thanks only and **do not** create joint copyright, employment, or agency.
+The project has drawn on ideas from other tools and authors in the community. Credits are in-app under Settings → Version Details → Version Info and in `README.md`. Credits express thanks only and **do not** create joint copyright, employment, or agency.
 
 ---
 

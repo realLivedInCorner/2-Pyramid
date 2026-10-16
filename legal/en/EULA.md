@@ -1,6 +1,6 @@
 # 2-Pyramid End User Agreement (EULA)
 
-**Effective date:** 2026-10-06  
+**Effective date:** 2026-10-16  
 **Applies to:** any person or organization that obtains or uses the 2-Pyramid installer or executables.
 
 ---
@@ -16,7 +16,7 @@ The project’s **source code and official builds** (including the self-owned in
   2. Ask you to read and acknowledge [`DISCLAIMER.md`](./DISCLAIMER.md) and [`PRIVACY.md`](./PRIVACY.md);
   3. Explain correct use of **trademarks** and “unofficial” wording.
 
-Installing or using the software means you have read the files above. If you do not agree, stop using it (you may still obtain the source under MIT and build it yourself).
+We recommend reading the files above before use. **This agreement adds no licence condition beyond MIT** -- exercising your MIT rights does not depend on accepting it. (It likewise does not apply if you built from source.)
 
 ---
 
@@ -47,4 +47,4 @@ Dependencies are provided under their own licenses. See [`THIRD-PARTY-NOTICES.md
 
 ## 6. Changes and contact
 
-Updates to this agreement will be noted in the repository; continued use means you are aware of them (no obligation beyond MIT). Questions: open [Issues](https://github.com/realLivedInCorner/2-Pyramid/issues).
+Updates to this agreement will be noted in the repository. They **do not affect** the rights you already hold under MIT and add no obligation beyond it. Questions: open [Issues](https://github.com/realLivedInCorner/2-Pyramid/issues).

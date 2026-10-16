@@ -35,7 +35,7 @@ Requires: Node.js, Rust stable, Python 3 (the release script `tools/build_releas
 
 - Run `cargo fmt` (or match nearby style if no rustfmt config is enforced)
 - Prefer passing `cargo clippy`; avoid new `unwrap()` on non-test paths
-- Put conversion logic under `src-tauri/src/natives/` (grouped by role: `eraser/` / `architect/` /
+- Put conversion logic under `src-tauri/src/natives/` (grouped by role: `eraser/` / `architect/` / `reverse/` /
   `surgeon/`), one module per task; the engine and scheduler live in `src-tauri/src/arom/`
   (`engine/scheduler.rs` plans and buckets by tier)
 - Task **metadata** (name / type / tier) is registered in `src-tauri/src/task_registry.rs`; after
