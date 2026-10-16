@@ -154,13 +154,18 @@ function prevStep() {
   revealInk(() => { step.value-- })
 }
 
-function selectLang(lang: SupportedLocale) {
-  // 选中态与切步要落在同一次快照里，否则会看到两次揭示
-  revealInk(() => {
-    selectedLang.value = lang
-    setLanguage(lang)
-    if (step.value < totalSteps - 1) step.value++
-  })
+/**
+ * 下拉框改变语言。
+ *
+ * **不自动跳下一步** —— <select> 的 change 每次选择都触发，用户在两个语言
+ * 之间来回比较时会反复播放墨水切换。推进交给「下一步」按钮，
+ * 这也符合下拉框本身的语义（选择 ≠ 提交）。
+ */
+function onLangSelect(e: Event) {
+  const lang = (e.target as HTMLSelectElement).value as SupportedLocale
+  if (lang === selectedLang.value) return
+  selectedLang.value = lang
+  setLanguage(lang)
 }
 
 function quitApp() {
@@ -284,21 +289,29 @@ async function finish() {
         <Transition name="startup-slide" mode="out-in">
           <!-- Step 1: Language -->
           <div v-if="step === 0" class="startup-step" key="lang">
-            <div class="lang-cards">
-              <button class="lang-card" :class="{ active: selectedLang === 'zh-CN' }" @click="selectLang('zh-CN')">
-                <span class="lang-check"><i class="ri-check-line"></i></span>
-                <span class="lang-flag">
-                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#DE2910"/><path d="M12 6L13.8 11.4H19.5L14.8 14.9L16.6 20.3L12 16.8L7.4 20.3L9.2 14.9L4.5 11.4H10.2L12 6Z" fill="#FFDE00"/></svg>
-                </span>
-                <span class="lang-name">{{ t('oobe.step1.zh') }}</span>
-              </button>
-              <button class="lang-card" :class="{ active: selectedLang === 'en-US' }" @click="selectLang('en-US')">
-                <span class="lang-check"><i class="ri-check-line"></i></span>
-                <span class="lang-flag">
-                  <svg viewBox="0 0 40 30" fill="none"><rect width="40" height="30" rx="4" fill="#012169"/><path d="M0 0L40 30M40 0L0 30" stroke="var(--surface)" stroke-width="5"/><path d="M0 0L40 30M40 0L0 30" stroke="var(--danger)" stroke-width="3"/><path d="M20 0V30M0 15H40" stroke="var(--surface)" stroke-width="9"/><path d="M20 0V30M0 15H40" stroke="var(--danger)" stroke-width="6"/></svg>
-                </span>
-                <span class="lang-name">{{ t('oobe.step1.en') }}</span>
-              </button>
+            <div class="lang-picker">
+              <!--
+                一个地球图标 + 一个原生下拉框。
+                原来的两张卡片各配一张图片，有三个技术问题：两种不同比例的图
+                共用同一个固定槽位，必然要拉伸其一；图片颜色里混着 --surface /
+                --danger 两个主题令牌，深色下会跟着变色；每加一种语言就要再加
+                一张资源图，而卡片网格放不下第三种。
+                地球图标统一、中性，且不随语言数量增加资源。
+              -->
+              <span class="lang-globe" aria-hidden="true">
+                <i class="ri-global-line"></i>
+              </span>
+              <span class="lang-select">
+                <select
+                  :value="selectedLang"
+                  :aria-label="t('oobe.step1.title')"
+                  @change="onLangSelect"
+                >
+                  <option value="zh-CN">{{ t('oobe.step1.zh') }}</option>
+                  <option value="en-US">{{ t('oobe.step1.en') }}</option>
+                </select>
+                <i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+              </span>
             </div>
 
             <button
@@ -932,100 +945,61 @@ async function finish() {
 }
 
 /* 语言卡 */
-.lang-cards {
-  display: flex;
-  gap: 16px;
-  width: 100%;
-}
-
-.lang-card {
-  position: relative;
-  flex: 1;
+/* 语言选择：地球在上，下拉框在下，整体居中 */
+.lang-picker {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 26px 16px 20px;
-  background: var(--surface);
-  border: 2px solid rgba(var(--ink-rgb), 0.08);
-  border-radius: 18px;
-  cursor: pointer;
-  transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  font-family: inherit;
-  overflow: hidden;
+  gap: 16px;
 }
 
-.lang-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  transform: translateY(-3px);
-  box-shadow: 0 10px 26px rgba(var(--ink-rgb), 0.08);
-}
-
-.lang-card.active {
-  border-color: var(--accent);
-  /*
-   * 渐变端必须是 var(--surface) 而不是写死的 white。
-   * `color-mix(in srgb, var(--accent) 7%, white)` 是「7% 强调色 + 93% 白」，
-   * 浅色下没问题（--surface 本来就是 #ffffff，两者等价），深色下就是一块
-   * 近白的板 —— 整页最亮的东西。这和阶梯、--panel-* 是同一个 bug 家族：
-   * 把「提亮」的方向写死在只对浅色成立的值上。
-   */
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--accent) 7%, var(--surface)) 0%,
-    var(--surface) 100%
-  );
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 8px 24px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-.lang-check {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 20px;
-  height: 20px;
+.lang-globe {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--surface);
-  display: flex;
+  background: rgba(var(--ink-rgb), 0.04);
+  color: var(--ink-3);
+}
+.lang-globe i { font-size: 30px; line-height: 1; }
+
+/* 下拉框：原生 select + 自绘箭头（appearance: none 去掉系统外观） */
+.lang-select {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  transform: scale(0);
-  opacity: 0;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.lang-card.active .lang-check {
-  transform: scale(1);
-  opacity: 1;
-}
-
-.lang-flag {
-  width: 44px;
-  height: 33px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.lang-flag svg {
-  width: 100%;
-  height: 100%;
-  border-radius: 5px;
-  box-shadow: 0 2px 6px rgba(var(--ink-rgb), 0.12);
-  transition: transform 0.28s ease;
-}
-.lang-card:hover .lang-flag svg {
-  transform: scale(1.06);
-}
-
-.lang-name {
+.lang-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 208px;
+  height: 40px;
+  padding: 0 38px 0 16px;
+  font: inherit;
   font-size: 14px;
-  font-weight: 600;
-  color: var(--ink-2);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid rgba(var(--ink-rgb), 0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.lang-select select:hover { border-color: rgba(var(--ink-rgb), 0.22); }
+.lang-select select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+/* 展开的列表由系统绘制，能控制的只有这一层 */
+.lang-select option { color: var(--ink); background: var(--surface); }
+.lang-select > i {
+  position: absolute;
+  right: 12px;
+  font-size: 18px;
+  color: var(--ink-3);
+  pointer-events: none;
 }
 
 /* 名字输入 */
