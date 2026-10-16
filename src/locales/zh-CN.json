@@ -352,7 +352,7 @@
     },
     "notificationMode": {
       "label": "通知方式",
-      "desc": "选择通知如何显示：系统通知、应用自绘 Toast（桌面），或两者",
+      "desc": "系统通知、应用内提醒，或两者",
       "searchDesc": "选择通知如何显示：系统通知、应用自绘 Toast（桌面），或两者",
       "system": "系统通知",
       "app": "应用 Toast",
@@ -383,7 +383,7 @@
       "label": "性能档位",
       "balanced": "平衡",
       "performance": "性能",
-      "balancedDesc": "留出交互余量：用一半核心，同时转换 2 个包，机器可继续正常使用",
+      "balancedDesc": "留出余量，转换时机器仍可正常使用",
       "performanceDesc": "吃满 CPU：全部核心参与转换，同时最多 6 个包（内存不足时自动降为 1）",
       "detail": "本机 {cores} 核 · 线程预算 {threads} · 并发包数 {packs}"
     },
@@ -429,7 +429,7 @@
     },
     "updateChannel": {
       "label": "更新通道",
-      "desc": "选择接受稳定版、测试版，或同时接受两个通道的更新",
+      "desc": "选择接受哪些版本的更新",
       "searchDesc": "选择稳定版、测试版或全部",
       "stable": "稳定版",
       "unstable": "测试版",
@@ -913,7 +913,7 @@
     "step3": {
       "title": "欢迎，{name}！",
       "desc": "2-Pyramid 是现代化通用多版本资源包转换器，让版本迁移更轻松",
-      "card": "再完成几个简单设置就能开始使用。"
+      "card": "完成几个简单设置后即可开始使用。"
     },
     "step4": {
       "title": "快速设置",
@@ -927,8 +927,8 @@
       "outputModeDesc": "转换后的文件保存位置",
       "outputModeFollow": "跟随源文件",
       "outputModeFixed": "固定目录",
-      "notification": "完成时通知",
-      "notificationDesc": "转换完成时接收通知",
+      "notification": "启用通知",
+      "notificationDesc": "转换完成后提醒我",
       "sourceHandling": {
         "label": "原包处理",
         "desc": "转换完成后对原资源包的处理",
@@ -938,12 +938,13 @@
       },
       "openOutputAfterConvert": {
         "label": "转换后打开输出目录",
-        "desc": "成功后自动打开资源管理器到输出位置"
-      }
+        "desc": "成功后自动打开文件资源管理器"
+      },
+      "namingItem": "文件名模板"
     },
     "step5": {
       "title": "一切就绪，{name}！",
-      "desc": "随时可以在设置里调整刚才的选择",
+      "desc": "随时可以开始第一个转换",
       "card": "点击「开始使用」进入 2-Pyramid。"
     },
     "importBackup": {

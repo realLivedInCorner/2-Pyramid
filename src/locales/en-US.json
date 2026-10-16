@@ -352,7 +352,7 @@
     },
     "notificationMode": {
       "label": "Notification Mode",
-      "desc": "How to show alerts: system notification, app-styled desktop toast, or both",
+      "desc": "System notification, in-app toast, or both",
       "searchDesc": "How to show alerts: system notification, app-styled desktop toast, or both",
       "system": "System",
       "app": "App Toast",
@@ -383,7 +383,7 @@
       "label": "Performance Mode",
       "balanced": "Balanced",
       "performance": "Performance",
-      "balancedDesc": "Keeps the machine responsive: half the cores, 2 packs at a time",
+      "balancedDesc": "Leaves headroom so the machine stays responsive",
       "performanceDesc": "Uses every core, up to 6 packs at once (falls back to 1 when memory is low)",
       "detail": "{cores} cores · thread budget {threads} · concurrent packs {packs}"
     },
@@ -429,7 +429,7 @@
     },
     "updateChannel": {
       "label": "Update Channel",
-      "desc": "Accept stable updates, pre-release updates, or both channels at once",
+      "desc": "Choose which releases to receive",
       "searchDesc": "Stable, pre-release, or both channels",
       "stable": "Stable",
       "unstable": "Pre-Release",
@@ -913,7 +913,7 @@
     "step3": {
       "title": "Welcome, {name}!",
       "desc": "2-Pyramid is a modern universal multi-version Minecraft resource pack converter, making version migration easier",
-      "card": "A few quick settings and you're ready to go."
+      "card": "A few quick settings and you can get started."
     },
     "step4": {
       "title": "Quick Settings",
@@ -927,8 +927,8 @@
       "outputModeDesc": "Where converted files are saved",
       "outputModeFollow": "Follow Source",
       "outputModeFixed": "Fixed Directory",
-      "notification": "Notify on completion",
-      "notificationDesc": "Receive alerts when conversion completes",
+      "notification": "Enable notifications",
+      "notificationDesc": "Remind me when a conversion finishes",
       "sourceHandling": {
         "label": "Source Pack Handling",
         "desc": "What to do with the source pack after conversion",
@@ -938,12 +938,13 @@
       },
       "openOutputAfterConvert": {
         "label": "Open Output Folder After Convert",
-        "desc": "Open the output folder automatically on success"
-      }
+        "desc": "Open the file manager on success"
+      },
+      "namingItem": "File name template"
     },
     "step5": {
       "title": "All Set, {name}!",
-      "desc": "You can change any of these later in Settings",
+      "desc": "Ready for your first conversion",
       "card": "Click \"Get Started\" to enter 2-Pyramid."
     },
     "importBackup": {

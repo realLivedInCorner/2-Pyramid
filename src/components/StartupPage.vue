@@ -528,7 +528,12 @@ async function finish() {
                       <i class="ri-file-text-line" aria-hidden="true"></i>
                     </div>
                     <div class="startup-setting-info">
-                      <span class="startup-setting-label">{{ t('settings.outputNaming.label') }}</span>
+                      <!--
+                        项名不能和分组标题同名 —— 那会读成「输出命名模板 → 输出命名模板」
+                        的结巴（通知组原本也是这个问题）。这里改成它实际是什么。
+                        分组标题仍沿用 settings.outputNaming.label。
+                      -->
+                      <span class="startup-setting-label">{{ t('oobe.step4.namingItem') }}</span>
                       <span class="startup-setting-desc">{{ t('settings.outputNaming.desc') }}</span>
                     </div>
                   </div>
