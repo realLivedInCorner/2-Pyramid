@@ -105,6 +105,14 @@ pub const REGISTRY: &[TaskMeta] = &[
     TaskMeta { name: "reverse_fix_sign", task_type: TaskType::Exclusive, tier: Tier::Eraser },
     TaskMeta { name: "reverse_fix_sign_entities", task_type: TaskType::Exclusive, tier: Tier::Eraser },
     TaskMeta { name: "reverse_fix_slider", task_type: TaskType::Exclusive, tier: Tier::Eraser },
+    /*
+     * 这一项**没有实现，也不在任何版本边的计划里**（`conversion_maps.rs` 里
+     * 没有一条边引用它），因此永远不会被 `plan()` 选中。
+     *
+     * 保留而不删除：本表的不变量是「与旧注册表逐字一致」，删一项就破坏它，
+     * 而那个不变量正是用来防「静默换侧」的。标注在这里，免得下一个人
+     * 以为它是个能跑的任务。
+     */
     TaskMeta { name: "reverse_fix_tabs", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
     TaskMeta { name: "reverse_fix_horse_ui", task_type: TaskType::Hybrid, tier: Tier::Surgeon },
     TaskMeta { name: "reverse_fix2_horse_ui", task_type: TaskType::Exclusive, tier: Tier::Eraser },

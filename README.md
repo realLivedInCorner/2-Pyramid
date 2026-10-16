@@ -23,7 +23,9 @@
 
 ## 中文
 
-**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.3 的 Java 目标版本区间，支持任意两个版本之间的相互转换，并支持 **Java ↔ Bedrock（基岩）** 结构互转（实验性）。
+**2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.3 的 Java 目标版本区间，支持任意两个版本之间相互转换，并支持 **Java ↔ Bedrock（基岩）** 结构互转（实验性）。
+
+> **「相互转换」的边界**：绝大部分资源是双向的，但有四项**只做正向、降级时不还原** —— GUI 图集切分（`cut_gui`）、马匹界面（`fix_horse_ui`）、叠加图标（`overlay_icons`）、副手槽（`fix_ui_sub_hand`）。它们的反向任务在代码里是显式空操作（`natives/reverse/reverse_trivial.rs` 的 `noop_pilot!`），因为**无法从产物反推原状**。跨 1.20.2 边界降级的包，这几处会保留新版形态。
 
 ### ✨ 特性
 
@@ -34,6 +36,12 @@
   - 贴图别名对齐 vanilla Bedrock（药水瓶、床、桶、木板/原木、盔甲层等）
   - 生成 `gui/icons.png` HUD 图集、`textures_list.json`、容器界面扁平化与 POT 适配
   - 平台独有内容按方向剥离（不互转 Java model ↔ Bedrock geometry）
+- **着色器按目标版本适配** — `natives/surgeon/shader_adapt.rs` 直接改写 GLSL 与 JSON，不只是切换或停用：
+  - **core 着色器成组改名**（`.json`/`.vsh`/`.fsh` 三件套），按目标格式在**现代白名单**与**旧版白名单**之间裁剪，并清理已移除的 stem；缺失的 `.json` 会补最小骨架
+  - **导入指令迁移**：`#moj_import` 命名空间化；目标格式 ≥97（26.3+）改成 **`#include`**；`globals.glsl` 引用按需注入
+  - **JSON 侧改写**：矩阵类型升级、按 UBO 需要剥离 `uniforms`、`post` 路径迁移
+  - 走查时跳过 `include/` 目录 —— 弄坏它会导致整包重载失败
+  - 目标格式由任务自己从 `pack.mcmeta` 读取，不依赖调用方传参
 - **完全本地** — 无云端、无账号、无遥测，**转换全程不联网**（更新检查与可选的 Foray AI 分析会联网，详见「已知限制」）
 - **批量处理** — 一次拖入多个资源包；**性能档位**（设置里二选一）：**平衡**用一半核心（下限 2、上限 8）并同时转换 2 个包，机器可继续正常使用；**性能**吃满核心（上限 32）并同时最多 6 个包（可用内存低于 1500 MB 时自动降为 1 个包）。设置项下方实时显示本机解析结果（核数 · 线程预算 · 并发包数）
 - **目录规整防呆** — 自动把嵌套的 `pack.mcmeta` 提升到压缩包根目录；`pack.mcmeta.txt` 之类多扩展名文件只要内容是合法 mcmeta（能解析出 format 数值）也会统一改名为 `pack.mcmeta`
@@ -254,6 +262,8 @@ npm run build                                               # 前端构建
 
 **2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.3, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
 
+> **What "between any two versions" excludes**: almost everything converts in both directions, but four operations run forward only and are **not restored when downgrading** — GUI atlas cutting (`cut_gui`), the horse UI (`fix_horse_ui`), overlay icons (`overlay_icons`) and the off-hand slot (`fix_ui_sub_hand`). Their reverse tasks are explicit no-ops (`noop_pilot!` in `natives/reverse/reverse_trivial.rs`) because the original state cannot be reconstructed from the output. A pack downgraded across the 1.20.2 boundary keeps the newer layout in those four places.
+
 ### ✨ Features
 
 - **Wide coverage** — 26 Java target ranges across six eras
@@ -263,6 +273,12 @@ npm run build                                               # 前端构建
   - Vanilla-aligned texture aliases (potions, beds, buckets, planks/logs, armor layers)
   - Builds `gui/icons.png` HUD atlas, `textures_list.json`; flattens container UI and pads to power-of-two
   - Platform-exclusive assets are dropped per direction (no Java model ↔ Bedrock geometry conversion)
+- **Shaders adapted to the target version** — `natives/surgeon/shader_adapt.rs` rewrites GLSL and JSON rather than only switching or disabling them:
+  - **Core shaders renamed as a group** (`.json`/`.vsh`/`.fsh`), pruned against the modern or legacy allowlist for the target format, with removed stems cleaned up; a minimal `.json` is synthesized when one is missing
+  - **Import directives migrated**: `#moj_import` namespaced, switched to **`#include`** at format ≥ 97 (26.3+), and the `globals.glsl` reference injected where needed
+  - **JSON side**: matrix types upgraded, `uniforms` stripped where UBO requires it, `post` paths migrated
+  - The walk skips `include/` — breaking it makes the whole pack fail to reload
+  - The target format is read from `pack.mcmeta` by the task itself rather than passed in
 - **Fully local** — No cloud, no account, no telemetry; **conversion never touches the network** (update checks and the optional Foray AI analysis do — see Known Limitations)
 - **Batch processing** — Multiple packs at once, with a **performance tier** (choose one in Settings): **Balanced** uses half the cores (min 2, max 8) and converts 2 packs at a time so the machine stays usable; **Performance** uses all cores (cap 32) and up to 6 packs at once (auto-reduced to 1 when available memory drops below 1500 MB). Settings show the resolved numbers for your machine (cores · thread budget · concurrent packs) below the option
 - **Directory normalization** — Nested `pack.mcmeta` is promoted to the zip root; `pack.mcmeta.txt`-style files are renamed to `pack.mcmeta` when they contain a valid `format` value
