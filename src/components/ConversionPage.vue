@@ -1311,6 +1311,13 @@ const exportLogsToFile = async () => {
   min-width: 0;
   width: 100%;
   text-align: left;
+  /* **必须 flex-shrink: 0。**
+     `.stage-panel` 是 flex 列容器且 `overflow-y: auto`，子项默认 `flex-shrink: 1`。
+     「② 目标」这一屏加了六个开关后内容高度超过舞台，版本选择器作为唯一没设
+     shrink 的子项被**纵向压扁**——两行文字里的第二行（版本区间）被裁掉半截，
+     看上去就是「被挤压」。`.stage-head` 与 `.option-list` 早就各自设了
+     `flex-shrink: 0`，唯独这里漏了：它当初是这一屏唯一的子项，压不压看不出来。 */
+  flex-shrink: 0;
 }
 .version-picker:hover {
   border-color: color-mix(in srgb, var(--accent) 38%, transparent);
