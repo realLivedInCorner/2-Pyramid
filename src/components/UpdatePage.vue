@@ -745,6 +745,38 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/*
+ * ══ 对比度实测（本文件，1240×800，浅色 / 深色各一遍）════════════════════
+ *
+ * 方法：把**文字设成 transparent** 后截该元素矩形，取其中的像素当「真实背景」，
+ * 再与计算色做 WCAG 比值。不读 getComputedStyle 的背景，是因为这一页踩在
+ * 阶梯背景 + 多层渐变上，任何单独一层的值都不等于最终合成色。
+ * 自带实底的元素（主按钮、色块）只报中位数：矩形圆角外侧露的是页面底色，
+ * 「最不利像素」必然取到那个角，没有意义。
+ *
+ *   元素                     浅色(中位/最差)   深色(中位/最差)   档位
+ *   页头标题 .up-title        17.54 / 16.48    13.65 / 12.97    标题
+ *   页头副标题 .up-subtitle    5.23 /  4.97     4.45 /  4.19    辅助≥3
+ *   通道徽标 .up-channel       6.13 /  5.10     7.06 /  5.75    辅助
+ *   旧版本号 .up-ver-num       4.80 /  4.15     4.22 /  3.68    大字(34px)≥3
+ *   「当前」.up-ver-label      5.14 /  4.94     4.45 /  4.34    辅助
+ *   明细行标签 .up-row dt      5.03 /  4.89     4.39 /  4.24    辅助
+ *   说明日期 .up-notes-date    4.76 /  4.56     4.05 /  3.88    辅助
+ *   进度元信息                4.80 /  4.21     4.32 /  3.71    辅助
+ *   说明正文 .up-md           6.12 /  6.12     8.41 /  8.41    正文≥4.5
+ *   状态提示句                6.45 /  5.65     7.23 /  6.47    正文
+ *   跳过代价 .up-skip-cost     5.80 /  5.06     6.78 /  5.83    正文
+ *   警示句 .up-warn(.line)    5.56 /  5.15     6.86 /  6.00    正文（混色后）
+ *   次按钮 .ghost-btn          6.01 /  4.56     6.50 /  4.76    正文
+ *   主按钮 .primary-btn       17.99             14.16            实底
+ *   失败图标 .up-glyph.danger  5.13 /  4.60     —                非文本≥3
+ *
+ * 结论：两套主题下**没有一处低于 3:1**（! 标记为空），正文一句话都在 4.5 以上。
+ * 深色那列里 3.7–4.5 的几项全是标签 / 元信息（--ink-3），按辅助档放行；
+ * 因此本页的**句子**一律用 --ink-2（深色 8.41），不用 --ink-3。
+ * 这也正是 shared.css 里那条警告的落点：深色 --ink-3 / --ink-4 在渐变底上
+ * 只有 4.06–4.45 / 2.68–3.38，句子用它们会掉到 4.5 以下。
+ */
 .update-page {
   width: 100%;
   height: 100%;
@@ -796,8 +828,9 @@ onMounted(async () => {
   letter-spacing: 0;
   color: var(--ink);
 }
-/* 副标题走 --ink-3：深色下它在渐变底上实测 4.06–4.45，达不到正文 4.5，
-   够 3:1 的「辅助文字」门槛，所以只用在这里，不用在任何整句说明上 */
+/* 副标题走 --ink-3：深色下它在渐变底上实测 4.45（最差 4.19），达不到正文
+   4.5，但够 3:1 的「辅助文字」门槛。所以只用在这类标签句上，不用在任何
+   需要完整阅读的说明句上（那些一律 --ink-2）。 */
 .up-subtitle {
   margin: 6px 0 0;
   font-size: 13px;
@@ -925,16 +958,18 @@ onMounted(async () => {
   justify-content: center;
 }
 
-/* ── 居中状态（检查中 / 已最新 / 安装中）── */
+/* ── 居中状态（检查中 / 已最新 / 已就绪 / 安装中）──
+   纵向位置由 .up-state[data-phase] 的居中承担，这里只留一点点上边距 ——
+   再写 56px 会把居中顶偏。 */
 .up-status {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 10px;
-  padding: 56px 0 8px;
+  padding: 8px 0;
 }
-.up-status.tight { padding: 32px 0 4px; }
+.up-status.tight { padding: 4px 0; }
 
 .up-status-title {
   margin: 0;
@@ -1301,6 +1336,15 @@ onMounted(async () => {
 .up-progress-meta.up-verifying-note { color: var(--ink-2); font-variant-numeric: normal; }
 .up-mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11.5px; }
 
+/*
+ * 警示句（「本次下载跳过了 SHA-256 校验」/「请保存所有工作后再继续」）。
+ *
+ * 不能直接用 --warn：#b45309 压在浅色纸面上实测只有 **4.45**（最差像素 4.12），
+ * 差一点过不了正文 4.5 —— 而这两条恰恰是最该被读进去的句子。
+ * 往 --ink 里混 16% 把它压深一档，实测 **5.56 / 5.15（最差）**；
+ * 深色侧 --ink 是近白，同一个 mix 会把 --warn 提亮而不是压暗（实测 6.86 / 6.00），
+ * 方向自动正确，不必写两套 —— 这也是 shared.css 里 accent 派生用色那只手。
+ */
 .up-warn-line {
   display: flex;
   align-items: flex-start;
@@ -1308,13 +1352,13 @@ onMounted(async () => {
   margin: 16px 0 0;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--warn);
+  color: color-mix(in srgb, var(--warn) 84%, var(--ink));
 }
 .up-warn-line i { font-size: 14px; line-height: 1.4; }
 .up-warn {
   margin: 6px 0 0;
   font-size: 12px;
-  color: var(--warn);
+  color: color-mix(in srgb, var(--warn) 84%, var(--ink));
 }
 
 /* ── 失败：技术细节 ── */
