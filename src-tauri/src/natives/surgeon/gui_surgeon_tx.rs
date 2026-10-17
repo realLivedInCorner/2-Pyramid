@@ -384,62 +384,15 @@
 
         Ok(n)
     }
-    /// 旧 `equalize_nine_slice_frame`：把 sprite 的上下左右边框统一为 `border` 像素，
-    /// 避免 1.21 九宫格拆开时某侧变薄/缺边导致 UI 错位。
-    ///
-    /// 逐条照抄：①中心原样；②上下边条用**最外 1 行**沿边方向拉伸；③左右边条用**最外 1 列**拉伸；
-    /// ④四角用原图角像素块（保留立体倒角）。`border` 被 `clamp(1, min(w,h)/2)`。
-    fn equalize_nine_slice_frame(img: &RgbaImage, border: u32) -> RgbaImage {
-        let (w, h) = img.dimensions();
-        let b = border.clamp(1, w.min(h) / 2);
-        if w < 2 || h < 2 {
-            return img.clone();
-        }
-        let mut out = RgbaImage::new(w, h);
-
-        // 1) 中心
-        for y in b..(h - b) {
-            for x in b..(w - b) {
-                out.put_pixel(x, y, *img.get_pixel(x, y));
-            }
-        }
-        // 2) 上下边条
-        for x in 0..w {
-            let top_src = *img.get_pixel(x.min(w - 1), 0);
-            let bot_src = *img.get_pixel(x.min(w - 1), h - 1);
-            for t in 0..b {
-                out.put_pixel(x, t, top_src);
-                out.put_pixel(x, h - 1 - t, bot_src);
-            }
-        }
-        // 3) 左右边条
-        for y in 0..h {
-            let left_src = *img.get_pixel(0, y.min(h - 1));
-            let right_src = *img.get_pixel(w - 1, y.min(h - 1));
-            for t in 0..b {
-                out.put_pixel(t, y, left_src);
-                out.put_pixel(w - 1 - t, y, right_src);
-            }
-        }
-        // 4) 四角
-        for ty in 0..b {
-            for tx in 0..b {
-                let src_tx = tx.min(b - 1);
-                let src_ty = ty.min(b - 1);
-                out.put_pixel(tx, ty, *img.get_pixel(src_tx, src_ty));
-                out.put_pixel(w - 1 - tx, ty, *img.get_pixel(w - 1 - src_tx, src_ty));
-                out.put_pixel(tx, h - 1 - ty, *img.get_pixel(src_tx, h - 1 - src_ty));
-                out.put_pixel(w - 1 - tx, h - 1 - ty, *img.get_pixel(w - 1 - src_tx, h - 1 - src_ty));
-            }
-        }
-        out
-    }
-
     /// 旧 `process_widgets`：由 `gui/widgets.png` 产出 HUD / icon / widget 三组 sprite。
     ///
-    /// **照抄未改的两处**：
-    /// 1. `language.png` 被**写两次**（旧代码里是两段完全相同的 `save_slices`）—— 幂等，但照抄；
-    /// 2. 按钮族用 `equalize_nine_slice_frame` 统一边厚，`border = (2*scale).round().max(2)`。
+    /// **照抄未改的一处**：`language.png` 被**写两次**（旧代码里是两段完全相同的
+    /// `save_slices`）—— 幂等，但照抄。
+    ///
+    /// **已回滚的一处**：按钮族原本套了一道 `equalize_nine_slice_frame` 统一边厚
+    /// （05c7717 引入）。它把最外 1 行复制成 `b` 行，等于用描边行覆盖掉倒角的高光行，
+    /// 按钮因此失去立体倒角。九宫格的边厚该由 sprite 的 `gui.scaling` 声明，
+    /// 不该改像素 —— 现已改为原样输出。
     pub fn process_widgets(tx: &mut Tx<'_>) -> Result<usize, AromError> {
         let src = "assets/minecraft/textures/gui/widgets.png";
         let Ok(img) = tx.image(src) else {
@@ -453,10 +406,21 @@
         n += save_slices(tx, &*img, (24, 22, 53, 46), SplitMode::None, (29, 24), &["hotbar_offhand_left.png"], "hud")?;
         n += save_slices(tx, &*img, (53, 22, 82, 46), SplitMode::None, (29, 24), &["hotbar_offhand_right.png"], "hud")?;
 
-        // 按钮族：切出后统一 `2*scale` 边厚
+        // 按钮族：**原样输出**，不做边厚统一。
+        //
+        // 这里原本有一道 `equalize_nine_slice_frame`（见 05c7717「nine-slice
+        // frame equalization」），把 sprite 四周统一加厚到 `(2*scale).max(2)` 像素，
+        // 意图是让 1.21 的九宫格不因某侧偏薄而错位。**它改坏的是图的本身**：
+        //
+        //   原版按钮边框是「1px 深色描边 + 1px 高光」的立体倒角，`b=2` 时
+        //   该函数把最外 1 行复制成 2 行 —— 倒角的第 2 行（高光）被覆盖成第 1 行
+        //   （深色描边），于是四边由「描边+高光」变成「2px 纯深色」。
+        //   按钮失去倒角，看上去就是一张描边加粗、内缘发黑的方块。
+        //
+        // 九宫格的边厚应当由 sprite 的 `gui.scaling` 声明，不该去改像素。
+        // 因此直接输出裁剪结果 —— 与官方 1.21 包里的同名 sprite 一致。
         {
             let bscale = scale_from_image_base(&img, 256);
-            let border = ((2.0 * bscale).round() as u32).max(2);
             for (crop_y, name) in [
                 (46u32, "button_disabled.png"),
                 (66, "button.png"),
@@ -464,8 +428,7 @@
             ] {
                 let (x1, y1, w, h) = scale_rect(bscale, 0, crop_y, 200, crop_y + 20);
                 let Some(raw) = crop_checked(&img, x1, y1, w, h, "widgets/button") else { continue };
-                let fixed = equalize_nine_slice_frame(&raw, border);
-                tx.put_image(&format!("{SPRITES}/widget/{name}"), &fixed)?;
+                tx.put_image(&format!("{SPRITES}/widget/{name}"), &raw)?;
                 n += 1;
             }
         }
@@ -474,10 +437,13 @@
         n += save_slices(tx, &*img, (3, 109, 18, 124), SplitMode::None, (15, 15), &["language.png"], "icon")?;
         n += save_slices(tx, &*img, (3, 109, 18, 124), SplitMode::None, (15, 15), &["language.png"], "icon")?;
 
-        // locked / unlocked 按钮族：竖直切成 3 片，各做边厚统一
+        // locked / unlocked 按钮族：竖直切成 3 片，**原样输出**。
+        //
+        // 与上面的按钮族同理 —— 这里原本也做边厚统一，同样会把倒角的高光行
+        // 覆盖成描边行。这两族是同一批 sprite，处理方式必须一致，
+        // 否则同一界面里的按钮与锁定按钮会呈现两种边框。
         {
             let bscale = scale_from_image_base(&img, 256);
-            let border = ((2.0 * bscale).round() as u32).max(2);
             for (x1, x2, names) in [
                 (0u32, 20u32, ["locked_button.png", "locked_button_highlighted.png", "locked_button_disabled.png"]),
                 (20, 40, ["unlocked_button.png", "unlocked_button_highlighted.png", "unlocked_button_disabled.png"]),
@@ -489,8 +455,7 @@
                 for (i, name) in names.iter().enumerate() {
                     let sy = i as u32 * slice_h;
                     let Some(raw) = crop_checked(&strip, 0, sy, slice_w, slice_h, "widgets/locked") else { continue };
-                    let fixed = equalize_nine_slice_frame(&raw, border);
-                    tx.put_image(&format!("{SPRITES}/widget/{name}"), &fixed)?;
+                    tx.put_image(&format!("{SPRITES}/widget/{name}"), &raw)?;
                     n += 1;
                 }
             }
