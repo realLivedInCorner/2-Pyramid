@@ -26,6 +26,8 @@
 **2-Pyramid** 是一款 Windows 桌面端的 Minecraft 资源包版本转换器，覆盖从 1.6 到最新 26.3 的 Java 目标版本区间，支持任意两个版本之间相互转换，并支持 **Java ↔ Bedrock（基岩）** 结构互转（实验性）。
 
 > **「相互转换」的边界**：绝大部分资源是双向的，但有四项**只做正向、降级时不还原** —— GUI 图集切分（`cut_gui`）、马匹界面（`fix_horse_ui`）、叠加图标（`overlay_icons`）、副手槽（`fix_ui_sub_hand`）。它们的反向任务在代码里是显式空操作（`natives/reverse/reverse_trivial.rs` 的 `noop_pilot!`），因为**无法从产物反推原状**。跨 1.20.2 边界降级的包，这几处会保留新版形态。
+>
+> 另外，1.21.4+ 的物品定义生成与 OptiFine CIT 迁移也没有反向任务：降级时不会删除已生成的 `assets/<ns>/items/*.json`、`models/cit/` 与 `textures/cit/`（旧客户端会忽略这些目录），也不会为它们生成反向的 `models/item` `overrides`。
 
 ### ✨ 特性
 
@@ -46,12 +48,13 @@
 - **批量处理** — 一次拖入多个资源包；**性能档位**（设置里二选一）：**平衡**用一半核心（下限 2、上限 8）并同时转换 2 个包，机器可继续正常使用；**性能**吃满核心（上限 32）并同时最多 6 个包（可用内存低于 1500 MB 时自动降为 1 个包）。设置项下方实时显示本机解析结果（核数 · 线程预算 · 并发包数）
 - **目录规整防呆** — 自动把嵌套的 `pack.mcmeta` 提升到压缩包根目录；`pack.mcmeta.txt` 之类多扩展名文件只要内容是合法 mcmeta（能解析出 format 数值）也会统一改名为 `pack.mcmeta`
 - **动态贴图转换** — 老版 `{"animation": {}}` 的 `.png.mcmeta` 自动按贴图尺寸推导帧数，改写为高版本 `frametime` + `interpolate` 格式
+- **1.21.4+ 物品定义与 OptiFine CIT** — 旧包 `models/item/*.json` 里的 `overrides` + `CustomModelData` 会迁成 `assets/<ns>/items/<name>.json` 的原生物品定义；OptiFine CIT（`optifine/cit/**`、`mcpatcher/cit/**`）一并迁移，支持 CMD、附魔名 + 等级（目标 ≥ 1.21.5）、`hand=` 双手上下文与弓的多状态贴图；无法精确表达的条件如实跳过并记录
 - **输出命名模板** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` 占位符自由组合，再转换时自动替换名称中的旧版本前缀
 - **Overlay 母包叠加** — 在不修改原包的前提下，把自定义覆盖包叠加到任意母包上
 - **界面动画** — 页面切换交叉淡入淡出 + 模糊衔接；设置可选开启 / 跟随系统 / 关闭；速率三档作用于完整页切换
-- **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、中英双语
+- **深度定制 UI** — 自定义背景（自动提取主题色）、玻璃 / 磨砂控件皮肤、浅色 / 深色 / 跟随系统三档主题、中英双语
 - **自研安装器** — 无需管理员权限的 HKCU 安装，OOBE 分步向导，可选桌面 / 开始菜单快捷方式；应用内更新时进入覆盖更新流（锁定原目录、保留用户数据）；重装时安装目录自动对齐现有位置
-- **智能更新** — 按 major.minor.patch 判定：major 与 `Safe-*` 强制更新，minor / patch 可选
+- **智能更新** — 独立更新页（下载速度 / 剩余时间、失败可直接重试）；按 major.minor.patch 判定：major 与 `Safe-*` 强制更新，minor / patch 可选
 - **日志脱敏** — 导出日志（会话日志或磁盘日志）默认自动隐藏 Windows 用户名、机器名、IP、邮箱、API Key/token，并把包路径目录压成 `<path>\文件名`；仅导出文件脱敏，可在开发者选项中关闭
 - **Beta 双渠道** — 正式版与 Beta 版可并存安装（独立注册表、独立目录、Beta 标识），`betabuild` 一键构建
 
@@ -93,7 +96,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 | `npm run build` | 仅构建前端 |
 | `npm run buildrelease` | 正式版完整构建（前端 + 主程序 + 自研安装器 → `release/`） |
 | `npm run betabuild` | Beta 渠道构建（输出 `-beta.{BUILD}.exe`，与正式版可并存） |
-| `npm run buildrelease:nobump` / `npm run betabuild:nobump` | 同上但不递增 BUILD 构建号 |
+| `npm run buildrelease:nobump` / `npm run betabuild:nobump` | 历史别名，与不带 `:nobump` 的命令相同（构建不再递增 BUILD） |
 | `npm run test` / `npm run test:offline` | 运行 Rust 单测（`test:offline` 强制离线） |
 | `npm run buildrelease:noinstaller` | 跳过自研安装器 EXE；**但默认仍会为 MSIX 再编译一次**（`--features store`）并打包，所以想真正只构建主程序需同时跳过 MSIX：`python tools/build_release.py --skip-installer --skip-msix` |
 | `python tools/build_release.py --skip-msix` / `--sign-msix` | 跳过 MSIX / 签名 MSIX（sideload 测试） |
@@ -114,6 +117,8 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 
 更新通道为三态：**稳定版**（仅稳定发布）/ **测试版**（仅测试发布）/ **全部**（同时接受两个通道的更新内容，取最高版本）。
 更新源：**仅 GitHub 官方**——第三方镜像 `cdn.5eggpack.top` 已于 2026-10 **彻底移除**（镜像作者停止维护），设置里不再有「更新源」选项，也没有测速 / 切换入口。
+
+> 发布工作流只由 `Safe-` / `Stable-` / `Beta-` / `UnStable-` 四个前缀触发；无前缀的 `v{版本}` 不在触发列表里（更新器仍能解析这类 tag，但不会自动构建）。
 
 发版要求：
 1. Release 附带 `.exe` 安装包（自研安装器）及**同名 `.sha256` 校验文件**（`build_release.py` 自动生成）。**哈希不匹配一律拒绝**；`.sha256` 缺失或拉取失败时默认同样拒绝，用户可在界面上**显式选择跳过校验**继续安装（仅当次有效、不记忆、记入日志，且安装包文件名不符版本号时不允许跳过）；
@@ -207,7 +212,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 ├── src-tauri/                 Rust 后端（主程序）
 │   ├── src/
 │   │   ├── arom/              A-ROM 对象模型 + 执行引擎（engine/：版本映射与按阶段调度）
-│   │   ├── natives/           46 个任务的**原生实现**（eraser / architect / surgeon / reverse 分组）
+│   │   ├── natives/           原生任务实现（eraser / architect / surgeon / reverse 分组）
 │   │   ├── pack/              资源包 I/O 与分析工具（io / diff / analysis / version_converter）
 │   │   ├── bedrock_convert/   基岩 ↔ Java 结构转换（j2b / b2j）
 │   │   ├── commands/          Tauri 命令（config / background / overlay / misc …）
@@ -225,8 +230,8 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 │   ├── benchmark/             性能基准页（单文件 HTML，零依赖）
 │   ├── release/  store/       发布清单 / 商店提交文案
 │   ├── msi/  msix/            MSI 与 MSIX 打包资源与包身份
-│   ├── gen-task-registry.ps1  校验 task_registry 的 88 项元数据不被格式化改动
-│   └── arom-baseline.txt      冻结内容基线的逐条目清单（4018 行）
+│   ├── gen-task-registry.ps1  旧校验脚本（REGISTRY 现为 90 项，改由 `registry_shape_is_pinned` 用例钉住）
+│   └── arom-baseline.txt      2.201.0 时期的内容基线快照（4018 行，仅作参考，不再断言）
 ├── BUILD                      构建号（提交里的固定值，构建只读）
 ├── CHANGELOG.md               更新日志
 ├── legal/                     EULA / 隐私 / 免责 / 第三方声明 / 安全 / 贡献（中英双语）
@@ -263,6 +268,8 @@ npm run build                                               # 前端构建
 **2-Pyramid** is a Windows desktop Minecraft resource-pack version converter. It covers 26 Java target version ranges from 1.6 to the latest 26.3, with conversion between any two versions, plus experimental **Java ↔ Bedrock** structural conversion.
 
 > **What "between any two versions" excludes**: almost everything converts in both directions, but four operations run forward only and are **not restored when downgrading** — GUI atlas cutting (`cut_gui`), the horse UI (`fix_horse_ui`), overlay icons (`overlay_icons`) and the off-hand slot (`fix_ui_sub_hand`). Their reverse tasks are explicit no-ops (`noop_pilot!` in `natives/reverse/reverse_trivial.rs`) because the original state cannot be reconstructed from the output. A pack downgraded across the 1.20.2 boundary keeps the newer layout in those four places.
+>
+> Separately, 1.21.4+ item-definition generation and OptiFine CIT migration have no reverse task: downgrading neither deletes the generated `assets/<ns>/items/*.json`, `models/cit/` and `textures/cit/` (older clients ignore those directories) nor generates reverse `overrides` under `models/item`.
 
 ### ✨ Features
 
@@ -283,12 +290,13 @@ npm run build                                               # 前端构建
 - **Batch processing** — Multiple packs at once, with a **performance tier** (choose one in Settings): **Balanced** uses half the cores (min 2, max 8) and converts 2 packs at a time so the machine stays usable; **Performance** uses all cores (cap 32) and up to 6 packs at once (auto-reduced to 1 when available memory drops below 1500 MB). Settings show the resolved numbers for your machine (cores · thread budget · concurrent packs) below the option
 - **Directory normalization** — Nested `pack.mcmeta` is promoted to the zip root; `pack.mcmeta.txt`-style files are renamed to `pack.mcmeta` when they contain a valid `format` value
 - **Animated texture conversion** — Legacy `{"animation": {}}` mcmeta files are upgraded to explicit `frametime` + `interpolate` (frame count derived from texture dimensions)
+- **1.21.4+ item definitions and OptiFine CIT** — old `overrides` + `CustomModelData` in `models/item/*.json` become native item definitions under `assets/<ns>/items/<name>.json`; OptiFine CIT (`optifine/cit/**`, `mcpatcher/cit/**`) migrates too, covering CMD, enchantment names + levels (target ≥ 1.21.5), `hand=` display contexts and bow state textures; conditions that cannot be expressed exactly are skipped and reported
 - **Output naming template** — `[Ver]` / `[Name]` / `[Time]` / `[Date]` placeholders; old version prefixes are replaced on re-conversion
 - **Overlay parent packs** — Layer custom content on top of any base pack without modifying it
 - **Interface motion** — Crossfade page swaps with soft blur; settings for on / follow system / off; speed tiers scale the full page transition
-- **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, zh / en
+- **Deep UI customization** — Custom background with auto theme color, glass / frosted control skins, light / dark / follow-system themes, zh / en
 - **Self-owned installer** — No-admin HKCU install, OOBE wizard, optional desktop / start-menu shortcuts; in-app updates enter an overwrite-update flow (locks the original dir, keeps user data); install dir auto-aligns to the existing location on reinstall
-- **Smart updates** — Compared by major.minor.patch: major and `Safe-*` force the update; minor / patch are optional
+- **Smart updates** — A dedicated update page (download speed / ETA, one-click retry on failure); compared by major.minor.patch: major and `Safe-*` force the update; minor / patch are optional
 - **Redacted log export** — exporting logs (session or on-disk) hides the Windows user name, machine name, IPs, e-mails and API keys/tokens, and collapses pack paths to `<path>\file.ext`; only the exported file is redacted, and it can be turned off in developer options
 - **Beta channel** — Stable and Beta installs coexist (separate registry, directory and badges); built with `betabuild`
 
@@ -330,7 +338,7 @@ Common scripts:
 | `npm run build` | Build frontend only |
 | `npm run buildrelease` | Full stable release build (frontend + app + self-owned installer → `release/`) |
 | `npm run betabuild` | Beta channel build (`-beta.{BUILD}.exe`, coexists with stable) |
-| `npm run buildrelease:nobump` / `npm run betabuild:nobump` | Same without bumping `BUILD` |
+| `npm run buildrelease:nobump` / `npm run betabuild:nobump` | Historical aliases; identical to the commands without `:nobump` (builds no longer bump `BUILD`) |
 | `npm run test` / `npm run test:offline` | Run the Rust unit tests (`test:offline` forces offline) |
 | `npm run buildrelease:noinstaller` | Skips the self-owned installer EXE, but still compiles a second time for MSIX (`--features store`) and packs it. To build only the app, skip both: `python tools/build_release.py --skip-installer --skip-msix` |
 | `python tools/build_release.py --skip-msix` / `--sign-msix` | Skip MSIX / sign MSIX (sideload testing) |
@@ -351,6 +359,8 @@ In-app update checks read this repository's Releases (official GitHub API only).
 
 The update channel has three states: **Stable** (stable releases only) / **Pre-Release** (test releases only) / **Both** (accepts updates from both channels at once, highest version wins).
 Update source: **official GitHub only** — the third-party mirror `cdn.5eggpack.top` was **fully removed in 2026-10** (its maintainer stopped maintaining it); Settings no longer offers an update-source option, speed test or switch.
+
+> The release workflow is triggered only by the `Safe-` / `Stable-` / `Beta-` / `UnStable-` prefixes; an unprefixed `v{version}` is not in the trigger list (the updater can still parse such tags, but no build is started).
 
 Release requirements:
 1. Attach the `.exe` installer plus a **matching `.sha256` file** (`build_release.py` writes it). **A hash mismatch is always refused**; a missing or unfetchable checksum is refused by default, but the user may **explicitly opt to skip verification** for that one download (not remembered, logged, and not permitted when the installer filename does not match the release version);
@@ -444,7 +454,7 @@ The binary has three headless modes; all are **read-only or self-contained** and
 ├── src-tauri/                 Rust backend (main app)
 │   ├── src/
 │   │   ├── arom/              A-ROM object model plus the execution engine (engine/: version maps and tier bucketing)
-│   │   ├── natives/           Native implementations of the 46 tasks (eraser / architect / surgeon / reverse)
+│   │   ├── natives/           Native task implementations (eraser / architect / surgeon / reverse)
 │   │   ├── pack/              Pack I/O and analysis tools (io / diff / analysis / version_converter)
 │   │   ├── bedrock_convert/   Bedrock <-> Java structure conversion (j2b / b2j)
 │   │   ├── commands/          Tauri commands
@@ -462,8 +472,8 @@ The binary has three headless modes; all are **read-only or self-contained** and
 │   ├── benchmark/             Perf baseline page (single-file HTML, zero deps)
 │   ├── release/  store/       Release checklist / Store listing copy
 │   ├── msi/  msix/            MSI & MSIX packaging resources and package identity
-│   ├── gen-task-registry.ps1  Guards the 88 registry entries against format churn
-│   └── arom-baseline.txt      Per-entry list of the frozen content baseline (4018 lines)
+│   ├── gen-task-registry.ps1  Legacy checker (REGISTRY is now 90 entries; `registry_shape_is_pinned` pins it)
+│   └── arom-baseline.txt      2.201.0-era content-baseline snapshot (4018 lines; reference only, no longer asserted)
 ├── BUILD                      Build number (committed; builds only read it)
 ├── CHANGELOG.md               Changelog
 ├── legal/                     EULA / Privacy / Disclaimer / Notices / Security / Contributing

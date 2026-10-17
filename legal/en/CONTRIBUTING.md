@@ -25,7 +25,7 @@ Common commands:
 |---------|---------|
 | `npm test` | Rust unit tests (`cargo test --lib`) |
 | `npm run build` | Frontend build only |
-| `npm run buildrelease` | Full stable release build (bumps BUILD) |
+| `npm run buildrelease` | Full stable release build (does not bump BUILD; BUILD is a committed value) |
 
 Requires: Node.js, Rust stable, Python 3 (the release script `tools/build_release.py`), Windows (Windows desktop is the only officially supported target today).
 
@@ -36,11 +36,12 @@ Requires: Node.js, Rust stable, Python 3 (the release script `tools/build_releas
 - Run `cargo fmt` (or match nearby style if no rustfmt config is enforced)
 - Prefer passing `cargo clippy`; avoid new `unwrap()` on non-test paths
 - Put conversion logic under `src-tauri/src/natives/` (grouped by role: `eraser/` / `architect/` / `reverse/` /
-  `surgeon/`), one module per task; the engine and scheduler live in `src-tauri/src/arom/`
+  `surgeon/`), split into modules by stage; the engine and scheduler live in `src-tauri/src/arom/`
   (`engine/scheduler.rs` plans and buckets by tier)
 - Task **metadata** (name / type / tier) is registered in `src-tauri/src/task_registry.rs`; after
-  changing it run `pwsh tools/gen-task-registry.ps1` to verify—**do not** put business logic in
-  `invoke_conversion.rs` (it now only registers metadata and contains no task implementations)
+  changing it run `cargo test --lib registry_shape_is_pinned --manifest-path src-tauri/Cargo.toml`
+  to verify—**do not** put business logic in `invoke_conversion.rs` (that module now does nothing;
+  the metadata lives in `task_registry.rs`)
 - Add `#[cfg(test)]` tests when changing image or path logic
 
 ### Frontend / Vue

@@ -42,7 +42,7 @@ Logs may include **file paths** and error messages for troubleshooting. **Both e
 | Update download | `github.com` / `objects.githubusercontent.com` | Official installer and its `.sha256` checksum |
 | **Foray AI analysis (optional, off by default)** | **Your configured OpenAI-compatible `baseURL`** | **Depends on data tier; see §4** |
 
-> The update source is fixed to official GitHub: Settings no longer offers an update-source option, speed test or switch. The China mirror `cdn.5eggpack.top` used to be an optional update source and was **fully removed in 2026-10** (its maintainer stopped maintaining it). No request is sent to that domain any more.
+> The update source is fixed to official GitHub: Settings no longer offers an update-source option, speed test or switch. The third-party mirror `cdn.5eggpack.top` used to be an optional update source and was **fully removed in 2026-10** (its maintainer stopped maintaining it). No request is sent to that domain any more.
 
 **The automatic update check is on by default**: the app fetches the release list once at startup (first row above). If you turn off “Automatically check for updates” in Settings → Version & Updates, the app only goes online when you explicitly check or download. Beyond that, and with Foray AI disabled, the app makes no network requests.
 

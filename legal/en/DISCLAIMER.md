@@ -1,8 +1,8 @@
 # Disclaimer
 
-**Effective date:** 2026-10-16
+**Effective date:** 2026-10-17
 
-Please read this carefully before using 2-Pyramid. Installing or using the software means you have read the following. If you do not agree, stop using the official builds (you may still obtain the source under MIT and build it yourself).
+Please read this carefully before using 2-Pyramid. Reading it does not affect the rights you have under the MIT License; if you do not agree, you do not have to use the official builds — the source remains available under MIT and you may build it yourself.
 
 ---
 
@@ -42,7 +42,7 @@ If you enable **Foray** AI analysis:
 
 ## 6. Updates and security
 
-**Silent deploy**: if you install via a silent script (`--silent` / `/silent` / `/S` / `-s` / `--quiet` / `/quiet`), the installer does not display this disclaimer; the full text ships in the package's `legal/` directory and is worth reading.
+**Silent deploy**: if you install via a silent script (`--silent` / `/silent` / `/S` / `-s` / `--quiet` / `/quiet`), the installer does not display this disclaimer; the full text ships in the package's `legal/` directory and is worth reading. Custom install directories, shortcuts and uninstall behaviour are determined by the install arguments. Versioned installer packages (`2-Pyramid-Installer-{version}.exe`) are intended for deployment scripts and the update channel and do not change the license terms. Microsoft Store MSIX installs are governed by both the Store terms and this disclaimer.
 
 
 In-app updates download installers only from this repository's GitHub Releases and verify SHA-256. **When the checksum is unavailable, you may explicitly choose to continue without verification, in which case the integrity and origin of that installation are your responsibility.** If you obtain installers from unofficial channels, security and integrity are your responsibility.
@@ -53,7 +53,7 @@ To the maximum extent permitted by law, 2-Pyramid Studio and contributors are no
 
 ## 8. Credits
 
-The project has drawn on ideas from other tools and authors in the community. Credits are in-app under Settings → Version Details → Version Info and in `README.md`. Credits express thanks only and **do not** create joint copyright, employment, or agency.
+The project has drawn on ideas from other tools and authors in the community. Credits are in-app under Settings → Version Info and in `README.md`. Credits express thanks only and **do not** create joint copyright, employment, or agency.
 
 ---
 

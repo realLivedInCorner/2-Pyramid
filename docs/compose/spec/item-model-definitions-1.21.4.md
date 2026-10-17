@@ -400,10 +400,12 @@ test result: ok. 296 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; fi
 是**改写**不是新增：前者原本断言「`enchantments=` 不可转」，那正是本次推翻的结论；
 后者补了「读范围必须包含 `models/`」。）
 
-### 冻结基线：**没有变**
+### 内容基线：**没有变**
+
+> 2.203.0 起 `real_pack_content_baseline_is_frozen` 只打印当前值、不参与判定；下面是本任务完成时与上一版实测的比对结果。
 
 ```
-### B) 冻结基线（真实包 TapL 16x → 97）
+### B) 内容基线（真实包 TapL 16x → 97）
 内容基线：4018 个条目，聚合指纹 = 0x75bb3260e7f578a6
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.45s
 ```
@@ -456,7 +458,7 @@ let target = tx.view().mcmeta().ok().and_then(|m| m.effective_format())...
 修法：在 `run_native` 开始处（打开包之后、跑任何任务之前）把 `pack.mcmeta` 一次性
 写成目标格式，让「任务读到的格式」与 `NativeContext` 里的 `target_pack_format` **恒等**，
 而不是靠两处恰好会写成一样。最终产物不变（收尾的 `tail` 照旧改写），
-这一点由冻结基线实测把关（见上，4018 / `0x75bb3260e7f578a6` 未变）。
+这一点由内容基线实测核对（见上，4018 / `0x75bb3260e7f578a6` 未变）。
 
 **这不只是为我的任务修的**：`adapt_java_shaders` 在真实包上一直读到源格式。
 真实包 TapL 16x 格式是 1、没有 `shaders/`，所以它在生产上的第一个判断就返回，
@@ -478,7 +480,7 @@ let target = tx.view().mcmeta().ok().and_then(|m| m.effective_format())...
 2. **非 `minecraft` 命名空间的物品定义**：只处理 `assets/minecraft/models/item/*.json`。
    第三方命名空间（`assets/myns/models/item/x.json`）没有对应的**官方**定义可参照，
    凭空造一个 `assets/myns/items/x.json` 属于发明行为，不做。
-3. **CIT 的 `damage=` / `enchantments=` / 任意 `nbt.*`**：跳过（理由见第 4 节）。
+3. **CIT 中未列入 4.1 表的条件**：`damage=` / `damageMask=` / `stackSize=` / `components.*`、非 `CustomModelData` 的 `nbt.*`、数字附魔 id 等：跳过（理由见第 4 节）。
 4. **不生成模型几何**（`parent`/`textures` 链）：`models/item/*` 一律不动。
 5. **不收录 `minecraft:special` 定义**：外观无法被物品定义改写。
 
@@ -547,12 +549,6 @@ let target = tx.view().mcmeta().ok().and_then(|m| m.effective_format())...
 
 ---
 
-## 附：一条待办的仓库卫生问题
+## 附：仓库卫生问题（已解决）
 
-本次改动之外，我观察到 `code` 仓库的 HEAD 在我工作期间从 `fabc69a` 前进到了
-`e7aac52`（另有 agent 在同一工作区提交）。其中 `f95b223` 把我**尚未完成的草稿**
-（`tools/_probe_jars.py`、`tools/_analyze_items.py`、以及 `tools/gen-item-definitions.py`
-的早期版本）一并提交了。我已把两个探针脚本从索引和工作区移除；
-`gen-item-definitions.py` 的**最终版本**目前是未提交的工作区改动
-（`git diff --stat` 显示 28 插入 / 14 删除，即过滤规则的修正）。
-提交时请以工作区版本为准。
+交付时曾发现 `tools/_probe_jars.py` / `tools/_analyze_items.py` 两个探针脚本被别的提交扫进 HEAD。二者已删除，`tools/gen-item-definitions.py` 的最终版本已随 `8a27615` 入库；这一项不再需要处理。

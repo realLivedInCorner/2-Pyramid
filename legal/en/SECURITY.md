@@ -1,6 +1,6 @@
 # Security Policy
 
-**Effective date:** 2026-10-16  
+**Effective date:** 2026-10-17  
 **Scope:** 2-Pyramid main app, first-party installer, and installers from official release channels.
 
 ---
@@ -9,9 +9,9 @@
 
 | Line | Support |
 |------|---------|
-| Current line (**2.201.x**, latest stable / Stable tag) | Security fixes prioritized |
+| Current line (**2.203.x**, latest stable / Stable tag) | Security fixes prioritized |
 | Latest Beta | Best effort; no SLA |
-| Older stables (**2.7.x and earlier**) | Upgrade recommended; usually no backports |
+| Older stables (**2.202.x and earlier**) | Upgrade recommended; usually no backports |
 
 ## 2. How to report a vulnerability
 
@@ -29,9 +29,9 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 
 - **Local-first:** conversions do not upload files by default; see `PRIVACY.md`
 - **Update integrity:** releases **must** ship `.sha256`; the updater verifies the hash after download and **refuses and deletes on mismatch**. If the checksum is missing or cannot be fetched, the update is refused by default as well; the user may **explicitly opt** to continue without verification for that single download. The choice is **not remembered** and is logged, and skipping is **not permitted** when the installer filename does not match the release version (otherwise both the naming check and the integrity check would fail at once)
-- **Download allowlist:** installers and hashes only from `github.com` and its subdomains, plus hosts **exactly equal to** `objects.githubusercontent.com` (subdomains of that host are not allowlisted). See `is_allowed_download_url` in `src-tauri/src/updater.rs`.
+- **Download allowlist:** installers and hashes only from `github.com` and its subdomains, plus hosts **exactly equal to** `objects.githubusercontent.com` (subdomains of that host are not allowlisted). See `is_allowed_download_url` in `src-tauri/src/updater.rs`. The third-party mirror `cdn.5eggpack.top` is no longer maintained and has been removed from the update path.
 - **Loopback only:** the app binds loopback addresses only — the single-instance lock on `127.0.0.1:24157` (same-port delivery), plus an action-stream port `127.0.0.1:24159` in debug builds. **It never listens on an external interface**
-- **CSP:** the WebView restricts script and resource origins
+- **CSP:** the main app's WebView restricts script and resource origins via CSP; the installer loads only bundled content and does not enable CSP
 - **No admin rights:** install uses HKCU; no UAC elevation required
 
 ## 4. Known boundaries (not vulnerabilities, but know them)

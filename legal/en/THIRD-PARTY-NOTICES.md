@@ -50,11 +50,11 @@ The main application license is [`LICENSE`](../LICENSE) (MIT). If a third-party 
 | [Remix Icon](https://remixicon.com) | Apache-2.0 (see the `license` field in `package-lock.json`) | Icon font |
 | [@vitejs/plugin-vue](https://github.com/vitejs/vite-plugin-vue) | MIT | Vue plugin |
 
-> Authoritative list: `package.json` and lockfiles. `@tauri-apps/cli`, `vite`, `typescript`, `vue-tsc` and `sharp` are build-time only and are not shipped, so they are not listed individually.
+> Authoritative list: `package.json` and lockfiles. `@tauri-apps/cli`, `vue-tsc`, `sharp` and other build-time-only packages are not shipped, so they are not listed individually.
 
 ## 3. Installer (installer-app)
 
-Same stack as the main app (Tauri 2 + Rust); **the installer itself is also MIT-licensed**. See installer-app/src-tauri/Cargo.lock.
+Same stack as the main app (Tauri 2 + Rust); **the installer itself is also MIT-licensed**. See installer-app/src-tauri/Cargo.lock. Its direct dependencies (`tauri` / `tauri-plugin-dialog` / `tauri-plugin-opener` / `serde` / `serde_json` / `zip` / `winreg` / `dirs`) are all listed in the backend table above.
 
 ## 4. Platform and game assets
 

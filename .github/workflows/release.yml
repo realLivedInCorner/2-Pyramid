@@ -177,7 +177,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # 发布清单第 51 行：资产**只发 EXE + .sha256**，
-          # 应用内更新器强制校验 .sha256；MSIX 不进 Releases。
+          # 应用内更新器默认强制校验 .sha256（拿不到校验文件时用户可显式跳过）；MSIX 不进 Releases。
           $files = @()
           $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.exe" -ErrorAction SilentlyContinue
           $files += Get-ChildItem release -Filter "2-Pyramid-Installer-*.exe.sha256" -ErrorAction SilentlyContinue
@@ -236,7 +236,7 @@ jobs:
 
           - tag：``${{ github.ref_name }}``（渠道前缀 ${{ steps.meta.outputs.channel }}）
           - 正文：``${{ steps.meta.outputs.news }}``
-          - 资产：安装包 EXE 与 ``.sha256``（应用内更新器强制校验后者）
+          - 资产：安装包 EXE 与 ``.sha256``（应用内更新器默认强制校验后者，拿不到校验文件时用户可显式跳过）
 
           **MSIX 不在本工作流内**，也不进 Releases —— 它需要 Windows SDK 的 makeappx，
           商店包由商店侧签名。本地用同一条流水线打：``python tools/build_release.py --skip-installer``

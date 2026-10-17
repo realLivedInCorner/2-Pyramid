@@ -50,11 +50,11 @@
 | [Remix Icon](https://remixicon.com) | Apache-2.0（见 `package-lock.json` 的 `license` 字段） | 图标字体 |
 | [@vitejs/plugin-vue](https://github.com/vitejs/vite-plugin-vue) | MIT | Vue 插件 |
 
-> 以 `package.json` 与 lockfile 为准。`@tauri-apps/cli`、`vite`、`typescript`、`vue-tsc`、`sharp` 等为**构建期**依赖，不随安装包分发，故未逐条列出。
+> 以 `package.json` 与 lockfile 为准。`@tauri-apps/cli`、`vue-tsc`、`sharp` 等构建期依赖不随安装包分发，故未逐条列出。
 
 ## 3. 安装器（installer-app）
 
-与主程序同栈（Tauri 2 + Rust），**本身同样以 MIT 许可证提供**，依赖见 installer-app/src-tauri/Cargo.lock。
+与主程序同栈（Tauri 2 + Rust），**本身同样以 MIT 许可证提供**，依赖见 installer-app/src-tauri/Cargo.lock。其直接依赖（`tauri` / `tauri-plugin-dialog` / `tauri-plugin-opener` / `serde` / `serde_json` / `zip` / `winreg` / `dirs`）均在上表「Rust / Tauri 后端」中列出。
 
 ## 4. 平台与游戏资产
 

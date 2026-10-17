@@ -73,7 +73,7 @@ foreach ($i in 1..5) {
 |---|---|---|
 | `open` | 构造 `Pack`（读容器 + 建索引） | 换来源类型 |
 | `materialize` | 把视图落到 workdir / 建基线 | Zip 路径已降到 0（§9.147） |
-| `tasks` | 46 个任务（含并行批落盘与提交） | 任务本身 |
+| `tasks` | 各任务（含并行批落盘与提交） | 任务本身 |
 | `direct` | `tasks` 之后的直接步骤（`cut_gui_direct`）与延迟删除 | 已从 0.99s(debug) 降到 0.50s（§9.154） |
 | `harvest` | workdir 差异收成一层 | **仅 `Output::Dir` 非零**；Zip 路径应为 0.00 |
 | `tail` | 调用方收尾（`pack.mcmeta` 改写） | 已改为 `Tx` |
@@ -96,29 +96,30 @@ foreach ($i in 1..5) {
 
 ---
 
-## 3. 三个不可动摇的判据
+## 3. 三类检查（内容基线与绝对计数只报告）
 
-任何改动都必须同时满足这三条，缺一不可：
+任何改动都要跑完这三类；其中 ① ② 自 2.203.0 起**只打印当前值、不参与判定**，需要判定时用两次运行导出的清单逐行 diff：
 
 ```powershell
 $env:CARGO_TARGET_DIR = "src-tauri\target"
 $env:AROM_REAL_PACK   = "tools\TapL 16x.zip"
 $env:AROM_TARGET      = "97"
 
-# ① 冻结内容指纹：4018 条目 / 0x75bb3260e7f578a6
-cargo test --lib real_pack_content_baseline_is_frozen -- --ignored --nocapture
+# ① 内容指纹：只报告（配合 AROM_BASELINE_DUMP 导出清单，与上一版逐行 diff）
+cargo test --lib --manifest-path src-tauri/Cargo.toml real_pack_content_baseline_is_frozen -- --ignored --nocapture
 
-# ② 绝对契约：files=4018 bytes=19294735
-cargo test --lib real_pack_absolute_output_is_pinned -- --ignored --nocapture
+# ② 绝对产物计数：只报告（4018 / 19294735 是 2.201.0 时期的快照）
+cargo test --lib --manifest-path src-tauri/Cargo.toml real_pack_absolute_output_is_pinned -- --ignored --nocapture
 
 # ③ 全量 + 忽略名单（含 Output::Zip ↔ Output::Dir 逐项一致）
-cargo test --lib
-cargo test --lib -- --ignored --nocapture
-cargo check --bins
+cargo test --lib --manifest-path src-tauri/Cargo.toml
+cargo test --lib --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture
+cargo check --bins --manifest-path src-tauri/Cargo.toml
 ```
 
 **为什么指纹比对大小更强**：它逐条目比对（路径、长度、内容哈希）再聚合，能发现
 "条目数对但内容错"这类分叉。而大小/条目数相同**不能**证明内容相同。
+**但它的用法已从「与一个冻结常量比较」改为「与上一版导出的清单 diff」**——常量断言在 2.203.0 被移除，理由见 `CHANGELOG` 的 2.203.0 段。
 
 **`Output::Zip` ↔ `Output::Dir` 一致性用例抓过真 bug**：`harvest` 与 `tail` 顺序放反时，
 Zip 产物有 `max_format:[97,1]` 而 Dir 产物是 `pack_format:1`——指纹用例当时是绿的
@@ -136,7 +137,7 @@ $f = Get-ChildItem "$env:TEMP\perf" -Filter *.zip | Where-Object Name -ne 'pack.
 $z = [IO.Compression.ZipFile]::OpenRead($f.FullName)
 $files = @($z.Entries | Where-Object { -not $_.FullName.EndsWith('/') })
 "文件 {0} / 全部 {1} / 解压字节 {2}" -f $files.Count, $z.Entries.Count,
-    ($files | Measure-Object Length -Sum).Sum          # 期望 4018 / 4138 / 19294735
+    ($files | Measure-Object Length -Sum).Sum          # 2.201.0 时期的参考值：4018 / 4138 / 19294735
 $mc = $z.Entries | Where-Object FullName -eq 'pack.mcmeta'
 $sr = New-Object IO.StreamReader($mc.Open()); $sr.ReadToEnd(); $sr.Close()
 $z.Dispose()

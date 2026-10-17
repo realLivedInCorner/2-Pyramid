@@ -7,7 +7,7 @@
 1. **legal 复核** —— `legal/*.md` 与 `legal/en/*.md` 是否仍与实现一致：
    依赖变动（`THIRD-PARTY-NOTICES.md`）、联网/采集行为（`PRIVACY.md`）、生效日期。
    *本版若无新依赖、无新增联网行为，也要在提交信息或 CHANGELOG 里写明"已复核，无变化"。*
-2. **CHANGELOG** —— `[Unreleased]` 整理为 `[x.y.z] - 日期（BUILD nnnnn）`；BUILD 号 = 当前 `BUILD` 文件值 + 1。
+2. **CHANGELOG** —— 把 `[Unreleased]` 段整理为 `[x.y.z] - 日期（BUILD nnnnn）`；BUILD 号按项目约定显式推进（最近几版为 22000 / 22010 / 22020 / 22030），不是固定 +1。
 3. **README** —— 版本徽章、功能章节、已知限制是否与现状一致。
 4. **版本号一键设置 + 守门** —— 用脚本改，别手改（散落在 10 处，手工必漏）：
 
@@ -20,12 +20,12 @@
    覆盖范围：主程序 `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`、
    **安装器 `installer-app/package.json` / `installer-app/src-tauri/tauri.conf.json` / `installer-app/src-tauri/Cargo.toml`**、
    `tools/msix/package-identity.json`（`x.y.z.0`）、`README.md` 版本徽章、两个 `Cargo.lock` 的 crate 版本；
-   `--changelog` 会把 `[Unreleased]` 改为 `[x.y.z] - 日期（BUILD 下一个值）`。
+   `--changelog` 会把 `[Unreleased]` 改为 `[x.y.z] - 日期（BUILD 下一个值）`；脚本按当前 `BUILD` +1 计算，最近几版用的是三位约定（22000 / 22010 / 22020 / 22030），发布前需手动核对标题里的 BUILD。
 
    > ⚠️ **installer-app 那三处最容易漏**：更新程序界面的「更新程序 · vX」、覆盖更新的「更新到 X」、以及**控制面板登记的已安装版本**都取自
    > `installer-app` 的 `CARGO_PKG_VERSION`。2026-10-03 发布 2.7.0 时正因漏改它，出现了「2.7.0 的安装包显示成 2.6.0」。
    > **`tools/build_release.py` 已内置 `--check` 守门**：任一处不一致会直接中止构建，不会产出错版安装包。
-5. 先提交上述改动，**再**构建（构建会自增 `BUILD` 并修改 `Cargo.lock`，随后单独提交）。
+5. 先提交上述改动，**再**构建（构建只读 `BUILD`，不会递增编号；版本号与 `Cargo.lock` 的 crate 版本由第 4 步一并改好）。
 
 ## 二、构建与校验
 
@@ -33,7 +33,7 @@
 npm run buildrelease      # EXE 安装器 + .sha256 + MSIX（Store 用）
 ```
 
-- `BUILD` 应当是**提交里那个值**（构建只读不写）。发布前确认它比上一版大 1；要推进就用 `tools/bump_build.py`，别指望编译去改它。
+- `BUILD` 应当是**提交里那个值**（构建只读不写）。发布前确认它已按项目约定显式推进（不是固定 +1）；要推进就用 `tools/bump_build.py`，别指望编译去改它。
 - 发布版二进制冒烟：`release\staging\2-pyramid.exe --analyze <包>` 与 `--convert <小包>`。
 - 哈希一致性：本地 `*.sha256` 必须与 GitHub 计算的 digest 相同（`gh release view --json assets`）。
 - MSIX：`Identity Version` 正确、`NotSigned`（商店会自行签名）。

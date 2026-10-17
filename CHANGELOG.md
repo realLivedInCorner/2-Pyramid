@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Added
+
+- **CIT 迁移扩展到附魔与显示上下文**（`generate_cit_item_definitions`）：在 `nbt.CustomModelData` 之外，目标 ≥ 1.21.5（`pack_format` 55）时支持 `enchantments=` / `enchantmentIDs=` + `enchantmentLevels=`，生成 `condition(component, predicate=enchantments)` 的精确等级链；支持多个附魔名（同一个 predicate 内的数组，元素之间为 OR）、`hand=main|off`（`select(display_context)`）与弓的 `texture.bow_pulling_*` 多状态贴图。
+  - 仍如实跳过并记录：`damage=` / `damageMask=` / `stackSize=` / `components.*`、数字附魔 id、只有 `enchantmentLevels` 没有附魔名、非 CMD 的 `nbt.*`、`model.<状态>=`、弩的多状态贴图。
+  - 实测：布吉岛 1.20.1 包（format 15，24 条 CIT）转出的规则从 **0** 条变为 **12** 条。
+
 ## [2.203.0] - 2026-10-17（BUILD 22030）
 
 ### Added
