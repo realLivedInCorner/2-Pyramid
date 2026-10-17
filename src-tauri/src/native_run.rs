@@ -76,6 +76,20 @@ pub struct MixedRunOptions {
     pub run_gui_surgeon: bool,
     pub fix_alpha_layers: bool,
     pub adapt_shaders: bool,
+    /// **彻底删除 shaders**（用户开关，默认 **false**）。
+    ///
+    /// 存在的理由：`adapt_java_shaders` 只做**文本改写**（fog / `#moj_import` /
+    /// globals 注入 / core 组改名），它无法让一份**结构上**已经不兼容的着色器包
+    /// 变得能加载。用户的实测反馈是：部分包里即便开了适配，游戏仍在加载阶段失败，
+    /// 而唯一可控的做法是把 shaders 整棵拿掉——代价是包里的自定义光影不再生效，
+    /// 游戏改用原版渲染。所以这是一个**用户显式选择**，不是默认优化。
+    ///
+    /// 语义：见 [`run_native`] 里"shaders 全删"那一段（删两个根：
+    /// `assets/minecraft/shaders` 与顶层 `shaders/`，走延迟删除的清理点）。
+    ///
+    /// **关闭时必须与改动前逐字节相同**：本项不参与任何任务、不改计划、不改
+    /// 序列化选项，只在为真时多提交一个 tombstone 层。
+    pub delete_shaders: bool,
     pub native: NativeSwitches,
     /// 原生任务写出声明范围即报错（D12 契约）。关掉则只记录在
     /// [`MixedRunReport::undeclared`] 里，便于诊断。
@@ -98,6 +112,7 @@ impl Default for MixedRunOptions {
             run_gui_surgeon: true,
             fix_alpha_layers: false,
             adapt_shaders: true,
+            delete_shaders: false,
             native: NativeSwitches::none(),
             strict_scopes: true,
             legacy_one_by_one: false,
@@ -137,6 +152,12 @@ pub struct MixedRunReport {
     pub notes: Vec<String>,
     /// 原生任务登记的**延迟删除**路径（在清理点统一应用）。
     pub deferred_removals: Vec<String>,
+    /// **`delete_shaders` 实际删掉的条目数**（0 = 没开，或包里本来没有 shaders）。
+    ///
+    /// 为什么要单独记一个数：这个开关是"删掉产物里的一整块"，而 `removed`/`stats.files`
+    /// 都是全量口径，看不出"到底删了几条"。单测靠它钉住"开启时确实删到了东西"，
+    /// 日志也靠它回答用户"我的包里有 8 条 shaders，已经删了"。
+    pub deleted_shaders: usize,
     /// 声明阶段与活注册表不一致的原生任务（见 §9.40：阶段决定相对位置）。
     pub tier_mismatches: Vec<String>,
     /// **逐步读数**（诊断，`step_trace` 打开时才填充）：`(标签, 文件数, 总字节, 名字指纹)`。
@@ -769,6 +790,91 @@ where
     }
     trace_step("after-direct-steps", &mut trace);
 
+    // ══════════════════════════════════════════════════════════════════════
+    // **`delete_shaders`：把 shaders 整棵删掉**（用户开关，默认关）。
+    //
+    // ## 做什么
+    //
+    // 删**两个根**，两个都要删，因为它们的来源不同：
+    //   * `assets/minecraft/shaders` —— 自定义 **core 着色器**（改 GUI/文字渲染的地方），
+    //     也是 `adapt_java_shaders` 唯一处理的那棵树；
+    //   * `shaders/`（包顶层）—— OptiFine / Iris **光影包**的落点，`adapt_java_shaders`
+    //     **完全不碰**它（它的 `SHADERS` 常量是 `assets/minecraft/shaders`），
+    //     所以"适配"救不了这类包，只能整删。
+    //
+    // 用 `tx.remove()` 登记 tombstone：层对**子树**生效（`Layer::lookup` 连祖先一起判、
+    // `entries_uncached` 里 `map.retain(!is_under)`），因此一个前缀就能带走目录里全部文件；
+    // 包若带**显式目录条目**（真实包实测：`assets/minecraft/shaders/` 与
+    // `.../shaders/core/` 都是独立 zip 条目），精确命中同样会被移除。
+    //
+    // ## 为什么放在这个位置（时序是这个功能的**全部难点**）
+    //
+    // 这里正是既有**延迟删除的清理点**（下面那段 `deferred_removals`）：全部任务 +
+    // `cut_gui_direct` 之后、`harvest` 与 `tail` 之前。三个理由，每一个都有实测教训：
+    //
+    // 1. **不能更早**：`adapt_java_shaders` 在计划里出现十几次（每条着色器边界一次），
+    //    它的 `walk_dir` 每轮都 `tx.list(SHADERS)`。若在任务阶段中途删掉，后续那几轮会
+    //    静默看到"空目录"——不报错、不提示，`Outcome.changed` 直接归零。这不是"反正要删，
+    //    早删无所谓"能解释的：日志会说话，而它说的话是假的。
+    // 2. **不能晚于 `harvest`**（`Output::Dir` 路径）：`harvest` 拿 workdir 与基线对比产出
+    //    一层。若先 harvest 再删，删除只落在 `pack` 上、磁盘上的 shaders 还在，二者不一致；
+    //    而这条路径的目录接下来还要被 Bedrock 边任务读（`j2b` 的
+    //    `adapt_java_shaders_for_bedrock` 会读 `assets/minecraft/shaders` 并搬到
+    //    `shaders/glsl|hlsl`）——删在 harvest 之后等于**没删**。
+    // 3. **不能晚于 `tail`**：`tail` 之后就是 `write_zip`/`materialize`，是产物的定义；
+    //    在那里插一步会让"产物 = 视图"这条不变量多出一个例外。
+    //
+    // 复用清理点（而不是新写一层）还有一个白拿的好处：`apply_layer_to_workdir` +
+    // `sync_baseline_with_layer` 已经在这条路径上处理了「层 → 磁盘 → 基线」三者同步，
+    // 我只要把两个前缀塞进 `report.deferred_removals` 即可，不必再抄一遍。
+    //
+    // ## 关闭时与改动前逐字节相同
+    //
+    // 只有 `opts.delete_shaders == true` 才进入本段；默认 false 时这段**一条语句都不执行**
+    // （不建事务、不提交层、不改 report），下面的清理点看到的输入与改动前完全一样。
+    // 包本来就没有 shaders 时同样不登记（`deleted_shaders` 保持 0，产物不变）——
+    // 真实包实测（`[Java 26.3]TapL 16x.zip`，4138 条目）里根本没有 `shaders/`。
+    //
+    // ## Bedrock 目标（`--to 1000`）的**连带效果**（不是 bug，但必须写下来）
+    //
+    // Bedrock 目标先转 Java 26.3（97）再跑 j2b，而删除发生在**Java 中间态**：j2b 里的
+    // `bedrock_convert::shaders::adapt_java_shaders_for_bedrock` 读不到
+    // `assets/minecraft/shaders`，会在第一个判断就返回——于是 **`shaders/glsl|hlsl`
+    // 与引用它们的 `materials/*.material` 都不会生成**。实测（源 15 → 目标 1000，开/关各一次）：
+    // 858 → 834 条目，少的 24 条全是 `shaders/**` 与 `materials/**`（材质桩只被着色器引用，
+    // 没有 shaders 时它们就是悬空引用）。因此这个开关在 Bedrock 目标上删的**不止两个根**。
+    // 想要"删顶层光影但保留 Bedrock 材质桩"的用户不适用本开关——这条边界写在这里，
+    // 免得后来的人以为是漏删或多删。
+    // ══════════════════════════════════════════════════════════════════════
+    if opts.delete_shaders {
+        // 先数一遍：既用于"存在才登记"（避免给不存在的路径留 tombstone），
+        // 也用于日志与报告里的"删掉了几条"。这次 `entries()` 走包级缓存。
+        let entries = pack.view().entries()?;
+        let mut total = 0usize;
+        let mut hits: Vec<&'static str> = Vec::new();
+        for root in SHADER_ROOTS {
+            let n = entries
+                .iter()
+                .filter(|e| e.path == *root || e.path.starts_with(&format!("{root}/")))
+                .count();
+            if n > 0 {
+                hits.push(root);
+                total += n;
+            }
+        }
+        report.deleted_shaders = total;
+        if hits.is_empty() {
+            crate::log_info!("delete_shaders: 包内没有 shaders 目录，跳过（产物不受影响）");
+        } else {
+            report.deferred_removals.extend(hits.iter().map(|s| s.to_string()));
+            crate::log_info!(
+                "delete_shaders: 将在清理点删除 {} 条 shaders 条目（{}）—— 自定义光影将不再生效",
+                total,
+                hits.join(", ")
+            );
+        }
+    }
+
     // **§9.129：`ctx.execute_cleanup()` / `pool.clear_unused()` 已删除。**
     //
     // 原先这里调用旧引擎的清理：旧任务的 `defer_remove_*` 登记在 `HurrayContext` 的清单里，
@@ -913,6 +1019,16 @@ where
     Ok(report)
 }
 
+
+/// **`delete_shaders` 要整棵删掉的两个根**。
+///
+/// * `assets/minecraft/shaders` —— 自定义 core 着色器（`adapt_java_shaders` 处理的那棵）；
+/// * `shaders` —— 包顶层，OptiFine / Iris 光影包的落点，**适配器不碰它**。
+///
+/// 两个都写在这里而不是各写一处：清理点只认这份清单，单测也直接引用它，
+/// 避免"文档说删两棵、代码只删一棵"这类只在真实包上才暴露的分叉。
+/// 顺序即日志里的报告顺序（先 core，后顶层）。
+const SHADER_ROOTS: [&str; 2] = ["assets/minecraft/shaders", "shaders"];
 
 const EARLY_NATIVES: [&str; 10] = [
     "generate_smithing_ui",
@@ -1634,13 +1750,60 @@ mod tests {
     /// 夹具刻意带上几个会被真实任务处理的结构（mcpatcher 目录、font 目录、
     /// item 下的动画 mcmeta、旧贴图路径）。
     fn fixture(path: &Path) {
+        fixture_ex(path, false)
+    }
+
+    /// 夹具本体；`with_shaders` 为真时额外写入**两棵** shaders 树，专供
+    /// `delete_shaders` 的用例使用。
+    ///
+    /// 为什么带上**显式目录条目**（`assets/minecraft/shaders/` 与 `.../core/`）：
+    /// 真实包（实测 `濯卿觎1.20.1布吉岛材质 (1).zip`）里这两级目录是独立的 zip 条目，
+    /// 不是"只由文件隐含"。`tx.remove(前缀)` 的 tombstone 对精确路径与子路径都生效，
+    /// 但**这条性质必须有测试守**——只测隐含目录的话，将来"优化"成按文件枚举删除
+    /// 就会把目录条目留在产物里，而游戏恰好也可能因为空目录继续报错。
+    ///
+    /// 为什么顶层 `shaders/` 也要有：`adapt_java_shaders` 只认
+    /// `assets/minecraft/shaders`（它的 `SHADERS` 常量），**完全不会碰** OptiFine /
+    /// Iris 的顶层光影包。只删 core 那一棵树，等于对"光影导致加载失败"的场景无效。
+    fn fixture_ex(path: &Path, with_shaders: bool) {
         let f = std::fs::File::create(path).expect("create fixture");
         let mut zip = zip::ZipWriter::new(f);
         let opts = zip::write::FileOptions::default();
+        // 目录条目必须先于 `add` 闭包写：闭包会独占 `&mut zip`。
+        if with_shaders {
+            zip.add_directory("assets/minecraft/shaders/", opts).expect("dir");
+            zip.add_directory("assets/minecraft/shaders/core/", opts).expect("dir");
+            zip.add_directory("shaders/", opts).expect("dir");
+            zip.add_directory("shaders/post/", opts).expect("dir");
+        }
         let mut add = |name: &str, body: Vec<u8>| {
             zip.start_file(name, opts).expect("start");
             zip.write_all(&body).expect("write");
         };
+
+        if with_shaders {
+            add(
+                "assets/minecraft/shaders/core/rendertype_lines.vsh",
+                b"#version 150\n// lines\n".to_vec(),
+            );
+            add(
+                "assets/minecraft/shaders/core/rendertype_lines.fsh",
+                b"#version 150\n// lines\n".to_vec(),
+            );
+            add(
+                "assets/minecraft/shaders/core/rendertype_lines.json",
+                br#"{"blend":{}}"#.to_vec(),
+            );
+            add(
+                "assets/minecraft/shaders/core/position_color.vsh",
+                b"#version 150\n// pos\n".to_vec(),
+            );
+            add(
+                "shaders/post/color_convolve.json",
+                br#"{"targets":{}}"#.to_vec(),
+            );
+            add("shaders/lib/util.glsl", b"// util\n".to_vec());
+        }
         add(
             "pack.mcmeta",
             br#"{"pack":{"pack_format":34,"description":"fixture"}}"#.to_vec(),
@@ -1952,6 +2115,148 @@ mod tests {
         })
         .expect("mixed run v2");
         (out, report)
+    }
+
+    /// zip 的**全部**条目名（含目录条目，保留尾斜杠）——目录条目是 shaders 删除的
+    /// 关键对象之一，`zip_entry_digests` 会跳过它们，所以这里单独读一遍。
+    fn zip_entry_names(zip_path: &Path) -> Vec<String> {
+        let f = std::fs::File::open(zip_path).expect("open zip");
+        let mut ar = zip::ZipArchive::new(f).expect("zip");
+        let mut out = Vec::new();
+        for i in 0..ar.len() {
+            let Ok(e) = ar.by_index(i) else { continue };
+            out.push(e.name().to_string());
+        }
+        out.sort();
+        out
+    }
+
+    /// 该路径是否落在 `SHADER_ROOTS` 之下（入口与子路径都算，容忍目录的尾斜杠）。
+    fn is_shader_path(name: &str) -> bool {
+        let p = name.trim_end_matches('/');
+        SHADER_ROOTS.iter().any(|r| p == *r || p.starts_with(&format!("{r}/")))
+    }
+
+    /// `delete_shaders` 的变体：其余选项与生产同口径（全原生 + GUI 手术开）。
+    fn native_output_delete_shaders(
+        input: &Path,
+        tmp: &Path,
+        delete_shaders: bool,
+        tag: &str,
+    ) -> (PathBuf, MixedRunReport) {
+        let work = tmp.join(format!("del_work_{tag}"));
+        let out = tmp.join(format!("del_{tag}.zip"));
+        let opts = MixedRunOptions {
+            source_version: 34,
+            target_version: 55,
+            delete_shaders,
+            native: NativeSwitches::all(),
+            ..MixedRunOptions::default()
+        };
+        let report = run_native(input, &work, &Output::Zip(out.clone()), &opts, |tx| {
+            if tx.exists("pack.mcmeta") {
+                let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                let next = crate::pack::version_converter::rewrite_pack_mcmeta_text(&cur, 55)?;
+                tx.put("pack.mcmeta", next.into_bytes())
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
+        .expect("run_native with delete_shaders");
+        (out, report)
+    }
+
+    /// **`delete_shaders`：开启时两棵 shaders 树消失，其余条目逐条不变。**
+    ///
+    /// 钉住四件事（每一条都对应一个真实的失败形态）：
+    ///
+    /// 1. **默认必须是关的**。这是"不加这个选项时产物逐字节相同"的第一道闸门——
+    ///    真正的逐字节对照由已有的夹具/真实包闸门守（它们跑的就是默认配置），
+    ///    这里只保证默认值不会被人"顺手改成 true"。
+    /// 2. **关**：两棵树都还在（core 与顶层各至少一条），`deleted_shaders == 0`，
+    ///    且清理点里**没有**这两个根（说明没有偷偷登记删除）。
+    /// 3. **开**：一条不剩——包括**显式目录条目**；`deleted_shaders` 必须等于关闭时
+    ///    那两棵树的条目数（含目录），否则说明"数出来的"和"删掉的"不是同一批东西。
+    /// 4. **删除走延迟删除的清理点**：`report.deferred_removals` 里能看到两个根。
+    ///    这条是"时机正确"的可观测证据：早删（任务阶段内）不会出现在这个清单里。
+    ///
+    /// 另外断言"非 shaders 条目逐条相同"：这个开关只该删 shaders，不该顺手改动
+    /// 其它任何字节（例如提前删导致后续任务看不见文件、进而改变产物）。
+    ///
+    /// 源 34 → 目标 55 是刻意的：这条路径上 `adapt_java_shaders` 会跑三次
+    /// （34→42→46→55）。若删除被提前到任务阶段，那三次会看到空目录而静默跳过，
+    /// 用例的 3/4 两点就会红。
+    #[test]
+    fn delete_shaders_removes_both_roots_and_nothing_else() {
+        assert!(
+            !MixedRunOptions::default().delete_shaders,
+            "默认必须关闭：否则所有用户的产物都会少掉 shaders"
+        );
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture_shaders.zip");
+        fixture_ex(&input, true);
+
+        let (off_zip, off_report) = native_output_delete_shaders(&input, tmp.path(), false, "off");
+        let (on_zip, on_report) = native_output_delete_shaders(&input, tmp.path(), true, "on");
+
+        // ── 关闭：两棵树都在，且什么都没登记删除 ──────────────────────────
+        let off_entries = zip_entry_names(&off_zip);
+        let off_shader_entries: Vec<&String> =
+            off_entries.iter().filter(|n| is_shader_path(n)).collect();
+        assert!(
+            off_shader_entries
+                .iter()
+                .any(|n| n.starts_with("assets/minecraft/shaders/core/")),
+            "关闭时 core 着色器必须原样保留，实际条目：{off_entries:?}"
+        );
+        assert!(
+            off_shader_entries.iter().any(|n| n.starts_with("shaders/post/")),
+            "关闭时顶层 shaders 必须原样保留，实际条目：{off_entries:?}"
+        );
+        assert_eq!(off_report.deleted_shaders, 0);
+        assert!(
+            !off_report
+                .deferred_removals
+                .iter()
+                .any(|p| SHADER_ROOTS.contains(&p.as_str())),
+            "关闭时不应登记任何 shaders 删除：{:?}",
+            off_report.deferred_removals
+        );
+
+        // ── 开启：一条不剩（含显式目录条目）─────────────────────────────
+        let on_entries = zip_entry_names(&on_zip);
+        let leftovers: Vec<&String> = on_entries.iter().filter(|n| is_shader_path(n)).collect();
+        assert!(
+            leftovers.is_empty(),
+            "开启后 shaders 必须一条不剩（含目录条目），残留：{leftovers:?}"
+        );
+        assert_eq!(
+            on_report.deleted_shaders,
+            off_shader_entries.len(),
+            "删掉的条目数必须等于关闭时两棵树里的条目数（含目录）"
+        );
+        for root in SHADER_ROOTS {
+            assert!(
+                on_report.deferred_removals.iter().any(|p| p == root),
+                "`{root}` 必须登记在延迟删除清单里（清理点时机），实际：{:?}",
+                on_report.deferred_removals
+            );
+        }
+
+        // ── 其余条目逐条相同（开关只该删 shaders）───────────────────────
+        let off_rest: Vec<_> = zip_entry_digests(&off_zip)
+            .into_iter()
+            .filter(|(n, _, _)| !is_shader_path(n))
+            .collect();
+        let on_rest: Vec<_> = zip_entry_digests(&on_zip)
+            .into_iter()
+            .filter(|(n, _, _)| !is_shader_path(n))
+            .collect();
+        assert_eq!(
+            off_rest, on_rest,
+            "开启 delete_shaders 后，除 shaders 之外的条目必须逐条相同"
+        );
     }
 
     /// **8c 的第一批验收**：把 textures 已迁移任务改为原生执行，产物必须与「全走适配层」

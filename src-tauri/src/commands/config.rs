@@ -49,6 +49,18 @@ pub struct AppConfig {
     pub log_redaction: Option<bool>,
     /// 性能档位："balanced"（默认）| "performance"。
     pub performance_mode: Option<String>,
+    /// **转换时是否把 shaders 整棵删掉**（`None` 视为 false，保持历史行为）。
+    ///
+    /// 为什么存在配置文件里：和 `performance_mode` / `theme_mode` 同一类——它是
+    /// **用户偏好**，应当跟着配置一起备份、重置、迁移，重装后不该丢。转换页上的
+    /// 另外两个开关（Alpha 修复 / 着色器适配）目前只写 localStorage，那是历史遗留；
+    /// 本项从一开始就两端都写（localStorage 只用于首帧快速恢复），因为它是**破坏性**
+    /// 选项：用户重装后如果它还亮着而配置里查不到，下一次转换会悄悄删掉 shaders。
+    ///
+    /// 注意 `Option<bool>` 在 serde 里天然可选：旧配置文件没有这个键时读出 `None`，
+    /// 不会让整份配置解析失败（`read_config_file` 解析失败会**回落到默认值**，
+    /// 那会把用户所有设置一次清空——这是必须避免的失败形态）。
+    pub delete_shaders: Option<bool>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -91,6 +103,9 @@ pub struct ConfigPatch {
     pub log_redaction: Option<bool>,
     #[serde(alias = "performanceMode")]
     pub performance_mode: Option<String>,
+    /// 与 [`AppConfig::delete_shaders`] 对应（前端 camelCase 传参）。
+    #[serde(alias = "deleteShaders")]
+    pub delete_shaders: Option<bool>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -422,6 +437,7 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
     let changed: Vec<&'static str> = [
         patch.log_redaction.as_ref().map(|_| "log_redaction"),
         patch.performance_mode.as_ref().map(|_| "performance_mode"),
+        patch.delete_shaders.as_ref().map(|_| "delete_shaders"),
         patch.output_mode.as_ref().map(|_| "output_mode"),
         patch.output_path.as_ref().map(|_| "output_path"),
         patch.palette.as_ref().map(|_| "palette"),
@@ -524,7 +540,60 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         };
         cfg.performance_mode = Some(normalized);
     }
+    if let Some(v) = patch.delete_shaders {
+        // 不给"归一化"留余地：只有 true/false 两种值，语义就是用户点没点开。
+        // 这里**不要**顺手把旧配置迁移成 true —— 默许删除用户数据是不可接受的。
+        cfg.delete_shaders = Some(v);
+    }
     write_config_file(&cfg)?;
     crate::log_info!("OKAY update_config [{}]", changed.join(", "));
     serde_json::to_value(cfg).map_err(|e| format!("Failed to read config: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **旧配置文件里没有这个键时必须读出 `None`，而不是解析失败。**
+    ///
+    /// 这条不是形式主义：`read_config_file` 对解析失败的处理是
+    /// `unwrap_or_default()` —— 一旦 `delete_shaders` 让整份配置解析失败，
+    /// 用户会**一次性丢掉所有设置**（主题、输出目录、通知……），而界面上
+    /// 只会表现为"设置全没了"。`Option<bool>` 是 serde 里天然可选的字段，
+    /// 这个用例把那条性质钉住。
+    #[test]
+    fn old_config_without_delete_shaders_still_parses() {
+        let raw = r#"{"performance_mode":"performance","theme_mode":"dark"}"#;
+        let cfg: AppConfig = serde_json::from_str(raw).expect("旧配置必须能解析");
+        assert_eq!(cfg.delete_shaders, None);
+        // 顺带确认其他字段没有被"顺手"改掉（解析失败回落默认值的反例）
+        assert_eq!(cfg.performance_mode.as_deref(), Some("performance"));
+        assert_eq!(cfg.theme_mode.as_deref(), Some("dark"));
+    }
+
+    /// **前端传 camelCase，Rust 侧是 snake_case**：别名必须两边都收。
+    /// 少了 alias 时不会报错，而是**静默不生效**（patch 里的值被忽略，
+    /// 用户点了开关、配置却没存下来），所以用断言把两种写法都钉住。
+    #[test]
+    fn patch_accepts_both_camel_and_snake_case() {
+        let camel: ConfigPatch =
+            serde_json::from_str(r#"{"deleteShaders":true}"#).expect("camelCase patch");
+        assert_eq!(camel.delete_shaders, Some(true));
+
+        let snake: ConfigPatch =
+            serde_json::from_str(r#"{"delete_shaders":false}"#).expect("snake_case patch");
+        assert_eq!(snake.delete_shaders, Some(false));
+    }
+
+    /// 存进文件再读回来是同一个值（配置要能跟着备份/迁移走）。
+    #[test]
+    fn delete_shaders_survives_a_round_trip() {
+        let cfg = AppConfig {
+            delete_shaders: Some(true),
+            ..AppConfig::default()
+        };
+        let raw = serde_json::to_string(&cfg).expect("serialize");
+        let back: AppConfig = serde_json::from_str(&raw).expect("deserialize");
+        assert_eq!(back.delete_shaders, Some(true));
+    }
 }

@@ -164,6 +164,8 @@ pub async fn convert_zip(
             None,
             false,
             true,
+            // 旧入口（`convert_zip`）没有暴露删除 shaders 的 UI，保持历史行为。
+            false,
         )
     }).await;
 
@@ -220,6 +222,10 @@ pub async fn convert_resource_pack(
 /// thread pool so the UI never stalls; packs are converted in parallel
 /// (bounded by `CONCURRENT_PACKS`) and the loop checks the global
 /// cancel flag before each file so the user can abort a large batch.
+///
+/// `delete_shaders` 是转换页上的用户开关（**默认 false**）：为 true 时，
+/// 每个包在**全部任务之后**把 `assets/minecraft/shaders` 与顶层 `shaders/`
+/// 整棵删掉。删除本身发生在 `run_native` 的清理点（见那里的注释），这里只透传。
 #[tauri::command]
 pub async fn convert_resource_packs_batch(
     file_paths: Vec<String>,
@@ -227,6 +233,7 @@ pub async fn convert_resource_packs_batch(
     output_dirs: Option<Vec<String>>,
     fix_alpha_layers: Option<bool>,
     adapt_shaders: Option<bool>,
+    delete_shaders: Option<bool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     use std::time::Instant;
 
@@ -236,6 +243,8 @@ pub async fn convert_resource_packs_batch(
     let fix_alpha = fix_alpha_layers.unwrap_or(false);
     // 实验项：默认开启，保持 2.1.1 以来的着色器适配行为
     let adapt_shaders = adapt_shaders.unwrap_or(true);
+    // 破坏性选项：默认关闭。缺省/旧前端只发前面几个参数时，行为与改动前一致。
+    let delete_shaders = delete_shaders.unwrap_or(false);
 
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
@@ -273,6 +282,8 @@ pub async fn convert_resource_packs_batch(
     log_info!("Files to process: {} (parallelism: {})", file_paths.len(), parallelism);
     log_info!("Target pack_format: {} ({})", target_format, pack_format_label_for_output(target_format));
     log_info!("fix_alpha_layers: {}, adapt_shaders: {}", fix_alpha, adapt_shaders);
+    // 破坏性动作必须留痕：日志里能回答"这一批为什么没有 shaders"
+    log_info!("delete_shaders: {}", delete_shaders);
     log_info!("{}", "=".repeat(60));
 
     let start_time = Instant::now();
@@ -327,6 +338,8 @@ pub async fn convert_resource_packs_batch(
                 adapt_shaders,
                 // §9.138：GUI 命令保持「完整转换」语义（GUI 手术开）
                 true,
+                // 用户开关：删除 shaders（发生在管线末尾的清理点）
+                delete_shaders,
             ) {
                 Ok((result_path, timing)) => {
                     let elapsed = file_start.elapsed();

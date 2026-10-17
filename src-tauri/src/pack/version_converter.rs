@@ -634,7 +634,18 @@ pub fn process_extracted_dir_only(
 }
 
 pub fn convert_resource_pack(file_path: &str, target_version: u32) -> Result<String, String> {
-    process_zip(file_path, target_version, None, 1.0, None, None, false, true)
+    // 单包兼容入口不暴露 shaders 删除：`delete_shaders = false`（与历史行为一致）。
+    process_zip(
+        file_path,
+        target_version,
+        None,
+        1.0,
+        None,
+        None,
+        false,
+        true,
+        false,
+    )
 }
 
 /// 仅执行 Bedrock 结构转换边任务（j2b: 84→1000 / b2j: 1000→84）。
@@ -682,6 +693,9 @@ pub struct ConversionTiming {
 }
 
 /// 兼容入口：只关心输出路径的调用方（单文件转换、单测）用这个。
+///
+/// `delete_shaders` 见 [`process_zip_timed`] 的说明：**默认必须传 false**，
+/// 它是用户在转换页显式打开的"删掉 shaders"选项，不是默认行为。
 pub fn process_zip(
     original_file_path: &str,
     pack_format2: u32,
@@ -691,6 +705,7 @@ pub fn process_zip(
     output_dir_override: Option<&str>,
     fix_alpha_layers: bool,
     adapt_shaders: bool,
+    delete_shaders: bool,
 ) -> Result<String, String> {
     process_zip_timed(
         original_file_path,
@@ -703,6 +718,7 @@ pub fn process_zip(
         adapt_shaders,
         // 兼容入口保持「完整转换」语义（GUI 手术开）
         true,
+        delete_shaders,
     )
     .map(|(path, _timing)| path)
 }
@@ -713,6 +729,11 @@ pub fn process_zip(
 /// **§9.138：`run_gui_surgeon` 是唯一能显著缩短耗时的处理开关**——它控制两次 `cut_gui`
 /// （计划内一次 + 收尾直连一次，实测各约 1.5s）。关掉会**丢 sprite 产物**（GUI 里的血条/
 /// 护甲槽等切图），因此默认开；关它是"用产物完整性换时间"的显式选择。
+///
+/// **`delete_shaders`**：用户开关（默认 false）。为 true 时，`run_native` 会在**全部任务
+/// 之后**的清理点把 `assets/minecraft/shaders` 与顶层 `shaders/` 整棵删掉（删除时机与理由
+/// 写在 `native_run` 里那段注释）。这里只做透传——删除**不**在本函数里发生，因为本函数
+/// 之后还有 Bedrock 边任务会读那棵树，删早了 `j2b` 就搬不出任何着色器。
 pub fn process_zip_timed(
     original_file_path: &str,
     pack_format2: u32,
@@ -723,6 +744,7 @@ pub fn process_zip_timed(
     fix_alpha_layers: bool,
     adapt_shaders: bool,
     run_gui_surgeon: bool,
+    delete_shaders: bool,
 ) -> Result<(String, ConversionTiming), String> {
     let input_zip = Path::new(original_file_path);
     if !input_zip.exists() {
@@ -918,6 +940,9 @@ pub fn process_zip_timed(
         mopts.run_gui_surgeon = run_gui_surgeon && !is_bedrock_target;
         mopts.fix_alpha_layers = fix_alpha_layers;
         mopts.adapt_shaders = adapt_shaders;
+        // 用户开关：删掉 shaders 两棵树（时机与理由见 `native_run` 的清理点注释）。
+        // 默认 false —— 关着的时候驱动里那一段一条语句都不执行。
+        mopts.delete_shaders = delete_shaders;
         mopts.native = crate::native_run::NativeSwitches::all();
         // `tail`：把 `pack.mcmeta` 的 `pack_format` 改写到目标版本。
         // `run_native` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
@@ -1163,6 +1188,7 @@ mod tests {
             false,
             true,
             true,   // §9.138：测试保持「完整转换」语义（GUI 手术开）
+            false,  // delete_shaders：本用例只关心耗时口径，保持默认关
         )
         .expect("conversion should succeed");
 

@@ -1,10 +1,14 @@
-//! 无界面转换 CLI：`2-pyramid.exe --convert <路径> [--to <版本>] [--out <目录>] [--report <file.json>]`
+//! 无界面转换 CLI：`2-pyramid.exe --convert <路径> [--to <版本>] [--out <目录>] [--report <file.json>] [--delete-shaders]`
 //!
 //! 供拖放脚本使用：把资源包（或含资源包的文件夹）拖到脚本上 → 跑完整转换 →
 //! 输出**结构化 JSON 报告**（结构分析 + 两个耗时口径 + 逐任务画像 + 体积变化）。
 //!
 //! 与 GUI 完全同一条管线（`process_zip_timed`），因此报告里的数字可直接用于
 //! 性能优化前后的对比。
+//!
+//! `--delete-shaders` 与 GUI 转换页上的同名开关是**同一个参数**（默认关）：
+//! 转完后把 `assets/minecraft/shaders` 与顶层 `shaders/` 整棵删掉。它存在的目的
+//! 之一是让这个行为能被**端到端对照**（同一个小包，开关两次，比条目数）。
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -129,7 +133,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         Some(v) => v.clone(),
         None => {
             eprintln!(
-                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>] [--fast]"
+                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>] [--fast] [--delete-shaders]"
             );
             return 2;
         }
@@ -152,6 +156,9 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
     // （两次 `cut_gui`，各约 1.5s）。代价是丢失 GUI 切图产物（血条/护甲槽等）。
     let fast = args.iter().any(|a| a == "--fast");
     let run_gui_surgeon = !fast;
+    // 破坏性开关，**默认关**：不加这个 flag 时产物与改动前逐字节相同。
+    // 与 GUI 转换页的开关共用同一条管线参数（`process_zip_timed` 的最后一个 bool）。
+    let delete_shaders = args.iter().any(|a| a == "--delete-shaders");
     let out_dir = arg_value(args, "--out").map(PathBuf::from);
     let report_path = arg_value(args, "--report").map(PathBuf::from);
 
@@ -212,6 +219,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
             false,
             true,
             run_gui_surgeon,
+            delete_shaders,
         ) {
             Ok((output, timing)) => {
                 convert_secs += convert_start.elapsed().as_secs_f32();

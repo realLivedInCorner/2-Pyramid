@@ -143,6 +143,40 @@
               <span class="slider"></span>
             </label>
           </div>
+
+          <!--
+            彻底删除 shaders。
+
+            为什么单独一行：它与上面两项**不是同一类**——Alpha 修复和着色器适配
+            都是"加工"，这一项是"删除"，代价是包里的自定义光影直接失效。所以它带
+            一个 `会删文件` 徽标（--danger），文案里把代价写在第二句，避免被读成
+            "又一个优化开关"。
+
+            控件沿用本页既有的 `.switch`（与上面两项同一个组件、同一行布局），
+            不新造样式；分隔靠 `.option-row` 的发丝线。
+          -->
+          <div class="option-row is-destructive">
+            <div class="option-info">
+              <div class="option-title">
+                {{ t('conversion.deleteShadersLabel') }}
+                <span
+                  class="help-icon"
+                  :title="t('conversion.deleteShadersHelp')"
+                  :aria-label="t('conversion.deleteShadersLabel')"
+                >?</span>
+                <span class="danger-tag">{{ t('conversion.deleteShadersTag') }}</span>
+              </div>
+              <p class="option-hint">{{ t('conversion.deleteShadersHint') }}</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                v-model="deleteShaders"
+                :aria-label="t('conversion.deleteShadersLabel')"
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
 
         <div class="stage-actions">
@@ -343,6 +377,16 @@ const selectedVersion = ref(localStorage.getItem('conversion.lastVersion') ?? DE
 const fixAlphaLayers = ref(localStorage.getItem('conversion.fixAlphaLayers') === 'true');
 // 实验：着色器适配默认开；关闭则原样保留 shaders（可能在新版本失效）
 const adaptShaders = ref(localStorage.getItem('conversion.adaptShaders') !== 'false');
+/**
+ * 彻底删除 shaders：转换后把 `assets/minecraft/shaders/` 与顶层 `shaders/`
+ * 整棵删掉（默认关）。
+ *
+ * 为什么它和上面两项的持久化方式不同：Alpha 修复 / 着色器适配只写 localStorage，
+ * 那是历史遗留；这一项是**破坏性**选项，用户偏好应当跟着配置备份/重置/迁移，
+ * 所以两端都写——`update_config` 里存一份（重装/迁移后还在），localStorage 只用于
+ * 首帧快速恢复。挂载时以配置为准（见 loadOutputSettings）。
+ */
+const deleteShaders = ref(localStorage.getItem('conversion.deleteShaders') === 'true');
 const selectedItems = ref<any[]>([]);
 const showResultModal = ref(false);
 const conversionResults = ref<any[]>([]);
@@ -512,6 +556,12 @@ const loadOutputSettings = async () => {
     if (typeof cfg?.output_path === 'string' && cfg.output_path.length > 0) {
       outputPath.value = cfg.output_path;
     }
+    // 删除 shaders 以**配置**为准：它是跟着备份/迁移走的用户偏好。
+    // localStorage 只是本机缓存（可能被清、可能来自更早的版本）。
+    // 只在值不同时赋值：否则每次进页面都会触发一次无意义的 update_config 回写。
+    if (typeof cfg?.delete_shaders === 'boolean' && cfg.delete_shaders !== deleteShaders.value) {
+      deleteShaders.value = cfg.delete_shaders;
+    }
   } catch {
     // ignore
   }
@@ -570,6 +620,14 @@ onMounted(async () => {
   });
   watch(adaptShaders, (v) => {
     localStorage.setItem('conversion.adaptShaders', String(v));
+  });
+  // 破坏性开关：本机缓存 + 配置文件双写。配置那份跟着备份/重置/迁移走，
+  // 所以重装后这个开关不会"看起来关着、实际还开着"（反之亦然）。
+  watch(deleteShaders, (v) => {
+    localStorage.setItem('conversion.deleteShaders', String(v));
+    invoke('update_config', { patch: { deleteShaders: v } }).catch((e) => {
+      console.warn('[conversion] 保存 delete_shaders 失败', e);
+    });
   });
 
   // Register the toast-action handler for “Open output folder”. The
@@ -752,6 +810,8 @@ const startConversion = async () => {
       outputDirs,
       fixAlphaLayers: fixAlphaLayers.value,
       adaptShaders: adaptShaders.value,
+      // 破坏性选项：默认 false（后端 `unwrap_or(false)`），这里显式传当前开关状态。
+      deleteShaders: deleteShaders.value,
     });
 
     for (let i = 0; i < selectedItems.value.length; i++) {
@@ -1708,6 +1768,48 @@ const exportLogsToFile = async () => {
   color: var(--ink);
 }
 .option-hint { margin: 4px 0 0; font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+
+/*
+ * 「会删文件」标记（彻底删除 shaders 那一行）。
+ *
+ * 形态刻意是**纯文字**，没有底色也没有描边——两个原因，第二个是量出来的：
+ *
+ * 1. 它要读起来像"标注"而不是"按钮"：本页的选项行是"行 + 发丝线"，再塞一个
+ *    实心胶囊就等于在行里造了一张小卡片，违反本页的分隔语言。
+ * 2. **带底/带描边的标记没法用像素法量对比度**：探针把文字设透明后截元素矩形取底色，
+ *    胶囊的 1px 描边与圆角外沿会被算成"文字的背景"。两版都试过：10% 底色版深色
+ *    "最差像素 2.67"、透明底 + 1px 描边版 1.99——那些是文字与**描边/圆角外沿**的比，
+ *    不是文字与背景的比，属于探针的误判。去掉底与边之后矩形里只剩行底色，测的才是真值。
+ *
+ * 颜色只取令牌（--danger：浅色 #b3261e / 深色 #e5534b），不写死。
+ * 层级靠字号（10px）＋大写＋正字距，不靠加粗（字重 600，遵循本项目上限）；
+ * 中文标题不加负字距，这里的拉丁大写用正值字距。
+ *
+ * 实测对比度（无头 Chrome，文字设 transparent 后按 WCAG 算中位与最不利像素，
+ * 报告较差的那个；原始数据见 .dsh-tmp/ui-review/delete-shaders/contrast.json）：
+ *   标记（10px，辅助）      浅色 5.89 / 5.72；深色 4.17 / 4.02 —— 均 ≥ 3:1。
+ *   行标题（14px/600，正文）浅色 16.09 / 14.24；深色 12.78 / 10.63 —— ≥ 4.5:1。
+ *   行说明（12px，正文）    浅色 6.07 / 5.19；深色 6.96 / 6.06 —— ≥ 4.5:1。
+ *   说明用 --ink-2 而非同页其他行的 --ink-3（后者实测浅色 4.80 / 深色 4.22）：
+ *   破坏性选项的"代价"那句话不该比旁边两行更难读。
+ *
+ * 深色下标记只有 4.17，没到 4.5：这是 --danger 令牌本身的上限（#e5534b 对深色面板
+ * 就这么多），而它是 10px 辅助标记、按辅助口径 3:1 判定。**没有为此改全局令牌**——
+ * --danger 全站共用（删除按钮、失败状态），为一个徽标调深会牵动别处。
+ */
+.danger-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--danger);
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: nowrap;
+}
+/* 破坏性选项的说明文字提一档墨色（--ink-3 → --ink-2）。只改颜色，不改字号/字重/间距。 */
+.option-row.is-destructive .option-hint { color: var(--ink-2); }
 
 /* ── 结果列表 ── */
 .result-list { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
