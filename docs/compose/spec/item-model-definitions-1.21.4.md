@@ -147,7 +147,7 @@
 | 任务名 | 文件 | 阶段 | 注册表类型 | 生效版本边 |
 |---|---|---|---|---|
 | `generate_item_definitions` | `src-tauri/src/natives/architect/item_definitions.rs`（604 行）+ 同目录 `item-definitions.json` | **Architect** | `Parallel` | `(42, 46)` |
-| `generate_cit_item_definitions` | `src-tauri/src/natives/surgeon/cit_item_definitions.rs`（768 行） | **Surgeon** | `Exclusive` | `(46, 55)` |
+| `generate_cit_item_definitions` | `src-tauri/src/natives/surgeon/cit_item_definitions.rs`（1673 行生产代码 + 822 行测试 = 2495 行） | **Surgeon** | `Exclusive` | `(46, 55)` |
 
 ### `generate_item_definitions` 做什么
 
@@ -204,43 +204,150 @@ condition(property = has_component, component = minecraft:custom_model_data)
 
 ---
 
-## 4. CIT 部分：**做了**
-
-### 映射规则（本任务实际实现的）
+## 4. CIT 部分：**做了**（2.203.0 之后扩展成「完整产出原生 JSON」）
 
 输入：`optifine/cit/**/*.properties` 与 `mcpatcher/cit/**/*.properties`（**两个根都扫**）。
 
-| OptiFine | 1.21.4+ 物品定义 |
-|---|---|
-| `type=item` + `items=a,b` + `nbt.CustomModelData=N` + `texture=T` | `items/a.json`、`items/b.json` 各插一个 `select` 分支 `when: N` → 生成的 `models/cit/<相对路径>.json` |
-| 同上但用 `model=M` | 分支直接指向 `M`（不生成模型文件） |
-| 生成模型 | `parent` = `minecraft:item/handheld`（贴图名以 `_sword`/`_pickaxe`/`_axe`/`_shovel`/`_hoe`/`_rod`/`_stick`/`_wand`/`_blade`/`_dagger`/`_spear`/`_hammer`/`_scythe`/`_bow`/`_crossbow`/`_trident` 结尾）或 `minecraft:item/generated`；`textures.layer0` 指向**被搬进标准贴图目录**的那份 |
-| 贴图 | CIT 的 PNG 惯例放在 properties 旁边，那个位置客户端**不索引** ⇒ 原样复制到 `assets/minecraft/textures/cit/<相对路径>.png` |
-| `items=` 为空 / 非 `type=item` / `damage=` / `stackSize=` / `enchantments=` / 其它 `nbt.*` / 没有 `nbt.CustomModelData` | **跳过并记 note** |
+### 4.1 支持矩阵（含目标格式分档）
 
-### 为什么「跳过」是正确答案
+`minecraft:component` 这个 condition property 是 **1.21.5（pack_format 55）** 才引入的，
+所以「读组件」类条件在 46–54 与 55+ 之间**分叉**：
 
-物品模型定义能表达的**只有模型选择与染色**：读不到附魔、读不到任意 NBT、读不到生物群系。
-把 `enchantments=sharpness` 硬翻成 `has_component(minecraft:enchantments)` 会变成
-「只要有任何附魔就换皮」——把作者精确的条件放宽成近似条件，**比不转换更糟**
-（玩家看到错误贴图且无从察觉）。
+| OptiFine 写法 | 目标 ≥ 55 | 目标 46–54 |
+|---|---|---|
+| `items=a,b` + `nbt.CustomModelData=N` + `texture=T` | ✅ `select(custom_model_data)` 的 `when: N` 分支 | ✅（同） |
+| `enchantments=` / `enchantmentIDs=` + `enchantmentLevels=N` | ✅ `condition(component, predicate=enchantments)`，`levels:{min:N,max:N}` | ❌ 跳过 + note「需要 1.21.5+ / 55」 |
+| 同上但**没写** `enchantmentLevels=` | ✅ 同上，`levels` 整个省略（=任意等级） | ❌ 同上 |
+| `hand=main\|off` | ✅ `select(display_context)`，`when` 用数组 | ✅（同，46 就有这个 property） |
+| `model=M`（包内模型 json） | ✅ 复制到 `models/cit/`，改写 `textures` 里的相对引用 | ✅（同） |
+| `texture=T` / 同名 PNG | ✅ 生成 `models/cit/<相对路径>.json` + 搬贴图 | ✅（同） |
+| `matchItems=bow` + `texture.bow_pulling_*` | ✅ 按原版弓的链重建 `using_item` → `range_dispatch(use_duration)` | ✅（同） |
+| `type≠item` / `items=` 空 / 无 CMD 也无条件 / `nbt.*`（非 CMD）/ `damage=` / `damageMask=` / `stackSize=` / `components.*` / 数字附魔 id / 只有 `enchantmentLevels` 没有附魔名 / `model.<状态>=` / `model=` 与 `texture.<状态>=` 同时出现 / 弩的多状态贴图 | ❌ 跳过 + note | ❌ 跳过 + note |
 
-没有 `nbt.CustomModelData` 的 CIT（无条件换皮）同样跳过：强行接成 CMD 会要求玩家
-先给物品打标签，**改变作者意图**。
+优先级按 OptiFine 官方文档原文：`weight` 降序、路径升序，**最外层 = 最高优先级**。
 
-### 与 `generate_item_definitions` 的叠加次序
+### 4.2 一条**被推翻的旧结论**（这是本次改造的核心）
 
-CIT 任务把 `select` 包在**最外层**，`fallback` 是原来的整棵树。
+旧版本这一节写的是「为什么『跳过』是正确答案」，理由是：
+
+> 把 `enchantments=sharpness` 硬翻成 `has_component(minecraft:enchantments)` 会变成
+> 「只要有任何附魔就换皮」——把作者精确的条件放宽成近似条件，比不转换更糟。
+
+**推理是对的，结论过时了。** `has_component` 只能问「组件在不在」；但 1.21.5 起有
+`condition(component)`，带 `predicate` + `value`，而 `minecraft:enchantments` 那个 predicate
+的 `levels` 支持**精确值** `{"min":4,"max":4}`（wiki `Data_component_predicate` 原文：
+「Matches an exact [Int]value, or checks if the value is between a range」）。
+于是「附魔 + 等级」是**精确可表达**的，一个等级都不放宽：
+
+```json
+{ "type": "minecraft:condition", "property": "minecraft:component",
+  "predicate": "minecraft:enchantments",
+  "value": [{ "enchantments": "minecraft:sharpness", "levels": { "min": 5, "max": 5 } }],
+  "on_true": { "type": "minecraft:model", "model": "minecraft:cit/sharpdiasword/s5" },
+  "on_false": { "…下一级…": "…" } }
+```
+
+形状的出处是四个**真实 1.21.5 / 1.21.10 材质包**的 `items/*.json`（本任务逐节点统计）：
+`condition` 334 个**全是** `property: minecraft:component`（`potion_contents` 179 + `enchantments` 153），
+`select` 95 个（`display_context` 37 / `trim_material` 58），`composite` 92 个，
+`model` 1148 个，`range_dispatch` 3 个（`damage` 1 / `use_duration` 2），`dye` 96 个，`empty` 30 个。
+
+**一个反转的事实**：官方客户端数据**从未**用过 `property: minecraft:component`——
+1.21.4 / 1.21.8 / 1.21.9 / 1.21.10 / 1.21.11 / 26.2 六个 jar 的 `items/*.json`
+（1385–1537 个定义）里它出现 **0** 次，`levels` 也出现 **0** 次。
+原版自己不需要「按附魔换模型」，所以这条只能靠那四个真实包 + wiki 交叉确认，**无法**从 jar 侧验证。
+
+### 4.3 `levels` 到底怎么写（`=255` 那个问题）
+
+- `enchantmentLevels=3` → `{"min":3,"max":3}`（**精确**，不是 `{"min":3}`）
+- `enchantmentLevels=3-` → `{"min":3}`（开区间）
+- `enchantmentLevels=2-4` → `{"min":2,"max":4}`
+- 没写 → `levels` 整个不出现（真实样本 `[1.21.10]弓箭等级覆盖(1).zip` 的
+  `{"enchantments":"minecraft:flame"}` 就是这样）
+- `enchantmentLevels=1 3 5`（断开） → **跳过**：并集不连续，单个 `{min,max}` 表达不了，
+  绝不并成 `1-5`
+- 多个附魔名 → **一项里的数组**（wiki：数组元素之间是「任一命中」= OptiFine 的语义；
+  而 `value` 数组里**各项之间是 AND**，所以绝不能拆成多项）
+
+`enchantmentLevels=255` 是「命令刷出来的 255 级附魔」这种真实玩法（验证包 `255axe/mrf`
+就是锋利 255 的斧头），**不是通配符**，所以写 `{"min":255,"max":255}`；
+只写 `{"min":255}` 会变成「≥255」，300 级的物品也会命中——`simulate.py` 的语义回归里
+专门钉了 `sharpness:300 → 不换皮` 这条。
+
+### 4.4 只用「替换」，不用 `composite`（和最初设想相反，有实测依据）
+
+四个样本包里的 `composite` 都是「原模型 + HUD 叠加层」，那是**新创作**，不是 OptiFine 语义的翻译。
+OptiFine CIT 的 `texture=` / `model=` 是**整张换掉**，证据是验证包里 `model=` 指向的模型本体：
+
+```json
+// optifine/cit/sharpdiasword/s2.json
+{ "parent": "item/handheld", "textures": { "layer0": "./s2" }, "display": { … } }
+```
+
+它自带 parent 与 layer0（连手持变换都写好了），是完整外观而不是叠加层；真按 composite 处理，
+32×32 的 CIT 图有 20%–25% 不透明像素，双份必然穿帮。
+「只想在图标角上叠个小标记」这种纯覆盖层意图**无法**与替换区分（实测：最薄的弓贴图
+72% 全透明，一张正常手持剑也有 75% 透明，用透明度比例判形状不可靠），所以不做自动判定。
+
+### 4.5 端到端：验证包 24 条 CIT 的改造前后
+
+包：`C:\Users\Admin\Downloads\濯卿觎1.20.1布吉岛材质 (1).zip`（format 15，24 条 CIT），
+命令 `2-pyramid.exe --convert <包> --to 55 --out <目录>`（产物是 zip）。
+
+| | 改造前 | 改造后 |
+|---|---|---|
+| 转出的规则 | **0** | **12** |
+| 跳过的规则 | 24 | 12 |
+| 产物 `items/*.json` | 12 | **15**（+`bow` +`diamond_sword` +`golden_axe`） |
+| 产物 `models/cit/*.json` | 0 | **30** |
+| 产物 `textures/cit/*.png` | 0 | **45** |
+
+转出的 12 条：`255axe/gold_axe`（fortune 3）、`255axe/mrf`（sharpness 255）、
+`bow0`–`bow5`（punch 3 / power 1–5，各带 4 个状态模型）、`sharpdiasword/s2`–`s5`（sharpness 2–5）。
+
+仍跳过的 12 条，**每条都有具体理由**：6 条烟花 `nbt.Fireworks.*`（物品定义读不到任意 NBT）、
+5 条 `sharp8axe/*`（只有 `enchantmentLevels=8` 没有附魔名 → OptiFine 语义是
+「所有附魔等级**之和**」，目标侧只能表达单条附魔的等级）、1 条 `crossbow/q3`
+（弩的状态链在 46 与 69 之间改过结构，见 4.6）。
+
+**语义回归**（`simulate.py`：按原版判定规则模拟 22 组输入）：22/22 与 OptiFine 原规则一致，
+含 `sharpness 6 → 不换皮`、`sharpness 300 → 不换皮`、`无附魔的弓 → 原版拉弦链`；
+且 `items/bow.json` 的未命中分支与 **1.21.10 官方 `items/bow.json` 逐字段相同**。
+
+### 4.6 踩到的坑（全部实测）
+
+1. **`mcpatcher/` 是另一个根**：`rename_mcpatcher_to_optifine` 挂在 `(7,8)` 边上，
+   而 34→55 的路径是 `34→42→46→55`——**不经过**。最初只扫 `optifine/`，CIT 一条都没转出来，
+   而任务自己报告「没有 CIT」，一声不响。
+2. **`texture=bow` 不带扩展名**（OptiFine 文档的示例就不带）。旧实现按原样查，于是验证包
+   7 条弓/弩规则**全部**因为「贴图找不到」被跳过——先把这一步修掉，附魔条件才有机会生效。
+3. **`model=` 的裸名要按「相对 properties 文件」解析**：`model=s2` 的 `s2.json` 就在
+   `optifine/cit/sharpdiasword/` 里。而 `255axe/gold_axe.properties` 写 `model=golden_axe` 时，
+   包里**同时**有 `optifine/cit/255axe/golden_axe.json`（CIT 自己的模型）与
+   `models/item/golden_axe.json`（包作者的原版模型）——顺序写反就静默用错模型。
+4. **复制过来的模型必须改写 `textures` 里的 `./xxx`**：`./` 在资源路径里没有意义，
+   原样复制就是紫黑格（验证包 4 个模型全写 `"layer0": "./s2"`）。同时把旧字段 `overrides` 剥掉
+   （1.21.4+ 的模型不再读它，CMD 表由 `generate_item_definitions` 负责）。
+5. **写 `items/bow.json` = 接管原版那张定义**。若默认分支写成自指 `minecraft:item/bow`，
+   未附魔的弓会**永远停在静态贴图上，拉弦动画整段消失**。所以默认分支用原版那条链。
+6. **规则要倒序折**：每折一次都是把当前树塞进新条件的 `on_false`，最后折的在最外层。
+   正序折会让**优先级最低**的规则跑到最外层（锐利 1 挡住锐利 5）。
+7. **跳过必须零副作用**：第一版先搬贴图/写模型再判断「这条能不能转」，于是跳过的弩规则
+   在产物里留下孤儿 `models/cit/crossbow/q3.json` + `textures/cit/crossbow/q3.png`
+   （31 个模型里多出一个没人引用的）。可行性检查已经挪到最前面，并有单测钉住。
+8. **空格也是分隔符**：`matchItems=diamond_sword iron_sword`（文档里的写法）在只按 `,` 切时
+   会变成一个假物品名。
+9. **`(46,55)` 这条边**决定本任务只在目标 ≥55 时运行（`--to 46` 的日志里没有本任务），
+   所以 4.1 表里「46–54 跳过并记 note」那条分支在当前放置下**跑不到**；它在模块里由
+   `component_ok` 守卫 + 单测钉住，边一旦挪动就会生效。
+
+### 4.7 与 `generate_item_definitions` 的叠加次序
+
+CIT 的条件链包在**最外层**，CMD 的 `select` 在内层，`fallback` 是原来的整棵树。
 即「CIT 命中走 CIT，否则整条旧链（含旧 CMD 表）原样生效」——
-与 OptiFine 里 CIT 优先级高于 `overrides` 一致。
+与 OptiFine 里 CIT 优先级高于 `overrides` 一致。幂等：同一份输入跑第二遍不会再套一层
+（靠「附魔条件 + 叶子模型引用」的指纹去重）。
 
-### 踩到的坑（实测）
-
-`mcpatcher/cit/**` → `optifine/cit/**` 的改名任务 `rename_mcpatcher_to_optifine`
-**挂在 `(7,8)` 边上**，而 34→55 的转换路径是 `34→42→46→55`——**根本不经过那条边**。
-所以老包的 `mcpatcher/cit/**` 会原样留在包里。我最初只扫 `optifine/`，
-端到端用例里 CIT **一条都没转出来，而任务自己报告「没有 CIT」**，一声不响。
-改为两个根都扫，并把这个事实写成端到端测试里的断言（`mcpatcher/` 必须原样保留）。
 
 ---
 
@@ -269,18 +376,29 @@ exit=0
 ### 测试
 
 ```
-### A) 全量测试
-test result: ok. 269 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 3.12s
+### A) 全量测试（CIT 扩展之后重跑）
+test result: ok. 296 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 3.13s
 ```
 
-**252 → 275 的关系**：改动前 `cargo test --lib` 报 `ok. 252 passed; 0 failed; 6 ignored`。
-本次**新增 23 个测试**（全部通过），故 269 = 252 + 23 − 6 ignored。
-新增清单：
+**276 → 296 的关系**：CIT 扩展前 `cargo test --lib` 报 `ok. 276 passed; 0 failed; 6 ignored`。
+本次 CIT 模块的测试 **11 → 31**（+20，全部通过），其余 265 个测试一个没动、一个没掉，
+故 296 = 276 + 20。CIT 新增的 20 个：
 
-- `natives::item_definitions::tests::*` —— **10 个**
-- `natives::cit_item_definitions::tests::*` —— **11 个**
-- `arom::engine::scheduler::tests::modern_item_definition_tasks_sit_on_the_right_edges` —— 1 个
-- `native_run::tests::modern_item_definitions_survive_the_whole_pipeline` —— 1 个（端到端）
+- 附魔条件：`enchantment_level_becomes_an_exact_range` / `level_255_is_written_as_min_and_max` /
+  `enchantment_without_levels_omits_the_levels_field` / `open_level_range_uses_min_only` /
+  `multiple_enchantment_ids_share_one_predicate` / `broken_level_list_is_skipped` /
+  `total_levels_without_ids_is_skipped` / `numeric_enchantment_id_is_skipped` /
+  `enchantment_rules_are_skipped_below_format_55` / `cmd_rules_still_convert_below_format_55` /
+  `higher_weight_is_nested_outside` / `second_run_does_not_nest_the_same_condition_again`
+- `model=` 与贴图：`model_equals_sibling_json_is_copied_and_textures_rewritten` /
+  `dangling_relative_model_is_skipped` / `texture_without_extension_is_found` /
+  `space_separated_lists_are_split_not_glued`
+- 手与多状态：`hand_off_uses_display_context_cases` / `hand_main_includes_gui` /
+  `bow_state_textures_rebuild_the_vanilla_chain` / `crossbow_state_textures_are_skipped`
+
+（`unsupported_conditions_are_reported` 与 `declared_scope_covers_both_output_directories`
+是**改写**不是新增：前者原本断言「`enchantments=` 不可转」，那正是本次推翻的结论；
+后者补了「读范围必须包含 `models/`」。）
 
 ### 冻结基线：**没有变**
 
@@ -401,7 +519,7 @@ let target = tx.view().mcmeta().ok().and_then(|m| m.effective_format())...
 
 具体证据：
 
-1. **代码**：`item_definitions.rs`（604 行）与 `cit_item_definitions.rs`（768 行）
+1. **代码**：`item_definitions.rs`（604 行）与 `cit_item_definitions.rs`（2495 行，含 31 个单测）
    是**从零写的**，结构不同、命名不同、注释是中文且记录了 2pyr 自己的踩坑。
    交叉检查 FP 独有的符号名，在新增文件里**一处都没出现**：
    ```
