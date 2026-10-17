@@ -116,7 +116,7 @@ npm run 2pyr       # Tauri dev 模式（Rust 后端 + Vite 前端）
 更新源：**仅 GitHub 官方**——第三方镜像 `cdn.5eggpack.top` 已于 2026-10 **彻底移除**（镜像作者停止维护），设置里不再有「更新源」选项，也没有测速 / 切换入口。
 
 发版要求：
-1. Release 附带 `.exe` 安装包（自研安装器）及**同名 `.sha256` 校验文件**（`build_release.py` 自动生成）。**校验是强制的**：缺少 `.sha256`、校验文件拉取失败或哈希不匹配，更新器一律拒绝下载/安装；
+1. Release 附带 `.exe` 安装包（自研安装器）及**同名 `.sha256` 校验文件**（`build_release.py` 自动生成）。**哈希不匹配一律拒绝**；`.sha256` 缺失或拉取失败时默认同样拒绝，用户可在界面上**显式选择跳过校验**继续安装（仅当次有效、不记忆、记入日志，且安装包文件名不符版本号时不允许跳过）；
 2. 应用内更新时，更新器以 `--from-app` 拉起安装器的**覆盖更新向导**（保留用户数据、锁定原安装目录），而不是全新安装流程；
 3. 走 Microsoft Store 时另附 `release/2-Pyramid-{版本}.msix`（`build_release.py` 默认产出，可用 `--skip-msix` 跳过）。
 
@@ -353,7 +353,7 @@ The update channel has three states: **Stable** (stable releases only) / **Pre-R
 Update source: **official GitHub only** — the third-party mirror `cdn.5eggpack.top` was **fully removed in 2026-10** (its maintainer stopped maintaining it); Settings no longer offers an update-source option, speed test or switch.
 
 Release requirements:
-1. Attach the `.exe` installer plus a **matching `.sha256` file** (`build_release.py` writes it). **Verification is mandatory**: a missing checksum, a failed checksum fetch, or a hash mismatch makes the updater refuse to download/install;
+1. Attach the `.exe` installer plus a **matching `.sha256` file** (`build_release.py` writes it). **A hash mismatch is always refused**; a missing or unfetchable checksum is refused by default, but the user may **explicitly opt to skip verification** for that one download (not remembered, logged, and not permitted when the installer filename does not match the release version);
 2. For in-app updates the updater launches the installer with `--from-app`, which opens the **overwrite-update wizard** (keeps user data, locks the existing install dir) instead of the fresh-install flow;
 3. For Microsoft Store, attach `release/2-Pyramid-{version}.msix` as well (produced by default; skip with `--skip-msix`).
 

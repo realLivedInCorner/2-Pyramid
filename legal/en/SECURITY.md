@@ -28,7 +28,7 @@ We aim to respond within **7 business days**. Valid issues get coordinated fix a
 ## 3. Security design notes (for your risk review)
 
 - **Local-first:** conversions do not upload files by default; see `PRIVACY.md`
-- **Update integrity (mandatory):** releases **must** ship `.sha256`; the updater verifies the hash after download — **mismatches are refused and deleted, and any release without a `.sha256` asset (or whose checksum cannot be fetched) is refused outright** (updates that cannot be proven intact are never installed)
+- **Update integrity:** releases **must** ship `.sha256`; the updater verifies the hash after download and **refuses and deletes on mismatch**. If the checksum is missing or cannot be fetched, the update is refused by default as well; the user may **explicitly opt** to continue without verification for that single download. The choice is **not remembered** and is logged, and skipping is **not permitted** when the installer filename does not match the release version (otherwise both the naming check and the integrity check would fail at once)
 - **Download allowlist:** installers and hashes only from `github.com` and its subdomains, plus hosts **exactly equal to** `objects.githubusercontent.com` (subdomains of that host are not allowlisted). See `is_allowed_download_url` in `src-tauri/src/updater.rs`.
 - **Loopback only:** the app binds loopback addresses only — the single-instance lock on `127.0.0.1:24157` (same-port delivery), plus an action-stream port `127.0.0.1:24159` in debug builds. **It never listens on an external interface**
 - **CSP:** the WebView restricts script and resource origins

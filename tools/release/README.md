@@ -48,7 +48,7 @@ gh release create Stable-x.y.z `
   --notes-file <notes.md> --verify-tag --latest
 ```
 
-- 资产**只发 EXE + `.sha256`**（应用内更新器强制校验 `.sha256`）；**MSIX 不进 Releases**。
+- 资产**只发 EXE + `.sha256`**（应用内更新器默认强制校验，哈希不匹配一律拒绝；校验文件不可用时用户可显式选择跳过，仅当次有效）；**MSIX 不进 Releases**。
 - 标题格式：`2-Pyramid Stable x.y.z-BUILDnnnnn`；tag：`Stable-x.y.z`。
 - 发版后必须用**匿名**接口确认更新器能看到它：
 

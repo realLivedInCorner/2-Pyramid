@@ -45,7 +45,7 @@ If you enable **Foray** AI analysis:
 **Silent deploy**: if you install via a silent script (`--silent` / `/silent` / `/S` / `-s` / `--quiet` / `/quiet`), the installer does not display this disclaimer; the full text ships in the package's `legal/` directory and is worth reading.
 
 
-In-app updates download installers only from this repository's GitHub Releases and verify SHA-256. If you obtain installers from unofficial channels, security and integrity are your responsibility.
+In-app updates download installers only from this repository's GitHub Releases and verify SHA-256. **When the checksum is unavailable, you may explicitly choose to continue without verification, in which case the integrity and origin of that installation are your responsibility.** If you obtain installers from unofficial channels, security and integrity are your responsibility.
 
 ## 7. Limitation of liability
 

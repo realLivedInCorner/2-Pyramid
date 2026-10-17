@@ -587,18 +587,19 @@
             </div>
             <div class="item-arrow">→</div>
           </div>
-          <div class="setting-item clickable" @click="checkUpdate" v-if="shouldShowItem('update')">
+          <!--
+            检查更新：这一行**只负责跳转**，不再自己发请求。
+            更新改成整页之后，「检查中 / 已最新 / 检查失败」都是那一页的状态；
+            在这里再查一遍会让同一句话（比如「已是最新」）出现在两个位置，
+            而且两处的时效性还不一样。
+          -->
+          <div class="setting-item clickable" @click="emit('open-update-page')" v-if="shouldShowItem('update')">
             <div class="item-icon">
-              <i v-if="updateChecking" class="ri-loader-4-line ri-spin" aria-hidden="true"></i>
-              <i v-else class="ri-refresh-line" aria-hidden="true"></i>
+              <i class="ri-refresh-line" aria-hidden="true"></i>
             </div>
             <div class="item-info">
               <div class="label">{{ t('settings.checkUpdate.label') }}</div>
-              <div class="desc">
-                <template v-if="updateChecking">{{ t('settings.checkUpdate.checking') }}</template>
-                <template v-else-if="updateError">{{ updateError }}</template>
-                <template v-else>{{ t('settings.checkUpdate.desc', { version: displayVersion }) }}</template>
-              </div>
+              <div class="desc">{{ t('settings.checkUpdate.desc', { version: displayVersion }) }}</div>
             </div>
             <div class="item-arrow">→</div>
           </div>
@@ -806,7 +807,7 @@ const emit = defineEmits([
   'update:action-monitor',
   'update:background',
   'update:ui-style',
-  'show-update-dialog',
+  'open-update-page',
   'reset-to-oobe',
 ]);
 
@@ -1068,11 +1069,11 @@ const onDevUnlocked = () => {
 };
 
 // ── Updater ──────────────────────────────────────
-const { checkForUpdate, getChannel } = useUpdater();
+// 这里只保留「更新通道」这个设置项要用的 getChannel。
+// 检查 / 下载 / 安装全部搬到了 UpdatePage.vue —— 本页不再持有更新流程的任何状态。
+const { getChannel } = useUpdater();
 const updateChannel = ref('master');
 const autoCheckUpdate = ref(true);
-const updateChecking = ref(false);
-const updateError = ref('');
 const currentVersion = ref('');
 const displayVersion = computed(() => {
   const v = appInfoVersion.value && appInfoVersion.value !== '0.0.0'
@@ -1218,23 +1219,6 @@ const categories = computed<WorkbenchStep[]>(() =>
 
 const backToHome = () => emit('switch-page', 'home');
 const goBack = backToHome;
-const checkUpdate = async () => {
-  updateChecking.value = true;
-  updateError.value = '';
-  try {
-    const channel = await getChannel();
-    const result = await checkForUpdate(channel);
-    if (result.hasUpdate) {
-      emit('show-update-dialog', result);
-    } else {
-      updateError.value = t('settings.checkUpdate.alreadyLatest');
-    }
-  } catch (e: any) {
-    updateError.value = typeof e === 'string' ? e : t('settings.checkUpdate.checkFailed');
-  } finally {
-    updateChecking.value = false;
-  }
-};
 
 const testNotification = async () => {
   await notify({

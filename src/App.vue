@@ -13,7 +13,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
  import SettingsPage from "./components/SettingsPage.vue";
  import ForayPage from "./components/ForayPage.vue";
  import StartupPage from "./components/StartupPage.vue";
- import UpdateDialog from "./components/UpdateDialog.vue";
+ import UpdatePage from "./components/UpdatePage.vue";
  import NotificationToast from "./components/NotificationToast.vue";
  // 应用内文件浏览器：单例挂载在这里，十个调用点通过 useFilePicker() 触发，
  // 各自不必再引一份组件。
@@ -73,6 +73,7 @@ import { resolveImageUrl } from "./utils/assetUrl";
    if (currentPage.value === "settings") return SettingsPage;
    if (currentPage.value === "overlay") return OverlayPage;
    if (currentPage.value === "foray") return ForayPage;
+   if (currentPage.value === "update") return UpdatePage;
    return HomePage;
  });
 
@@ -148,6 +149,11 @@ import { resolveImageUrl } from "./utils/assetUrl";
    if (currentPage.value === "home") {
     return { userName: userName.value, bootPhase: bootPhase.value };
    }
+   // 更新页：调用方（启动检查 / 设置页 / 提示条）可能已经拿了检查结果，
+   // 有就直接进结果态，省一次网络往返；没有就由页面自己查。
+   if (currentPage.value === "update") {
+    return { updateResult: updateResult.value };
+   }
    return {};
  }); 
   
@@ -198,6 +204,9 @@ const NAV_DEPTH: Record<string, number> = {
   conversion: 1,
   overlay: 1,
   settings: 1,
+  // 更新页与设置页同层：它从设置、提示条、启动检查三处进入，
+  // 深度写 1 意味着「从首页往前一步」，与设置页一致。
+  update: 1,
   foray: 2,
 };
 /** 本次切换的方向：forward 内容自下而上顶入，back 自上而下落回。 */
@@ -228,7 +237,10 @@ const updateDevMode = async (value: boolean) => {
 // ── Auto updater ──────────────────────────────────────
 const { checkStartupUpdate, checkUpdateMarker } = useUpdater();
 
-const showUpdateDialog = ref(false);
+/**
+ * 最近一次检查结果。更新页从三处进入，都可能已有一份新鲜结果：
+ * 启动检查、设置页、更新提示条。有就带过去，页面不必再查一次。
+ */
 const updateResult = ref<UpdateCheckResult | null>(null);
 
 const toastVisible = ref(false);
@@ -251,14 +263,17 @@ function dismissToast() {
   if (toastTimer) clearTimeout(toastTimer);
 }
 
-function openUpdateDialog() {
+/**
+ * 打开更新页。
+ *
+ * 传 `null` 表示「没有现成结果」——页面挂载后自己查，检查中/检查失败
+ * 这两个状态因此只写在页面里一处。传结果则直接进结果态（启动检查时
+ * 刚查过的数据，再查一次只会让用户多看一次转圈）。
+ */
+function openUpdatePage(result: UpdateCheckResult | null = null) {
   dismissToast();
-  showUpdateDialog.value = true;
-}
-
-function onSettingsCheckUpdate(result: UpdateCheckResult) {
   updateResult.value = result;
-  showUpdateDialog.value = true;
+  switchPage("update");
 }
 
 async function doStartupCheck() {
@@ -272,9 +287,10 @@ async function doStartupCheck() {
     const r = await checkStartupUpdate();
     if (!r.hasUpdate || !r.result) return;
     updateResult.value = r.result;
-    // Safe-tag / major：启动时直接弹强制更新；minor/patch 仅轻提示
+    // Safe-tag / major：启动时直接进更新页（强制更新的主操作在那里）；
+    // minor/patch 只轻提示，点提示条才进页面 —— 启动就被拽走一屏太粗暴。
     if (r.priority === "safe") {
-      showUpdateDialog.value = true;
+      openUpdatePage(r.result);
     } else {
       showToast("optional", r.result.latest?.version ?? "");
     }
@@ -782,7 +798,7 @@ onMounted(async () => {
                @update:action-monitor="(v: boolean) => actionMonitor = v"
                @update:background="onBackgroundChanged"
                @update:ui-style="(v: string) => applyUiStyle(v)"
-               @show-update-dialog="onSettingsCheckUpdate"
+               @open-update-page="() => openUpdatePage()"
                @reset-to-oobe="onFactoryResetToOobe"
              />
            </div> 
@@ -790,10 +806,10 @@ onMounted(async () => {
        </div> 
      </main>
 
-    <!-- Update toast -->
+    <!-- 更新提示条。点击进入更新页（不再是弹窗）；success 那条只是通报，不跳转 -->
     <Transition name="toast-slide">
       <div v-if="toastVisible" class="toast-container">
-        <div class="toast-card" :class="'toast-' + toastPriority" @click="toastPriority !== 'success' && openUpdateDialog()">
+        <div class="toast-card" :class="'toast-' + toastPriority" @click="toastPriority !== 'success' && openUpdatePage(updateResult)">
           <div class="toast-icon">
             <i v-if="toastPriority === 'safe'" class="ri-shield-check-line"></i>
             <i v-else-if="toastPriority === 'success'" class="ri-check-double-line"></i>
@@ -816,13 +832,6 @@ onMounted(async () => {
         </div>
       </div>
     </Transition>
-
-     <!-- Update dialog -->
-     <UpdateDialog
-       v-if="showUpdateDialog && updateResult"
-       :updateResult="updateResult"
-       @close="showUpdateDialog = false"
-     />
 
      <!-- Notification toast -->
      <NotificationToast />

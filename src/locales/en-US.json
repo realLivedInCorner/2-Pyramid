@@ -464,10 +464,7 @@
     "checkUpdate": {
       "label": "Check for Updates",
       "desc": "Current Version: {version}",
-      "searchDesc": "Keep the app up to date",
-      "checking": "Checking...",
-      "alreadyLatest": "Already up to date",
-      "checkFailed": "Update check failed"
+      "searchDesc": "Keep the app up to date"
     },
     "devMode": {
       "title": "Developer Mode",
@@ -672,41 +669,129 @@
     }
   },
   "update": {
-    "checking": "Checking for updates...",
-    "noUpdate": "Up to Date",
-    "ok": "OK",
-    "prioritySafe": "Important Security Update",
-    "priorityOptional": "Optional Update",
-    "bumpMajor": "Major Update",
-    "bumpMinor": "Feature Update",
-    "bumpPatch": "Patch Update",
-    "bumpMajorHint": "Major version change — recommended soon",
+    "pageTitle": "Update",
+    "pageSubtitle": "Version, installer and update channel",
+    "channelStable": "Stable channel",
+    "channelUnstable": "Test channel",
+    "channelBoth": "Both channels",
+    "checking": "Checking for updates…",
+    "connecting": "Querying the GitHub release list",
+    "checkAgain": "Check again",
+    "checkedAt": "Checked at {time}",
+    "checkFailedTitle": "Update check failed",
+    "noUpdate": "Already up to date",
+    "noUpdateDesc": "Version v{version} is the newest on this channel.",
+    "currentLabel": "Current",
+    "latestLabel": "Latest",
+    "prioritySafe": "Important security update",
+    "priorityOptional": "Optional update",
+    "bumpMajor": "Major update",
+    "bumpMinor": "Feature update",
+    "bumpPatch": "Fix update",
+    "bumpMajorHint": "Major version change — update soon",
     "bumpMinorHint": "Includes new features",
-    "bumpPatchHint": "Bug fixes and stability improvements",
+    "bumpPatchHint": "Fixes and stability improvements",
     "betaTag": "Beta",
-    "skipVersion": "Skip This Version",
-    "remindLater": "Remind Later",
-    "updateNow": "Update Now",
-    "downloading": "Downloading update...",
-    "cancel": "Cancel",
-    "downloadFailed": "Download Failed",
-    "installFailed": "Installation Failed",
+    "channelRow": "Channel",
+    "publishedRow": "Published",
+    "sizeRow": "Installer",
+    "releaseRow": "Release page",
+    "viewOnGithub": "View on GitHub",
+    "releaseNotes": "Release notes",
     "unknown": "Unknown",
-    "readyTitle": "Installer Ready",
+    "updateNow": "Update now",
+    "remindLater": "Remind me later",
+    "remindLaterHint": "Nothing will be downloaded now. You can return to this page from Settings later.",
+    "downloading": "Downloading update…",
+    "remaining": "{time} left",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling…",
+    "cancelHint": "Cancelling discards the bytes already downloaded.",
+    "verifying": "Verifying the installer…",
+    "verifyingShort": "Verifying",
+    "verifyingDesc": "Comparing SHA-256; installation stays locked until it matches.",
+    "verifiedOk": "SHA-256 verified",
+    "shaSkippedBadge": "Not verified (SHA-256 skipped)",
+    "skippedNotice": "SHA-256 was skipped for this download, so the file cannot be confirmed to match the published one.",
+    "readyTitle": "Installer is ready",
     "readyDesc": "The setup wizard will open to finish the update",
-    "readyWarn": "Please save all work before continuing",
-    "installLater": "Install Later",
-    "installRestart": "Start Install",
-    "installing": "Starting installer...",
-    "installingDesc": "The application will close shortly. Please complete the update in the setup wizard.",
-    "failed": "Update Failed",
+    "readyWarn": "Save your work before continuing",
+    "installLater": "Install later",
+    "installRestart": "Start installation",
+    "installing": "Starting the installer…",
+    "installingDesc": "The app will close; finish the update in the setup wizard",
+    "technicalDetail": "Technical details",
+    "copyDetail": "Copy",
+    "copied": "Copied",
     "retry": "Retry",
+    "backHome": "Back to home",
+    "skipShaAction": "Skip verification and continue",
+    "skipShaEyebrow": "SECURITY / BOUNDARY",
+    "skipShaTitle": "Skip installer verification",
+    "skipShaCost": "Skipping means neither the integrity nor the origin of this installer can be confirmed: the file may have been damaged in transit, or replaced by someone else. If it was swapped for a tampered build — including by a man-in-the-middle — the installation will not notice, and the program will still be installed on this machine.",
+    "skipShaResponsibility": "This option is offered only when the checksum file itself is missing or unreachable; it is not offered for a hash mismatch. Choosing to skip means you accept the consequences yourself; 2-Pyramid Studio is not liable for any loss caused by the installed program.",
+    "skipShaCancel": "Do not skip",
+    "skipShaConfirm": "I have read the above and still want to skip verification",
     "toast": {
-      "safeUpdate": "Important Security Update",
-      "updateComplete": "Update Complete",
-      "newVersion": "New Version Available",
-      "updatedTo": "Successfully updated to 2-Pyramid v{version}",
+      "safeUpdate": "Important security update",
+      "updateComplete": "Update complete",
+      "newVersion": "New version available",
+      "updatedTo": "Updated to 2-Pyramid v{version}",
       "versionAvailable": "Version {version} is available"
+    },
+    "errors": {
+      "network": {
+        "title": "Cannot reach the update server",
+        "hint": "The network is down or a proxy is blocking GitHub. Retry once github.com is reachable."
+      },
+      "timeout": {
+        "title": "Request timed out",
+        "hint": "The server did not respond in time — usually an unstable connection. Retry shortly."
+      },
+      "http": {
+        "title": "The server refused the request",
+        "hint": "The update server returned an error status. 403 / 429 usually means rate limiting; retry in a few minutes."
+      },
+      "disk": {
+        "title": "Could not write the temporary file",
+        "hint": "The temp directory is not writable or the disk is full. Free some space and retry."
+      },
+      "shaMissing": {
+        "title": "This release has no checksum file",
+        "hint": "The release is missing its .sha256, so the installer cannot be checked. Retry first; you may also skip verification if you accept the risk."
+      },
+      "shaUnreachable": {
+        "title": "The checksum file could not be fetched",
+        "hint": "It exists but could not be downloaded or parsed. Retry once; you may also skip verification if you accept the risk."
+      },
+      "shaMismatch": {
+        "title": "Installer verification failed",
+        "hint": "The downloaded bytes do not match the published hash, and the file was deleted. Download again; a repeated mismatch means the file may have been replaced, so do not bypass the check."
+      },
+      "asset": {
+        "title": "No downloadable installer found",
+        "hint": "This release has no matching installer asset. Retry later, or download it manually from the release page."
+      },
+      "blocked": {
+        "title": "Refused by the security policy",
+        "hint": "The download URL or file name is outside the allowed set, so it was aborted. That usually means a tampered response — confirm manually on the release page."
+      },
+      "busy": {
+        "title": "A download is already running",
+        "hint": "The same installer cannot be downloaded twice at once. Wait for the current one to finish."
+      },
+      "cancelled": {
+        "title": "Download cancelled",
+        "hint": "The partial file was deleted. You can start again."
+      },
+      "install": {
+        "title": "Could not launch the installer",
+        "hint": "The installer may be blocked by system policy or security software. Run it from the temp folder, or download again."
+      },
+      "other": {
+        "title": "Update failed",
+        "hint": "Check the technical details below, or retry later."
+      }
     }
   },
   "dialog": {

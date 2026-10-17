@@ -378,6 +378,7 @@ pub fn run() {
             foray_ai_test,
             updater::check_for_update,
             updater::download_update,
+            updater::cancel_update_download,
             updater::install_update,
             updater::get_update_channel,
             updater::set_update_channel,

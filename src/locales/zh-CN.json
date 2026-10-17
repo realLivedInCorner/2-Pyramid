@@ -464,10 +464,7 @@
     "checkUpdate": {
       "label": "检查更新",
       "desc": "当前版本：{version}",
-      "searchDesc": "保持软件处于最新状态",
-      "checking": "正在检查…",
-      "alreadyLatest": "已是最新版本",
-      "checkFailed": "检查更新失败"
+      "searchDesc": "保持软件处于最新状态"
     },
     "devMode": {
       "title": "开发者模式",
@@ -672,9 +669,20 @@
     }
   },
   "update": {
+    "pageTitle": "更新",
+    "pageSubtitle": "版本、安装包与更新通道",
+    "channelStable": "稳定通道",
+    "channelUnstable": "测试通道",
+    "channelBoth": "双通道",
     "checking": "正在检查更新…",
+    "connecting": "正在向 GitHub 查询版本列表",
+    "checkAgain": "重新检查",
+    "checkedAt": "检查时间 {time}",
+    "checkFailedTitle": "检查失败",
     "noUpdate": "已是最新版本",
-    "ok": "确定",
+    "noUpdateDesc": "当前版本 v{version} 已是该通道上的最新版本。",
+    "currentLabel": "当前",
+    "latestLabel": "最新",
     "prioritySafe": "重要安全更新",
     "priorityOptional": "可选更新",
     "bumpMajor": "重大版本更新",
@@ -684,14 +692,27 @@
     "bumpMinorHint": "包含新功能",
     "bumpPatchHint": "问题修复与稳定性改进",
     "betaTag": "测试版",
-    "skipVersion": "跳过此版本",
-    "remindLater": "稍后提醒",
-    "updateNow": "立即更新",
-    "downloading": "正在下载更新…",
-    "cancel": "取消",
-    "downloadFailed": "下载失败",
-    "installFailed": "安装失败",
+    "channelRow": "发布通道",
+    "publishedRow": "发布日期",
+    "sizeRow": "安装包",
+    "releaseRow": "发布页",
+    "viewOnGithub": "在 GitHub 上查看",
+    "releaseNotes": "更新说明",
     "unknown": "未知",
+    "updateNow": "立即更新",
+    "remindLater": "稍后提醒",
+    "remindLaterHint": "现在不更新。之后可从设置页重新进入本页。",
+    "downloading": "正在下载更新…",
+    "remaining": "剩余 {time}",
+    "cancel": "取消",
+    "cancelling": "正在取消…",
+    "cancelHint": "取消会丢弃已经下载的字节，不会留到下次。",
+    "verifying": "正在校验安装包…",
+    "verifyingShort": "校验中",
+    "verifyingDesc": "核对 SHA-256，通过后才会允许安装。",
+    "verifiedOk": "SHA-256 校验通过",
+    "shaSkippedBadge": "本次未校验（已跳过 SHA-256）",
+    "skippedNotice": "本次下载跳过了 SHA-256 校验，无法确认文件与发布者上传的一致。",
     "readyTitle": "安装程序已就绪",
     "readyDesc": "将打开安装向导完成更新",
     "readyWarn": "请保存所有工作后再继续",
@@ -699,14 +720,78 @@
     "installRestart": "开始安装",
     "installing": "正在启动安装程序…",
     "installingDesc": "应用即将关闭，请在安装向导中完成更新",
-    "failed": "更新失败",
+    "technicalDetail": "技术细节",
+    "copyDetail": "复制",
+    "copied": "已复制",
     "retry": "重试",
+    "backHome": "返回首页",
+    "skipShaAction": "跳过校验并继续",
+    "skipShaEyebrow": "SECURITY / 安全边界",
+    "skipShaTitle": "跳过安装包校验",
+    "skipShaCost": "跳过之后，这个安装包的完整性与来源都无法确认：文件可能在下载途中损坏，也可能已被他人替换。如果它被换成了经过篡改的程序（包括被中间人替换），安装过程不会察觉，程序仍会照常装入本机。",
+    "skipShaResponsibility": "这个选项只在校验文件本身缺失或取不到时提供，哈希对不上时不提供。选择跳过，即表示你已知悉上述后果并由你自行承担；2-Pyramid Studio 不对因此安装的程序造成的任何损失负责。",
+    "skipShaCancel": "不跳过",
+    "skipShaConfirm": "我已阅读上述说明，仍要跳过校验",
     "toast": {
       "safeUpdate": "重要安全更新",
       "updateComplete": "更新完成",
       "newVersion": "发现新版本",
       "updatedTo": "已成功更新到 2-Pyramid v{version}",
       "versionAvailable": "版本 {version} 可供下载"
+    },
+    "errors": {
+      "network": {
+        "title": "无法连接更新服务器",
+        "hint": "网络不通或被代理拦截。确认能打开 GitHub 后重试。"
+      },
+      "timeout": {
+        "title": "请求超时",
+        "hint": "服务器没有在预期时间内响应，多为网络不稳。稍后重试。"
+      },
+      "http": {
+        "title": "服务器拒绝了请求",
+        "hint": "更新服务器返回了错误状态。403 / 429 通常是限流，等几分钟再试。"
+      },
+      "disk": {
+        "title": "写入临时文件失败",
+        "hint": "临时目录不可写或磁盘已满。清理空间后重试。"
+      },
+      "shaMissing": {
+        "title": "该版本没有附校验文件",
+        "hint": "发布页缺少 .sha256，无法核对安装包。可以先重试；确认风险后也能跳过校验。"
+      },
+      "shaUnreachable": {
+        "title": "校验文件取不到",
+        "hint": "校验文件存在但下载或解析失败。重试一次；确认风险后也能跳过校验。"
+      },
+      "shaMismatch": {
+        "title": "安装包校验不通过",
+        "hint": "下载到的文件与发布的哈希不一致，已删除。请重新下载；重复出现说明文件可能被替换，此时不建议绕过校验。"
+      },
+      "asset": {
+        "title": "找不到可下载的安装包",
+        "hint": "这个版本没有匹配的安装包资产。稍后重试，或到发布页手动下载。"
+      },
+      "blocked": {
+        "title": "更新被安全策略拒绝",
+        "hint": "下载地址或文件名不在允许范围内，已中止。这通常是响应被篡改的信号，请到发布页手动确认。"
+      },
+      "busy": {
+        "title": "已有下载在进行中",
+        "hint": "同一个安装包不能同时下载两次。等当前这次结束。"
+      },
+      "cancelled": {
+        "title": "下载已取消",
+        "hint": "临时文件已删除，可以重新开始。"
+      },
+      "install": {
+        "title": "无法启动安装程序",
+        "hint": "安装包可能被系统策略或安全软件拦截。可在临时目录手动运行，或重新下载。"
+      },
+      "other": {
+        "title": "更新失败",
+        "hint": "查看下面的技术细节，或稍后重试。"
+      }
     }
   },
   "dialog": {
