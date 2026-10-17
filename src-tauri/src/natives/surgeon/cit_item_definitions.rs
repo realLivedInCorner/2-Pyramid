@@ -55,9 +55,9 @@
     //!
     //! | OptiFine | 1.21.4+ 物品定义 | 需要 ≥55 |
     //! |---|---|---|
-    //! | `items=a,b` + `nbt.CustomModelData=N` + `texture=T` | `items/<a>.json` 与 `<b>.json` 各插一个 `select(custom_model_data)` 分支 `when: N` → 生成的 `cit` 模型 | 否（46 即可） |
-    //! | `enchantments=` / `enchantmentIDs=` + `enchantmentLevels=N` | `condition(component, predicate=enchantments)`，`value:[{enchantments, levels}]` | **是** |
-    //! | 同上但没写 `enchantmentLevels=` | 同上但 `levels` 整个省略（=「有这附魔就行，任何等级」，与样本包的写法一致） | **是** |
+    //! | `items=a,b` + `nbt.CustomModelData=N` + `texture=T` | `items/<a>.json` 与 `<b>.json` 各并一条 `range_dispatch(property = custom_model_data)` 阈值 `N` → 生成的 `cit` 模型（外层 `condition(has_component)` 守卫） | 否（46 即可） |
+    //! | `enchantments=` / `enchantmentIDs=` + `enchantmentLevels=N` | `condition(component, predicate=enchantments)`，`value:[{enchantments: [...], levels}]`（**附魔名永远是数组**，长度 1 也是） | **是** |
+    //! | 同上但没写 `enchantmentLevels=` | 同上但 `levels` 整个省略（=「有这附魔就行，任何等级」） | **是** |
     //! | `hand=main\|off` | `select(display_context)` 的 `cases[].when` 用**数组**列出该手对应的渲染上下文 | 否 |
     //! | `model=M`（`M` 是包内模型 json） | 把该 json **复制**到 `models/cit/<相对路径>.json` 并把其中 `textures` 的相对引用改写成搬好的 `cit/...` 贴图 | 否 |
     //! | `texture=T` | 生成 `models/cit/<相对路径>.json`（`parent` 按贴图名后缀选 handheld/generated），贴图搬到 `textures/cit/<相对路径>.png` | 否 |
@@ -79,14 +79,19 @@
     //! ```json
     //! { "type": "minecraft:condition", "property": "minecraft:component",
     //!   "predicate": "minecraft:enchantments",
-    //!   "value": [{ "enchantments": "minecraft:sharpness", "levels": { "min": 5, "max": 5 } }],
+    //!   "value": [{ "enchantments": ["minecraft:sharpness"], "levels": { "min": 5, "max": 5 } }],
     //!   "on_true": {...}, "on_false": {...} }
     //! ```
     //!
+    //! **`enchantments` 永远是数组**（上面这个方括号是 2026-10 修紫黑格时补的）：
+    //! 1.21.5 的 `kw$a` 与 1.21.10 的 `la$a` 都是 `Codec.listOf(bu.a)`，裸字符串会报
+    //! `Not a json array`，整份物品定义作废。下面「目标侧形状的实测数字」里那
+    //! 153 次 `enchantments` **不能当作写法证据**——三个 1.21.10 样本包用客户端
+    //! codec 解析时同样报这个错，它们本身是坏的。
+    //!
     //! 也就是说「附魔 + 等级」这个二维条件是**精确可表达**的，一个等级都不会放宽。
-    //! 实测出处：`[1.21.10]锋利显示+金剑耐久(1).zip` 的 7 个 `items/*.json` 里用了
-    //! 30 个 `condition(component, enchantments)`，等级链是 `{min:5}`→`{min:4}`→…→`{min:1}`
-    //! （同一个附魔按等级从高到低嵌套，靠 `on_false` 串起来——本任务照这个次序生成）。
+    //! 等级链的**次序**仍然参考 `[1.21.10]锋利显示+金剑耐久(1).zip`：同一个附魔按
+    //! 等级从高到低嵌套、靠 `on_false` 串起来（本任务照这个次序生成）。
     //!
     //! ## 目标侧形状的实测数字（四个样本包，递归统计 `items/*.json`）
     //!
@@ -130,12 +135,19 @@
     //! 因此规则先按 **`weight` 降序、路径升序**排序，再按这个顺序从外到内嵌套
     //! （最外层 = 最高优先级）。同一物品的多条规则因此都活着，而不是互相覆盖。
     //!
-    //! ## 与 CMD 数字的对接点
+    //! ## 与 CMD 数字的对接点（**这里踩过紫黑格的坑，别改回 `select`**）
     //!
-    //! 1.20.5 起 `CustomModelData` 变成 `minecraft:custom_model_data` **组件**，
-    //! 1.21.4 起它有 `floats` / `flags` / `strings` 三个列表，而**老式数字**留在 `main` 字段。
-    //! `select(property = custom_model_data, index = 0)` 读的就是 `main`——
-    //! 因此 `nbt.CustomModelData=7` 与 `CustomModelData:7` 的旧地图/命令**逐字节兼容**。
+    //! 1.20.5 起 `CustomModelData` 变成 `minecraft:custom_model_data` **组件**；
+    //! 1.21.4 起组件是 `floats` / `flags` / `strings` / `colors` 四个列表。
+    //! 老式数字 CMD 由数据升级落到 **`floats[0]`**，而数字阈值表在物品定义里的
+    //! 入口是 **`range_dispatch` + `property: custom_model_data` + `index: 0`**
+    //! （客户端 1.21.4 `hcq` 实际读 `cza.a(index)` → `List<Float>`）。
+    //!
+    //! `select` 的 `custom_model_data` property 是**另一个东西**：它读
+    //! `strings[index]`（`cza.c(int)` → `List<String>`），case 的 `when` 必须是
+    //! 字符串。用它接数字 CMD 会让整份 `items/<物品>.json` 解析失败，客户端回落到
+    //! missing model——就是用户看到的紫黑格。`nbt.CustomModelData=7` 请走
+    //! `range_dispatch`，形状见 [`super::custom_model_data_dispatch`]。
 
     use super::*;
     use std::collections::{BTreeMap, BTreeSet};
@@ -171,7 +183,8 @@
     /// 附魔这种「读组件」的条件要到 55 才有入口。
     const COMPONENT_CONDITION_FORMAT: u32 = 55;
 
-    const CMD_COMPONENT: &str = "minecraft:custom_model_data";
+    // `CMD_COMPONENT` 住在 `natives`（与 `item_definitions` 共用同一份常量）：
+    // 两个任务写的是同一个 property 名，分两份会出现"改一处漏一处"的静默分叉。
 
     /// **手持类物品的模型后缀**：这些物品在**第一人称/第三人称**里有专门的握持变换，
     /// 用 `item/generated` 会显得"平放在手里"。OptiFine 自己没有这个概念（它直接换贴图，
@@ -1014,19 +1027,34 @@
     ) -> serde_json::Value {
         match cond {
             Cond::Enchant { ids, levels } => {
-                // `minecraft:enchantments` 这个 data component predicate 的格式（wiki 原文）：
-                // 数组，每项 `{enchantments, levels}`，**各项之间是 AND**；
-                // 单项里的 `enchantments` 可以给数组，**元素之间是 OR**。
-                // 所以「多个附魔名」用一项搞定（与 OptiFine 的「任一命中」一一对应），
-                // 而「多个不同等级段」才需要嵌套（`parse_levels` 已保证只有一段）。
+                // `minecraft:enchantments` 这个 data component predicate 的格式：
+                // **一项 predicate 里 `enchantments` 必须永远是 JSON 数组**，
+                // 数组元素之间是 OR（与 OptiFine 的「任一附魔命中」一一对应）；
+                // 多个 predicate 项之间才是 AND。
+                //
+                // ## 为什么单个附魔也要写成数组（2026-10 的紫黑格根因）
+                //
+                // 旧实现照抄了样本包里的 `"enchantments": "minecraft:flame"`（裸字符串），
+                // 并在 `ids.len() == 1` 时写成字符串。**这是错的**，而且错得很隐蔽：
+                //
+                // * 1.21.5 客户端 `kw$a`：`Codec.listOf(bu.a).xmap(...)`——`listOf`
+                //   要求 JSON 数组，裸字符串直接报 `Not a json array: "minecraft:power"`；
+                // * 1.21.10 客户端 `la$a`：同一行 `Codec.listOf(bu.a)`，同样的错误；
+                // * 用两个版本的真实客户端 codec 解析本任务产物，**bow / diamond_sword /
+                //   golden_axe 三份定义全部 FAIL**；把 `enchantments` 改成数组后，错误
+                //   才从「Not a json array」变成「Can't access registry」（后者是离线
+                //   校验器没有加载附魔注册表，与定义本身无关）。
+                //
+                // 整份 `items/<物品>.json` 解析失败 ⇒ 该物品回落到 missing model
+                // （紫黑格）。所以这里**无条件**写数组：单个附魔是长度 1 的数组，
+                // 多附魔是长度 N 的数组；两种目标格式（55 / 69）都接受。
+                //
+                // **不要**照样本包写裸字符串——那三个 1.21.10 样本包本身用客户端
+                // codec 解析同样报 `Not a json array`，它们是错的，不是证据。
                 let mut predicate = serde_json::Map::new();
-                let enchantments = if ids.len() == 1 {
-                    serde_json::Value::from(ids[0].clone())
-                } else {
-                    serde_json::Value::Array(
-                        ids.iter().cloned().map(serde_json::Value::from).collect(),
-                    )
-                };
+                let enchantments = serde_json::Value::Array(
+                    ids.iter().cloned().map(serde_json::Value::from).collect(),
+                );
                 predicate.insert("enchantments".to_string(), enchantments);
                 if let Some(levels) = levels {
                     predicate.insert("levels".to_string(), levels.to_json());
@@ -1191,6 +1219,70 @@
         nodes: Vec<NodeEntry>,
     }
 
+    /// `base` 是不是 [`super::custom_model_data_dispatch`] 写出的
+    /// `condition(has_component) → range_dispatch` 守卫。
+    ///
+    /// 判定写得很窄（类型 / property / component / on_true 的 type+property 全查）：
+    /// 宁可认不出、退化成"再包一层"，也不要误判后往一棵不相干的树里塞 `entries`。
+    /// "再包一层"最坏是多一层 condition，产物仍然合法；误判则会改坏作者的定义。
+    fn is_cmd_component_guard(node: &serde_json::Value) -> bool {
+        node.get("type").and_then(|v| v.as_str()) == Some("minecraft:condition")
+            && node.get("property").and_then(|v| v.as_str())
+                == Some("minecraft:has_component")
+            && node.get("component").and_then(|v| v.as_str()) == Some(CMD_COMPONENT)
+            && node.pointer("/on_true/type").and_then(|v| v.as_str())
+                == Some("minecraft:range_dispatch")
+            && node.pointer("/on_true/property").and_then(|v| v.as_str())
+                == Some(CMD_COMPONENT)
+            && node.get("on_false").is_some()
+    }
+
+    /// 已有守卫表里的全部阈值（用于"同一 CMD 档不重复写"）。
+    fn existing_cmd_thresholds(base: &serde_json::Value) -> BTreeSet<u64> {
+        let mut out = BTreeSet::new();
+        if !is_cmd_component_guard(base) {
+            return out;
+        }
+        if let Some(entries) = base
+            .pointer("/on_true/entries")
+            .and_then(|v| v.as_array())
+        {
+            for entry in entries {
+                if let Some(threshold) = entry.get("threshold").and_then(|v| v.as_u64()) {
+                    out.insert(threshold);
+                }
+            }
+        }
+        out
+    }
+
+    /// 把新条目并进已有的守卫表；返回 false = base 不是那种形状（调用方负责包一层）。
+    ///
+    /// 并完**重新按阈值升序排**：`range_dispatch` 在客户端里会自己排序，但产物
+    /// 必须确定——两次转换的条目顺序不能依赖 HashMap/BTreeMap 的遍历顺序。
+    fn merge_into_existing_cmd_table(
+        base: &mut serde_json::Value,
+        fresh: &[(u64, serde_json::Value)],
+    ) -> bool {
+        if !is_cmd_component_guard(base) {
+            return false;
+        }
+        let Some(entries) = base
+            .pointer_mut("/on_true/entries")
+            .and_then(|v| v.as_array_mut())
+        else {
+            return false;
+        };
+        for (threshold, model) in fresh {
+            entries.push(serde_json::json!({
+                "threshold": threshold,
+                "model": model,
+            }));
+        }
+        entries.sort_by_key(|entry| entry.get("threshold").and_then(|v| v.as_u64()).unwrap_or(0));
+        true
+    }
+
     /// 把收集到的规则并进某个物品的定义。返回 (新定义, 实际并进去的条数, notes)。
     fn merge_into_definition(
         item: &str,
@@ -1208,62 +1300,65 @@
         let mut applied = 0usize;
 
         // ---- 第一层（内）：CMD 表 ----
+        //
+        // **数字 CMD 只能写成 `range_dispatch`，绝不能写成 `select`。**
+        //
+        // 这是 2026-10 修掉的一个真实故障（用户侧的紫黑格 = 缺失贴图 = 物品定义
+        // 整份解析失败）：旧实现写的是
+        //
+        // ```json
+        // { "type": "minecraft:select", "property": "minecraft:custom_model_data",
+        //   "index": 0, "cases": [{ "when": 7, "model": ... }] }
+        // ```
+        //
+        // 而客户端对 `select` 的 `custom_model_data` property **读的是 strings
+        // 列表**（1.21.4 `hdd` 返回 `cza.c(index) -> List<String>`，值 codec 是
+        // `Codec.STRING`）。数字 `when` 因此解析失败，整个 `items/<物品>.json`
+        // 作废 ⇒ 该物品在所有上下文里都是 missing model（紫黑格）。DFU 实测：
+        // `Codec.STRING.parse(JsonOps, 7)` → `Not a string: 7`。
+        // 数字阈值必须走 `range_dispatch`（`custom_model_data` property 读
+        // `floats[index]`），完整形状与证据见 [`super::custom_model_data_dispatch`]。
+        //
+        // 并入策略（两种 base 形状都合法）：
+        //  * `generate_item_definitions` 已经写过
+        //    `condition(has_component) → range_dispatch` 守卫：把新条目**并进同一张
+        //    表**。不能再套一层同形守卫——外层 range_dispatch 会把内层更高的阈值
+        //    "截胡"（CIT 写 5、旧 overrides 写 100 时，CMD=100 会命中 5），
+        //    那是丢数据，不是嵌套。
+        //  * 其它形状（自指默认定义、作者手写的字符串 CMD `select`、……）：用共用
+        //    实现包一层，`fallback` 仍是 base；字符串 select 对数字 CMD 本来就返回
+        //    null，外层数字表不会与它冲突。
         if !plan.cmds.is_empty() {
             plan.cmds.sort_by_key(|entry| entry.threshold);
-            let mut merged_into_existing = false;
-            if base.get("property").and_then(|p| p.as_str()) == Some(CMD_COMPONENT)
-                && base.get("cases").map(|c| c.is_array()).unwrap_or(false)
-            {
-                // 已经有一个 CMD `select`（可能是 `generate_item_definitions` 留的）就并进去。
-                let cases = base.get_mut("cases")?.as_array_mut()?;
-                for entry in plan.cmds.drain(..) {
-                    let duplicated = cases.iter().any(|case| {
-                        case.get("when").and_then(|w| w.as_u64()) == Some(entry.threshold)
-                    });
-                    if duplicated {
-                        // 同一物品同一 CMD 被两条 CIT 命中：**保留先写的那条**，
-                        // 不覆盖（OptiFine 的同类冲突行为本就未定义，静默取一个总比来回抖好）。
-                        continue;
-                    }
-                    cases.push(serde_json::json!({
-                        "when": entry.threshold,
-                        "model": entry.model,
-                    }));
-                    applied += 1;
-                    merged_into_existing = true;
-                    notes.push(format!(
-                        "CIT {} → items/{item}.json（CustomModelData={} → {}）",
-                        entry.source, entry.threshold, entry.reference
-                    ));
+            // 同一阈值只留第一条：OptiFine 对同类冲突没有定义，静默取一个
+            // 总比来回抖动好。先写者 = weight/path 排序后的胜者。
+            let mut unique: Vec<CmdEntry> = Vec::new();
+            for entry in plan.cmds.drain(..) {
+                if unique.iter().any(|kept| kept.threshold == entry.threshold) {
+                    continue;
                 }
+                unique.push(entry);
             }
-            if !merged_into_existing {
-                let mut cases: Vec<serde_json::Value> = Vec::new();
-                for entry in plan.cmds.drain(..) {
-                    let duplicated = cases.iter().any(|case| {
-                        case.get("when").and_then(|w| w.as_u64()) == Some(entry.threshold)
-                    });
-                    if duplicated {
+            // 已有数字表里的阈值：重复的留给旧表（CIT 不覆盖作者已写好的同一档）。
+            let existing_thresholds = existing_cmd_thresholds(&base);
+            let fresh: Vec<(u64, serde_json::Value)> = unique
+                .iter()
+                .filter(|entry| !existing_thresholds.contains(&entry.threshold))
+                .map(|entry| (entry.threshold, entry.model.clone()))
+                .collect();
+            if !fresh.is_empty() {
+                for entry in &unique {
+                    if existing_thresholds.contains(&entry.threshold) {
                         continue;
                     }
-                    cases.push(serde_json::json!({
-                        "when": entry.threshold,
-                        "model": entry.model,
-                    }));
-                    applied += 1;
                     notes.push(format!(
                         "CIT {} → items/{item}.json（CustomModelData={} → {}）",
                         entry.source, entry.threshold, entry.reference
                     ));
                 }
-                if !cases.is_empty() {
-                    base = serde_json::json!({
-                        "type": "minecraft:select",
-                        "property": CMD_COMPONENT,
-                        "index": 0,
-                        "cases": cases,
-                        "fallback": base,
-                    });
+                applied += fresh.len();
+                if !merge_into_existing_cmd_table(&mut base, &fresh) {
+                    base = custom_model_data_dispatch(&base, &fresh);
                 }
             }
         }
@@ -1674,6 +1769,8 @@
     #[cfg(test)]
     mod tests {
         use super::*;
+        // 共用常量住在 `natives`（与 `item_definitions` 同一份）。
+        use crate::natives::CMD_COMPONENT;
         use crate::arom::source::MemSource;
 
         fn pack(format: u32, extra: Vec<(&str, &str)>) -> crate::arom::Pack {
@@ -1697,6 +1794,17 @@
         }
 
         const CIT_DIR: &str = "assets/minecraft/optifine/cit/ruby";
+
+        /// **读根与删除根必须是同一对路径**。
+        ///
+        /// `ROOTS`（本模块，读）与 `native_run::CIT_ROOTS`（驱动，删）是两份
+        /// 常量：依赖方向决定了它们不能互相引用（`natives` 不该依赖驱动）。
+        /// 这条断言就是防漂移的：加根/改名只改一边时，删除会漏掉另一棵树，
+        /// 而产物看起来"转换成功了"，只有游戏里才会发现 CIT 还在生效。
+        #[test]
+        fn roots_match_the_delete_roots() {
+            assert_eq!(ROOTS, crate::native_run::CIT_ROOTS);
+        }
 
         /// `.properties` 解析：注释跳过、键转小写、**首次出现者胜**。
         #[test]
@@ -1782,9 +1890,13 @@
             assert_eq!(parent_for("ruby_sword"), "minecraft:item/handheld", "无扩展名也要认");
         }
 
-        /// **端到端**：`texture=` 形式 → 生成 `models/cit/...` + 物品定义里的 `select` 分支。
+        /// **端到端**：`texture=` 形式 → 生成 `models/cit/...` + 物品定义里的数字 CMD 表。
+        ///
+        /// **这里刻意断言 `range_dispatch` 而不是 `select`**：旧实现写 `select` +
+        /// 数字 `when`，客户端会因 `Codec.STRING` 解析失败把整份定义判为无效，
+        /// 物品变成紫黑格。断言形状就是在钉住那个故障不会回来。
         #[test]
-        fn texture_rule_generates_a_model_and_a_select_case() {
+        fn texture_rule_generates_a_model_and_a_range_dispatch_case() {
             let mut p = pack(
                 55,
                 vec![
@@ -1813,22 +1925,30 @@
                 "贴图必须被搬进 assets/minecraft/textures/ 才引用得到"
             );
 
-            // 物品定义：select(custom_model_data) + when=7
+            // 物品定义：condition(has_component) → range_dispatch(custom_model_data) + 阈值 7
             let def = p
                 .view()
                 .json("assets/minecraft/items/diamond_sword.json")
                 .expect("物品定义应当存在");
             let root = &def["model"];
-            assert_eq!(root["type"], "minecraft:select");
-            assert_eq!(root["property"], CMD_COMPONENT);
-            assert_eq!(root["index"], 0);
-            assert_eq!(root["cases"][0]["when"], 7);
+            assert_eq!(root["type"], "minecraft:condition");
+            assert_eq!(root["property"], "minecraft:has_component");
+            assert_eq!(root["component"], CMD_COMPONENT);
+            let dispatch = &root["on_true"];
+            assert_eq!(dispatch["type"], "minecraft:range_dispatch");
+            assert_eq!(dispatch["property"], CMD_COMPONENT);
+            assert_eq!(dispatch["index"], 0);
+            assert_eq!(dispatch["scale"], 1.0);
+            assert_eq!(dispatch["entries"][0]["threshold"], 7);
             assert_eq!(
-                root["cases"][0]["model"]["model"],
+                dispatch["entries"][0]["model"]["model"],
                 "minecraft:cit/ruby/ruby_sword"
             );
-            // 没有默认定义可包时，fallback 是"自指默认定义"
-            assert_eq!(root["fallback"]["model"], "minecraft:item/diamond_sword");
+            // 没有默认定义可包时，fallback / on_false 都是"自指默认定义"
+            assert_eq!(dispatch["fallback"]["model"], "minecraft:item/diamond_sword");
+            assert_eq!(root["on_false"]["model"], "minecraft:item/diamond_sword");
+            // **绝不能**再出现 select + 数字 when（紫黑格故障的形状）
+            assert_eq!(root.get("cases"), None, "数字 CMD 不能用 select：{def}");
         }
 
         /// `texture=` **不带扩展名**也要找到图（OptiFine 文档与验证包都是这么写的）。
@@ -1870,12 +1990,15 @@
                 .view()
                 .json("assets/minecraft/items/stick.json")
                 .expect("定义");
-            assert_eq!(def["model"]["cases"][0]["model"]["model"], "mypack:item/ruby_stick");
+            assert_eq!(
+                def["model"]["on_true"]["entries"][0]["model"]["model"],
+                "mypack:item/ruby_stick"
+            );
         }
 
-        /// **多条 CIT 命同一个物品**：并进同一个 `select`，不互相覆盖。
+        /// **多条 CIT 命同一个物品**：并进同一张 `range_dispatch` 表，不互相覆盖。
         #[test]
-        fn multiple_rules_merge_into_one_select() {
+        fn multiple_rules_merge_into_one_range_dispatch() {
             let mut p = pack(
                 55,
                 vec![
@@ -1892,10 +2015,103 @@
             let outcome = run_on(&mut p);
             assert_eq!(outcome.changed, 2, "{:?}", outcome.notes);
             let def = p.view().json("assets/minecraft/items/stick.json").expect("定义");
-            let cases = def["model"]["cases"].as_array().expect("cases");
-            assert_eq!(cases.len(), 2, "两条规则必须并进同一个 select：{def}");
-            assert_eq!(cases[0]["when"], 1);
-            assert_eq!(cases[1]["when"], 2);
+            let entries = def["model"]["on_true"]["entries"]
+                .as_array()
+                .expect("entries");
+            assert_eq!(entries.len(), 2, "两条规则必须并进同一张表：{def}");
+            assert_eq!(entries[0]["threshold"], 1);
+            assert_eq!(entries[1]["threshold"], 2);
+            // 只有一层守卫；套两层会把内层更高的阈值截胡。
+            assert_eq!(def["model"]["type"], "minecraft:condition");
+        }
+
+        /// **CIT 会并进 `generate_item_definitions` 已经写好的同一张守卫表**。
+        ///
+        /// 这是"嵌套 vs 合并"的取舍：两层 `range_dispatch` 时，外层会把内层更高的
+        /// 阈值截胡（CIT 写 5、旧 overrides 写 100，CMD=100 会命中 5）。因此必须
+        /// 认出现有守卫并插进它的 `entries`，而不是再包一层。
+        #[test]
+        fn cit_merges_into_an_existing_component_guard() {
+            const EXISTING: &str = r#"{
+              "model": {
+                "type": "minecraft:condition",
+                "property": "minecraft:has_component",
+                "component": "minecraft:custom_model_data",
+                "on_true": {
+                  "type": "minecraft:range_dispatch",
+                  "property": "minecraft:custom_model_data",
+                  "index": 0,
+                  "scale": 1.0,
+                  "entries": [
+                    { "threshold": 100, "model": { "type": "minecraft:model", "model": "minecraft:item/stick" } }
+                  ],
+                  "fallback": { "type": "minecraft:model", "model": "minecraft:item/stick" }
+                },
+                "on_false": { "type": "minecraft:model", "model": "minecraft:item/stick" }
+              }
+            }"#;
+            let mut p = pack(
+                55,
+                vec![
+                    ("assets/minecraft/items/stick.json", EXISTING),
+                    (
+                        &format!("{CIT_DIR}/cmd.properties"),
+                        "type=item\nitems=stick\ntexture=t.png\nnbt.CustomModelData=7\n",
+                    ),
+                    (&format!("{CIT_DIR}/t.png"), "png"),
+                ],
+            );
+            let outcome = run_on(&mut p);
+            assert_eq!(outcome.changed, 1, "{:?}", outcome.notes);
+            let def = p.view().json("assets/minecraft/items/stick.json").expect("定义");
+            let root = &def["model"];
+            assert_eq!(root["type"], "minecraft:condition", "不能套第二层守卫：{def}");
+            let entries = root["on_true"]["entries"].as_array().expect("entries");
+            assert_eq!(entries.len(), 2, "旧表 100 与 CIT 7 必须并进同一张表：{def}");
+            assert_eq!(entries[0]["threshold"], 7);
+            assert_eq!(entries[1]["threshold"], 100, "旧条目必须保留");
+            // 旧守卫的 on_false 不被 CIT 改写
+            assert_eq!(root["on_false"]["model"], "minecraft:item/stick");
+        }
+
+        /// 同一阈值已经在旧表里时**不重复写**（CIT 不覆盖作者已写好的同一档）。
+        #[test]
+        fn duplicate_threshold_is_not_added_twice() {
+            const EXISTING: &str = r#"{
+              "model": {
+                "type": "minecraft:condition",
+                "property": "minecraft:has_component",
+                "component": "minecraft:custom_model_data",
+                "on_true": {
+                  "type": "minecraft:range_dispatch",
+                  "property": "minecraft:custom_model_data",
+                  "index": 0,
+                  "scale": 1.0,
+                  "entries": [
+                    { "threshold": 7, "model": { "type": "minecraft:model", "model": "mypack:item/old" } }
+                  ],
+                  "fallback": { "type": "minecraft:model", "model": "minecraft:item/stick" }
+                },
+                "on_false": { "type": "minecraft:model", "model": "minecraft:item/stick" }
+              }
+            }"#;
+            let mut p = pack(
+                55,
+                vec![
+                    ("assets/minecraft/items/stick.json", EXISTING),
+                    (
+                        &format!("{CIT_DIR}/cmd.properties"),
+                        "type=item\nitems=stick\ntexture=t.png\nnbt.CustomModelData=7\n",
+                    ),
+                    (&format!("{CIT_DIR}/t.png"), "png"),
+                ],
+            );
+            let outcome = run_on(&mut p);
+            assert_eq!(outcome.changed, 0, "同一阈值不该重复写：{:?}", outcome.notes);
+            let def = p.view().json("assets/minecraft/items/stick.json").expect("定义");
+            let entries = def["model"]["on_true"]["entries"].as_array().expect("entries");
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0]["model"]["model"], "mypack:item/old");
         }
 
         /// `texture=` 指向的 PNG 不存在 → 跳过整条规则（**不写半成品**）。
@@ -1999,7 +2215,12 @@
             assert_eq!(root["type"], "minecraft:condition");
             assert_eq!(root["property"], "minecraft:component");
             assert_eq!(root["predicate"], "minecraft:enchantments");
-            assert_eq!(root["value"][0]["enchantments"], "minecraft:sharpness");
+            // **必须是数组**（长度 1 也要数组）：1.21.5 / 1.21.10 客户端的
+            // `Codec.listOf` 不接受裸字符串，写字符串会让整份定义解析失败（紫黑格）。
+            assert_eq!(
+                root["value"][0]["enchantments"],
+                serde_json::json!(["minecraft:sharpness"])
+            );
             assert_eq!(root["value"][0]["levels"]["min"], 3);
             assert_eq!(root["value"][0]["levels"]["max"], 3, "必须锁死等级，不能只写 min");
             assert_eq!(root["on_true"]["type"], "minecraft:model");
@@ -2029,8 +2250,10 @@
 
         /// 没写 `enchantmentLevels=` 就**整个省略 `levels`**（=「有任何等级都算」）。
         ///
-        /// 这也是真实样本的写法：`[1.21.10]弓箭等级覆盖(1).zip` 里
-        /// `{"enchantments":"minecraft:flame"}` 就不带 `levels`，只有 power 那条带 `{min:N}`。
+        /// 样本包 `[1.21.10]弓箭等级覆盖(1).zip` 里 flame 那条就不带 `levels`，
+        /// 只有 power 那条带 `{min:N}`——**只参考"有没有 levels"，不参考它把
+        /// `enchantments` 写成裸字符串**（那是样本包的错误写法，客户端 codec
+        /// 会报 `Not a json array`；本任务统一写数组）。
         #[test]
         fn enchantment_without_levels_omits_the_levels_field() {
             let node = wrap_condition(
@@ -2041,7 +2264,11 @@
                 &leaf("minecraft:cit/a"),
                 &leaf("minecraft:item/bow"),
             );
-            assert_eq!(node["value"][0]["enchantments"], "minecraft:flame");
+            assert_eq!(
+                node["value"][0]["enchantments"],
+                serde_json::json!(["minecraft:flame"]),
+                "单个附魔也必须写成数组（客户端 codec 是 listOf）"
+            );
             assert!(
                 node["value"][0].get("levels").is_none(),
                 "没写等级就不该出现 levels：{node}"
@@ -2084,6 +2311,30 @@
                 serde_json::json!(["minecraft:fire_aspect", "minecraft:flame"])
             );
             assert_eq!(value[0]["levels"]["min"], 3);
+        }
+
+        /// **单个附魔也必须写成数组**——2026-10 紫黑格的直接回归测试。
+        ///
+        /// 客户端 1.21.5 `kw$a` / 1.21.10 `la$a` 都是 `Codec.listOf(...)`；
+        /// 写 `"enchantments": "minecraft:sharpness"` 会让整份 `items/<物品>.json`
+        /// 报 `Not a json array` 并回落到 missing model（紫黑格）。
+        /// 这条断言只盯形状，不依赖客户端 jar（测试里跑不了官方 codec）。
+        #[test]
+        fn single_enchantment_is_written_as_an_array() {
+            let node = wrap_condition(
+                &Cond::Enchant {
+                    ids: vec!["minecraft:sharpness".to_string()],
+                    levels: None,
+                },
+                &leaf("minecraft:cit/a"),
+                &leaf("minecraft:item/diamond_sword"),
+            );
+            let enchantments = &node["value"][0]["enchantments"];
+            assert!(
+                enchantments.is_array(),
+                "单个附魔也必须是数组（客户端 codec 是 listOf）：{node}"
+            );
+            assert_eq!(enchantments, &serde_json::json!(["minecraft:sharpness"]));
         }
 
         /// 断开的等级列表（`1 3 5`）**不可表达** → 跳过，绝不并成 `1-5`。
@@ -2222,7 +2473,13 @@
             let outcome = run_on(&mut p);
             assert_eq!(outcome.changed, 1, "{:?}", outcome.notes);
             let def = p.view().json("assets/minecraft/items/stick.json").expect("定义");
-            assert_eq!(def["model"]["property"], CMD_COMPONENT);
+            assert_eq!(def["model"]["type"], "minecraft:condition");
+            assert_eq!(def["model"]["component"], CMD_COMPONENT);
+            assert_eq!(
+                def["model"]["on_true"]["type"],
+                "minecraft:range_dispatch",
+                "46-54 只有 CMD 类条件可转，形状必须是 range_dispatch：{def}"
+            );
         }
 
         /// 同一物品多条附魔规则：**weight 大的在外层**（OptiFine 文档规定的优先级）。
@@ -2425,7 +2682,10 @@
             let def = p.view().json("assets/minecraft/items/bow.json").expect("定义");
             let root = &def["model"];
             assert_eq!(root["property"], "minecraft:component", "外层是附魔条件");
-            assert_eq!(root["value"][0]["enchantments"], "minecraft:punch");
+            assert_eq!(
+                root["value"][0]["enchantments"],
+                serde_json::json!(["minecraft:punch"])
+            );
 
             // 命中：换成 CIT 的弓状态链
             let hit = &root["on_true"];

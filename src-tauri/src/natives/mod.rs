@@ -166,6 +166,81 @@ pub fn read_dimensions(tx: &Tx<'_>, path: &str) -> Result<(u32, u32), AromError>
     Ok((img.width(), img.height()))
 }
 
+/// `custom_model_data` 组件的名字（1.21.4+ 物品定义的 property 与 component 同名）。
+const CMD_COMPONENT: &str = "minecraft:custom_model_data";
+
+/// **把「数字 CustomModelData → 模型」表包成 1.21.4+ 物品定义节点**。
+///
+/// 这是 `generate_item_definitions` 与 `generate_cit_item_definitions` **共用**的
+/// 唯一正确形状；两处都必须用它，不能各写一份：
+///
+/// ```text
+/// condition(property = has_component, component = minecraft:custom_model_data)
+///   ├─ on_false → base                      // 没有该组件：默认外观
+///   └─ on_true  → range_dispatch(property = custom_model_data, index = 0, scale = 1)
+///                   ├─ threshold N → <模型 N>
+///                   └─ fallback    → base   // CMD 落在表外：默认外观
+/// ```
+///
+/// ## 为什么**不能**用 `minecraft:select`
+///
+/// 这是 2026-10 修掉的一个真实故障（用户侧的紫黑格 = 缺失贴图 = 物品定义整份
+/// 解析失败）。`select` 对 `custom_model_data` 这个 property **读的是 `strings`
+/// 列表**，即它是为 1.21.4 的**字符串** CMD 设计的：
+///
+/// * 客户端证据（1.21.4 `hdd`，`javap -c`）：它的取值方法返回 `cza.c(index)`
+///   → `List<String>`；注册时用 `hj$a.a(codec, Codec.STRING)`，即 case 的
+///   `when` 必须是**字符串**。
+/// * DFU 实测：`Codec.STRING.parse(JsonOps, 7)` → `FAIL Not a string: 7`。
+///
+/// 旧 CIT 实现写的是 `select(custom_model_data)` + `"when": 7`（数字）。整份
+/// `items/<物品>.json` 因此解析失败，客户端回落到 missing model（紫黑格）。
+/// `range_dispatch` 的 `custom_model_data` property 才读 `floats[index]`
+/// （1.21.4 `hcq`），阈值是数字——这才是老式数字 CMD 的入口。
+///
+/// ## 外层 `condition` 不是装饰
+///
+/// `range_dispatch` 在组件不存在时取 `0.0`，会把"没有 CMD 的物品"误判成
+/// `CMD=0`。外层 `condition(has_component)` 先确认组件在不在：在 → 走阈值表，
+/// 不在 → 默认外观。
+///
+/// ## 已知近似（与旧 `overrides` 的唯一差异）
+///
+/// `range_dispatch` 的语义是"取**最大的 ≤ 值**的阈值"，不是精确相等。整数 CMD
+/// 且表里每个用到的值都写了阈值时逐值一致；若表里有断档（`5` 与 `100`），
+/// `CMD=7` 会命中 `5`（旧 `overrides` 不命中、回落到基础模型）。**这是有意的
+/// 近似**：新版没有"浮点精确相等"的 property，硬造一份逐整数展开的表既指数膨胀
+/// 又会在高 CMD 上爆炸。两个任务共用本函数，保证这条近似只有一处口径。
+///
+/// `entries` 里每一项的 `1` 是 `serde_json::Value`（可以是 `minecraft:model`
+/// 叶子，也可以是整棵状态链，例如 CIT 的弓）；本函数不解释它，只负责摆放。
+pub(crate) fn custom_model_data_dispatch(
+    base: &serde_json::Value,
+    entries: &[(u64, serde_json::Value)],
+) -> serde_json::Value {
+    let dispatch = serde_json::json!({
+        "type": "minecraft:range_dispatch",
+        "property": CMD_COMPONENT,
+        "index": 0,
+        "scale": 1.0,
+        "entries": entries
+            .iter()
+            .map(|(threshold, model)| serde_json::json!({
+                "threshold": threshold,
+                "model": model,
+            }))
+            .collect::<Vec<_>>(),
+        "fallback": base.clone(),
+    });
+    serde_json::json!({
+        "type": "minecraft:condition",
+        "property": "minecraft:has_component",
+        "component": CMD_COMPONENT,
+        "on_true": dispatch,
+        "on_false": base.clone(),
+    })
+}
+
 /// **原生实现签名**：§9.127 分组后它住在 `natives::native::all`（那里还有 `all()` 清单）。
 ///
 /// 这里显式转出，使 `crate::natives::PilotFn` 与分组前**同路径可用**

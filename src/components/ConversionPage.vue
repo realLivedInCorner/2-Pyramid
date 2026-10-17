@@ -177,6 +177,90 @@
               <span class="slider"></span>
             </label>
           </div>
+
+          <!--
+            1.21.4+ 物品定义的两条输入路径 + CIT 删除。
+
+            为什么排在这里：shaders 三项保持原来的相对位置不动（它们是上一轮
+            刚验收过的），这一组接在后面，读起来就是「新版本物品外观」一条独立
+            的链路：先升级旧 overrides → 再转 CIT → 最后才是"删掉 CIT"。
+
+            为什么「删除 CIT」必须带破坏性徽标：它不是"不转换"，而是把
+            optifine/cit 与 mcpatcher/cit 两棵目录整个删掉，代价是 OptiFine 与
+            新版物品定义都不再生效。控件沿用本页既有的 `.switch` 与
+            `.option-row.is-destructive`，不新造样式；与「彻底删除 shaders」
+            同一套排布。
+
+            优先级（代码里由 `native_run::plan_task_enabled` 实现，UI 只能陈述）：
+            删除开着时 CIT 转换会被跳过。所以两行同时亮着不是"先转再删"，
+            而是"删除优先"——文案把这一点写在删除项的 help 里。
+          -->
+          <div class="option-row">
+            <div class="option-info">
+              <div class="option-title">
+                {{ t('conversion.convertItemDefinitionsLabel') }}
+                <span
+                  class="help-icon"
+                  :title="t('conversion.convertItemDefinitionsHelp')"
+                  :aria-label="t('conversion.convertItemDefinitionsLabel')"
+                >?</span>
+              </div>
+              <p class="option-hint">{{ t('conversion.convertItemDefinitionsHint') }}</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                v-model="convertItemDefinitions"
+                :aria-label="t('conversion.convertItemDefinitionsLabel')"
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="option-row">
+            <div class="option-info">
+              <div class="option-title">
+                {{ t('conversion.convertCitLabel') }}
+                <span
+                  class="help-icon"
+                  :title="t('conversion.convertCitHelp')"
+                  :aria-label="t('conversion.convertCitLabel')"
+                >?</span>
+              </div>
+              <p class="option-hint">{{ t('conversion.convertCitHint') }}</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                v-model="convertCit"
+                :aria-label="t('conversion.convertCitLabel')"
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="option-row is-destructive">
+            <div class="option-info">
+              <div class="option-title">
+                {{ t('conversion.deleteCitLabel') }}
+                <span
+                  class="help-icon"
+                  :title="t('conversion.deleteCitHelp')"
+                  :aria-label="t('conversion.deleteCitLabel')"
+                >?</span>
+                <span class="danger-tag">{{ t('conversion.deleteCitTag') }}</span>
+              </div>
+              <p class="option-hint">{{ t('conversion.deleteCitHint') }}</p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                v-model="deleteCit"
+                :aria-label="t('conversion.deleteCitLabel')"
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
 
         <div class="stage-actions">
@@ -387,6 +471,21 @@ const adaptShaders = ref(localStorage.getItem('conversion.adaptShaders') !== 'fa
  * 首帧快速恢复。挂载时以配置为准（见 loadOutputSettings）。
  */
 const deleteShaders = ref(localStorage.getItem('conversion.deleteShaders') === 'true');
+/**
+ * 1.21.4+ 物品定义 / CIT 三个开关（默认：转换开、删除关）。
+ *
+ * 三项都写配置文件（见 `AppConfig` 的字段注释）：它们是**产物形态**的选择，
+ * 应该跟着备份/重置/迁移走。localStorage 只用于首帧快速恢复，挂载时以配置为准
+ * （`loadOutputSettings`），否则重装后会出现"本机看着是关的、配置里其实开着"。
+ *
+ * 关闭 `convertCit` **不等于**删除：源文件原样保留，OptiFine 用户仍能用；
+ * 删除是下面单独一项，且**优先于**转换（`native_run::plan_task_enabled`）。
+ */
+const convertItemDefinitions = ref(
+  localStorage.getItem('conversion.convertItemDefinitions') !== 'false',
+);
+const convertCit = ref(localStorage.getItem('conversion.convertCit') !== 'false');
+const deleteCit = ref(localStorage.getItem('conversion.deleteCit') === 'true');
 const selectedItems = ref<any[]>([]);
 const showResultModal = ref(false);
 const conversionResults = ref<any[]>([]);
@@ -562,6 +661,20 @@ const loadOutputSettings = async () => {
     if (typeof cfg?.delete_shaders === 'boolean' && cfg.delete_shaders !== deleteShaders.value) {
       deleteShaders.value = cfg.delete_shaders;
     }
+    // 物品定义 / CIT 三项同一套规则：配置是用户偏好的真源，缓存只是首帧快照。
+    // 只在值不同时赋值，避免每次进页面都触发一次 `update_config` 回写。
+    if (
+      typeof cfg?.convert_item_definitions === 'boolean'
+      && cfg.convert_item_definitions !== convertItemDefinitions.value
+    ) {
+      convertItemDefinitions.value = cfg.convert_item_definitions;
+    }
+    if (typeof cfg?.convert_cit === 'boolean' && cfg.convert_cit !== convertCit.value) {
+      convertCit.value = cfg.convert_cit;
+    }
+    if (typeof cfg?.delete_cit === 'boolean' && cfg.delete_cit !== deleteCit.value) {
+      deleteCit.value = cfg.delete_cit;
+    }
   } catch {
     // ignore
   }
@@ -627,6 +740,26 @@ onMounted(async () => {
     localStorage.setItem('conversion.deleteShaders', String(v));
     invoke('update_config', { patch: { deleteShaders: v } }).catch((e) => {
       console.warn('[conversion] 保存 delete_shaders 失败', e);
+    });
+  });
+  // 物品定义 / CIT 三项同样双写：两个转换项不是破坏性的，但也属于"用户偏好"
+  // （重装后不该悄悄恢复默认），因此和 delete_shaders 走同一个 update_config。
+  watch(convertItemDefinitions, (v) => {
+    localStorage.setItem('conversion.convertItemDefinitions', String(v));
+    invoke('update_config', { patch: { convertItemDefinitions: v } }).catch((e) => {
+      console.warn('[conversion] 保存 convert_item_definitions 失败', e);
+    });
+  });
+  watch(convertCit, (v) => {
+    localStorage.setItem('conversion.convertCit', String(v));
+    invoke('update_config', { patch: { convertCit: v } }).catch((e) => {
+      console.warn('[conversion] 保存 convert_cit 失败', e);
+    });
+  });
+  watch(deleteCit, (v) => {
+    localStorage.setItem('conversion.deleteCit', String(v));
+    invoke('update_config', { patch: { deleteCit: v } }).catch((e) => {
+      console.warn('[conversion] 保存 delete_cit 失败', e);
     });
   });
 
@@ -812,6 +945,11 @@ const startConversion = async () => {
       adaptShaders: adaptShaders.value,
       // 破坏性选项：默认 false（后端 `unwrap_or(false)`），这里显式传当前开关状态。
       deleteShaders: deleteShaders.value,
+      // 物品定义 / CIT：转换项默认 true、删除默认 false（后端同口径）。
+      // 删除优先于 CIT 转换，由后端计划过滤实现（`native_run::plan_task_enabled`）。
+      convertItemDefinitions: convertItemDefinitions.value,
+      convertCit: convertCit.value,
+      deleteCit: deleteCit.value,
     });
 
     for (let i = 0; i < selectedItems.value.length; i++) {
@@ -1810,6 +1948,27 @@ const exportLogsToFile = async () => {
 }
 /* 破坏性选项的说明文字提一档墨色（--ink-3 → --ink-2）。只改颜色，不改字号/字重/间距。 */
 .option-row.is-destructive .option-hint { color: var(--ink-2); }
+
+/*
+ * 2026-10 新增三行（物品定义升级 / OptiFine CIT 转换 / 彻底删除 CIT）的实测值。
+ *
+ * 方法同上面那段：无头 Chrome 把文字设成 transparent 后按元素矩形取背景像素，
+ * 算 WCAG 中位与最不利像素，报告较差的那个；原始数据在
+ * .dsh-tmp/ui-review/cit-options/contrast.json（不进仓库）。浅/深各测一次。
+ *
+ *   新行标题（14px/600，正文）   浅色 15.95 / 15.84 / 15.95（最差 13.93 / 13.81 / 13.68）
+ *                                深色 12.90 / 12.44 / 12.39（最差 10.64 / 10.96 / 11.16）—— ≥4.5:1
+ *   新行说明（12px，辅助）       浅色中位 4.73 / 4.72，最差 4.45 / 4.17
+ *                                深色中位 4.17 / 4.11，最差 3.80 / 3.57 —— 按辅助口径 ≥3:1
+ *   「彻底删除 CIT」说明（--ink-2）浅色 6.01 / 5.15；深色 6.84 / 5.78 —— ≥4.5:1
+ *   「会删文件」徽标（删除 CIT）   浅色 5.69 / 5.42；深色 4.10 / 4.00 —— 按辅助口径 ≥3:1
+ *   「会删文件」徽标（删除 shaders）浅色 5.96 / 5.76；深色 4.00 / 3.86 —— ≥3:1
+ *
+ * 两个非破坏性说明沿用与「着色器适配」同一档 --ink-3：它们和旁边既有行**必须**
+ * 看起来同级，不能为了数字把它们抬成 --ink-2（那会让旧行显得更弱）。浅色最差
+ * 4.17 出现在 12px 辅助文字上，按辅助口径（≥3:1）通过；若将来把它当正文，
+ * 需要同时改字号/字重，而不是只改颜色。
+ */
 
 /* ── 结果列表 ── */
 .result-list { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }

@@ -1,4 +1,4 @@
-//! 无界面转换 CLI：`2-pyramid.exe --convert <路径> [--to <版本>] [--out <目录>] [--report <file.json>] [--delete-shaders]`
+//! 无界面转换 CLI：`2-pyramid.exe --convert <路径> [--to <版本>] [--out <目录>] [--report <file.json>] [--delete-shaders] [--no-item-definitions] [--no-cit] [--delete-cit]`
 //!
 //! 供拖放脚本使用：把资源包（或含资源包的文件夹）拖到脚本上 → 跑完整转换 →
 //! 输出**结构化 JSON 报告**（结构分析 + 两个耗时口径 + 逐任务画像 + 体积变化）。
@@ -9,6 +9,12 @@
 //! `--delete-shaders` 与 GUI 转换页上的同名开关是**同一个参数**（默认关）：
 //! 转完后把 `assets/minecraft/shaders` 与顶层 `shaders/` 整棵删掉。它存在的目的
 //! 之一是让这个行为能被**端到端对照**（同一个小包，开关两次，比条目数）。
+//!
+//! `--no-item-definitions` / `--no-cit` / `--delete-cit` 同样对应转换页的三个
+//! 新开关（默认：转换开、删除关）：
+//! * `--no-item-definitions`：不写 `assets/minecraft/items/*.json`（旧 overrides 不迁移）；
+//! * `--no-cit`：不生成 CIT 物品定义，`optifine/cit` 与 `mcpatcher/cit` 原样保留；
+//! * `--delete-cit`：跳过 CIT 转换并把两棵源目录整个删掉（**优先于** `--no-cit`）。
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -133,7 +139,7 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
         Some(v) => v.clone(),
         None => {
             eprintln!(
-                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>] [--fast] [--delete-shaders]"
+                "用法: 2-pyramid.exe --convert <资源包.zip | 目录> [--to <版本|pack_format>] [--out <目录>] [--report <报告.json>] [--fast] [--delete-shaders] [--no-item-definitions] [--no-cit] [--delete-cit]"
             );
             return 2;
         }
@@ -159,6 +165,12 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
     // 破坏性开关，**默认关**：不加这个 flag 时产物与改动前逐字节相同。
     // 与 GUI 转换页的开关共用同一条管线参数（`process_zip_timed` 的最后一个 bool）。
     let delete_shaders = args.iter().any(|a| a == "--delete-shaders");
+    // 物品定义 / CIT 三项，与 GUI 转换页同义（默认：转换开、删除关）。
+    // 反向 flag 而不是 `--convert-cit=false`：CLI 的布尔开关全部是"出现即生效"，
+    // 保持同一种读法，脚本里不会出现两种写法。
+    let convert_item_definitions = !args.iter().any(|a| a == "--no-item-definitions");
+    let convert_cit = !args.iter().any(|a| a == "--no-cit");
+    let delete_cit = args.iter().any(|a| a == "--delete-cit");
     let out_dir = arg_value(args, "--out").map(PathBuf::from);
     let report_path = arg_value(args, "--report").map(PathBuf::from);
 
@@ -220,6 +232,9 @@ pub fn run_convert(args: &[String], idx: usize) -> i32 {
             true,
             run_gui_surgeon,
             delete_shaders,
+            convert_item_definitions,
+            convert_cit,
+            delete_cit,
         ) {
             Ok((output, timing)) => {
                 convert_secs += convert_start.elapsed().as_secs_f32();

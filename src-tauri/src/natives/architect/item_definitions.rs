@@ -23,7 +23,7 @@
     //! | 旧写法 | 新版对应 | 本任务怎么接 |
     //! |---|---|---|
     //! | `overrides` 只用了**原版谓词**（`pulling` / `pull` / `cast` / `time` / `angle` / `trim_type` / `damage` …） | 官方定义里本来就是这些 `condition` / `range_dispatch` / `select` 节点 | **用官方默认定义**（从客户端 jar 提取，见 [`TABLE`]） |
-    //! | `overrides` 用了 **`custom_model_data`** 谓词 | `minecraft:select` / `minecraft:range_dispatch` 的 `property: "minecraft:custom_model_data"` | **就地生成**（[`custom_model_data_dispatch`]），因为官方定义里当然没有作者自己的 CMD 表 |
+    //! | `overrides` 用了 **`custom_model_data`** 谓词 | `minecraft:range_dispatch` 的 `property: "minecraft:custom_model_data"`（外层再套 `condition(has_component)`） | **就地生成**（[`super::custom_model_data_dispatch`]），因为官方定义里当然没有作者自己的 CMD 表 |
     //!
     //! 第二行是**这一块能力的核心价值**：作者的 CMD 表是包自己的数据，任何参考表都不可能预先收录。
     //!
@@ -77,14 +77,6 @@
     /// 在 §9.155 之前，任务读到的其实是**源**格式，于是本任务在真实转换里
     /// **整段空转且不报错**（实测由 `modern_item_definitions_survive_the_whole_pipeline` 抓出）。
     const FIRST_MODERN_FORMAT: u32 = 46;
-
-    /// `custom_model_data` 组件的名字（1.21.4+）。
-    ///
-    /// 1.20.5（32）起 `CustomModelData` 的 NBT 整数标签变成 `minecraft:custom_model_data`
-    /// **组件**；1.21.4 起该组件有了 `floats` / `flags` / `strings` 三个列表，
-    /// 而**老式的数字**仍写在 `main` 字段里，并被 `minecraft:custom_model_data`
-    /// property 的 `index: 0` 读到——这就是下面那棵树能接住旧 CMD 数字的原因。
-    const CMD_COMPONENT: &str = "minecraft:custom_model_data";
 
     /// 一份格式档：某个 pack_format 上的官方物品定义模板。
     struct Profile {
@@ -221,55 +213,9 @@
 
     /// 用作者的 CMD 表包住 `base`（该物品的**默认定义**里的 `model` 节点）。
     ///
-    /// ## 生成的树
-    ///
-    /// ```text
-    /// condition(property = has_component, component = minecraft:custom_model_data)
-    ///   ├─ on_false → base                      // 没有该组件：默认外观
-    ///   └─ on_true  → range_dispatch(property = custom_model_data, index = 0, scale = 1)
-    ///                   ├─ threshold 0   → <作者模型 0>
-    ///                   ├─ threshold 100 → <作者模型 100>
-    ///                   └─ fallback      → base   // CMD 落在表外：默认外观
-    /// ```
-    ///
-    /// ## 每一层为什么必须在
-    ///
-    /// * **外层 `condition` 不是装饰**：`range_dispatch` 的 `scale` 最小是 `0.01`，
-    ///   而旧谓词是**精确相等**。用 `index: 0, scale: 1` 时阈值是整数、命中语义为
-    ///   "最大的 `≤` 值"——与旧行为**只在整数 CMD 上一致**。为了不把
-    ///   「`CMD=3.5` 落在 `3` 与 `4` 之间」这种旧实现里**不匹配任何条目**的情形
-    ///   悄悄变成"匹配 `3`"，这里显式检查"组件到底在不在"：
-    ///   在 → 走 range_dispatch（用户确实设了 CMD），不在 → 默认外观。
-    /// * **`fallback` 指向 `base`**：旧 `overrides` 全不命中时客户端回落到基础模型，
-    ///   语义一致。
-    /// * **`index: 0`**：读 `custom_model_data` 组件 `main` 字段的第 0 个下标——
-    ///   老式数字 CMD 就落在这里。
-    fn custom_model_data_dispatch(
-        base: &serde_json::Value,
-        entries: &[(u64, String)],
-    ) -> serde_json::Value {
-        let dispatch = serde_json::json!({
-            "type": "minecraft:range_dispatch",
-            "property": CMD_COMPONENT,
-            "index": 0,
-            "scale": 1.0,
-            "entries": entries
-                .iter()
-                .map(|(threshold, reference)| serde_json::json!({
-                    "threshold": threshold,
-                    "model": model_node(reference),
-                }))
-                .collect::<Vec<_>>(),
-            "fallback": base.clone(),
-        });
-        serde_json::json!({
-            "type": "minecraft:condition",
-            "property": "minecraft:has_component",
-            "component": CMD_COMPONENT,
-            "on_true": dispatch,
-            "on_false": base.clone(),
-        })
-    }
+    /// 形状与「为什么不能写成 `select`」的完整论证在
+    /// [`super::custom_model_data_dispatch`]（本任务与 CIT 共用同一份实现，
+    /// 避免两处对"数字 CMD 该怎么写"产生分叉——2026-10 的紫黑格就是分叉造成的）。
 
     pub fn run(tx: &mut Tx<'_>) -> Result<Outcome, AromError> {
         let target = tx
@@ -327,7 +273,12 @@
             let mut definition = template.clone();
             // 作者的 CMD 表接在默认定义**外面**（见 `custom_model_data_dispatch`）。
             let overrides = tx.json(&format!("{MODELS_ITEM}/{name}.json"))?;
-            let entries = custom_model_data_entries(&overrides);
+            // 先把作者的模型引用折成叶子节点，再交给共用实现：共用函数只负责
+            // 「数字阈值 + 模型节点」这张表，不解释模型引用。
+            let entries: Vec<(u64, serde_json::Value)> = custom_model_data_entries(&overrides)
+                .into_iter()
+                .map(|(threshold, reference)| (threshold, model_node(&reference)))
+                .collect();
             if !entries.is_empty() {
                 let base = definition
                     .get("model")
@@ -373,6 +324,9 @@
     #[cfg(test)]
     mod tests {
         use super::*;
+        // 共用常量住在 `natives`（与 CIT 同一份），这里显式引一下：
+        // 测试断言的正是"两个任务写出的 property 名一致"。
+        use crate::natives::CMD_COMPONENT;
         use crate::arom::source::MemSource;
 
         /// 造一个内存包。`format` 写进 `pack.mcmeta`——**任务是靠它判断目标版本的**。
@@ -509,8 +463,8 @@
             let dispatch = custom_model_data_dispatch(
                 &base,
                 &[
-                    (5, "mypack:item/a".into()),
-                    (1000, "mypack:item/b".into()),
+                    (5, model_node("mypack:item/a")),
+                    (1000, model_node("mypack:item/b")),
                 ],
             );
             assert_eq!(dispatch["type"], "minecraft:condition");

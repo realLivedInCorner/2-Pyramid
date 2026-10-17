@@ -483,3 +483,62 @@ fn install_single_instance(app: &tauri::App) {
     }
 }
 
+
+/// **i18n 键集合守卫**：zh-CN 与 en-US 的键必须 1:1 对等。
+///
+/// 为什么放在 `cargo test --lib` 里而不是脚本：文案漏翻是**最容易发生、最难在
+/// 界面上发现**的回归——缺键时前端会回落到键名本身（页面上出现
+/// `conversion.deleteCitHint` 这种字面量），而编译与构建都完全正常。
+/// 这个测试把两份 JSON 展平成点分路径后比较集合，缺一边、多一边都会当场红。
+///
+/// 路径是 `include_str!` 的编译期快照：测试跑的是**编译时的文案**，
+/// 与运行目录无关（`cargo test` 的工作目录不可依赖）。
+#[cfg(test)]
+mod locale_tests {
+    use std::collections::BTreeSet;
+
+    fn flatten(value: &serde_json::Value, prefix: &str, out: &mut BTreeSet<String>) {
+        match value {
+            serde_json::Value::Object(map) => {
+                for (key, child) in map {
+                    let path = if prefix.is_empty() {
+                        key.clone()
+                    } else {
+                        format!("{prefix}.{key}")
+                    };
+                    flatten(child, &path, out);
+                }
+            }
+            _ => {
+                out.insert(prefix.to_string());
+            }
+        }
+    }
+
+    fn keys(raw: &str) -> BTreeSet<String> {
+        let value: serde_json::Value =
+            serde_json::from_str(raw).expect("locale file must be valid JSON");
+        let mut out = BTreeSet::new();
+        flatten(&value, "", &mut out);
+        out
+    }
+
+    #[test]
+    fn zh_cn_and_en_us_have_the_same_key_set() {
+        let zh = keys(include_str!("../../src/locales/zh-CN.json"));
+        let en = keys(include_str!("../../src/locales/en-US.json"));
+        let only_zh: Vec<&String> = zh.difference(&en).collect();
+        let only_en: Vec<&String> = en.difference(&zh).collect();
+        assert!(
+            only_zh.is_empty() && only_en.is_empty(),
+            "i18n 键集合不一致：\n  仅 zh-CN（{}）：{:?}\n  仅 en-US（{}）：{:?}",
+            only_zh.len(),
+            only_zh,
+            only_en.len(),
+            only_en
+        );
+        // 额外钉住"不是空表"：两边都解析失败时 difference 也会是空
+        assert!(zh.len() > 800, "zh-CN 键数异常：{}", zh.len());
+        assert_eq!(zh, en, "两份文案必须逐键对等");
+    }
+}

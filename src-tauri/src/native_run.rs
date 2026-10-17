@@ -90,6 +90,47 @@ pub struct MixedRunOptions {
     /// **关闭时必须与改动前逐字节相同**：本项不参与任何任务、不改计划、不改
     /// 序列化选项，只在为真时多提交一个 tombstone 层。
     pub delete_shaders: bool,
+    /// **是否把旧 `overrides` 升成 1.21.4+ 物品定义**（`generate_item_definitions`，
+    /// 默认 **true**）。
+    ///
+    /// 关闭 = 计划里**不派发**该任务：不写 `assets/minecraft/items/*.json`，包里的
+    /// `models/item/*.json` 一个字节都不动。代价是 1.21.4+ 不再读 `overrides`
+    /// （弓的拉弦、时钟帧动画、全部 `CustomModelData` 外观退回原版）——这是用户
+    /// 显式选择，不是优化。
+    ///
+    /// **只影响这条任务**：CIT 转换（[`Self::convert_cit`]）是另一条输入路径，
+    /// 它可以在没有默认定义时自己造一份（见 `merge_into_definition` 的 None 分支）。
+    pub convert_item_definitions: bool,
+    /// **是否把 OptiFine CIT 转成 1.21.4+ 物品定义**（`generate_cit_item_definitions`，
+    /// 默认 **true**）。
+    ///
+    /// 关闭 = 不生成定义，但 `optifine/cit/**` 与 `mcpatcher/cit/**` **原样保留**。
+    /// 这不是"删除"，装 OptiFine 的客户端仍会用那些文件；用户关它的典型理由是
+    /// "新版定义在自己这边不生效，不如留给 OptiFine"。
+    ///
+    /// **与 `delete_cit` 同开时以删除为准**：见 [`Self::delete_cit`]。
+    pub convert_cit: bool,
+    /// **是否把两棵 CIT 源目录整个删掉**（默认 **false**，破坏性）。
+    ///
+    /// 为 true 时做两件事，缺一不可：
+    /// 1. **不派发** `generate_cit_item_definitions`（`delete_cit` 优先于
+    ///    [`Self::convert_cit`]——先转一遍再删没有任何意义，只会让日志说谎）；
+    /// 2. 在全部任务之后的清理点把 `assets/minecraft/optifine/cit` 与
+    ///    `assets/minecraft/mcpatcher/cit` 整棵删掉（含显式目录条目）。
+    ///
+    /// 为什么要删而不是只"不转换"：用户实测旧包里的 CIT 在新版本会让客户端加载失败
+    /// （缺失贴图 ⇒ 紫黑格）。只跳过转换时 OptiFine 的源文件还在，装 OptiFine 的
+    /// 客户端仍会读它们并复现同一个失败；只有删掉才能保证"这份包在任何客户端上
+    /// 都不再有 CIT"。
+    ///
+    /// **范围**：只删这两个源根。本任务生成的 `models/cit/**` / `textures/cit/**`
+    /// 不在删除清单里——开关打开时 CIT 任务根本没跑，本次产物不会有它们；而输入包
+    /// 里若已存在上一次转换留下的同名文件，无法与作者自己的素材区分，宁可不碰
+    /// （误删作者素材比留几个孤儿文件更糟）。
+    ///
+    /// **关闭时必须与改动前逐字节相同**：不参与任何任务、不改计划、不改序列化选项，
+    /// 只在为真时多登记一次 tombstone。
+    pub delete_cit: bool,
     pub native: NativeSwitches,
     /// 原生任务写出声明范围即报错（D12 契约）。关掉则只记录在
     /// [`MixedRunReport::undeclared`] 里，便于诊断。
@@ -113,6 +154,9 @@ impl Default for MixedRunOptions {
             fix_alpha_layers: false,
             adapt_shaders: true,
             delete_shaders: false,
+            convert_item_definitions: true,
+            convert_cit: true,
+            delete_cit: false,
             native: NativeSwitches::none(),
             strict_scopes: true,
             legacy_one_by_one: false,
@@ -158,6 +202,12 @@ pub struct MixedRunReport {
     /// 都是全量口径，看不出"到底删了几条"。单测靠它钉住"开启时确实删到了东西"，
     /// 日志也靠它回答用户"我的包里有 8 条 shaders，已经删了"。
     pub deleted_shaders: usize,
+    /// **`delete_cit` 实际删掉的条目数**（0 = 没开，或包里本来没有 CIT 源目录）。
+    ///
+    /// 与 `deleted_shaders` 同一个理由：`removed`/`stats.files` 是全量口径，
+    /// 看不出"到底删了几条 CIT"。单测靠它钉住"开启时确实删到了东西"，
+    /// 日志靠它回答用户"包里的 24 条 CIT 规则已经删了"。
+    pub deleted_cit: usize,
     /// 声明阶段与活注册表不一致的原生任务（见 §9.40：阶段决定相对位置）。
     pub tier_mismatches: Vec<String>,
     /// **逐步读数**（诊断，`step_trace` 打开时才填充）：`(标签, 文件数, 总字节, 名字指纹)`。
@@ -513,9 +563,54 @@ where
     clock = std::time::Instant::now();
 
     let scheduler = Scheduler::new();
-    let plan = scheduler
+    let planned = scheduler
         .plan(opts.source_version, opts.target_version)
         .map_err(|e| AromError::internal(format!("scheduler plan: {e}")))?;
+    // ══════════════════════════════════════════════════════════════════════
+    // **物品定义 / CIT 三个用户开关：在计划阶段过滤任务**。
+    //
+    // 为什么在计划阶段、而不是在任务体内早退：
+    //
+    // 1. 这两个任务（`generate_item_definitions` / `generate_cit_item_definitions`）
+    //    都带**副作用**（写 `items/`、`models/cit/`、`textures/cit/`），"不跑"
+    //    与"跑了但什么都没写"在用户眼里一样，在日志/任务画像里却不一样——后者会
+    //    让用户看到一条正常的任务记录，然后疑惑"为什么没生效"。
+    // 2. `plan_len` / `native_names` 的口径是"本次执行计划里的任务"，过滤后它们
+    //    与实际执行数一致；否则 `native_tasks + legacy_tasks == plan_len` 这条
+    //    不变式还在，但计划里会留下永远不执行的名字（§9.140 的并行分桶也会多算）。
+    // 3. 过滤发生在 `native_placements` **之前**，因此不会留下"被判为 Early 但
+    //    从未执行"的条目；这与"任务自己按开关跳过"的产物完全等价（它本来也
+    //    不写任何字节），只是读数更诚实。
+    //
+    // 过滤规则三条：
+    //   * `convert_item_definitions == false` ⇒ 去掉 `generate_item_definitions`；
+    //   * `convert_cit == false` **或** `delete_cit == true` ⇒ 去掉
+    //     `generate_cit_item_definitions`。
+    //     **`delete_cit` 优先**：删除就是删除，不存在"先转一遍再删"。
+    //   * `adapt_shaders == false` ⇒ 去掉 `adapt_java_shaders`。
+    //     这条是**修回归**：M3 换计划表之后这个开关只被传递、没有消费者，
+    //     见 `plan_task_enabled` 的文档。
+    //
+    // 默认值（true / true / false / true）下 `planned == plan`，产物与改动前逐字节
+    // 相同；这条性质由 `cit_switches_default_to_on_on_off` 与端到端用例直接钉住。
+    // ══════════════════════════════════════════════════════════════════════
+    let planned_len = planned.len();
+    let plan: Vec<String> = planned
+        .into_iter()
+        .filter(|name| plan_task_enabled(name, opts))
+        .collect();
+    if plan.len() != planned_len {
+        // 用户能看到"计划被改过"的唯一入口：日志里逐条说明被过滤的任务。
+        // 不把这条写进 report.notes（那是**任务**的说明），因为没有任务跑过；
+        // 产物差异靠上面的 `convert_*` 日志行也能解释。
+        crate::log_info!(
+            "conversion switches: {} 个物品定义任务未派发（convert_item_definitions={}, convert_cit={}, delete_cit={}）",
+            planned_len - plan.len(),
+            opts.convert_item_definitions,
+            opts.convert_cit,
+            opts.delete_cit
+        );
+    }
 
     // §9.93（M3）：包名与旧管线**同源**——`invoke_conversion_ex` 也是取
     // `target_path.file_stem()`（`target_path` 即输入包）。这样 Bedrock 任务在两条路径上
@@ -875,6 +970,66 @@ where
         }
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // **`delete_cit`：把两棵 CIT 源目录整棵删掉**（用户开关，默认关）。
+    //
+    // ## 做什么
+    //
+    // 删两个根，两个都要删，因为来源不同：
+    //   * `assets/minecraft/optifine/cit` —— 现行 OptiFine CIT 的落点；
+    //   * `assets/minecraft/mcpatcher/cit` —— 1.7 时代的旧名字，老包仍在用。
+    //     **现代转换路径不经过 `(7,8)` 的 `rename_mcpatcher_to_optifine`**
+    //     （34→55 走的是 34→42→46→55），所以这个根会原样留到产物里——只删
+    //     `optifine` 那一棵等于对老包完全没有效果（实测：布吉岛包里 24 条规则
+    //     全在 `optifine/cit`，但 `mcpatcher/cit` 的包同样存在）。
+    //
+    // 用 `tx.remove()` 登记 tombstone：层对**子树**生效（`Layer::lookup` 连祖先
+    // 一起判、`entries_uncached` 里 `map.retain(!is_under)`），因此一个前缀就能
+    // 带走目录里全部文件；包若带**显式目录条目**（真实包实测：`optifine/cit/`
+    // 与 `.../cit/bow0/` 都是独立 zip 条目），精确命中同样会被移除。
+    //
+    // ## 位置与 `delete_shaders` 完全相同（全部任务之后、清理点之前）
+    //
+    // 理由逐条相同（见上一段），额外多一条**本开关专属**的理由：
+    // `delete_cit == true` 时 `generate_cit_item_definitions` **已经在计划阶段被
+    // 过滤掉**（见 `plan_task_enabled`），所以这里删源文件不会让任何任务看到空目录。
+    // 若将来有人把过滤挪回任务体内，就必须保持"跳过"发生在删除之前——反过来
+    // （先删再跳过）在产物上其实等价，但任务会读到空目录并把 `changed` 记成 0，
+    // 日志里就分不清"没规则"和"规则被删了"。
+    //
+    // ## 关闭时与改动前逐字节相同
+    //
+    // 只有 `opts.delete_cit == true` 才进入本段；默认 false 时这段**一条语句都不
+    // 执行**（不建事务、不提交层、不改 report）。包本来就没有 CIT 时同样不登记
+    // （`deleted_cit` 保持 0，产物不变）。
+    // ══════════════════════════════════════════════════════════════════════
+    if opts.delete_cit {
+        let entries = pack.view().entries()?;
+        let mut total = 0usize;
+        let mut hits: Vec<&'static str> = Vec::new();
+        for root in CIT_ROOTS {
+            let n = entries
+                .iter()
+                .filter(|e| e.path == *root || e.path.starts_with(&format!("{root}/")))
+                .count();
+            if n > 0 {
+                hits.push(root);
+                total += n;
+            }
+        }
+        report.deleted_cit = total;
+        if hits.is_empty() {
+            crate::log_info!("delete_cit: 包内没有 CIT 源目录，跳过（产物不受影响）");
+        } else {
+            report.deferred_removals.extend(hits.iter().map(|s| s.to_string()));
+            crate::log_info!(
+                "delete_cit: 将在清理点删除 {} 条 CIT 条目（{}）—— OptiFine 与新版物品定义都不会再生效",
+                total,
+                hits.join(", ")
+            );
+        }
+    }
+
     // **§9.129：`ctx.execute_cleanup()` / `pool.clear_unused()` 已删除。**
     //
     // 原先这里调用旧引擎的清理：旧任务的 `defer_remove_*` 登记在 `HurrayContext` 的清单里，
@@ -1029,6 +1184,53 @@ where
 /// 避免"文档说删两棵、代码只删一棵"这类只在真实包上才暴露的分叉。
 /// 顺序即日志里的报告顺序（先 core，后顶层）。
 const SHADER_ROOTS: [&str; 2] = ["assets/minecraft/shaders", "shaders"];
+
+/// **`delete_cit` 要整棵删掉的两个根**。
+///
+/// * `assets/minecraft/optifine/cit` —— 现行 OptiFine CIT；
+/// * `assets/minecraft/mcpatcher/cit` —— MCPatcher 旧名，老包仍在用。
+///
+/// 与 `cit_item_definitions::ROOTS` **必须是同一对路径**：那边是"读哪些根"，
+/// 这里是"删哪些根"。两份常量分开写是因为两个模块的依赖方向不同
+/// （`natives` 不该反过来依赖驱动）；`cit_item_definitions` 的测试直接断言
+/// 两份相等，保证它们不会漂移。
+///
+/// 顺序即日志里的报告顺序（先 optifine，后 mcpatcher）。
+pub(crate) const CIT_ROOTS: [&str; 2] = [
+    "assets/minecraft/optifine/cit",
+    "assets/minecraft/mcpatcher/cit",
+];
+
+/// **物品定义 / CIT 三个用户开关 → 是否派发这个计划任务**。
+///
+/// 这是三个开关在**驱动侧**的唯一生效点（见 `run_native` 里那段长注释）：
+///
+/// | 任务 | 被哪个开关控制 |
+/// |---|---|
+/// | `generate_item_definitions` | `convert_item_definitions` |
+/// | `generate_cit_item_definitions` | `convert_cit && !delete_cit` |
+/// | `adapt_java_shaders` | `adapt_shaders` |
+///
+/// 其余任务一律 `true`。**默认值组合（true / true / false / true）下本函数恒为
+/// true**，因此"不加新选项时产物逐字节相同"这条性质不依赖任何调用方记得传默认值。
+///
+/// **`adapt_shaders` 是一条历史遗留的修复（2026-10）**：它在 2.1.3 引入时确实
+/// 门控着任务注册，但 M3 把任务注册表换成 `Scheduler::plan` 之后，这个字段只剩
+/// 传递、没有任何消费者——UI 上的「着色器适配」开关**看起来能关、实际关不掉**
+/// （§9.130 起的回归，之前没人发现）。本次把它接进计划过滤，恢复 UI 文案承诺的
+/// 语义。默认 true，所以默认产物不变；只有显式关过它的用户会看到差异（这正是
+/// 他们当初点那个开关想要的结果）。
+///
+/// 注意 `delete_cit` 与 `convert_cit` **同开时删除优先**：这里直接把 CIT 任务
+/// 过滤掉，而不是让它跑完再删——删除就是删除。
+fn plan_task_enabled(name: &str, opts: &MixedRunOptions) -> bool {
+    match name {
+        "generate_item_definitions" => opts.convert_item_definitions,
+        "generate_cit_item_definitions" => opts.convert_cit && !opts.delete_cit,
+        "adapt_java_shaders" => opts.adapt_shaders,
+        _ => true,
+    }
+}
 
 const EARLY_NATIVES: [&str; 10] = [
     "generate_smithing_ui",
@@ -1824,6 +2026,99 @@ mod tests {
 
 
 
+    /// **物品定义 / CIT 开关**专用夹具：两棵 CIT 源目录 + 一个能触发
+    /// `generate_item_definitions` 的物品模型。
+    ///
+    /// 为什么不用通用夹具：通用夹具里只有一条 `mcpatcher/cit/a.properties`，
+    /// 内容不是合法 CIT（`a=1`），CIT 任务会把它当"不是规则"跳过——那测不出
+    /// "关闭时源文件保留"与"删除时目录消失"的差别。
+    ///
+    /// 刻意写入**显式目录条目**（`optifine/cit/`、`optifine/cit/test/`、
+    /// `mcpatcher/cit/`）：真实包（实测 `濯卿觎1.20.1布吉岛材质 (1).zip`）里
+    /// 这三层都是独立 zip 条目，删除必须连目录条目一起带走。
+    ///
+    /// 两条 CIT 规则分别来自两个根，且都用数字 `CustomModelData`：
+    /// * `optifine/cit/test/cmd.properties` → `items/stick.json` 的 7 档；
+    /// * `mcpatcher/cit/old.properties` → 同一物品的 9 档。
+    /// 两条并进同一张 `range_dispatch` 表，正好覆盖"两个根都读到"。
+    fn fixture_cit(path: &Path) {
+        let f = std::fs::File::create(path).expect("create cit fixture");
+        let mut zip = zip::ZipWriter::new(f);
+        let opts = zip::write::FileOptions::default();
+        zip.add_directory("assets/minecraft/optifine/cit/", opts).expect("dir");
+        zip.add_directory("assets/minecraft/optifine/cit/test/", opts).expect("dir");
+        zip.add_directory("assets/minecraft/mcpatcher/cit/", opts).expect("dir");
+        let mut add = |name: &str, body: Vec<u8>| {
+            zip.start_file(name, opts).expect("start");
+            zip.write_all(&body).expect("write");
+        };
+        add(
+            "pack.mcmeta",
+            br#"{"pack":{"pack_format":34,"description":"cit fixture"}}"#.to_vec(),
+        );
+        add(
+            "assets/minecraft/optifine/cit/test/cmd.properties",
+            b"type=item\nitems=stick\ntexture=x.png\nnbt.CustomModelData=7\n".to_vec(),
+        );
+        add("assets/minecraft/optifine/cit/test/x.png", png((16, 16)));
+        add(
+            "assets/minecraft/mcpatcher/cit/old.properties",
+            b"type=item\nitems=stick\nmodel=minecraft:item/stick\nnbt.CustomModelData=9\n"
+                .to_vec(),
+        );
+        // 让 `generate_item_definitions` 有活干：bow 在官方参考表里，会写出
+        // `items/bow.json`；`stick` 是平凡定义，刻意不写（留给 CIT 写）。
+        add(
+            "assets/minecraft/models/item/bow.json",
+            br#"{"parent":"item/generated","textures":{"layer0":"item/bow"},
+                 "overrides":[{"predicate":{"custom_model_data":5},"model":"item/bow_pulling_0"}]}"#
+                .to_vec(),
+        );
+        zip.finish().expect("finish");
+    }
+
+    /// 该路径是否落在 [`CIT_ROOTS`] 之下（入口与子路径都算，容忍目录尾斜杠）。
+    fn is_cit_path(name: &str) -> bool {
+        let p = name.trim_end_matches('/');
+        CIT_ROOTS
+            .iter()
+            .any(|r| p == *r || p.starts_with(&format!("{r}/")))
+    }
+
+    /// 物品定义 / CIT 开关的变体：目标 55 正好跨 `(42,46)` 与 `(46,55)` 两条边，
+    /// 两个任务都会出现在计划里。
+    fn native_output_cit_switches(
+        input: &Path,
+        tmp: &Path,
+        convert_item_definitions: bool,
+        convert_cit: bool,
+        delete_cit: bool,
+        tag: &str,
+    ) -> (PathBuf, MixedRunReport) {
+        let work = tmp.join(format!("cit_work_{tag}"));
+        let out = tmp.join(format!("cit_{tag}.zip"));
+        let opts = MixedRunOptions {
+            source_version: 34,
+            target_version: 55,
+            convert_item_definitions,
+            convert_cit,
+            delete_cit,
+            native: NativeSwitches::all(),
+            ..MixedRunOptions::default()
+        };
+        let report = run_native(input, &work, &Output::Zip(out.clone()), &opts, |tx| {
+            if tx.exists("pack.mcmeta") {
+                let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                let next = crate::pack::version_converter::rewrite_pack_mcmeta_text(&cur, 55)?;
+                tx.put("pack.mcmeta", next.into_bytes())
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
+        .expect("run_native with cit switches");
+        (out, report)
+    }
+
     fn assert_equivalent(legacy: &Path, mixed: &Path) -> crate::pack::diff::PackDiffReport {
         let report = diff_containers(legacy, mixed).expect("diff");
         // 让失败自报身份：路径即配置标签（legacy.zip / v2_on.zip / v2_one_by_one.zip …）
@@ -2259,6 +2554,276 @@ mod tests {
         );
     }
 
+    /// **三个 CIT / 物品定义开关的默认值**：两个转换默认开、删除默认关。
+    ///
+    /// 这是"不加新选项时产物逐字节相同"的第一道闸门。默认组合下
+    /// `plan_task_enabled` 必须对**所有**计划任务返回 true（过滤是恒等），
+    /// 否则默认产物会悄悄少掉 `items/*.json` 或 CIT 目录。
+    #[test]
+    fn cit_switches_default_to_on_on_off() {
+        let opts = MixedRunOptions::default();
+        assert!(opts.convert_item_definitions, "物品定义默认必须开");
+        assert!(opts.convert_cit, "CIT 转换默认必须开");
+        assert!(!opts.delete_cit, "删除是破坏性的，默认必须关");
+
+        assert!(plan_task_enabled("generate_item_definitions", &opts));
+        assert!(plan_task_enabled("generate_cit_item_definitions", &opts));
+        // 其余任务不受影响（这里抽两个不同阶段的代表）
+        assert!(plan_task_enabled("adapt_java_shaders", &opts), "着色器适配默认开");
+        assert!(plan_task_enabled("cut_gui", &opts));
+    }
+
+    /// **`adapt_shaders` 开关真的被计划过滤消费**（2026-10 修复 M3 回归）。
+    ///
+    /// 背景：`adapt_shaders` 在 2.1.3 引入时门控任务注册；M3 换成
+    /// `Scheduler::plan` 之后它只被传递、没有消费者，UI 上关掉也照样适配。
+    /// 这条用例钉住"关掉之后 `adapt_java_shaders` 不再派发"，并且不误伤
+    /// 物品定义 / CIT 的任务。
+    #[test]
+    fn adapt_shaders_switch_filters_only_the_shader_task() {
+        let opts = MixedRunOptions {
+            adapt_shaders: false,
+            ..MixedRunOptions::default()
+        };
+        assert!(
+            !plan_task_enabled("adapt_java_shaders", &opts),
+            "关掉着色器适配后不该派发 adapt_java_shaders"
+        );
+        assert!(
+            plan_task_enabled("generate_item_definitions", &opts),
+            "物品定义开关不该被连坐"
+        );
+        assert!(
+            plan_task_enabled("generate_cit_item_definitions", &opts),
+            "CIT 开关不该被连坐"
+        );
+        assert!(plan_task_enabled("delete_shaders_folder", &opts), "删除任务不受影响");
+    }
+
+    /// **关掉转换项只跳过对应任务，源文件一个字节都不动。**
+    ///
+    /// 三条语义在这里一次性钉住：
+    /// 1. `convert_item_definitions=false`：没有 `items/bow.json`，但 CIT 仍写
+    ///    `items/stick.json`（两条输入路径互不依赖）；
+    /// 2. `convert_cit=false`：没有 `items/stick.json` / `models/cit/**` /
+    ///    `textures/cit/**`，但 `items/bow.json` 照写，**两棵 CIT 源目录仍在**；
+    /// 3. 默认组合（结构体缺省）与显式 (true,true,false) 的产物逐条相同。
+    #[test]
+    fn cit_and_item_definition_switches_gate_only_their_own_output() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture_cit.zip");
+        fixture_cit(&input);
+
+        let (all_zip, _) =
+            native_output_cit_switches(&input, tmp.path(), true, true, false, "all");
+        let all = zip_entry_names(&all_zip);
+        assert!(all.iter().any(|n| n == "assets/minecraft/items/bow.json"), "官方定义任务应写出 bow：{all:?}");
+        assert!(all.iter().any(|n| n == "assets/minecraft/items/stick.json"), "CIT 应写出 stick：{all:?}");
+        assert!(
+            all.iter().any(|n| n == "assets/minecraft/models/cit/test/cmd.json"),
+            "CIT 应写出 models/cit：{all:?}"
+        );
+        assert!(
+            all.iter().any(|n| n == "assets/minecraft/textures/cit/test/cmd.png"),
+            "CIT 应搬运贴图：{all:?}"
+        );
+        let all_cit: Vec<&String> = all.iter().filter(|n| is_cit_path(n)).collect();
+        assert!(!all_cit.is_empty(), "默认必须保留 CIT 源目录");
+
+        // ── 关物品定义：bow 消失，CIT 与源目录都还在 ─────────────────────
+        let (no_def_zip, _) =
+            native_output_cit_switches(&input, tmp.path(), false, true, false, "no_def");
+        let no_def = zip_entry_names(&no_def_zip);
+        assert!(
+            !no_def.iter().any(|n| n == "assets/minecraft/items/bow.json"),
+            "关闭后不该写 bow 定义：{no_def:?}"
+        );
+        assert!(
+            no_def.iter().any(|n| n == "assets/minecraft/items/stick.json"),
+            "CIT 是另一条路径，不该被物品定义开关连坐：{no_def:?}"
+        );
+        assert!(no_def.iter().any(|n| is_cit_path(n)), "源目录必须原样保留");
+
+        // ── 关 CIT：CIT 产物与源目录的关系 ──────────────────────────────
+        let (no_cit_zip, _) =
+            native_output_cit_switches(&input, tmp.path(), true, false, false, "no_cit");
+        let no_cit = zip_entry_names(&no_cit_zip);
+        assert!(
+            no_cit.iter().any(|n| n == "assets/minecraft/items/bow.json"),
+            "关 CIT 不该影响官方定义任务：{no_cit:?}"
+        );
+        assert!(
+            !no_cit.iter().any(|n| n == "assets/minecraft/items/stick.json"),
+            "关 CIT 后不该再写 CIT 定义：{no_cit:?}"
+        );
+        assert!(
+            !no_cit.iter().any(|n| n.starts_with("assets/minecraft/models/cit/")),
+            "关 CIT 后不该留 models/cit：{no_cit:?}"
+        );
+        assert!(
+            !no_cit.iter().any(|n| n.starts_with("assets/minecraft/textures/cit/")),
+            "关 CIT 后不该留 textures/cit：{no_cit:?}"
+        );
+        assert!(
+            no_cit.iter().any(|n| is_cit_path(n)),
+            "**关 CIT 只跳过转换，源文件必须原样保留**（OptiFine 用户还要用）：{no_cit:?}"
+        );
+
+        // ── 两个都关：两边的定义都不写，源目录仍在 ───────────────────────
+        let (neither_zip, _) =
+            native_output_cit_switches(&input, tmp.path(), false, false, false, "neither");
+        let neither = zip_entry_names(&neither_zip);
+        assert!(
+            !neither.iter().any(|n| n == "assets/minecraft/items/bow.json" || n == "assets/minecraft/items/stick.json"),
+            "两项都关时不该有任何新物品定义：{neither:?}"
+        );
+        assert!(neither.iter().any(|n| is_cit_path(n)), "源目录仍在");
+
+        // ── 默认口径 = 显式全开口径（逐条字节）─────────────────────────
+        let (default_zip, _) =
+            native_output_v2(&input, tmp.path(), 55, 34, NativeSwitches::all(), false, "cit_default");
+        assert_eq!(
+            zip_entry_digests(&all_zip),
+            zip_entry_digests(&default_zip),
+            "显式 (true,true,false) 必须与结构体默认口径逐条相同"
+        );
+    }
+
+    /// **`delete_cit`：两棵源目录消失、CIT 转换被跳过、其余条目逐条不变。**
+    ///
+    /// 钉住四件事：
+    /// 1. **默认关**（`deleted_cit == 0`、清理点没有登记任何 CIT 根）；
+    /// 2. 开启后**一条不剩**——含显式目录条目；`deleted_cit` 等于关闭时
+    ///    两棵树里的条目数（含目录）；
+    /// 3. 删除**优先于转换**：即使 `convert_cit=true`，也不该出现
+    ///    `items/stick.json` / `models/cit/**` / `textures/cit/**`；
+    /// 4. 删除走**延迟删除的清理点**：`deferred_removals` 里能看到两个根；
+    ///    并且非 CIT 条目与"只关 CIT、不删除"的产物逐条相同（只该删 CIT）。
+    #[test]
+    fn delete_cit_removes_both_roots_and_nothing_else() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture_cit.zip");
+        fixture_cit(&input);
+
+        // 对照组：只关 CIT、不删除（源目录保留，CIT 产物不生成）
+        let (off_zip, off_report) =
+            native_output_cit_switches(&input, tmp.path(), true, false, false, "cit_off");
+        let off_entries = zip_entry_names(&off_zip);
+        let off_cit: Vec<&String> = off_entries.iter().filter(|n| is_cit_path(n)).collect();
+        assert!(!off_cit.is_empty(), "夹具必须带 CIT 源目录");
+        assert_eq!(off_report.deleted_cit, 0);
+        assert!(
+            !off_report.deferred_removals.iter().any(|p| CIT_ROOTS.contains(&p.as_str())),
+            "关闭时不该登记 CIT 删除：{:?}",
+            off_report.deferred_removals
+        );
+
+        // 实验组：delete_cit=true，且故意同时保持 convert_cit=true（删除优先）
+        let (on_zip, on_report) =
+            native_output_cit_switches(&input, tmp.path(), true, true, true, "cit_del");
+        let on_entries = zip_entry_names(&on_zip);
+        let leftovers: Vec<&String> = on_entries.iter().filter(|n| is_cit_path(n)).collect();
+        assert!(
+            leftovers.is_empty(),
+            "开启后 CIT 源目录必须一条不剩（含目录条目），残留：{leftovers:?}"
+        );
+        assert_eq!(
+            on_report.deleted_cit,
+            off_cit.len(),
+            "删掉的条目数必须等于关闭时两棵树里的条目数（含目录）"
+        );
+        for root in CIT_ROOTS {
+            assert!(
+                on_report.deferred_removals.iter().any(|p| p == root),
+                "`{root}` 必须登记在延迟删除清单里（清理点时机），实际：{:?}",
+                on_report.deferred_removals
+            );
+        }
+        // 删除优先：CIT 任务被过滤，不该留下任何 CIT 产物
+        assert!(
+            !on_entries.iter().any(|n| n == "assets/minecraft/items/stick.json"),
+            "delete_cit 开启时 CIT 转换必须被跳过（delete 优先）：{on_entries:?}"
+        );
+        assert!(
+            !on_entries.iter().any(|n| n.starts_with("assets/minecraft/models/cit/")
+                || n.starts_with("assets/minecraft/textures/cit/")),
+            "delete_cit 开启时不该有 CIT 生成物：{on_entries:?}"
+        );
+        assert!(
+            on_entries.iter().any(|n| n == "assets/minecraft/items/bow.json"),
+            "物品定义任务不受 delete_cit 影响，仍应写出 bow：{on_entries:?}"
+        );
+        assert_eq!(on_report.deleted_shaders, 0, "CIT 开关不该顺手动 shaders");
+
+        // 只该删 CIT：其余条目与"只关 CIT"的产物逐条相同
+        let off_rest: Vec<_> = zip_entry_digests(&off_zip)
+            .into_iter()
+            .filter(|(n, _, _)| !is_cit_path(n))
+            .collect();
+        let on_rest: Vec<_> = zip_entry_digests(&on_zip)
+            .into_iter()
+            .filter(|(n, _, _)| !is_cit_path(n))
+            .collect();
+        assert_eq!(
+            off_rest, on_rest,
+            "开启 delete_cit 后，除 CIT 源目录外的条目必须逐条相同"
+        );
+    }
+
+    /// **`adapt_shaders=false` 真的把任务从计划里去掉**（不只停留在纯函数）。
+    ///
+    /// 纯函数用例只证明 `plan_task_enabled` 的返回值；这条跑完整 `run_native`，
+    /// 用 `native_names` 观察"任务到底有没有被派发"。夹具带两棵 shaders 树，
+    /// 所以 `adapt_java_shaders` 一定会出现在 34→55 的计划里。
+    #[test]
+    fn adapt_shaders_false_removes_the_task_from_the_plan() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let input = tmp.path().join("fixture_shaders.zip");
+        fixture_ex(&input, true);
+
+        let run = |adapt: bool, tag: &str| {
+            let work = tmp.path().join(format!("adapt_work_{tag}"));
+            let out = tmp.path().join(format!("adapt_{tag}.zip"));
+            let opts = MixedRunOptions {
+                source_version: 34,
+                target_version: 55,
+                adapt_shaders: adapt,
+                native: NativeSwitches::all(),
+                ..MixedRunOptions::default()
+            };
+            let report = run_native(&input, &work, &Output::Zip(out), &opts, |tx| {
+                if tx.exists("pack.mcmeta") {
+                    let cur = tx.text("pack.mcmeta").map_err(|e| e.to_string())?;
+                    let next =
+                        crate::pack::version_converter::rewrite_pack_mcmeta_text(&cur, 55)?;
+                    tx.put("pack.mcmeta", next.into_bytes())
+                        .map_err(|e| e.to_string())?;
+                }
+                Ok(())
+            })
+            .expect("run_native with adapt_shaders");
+            report
+        };
+
+        let on = run(true, "on");
+        let off = run(false, "off");
+        assert!(
+            on.native_names.iter().any(|n| n == "adapt_java_shaders"),
+            "默认必须派发 adapt_java_shaders：{:?}",
+            on.native_names
+        );
+        assert!(
+            !off.native_names.iter().any(|n| n == "adapt_java_shaders"),
+            "关闭后不该派发：{:?}",
+            off.native_names
+        );
+        assert_eq!(
+            off.plan_len + 1,
+            on.plan_len,
+            "关掉一个任务后计划长度必须恰好少 1"
+        );
+    }
+
     /// **8c 的第一批验收**：把 textures 已迁移任务改为原生执行，产物必须与「全走适配层」
     /// 以及旧管线都逐项一致；开关关闭时行为必须与打开前完全相同。
     ///
@@ -2456,10 +3021,17 @@ mod tests {
             .view()
             .json("assets/minecraft/items/diamond_sword.json")
             .expect("CIT 生成的物品定义必须存在");
-        assert_eq!(sword["model"]["type"], "minecraft:select");
-        assert_eq!(sword["model"]["cases"][0]["when"], 7);
+        // 数字 CMD 必须是 range_dispatch（旧实现写 select + 数字 when，客户端
+        // 解析失败 ⇒ 紫黑格；这条断言就是防止回归的形状守卫）。
+        assert_eq!(sword["model"]["type"], "minecraft:condition");
+        assert_eq!(sword["model"]["property"], "minecraft:has_component");
         assert_eq!(
-            sword["model"]["cases"][0]["model"]["model"],
+            sword["model"]["on_true"]["property"],
+            "minecraft:custom_model_data"
+        );
+        assert_eq!(sword["model"]["on_true"]["entries"][0]["threshold"], 7);
+        assert_eq!(
+            sword["model"]["on_true"]["entries"][0]["model"]["model"],
             "minecraft:cit/ruby/ruby_sword"
         );
         let model = pack

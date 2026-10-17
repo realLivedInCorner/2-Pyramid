@@ -634,7 +634,8 @@ pub fn process_extracted_dir_only(
 }
 
 pub fn convert_resource_pack(file_path: &str, target_version: u32) -> Result<String, String> {
-    // 单包兼容入口不暴露 shaders 删除：`delete_shaders = false`（与历史行为一致）。
+    // 单包兼容入口不暴露 shaders 删除与物品定义 / CIT 开关：
+    // `delete_shaders = false`、两个转换项 = true、`delete_cit = false`（历史行为）。
     process_zip(
         file_path,
         target_version,
@@ -643,6 +644,9 @@ pub fn convert_resource_pack(file_path: &str, target_version: u32) -> Result<Str
         None,
         None,
         false,
+        true,
+        false,
+        true,
         true,
         false,
     )
@@ -696,6 +700,8 @@ pub struct ConversionTiming {
 ///
 /// `delete_shaders` 见 [`process_zip_timed`] 的说明：**默认必须传 false**，
 /// 它是用户在转换页显式打开的"删掉 shaders"选项，不是默认行为。
+/// 末尾三个参数是物品定义 / CIT 的开关，见 [`process_zip_timed`] 的说明。
+#[allow(clippy::too_many_arguments)]
 pub fn process_zip(
     original_file_path: &str,
     pack_format2: u32,
@@ -706,6 +712,9 @@ pub fn process_zip(
     fix_alpha_layers: bool,
     adapt_shaders: bool,
     delete_shaders: bool,
+    convert_item_definitions: bool,
+    convert_cit: bool,
+    delete_cit: bool,
 ) -> Result<String, String> {
     process_zip_timed(
         original_file_path,
@@ -719,6 +728,9 @@ pub fn process_zip(
         // 兼容入口保持「完整转换」语义（GUI 手术开）
         true,
         delete_shaders,
+        convert_item_definitions,
+        convert_cit,
+        delete_cit,
     )
     .map(|(path, _timing)| path)
 }
@@ -734,6 +746,20 @@ pub fn process_zip(
 /// 之后**的清理点把 `assets/minecraft/shaders` 与顶层 `shaders/` 整棵删掉（删除时机与理由
 /// 写在 `native_run` 里那段注释）。这里只做透传——删除**不**在本函数里发生，因为本函数
 /// 之后还有 Bedrock 边任务会读那棵树，删早了 `j2b` 就搬不出任何着色器。
+///
+/// **物品定义 / CIT 三项**（`convert_item_definitions` / `convert_cit` / `delete_cit`）：
+/// 全部透传给 [`crate::native_run::MixedRunOptions`]，生效点在 `run_native`：
+///
+/// * 两个转换项在**计划阶段**生效（从 `Scheduler::plan` 的结果里过滤掉对应任务）。
+///   为什么不写成任务内部的早退：任务内部早退会留下"任务确实跑了、只是没做事"的
+///   画像与日志，而这里的语义是**用户选择不跑**；过滤计划还能让 `plan_len` 与实际
+///   执行数一致。
+/// * `delete_cit` 是**删除**，与 `delete_shaders` 同一时机（全部任务之后、清理点之前）：
+///   早删会让 `generate_cit_item_definitions` 看不到源文件（若它没被跳过），
+///   晚删则赶不上 `Output::Dir` 的 harvest 与 Bedrock 边任务。
+/// * `delete_cit` **优先于** `convert_cit`：两者同开时 CIT 任务被过滤、目录被删除。
+///   删除就是删除，先转一遍再删没有任何产物意义，只会在日志里留下误导性的 CIT 记录。
+#[allow(clippy::too_many_arguments)]
 pub fn process_zip_timed(
     original_file_path: &str,
     pack_format2: u32,
@@ -745,6 +771,9 @@ pub fn process_zip_timed(
     adapt_shaders: bool,
     run_gui_surgeon: bool,
     delete_shaders: bool,
+    convert_item_definitions: bool,
+    convert_cit: bool,
+    delete_cit: bool,
 ) -> Result<(String, ConversionTiming), String> {
     let input_zip = Path::new(original_file_path);
     if !input_zip.exists() {
@@ -943,6 +972,11 @@ pub fn process_zip_timed(
         // 用户开关：删掉 shaders 两棵树（时机与理由见 `native_run` 的清理点注释）。
         // 默认 false —— 关着的时候驱动里那一段一条语句都不执行。
         mopts.delete_shaders = delete_shaders;
+        // 物品定义 / CIT 三项：默认值由上层（Tauri 命令 / CLI）归一化后传入。
+        // 这里不再二次猜测——三个 bool 一路透传，产物差异只由调用方决定。
+        mopts.convert_item_definitions = convert_item_definitions;
+        mopts.convert_cit = convert_cit;
+        mopts.delete_cit = delete_cit;
         mopts.native = crate::native_run::NativeSwitches::all();
         // `tail`：把 `pack.mcmeta` 的 `pack_format` 改写到目标版本。
         // `run_native` 会在 workdir 上跑一次随后收获——与旧管线**同一套逻辑**，不重复实现。
@@ -1189,6 +1223,9 @@ mod tests {
             true,
             true,   // §9.138：测试保持「完整转换」语义（GUI 手术开）
             false,  // delete_shaders：本用例只关心耗时口径，保持默认关
+            true,   // convert_item_definitions：默认开
+            true,   // convert_cit：默认开
+            false,  // delete_cit：默认关
         )
         .expect("conversion should succeed");
 

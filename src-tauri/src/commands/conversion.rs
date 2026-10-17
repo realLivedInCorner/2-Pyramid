@@ -166,6 +166,10 @@ pub async fn convert_zip(
             true,
             // 旧入口（`convert_zip`）没有暴露删除 shaders 的 UI，保持历史行为。
             false,
+            // 物品定义 / CIT 三项也走默认值：旧入口不提供这些开关。
+            true,
+            true,
+            false,
         )
     }).await;
 
@@ -226,6 +230,13 @@ pub async fn convert_resource_pack(
 /// `delete_shaders` 是转换页上的用户开关（**默认 false**）：为 true 时，
 /// 每个包在**全部任务之后**把 `assets/minecraft/shaders` 与顶层 `shaders/`
 /// 整棵删掉。删除本身发生在 `run_native` 的清理点（见那里的注释），这里只透传。
+///
+/// 1.21.4+ 物品定义的两个开关（**默认都 true**）与 CIT 删除（**默认 false**）
+/// 也在这里落到 `MixedRunOptions`，语义见 `native_run` 里对应的字段注释：
+/// * `convert_item_definitions`：不写 `items/*.json`（旧 `overrides` 不迁移）；
+/// * `convert_cit`：不生成 CIT 定义，但两棵 CIT 源目录**原样保留**；
+/// * `delete_cit`：跳过 CIT 转换并把两棵源目录**整个删掉**（优先级高于
+///   `convert_cit`）。
 #[tauri::command]
 pub async fn convert_resource_packs_batch(
     file_paths: Vec<String>,
@@ -234,6 +245,9 @@ pub async fn convert_resource_packs_batch(
     fix_alpha_layers: Option<bool>,
     adapt_shaders: Option<bool>,
     delete_shaders: Option<bool>,
+    convert_item_definitions: Option<bool>,
+    convert_cit: Option<bool>,
+    delete_cit: Option<bool>,
 ) -> Result<Vec<serde_json::Value>, String> {
     use std::time::Instant;
 
@@ -245,6 +259,11 @@ pub async fn convert_resource_packs_batch(
     let adapt_shaders = adapt_shaders.unwrap_or(true);
     // 破坏性选项：默认关闭。缺省/旧前端只发前面几个参数时，行为与改动前一致。
     let delete_shaders = delete_shaders.unwrap_or(false);
+    // 物品定义两项默认开：缺省时与 8a27615 的产物一致。
+    let convert_item_definitions = convert_item_definitions.unwrap_or(true);
+    let convert_cit = convert_cit.unwrap_or(true);
+    // CIT 删除是破坏性的：缺省一律关，旧前端不发这个参数时绝不删文件。
+    let delete_cit = delete_cit.unwrap_or(false);
 
     log_info!("{}", "=".repeat(60));
     log_info!("Batch conversion started");
@@ -284,6 +303,13 @@ pub async fn convert_resource_packs_batch(
     log_info!("fix_alpha_layers: {}, adapt_shaders: {}", fix_alpha, adapt_shaders);
     // 破坏性动作必须留痕：日志里能回答"这一批为什么没有 shaders"
     log_info!("delete_shaders: {}", delete_shaders);
+    // 三个新开关同样逐条留痕：产物差异必须能只靠日志解释。
+    log_info!(
+        "convert_item_definitions: {}, convert_cit: {}, delete_cit: {}",
+        convert_item_definitions,
+        convert_cit,
+        delete_cit
+    );
     log_info!("{}", "=".repeat(60));
 
     let start_time = Instant::now();
@@ -340,6 +366,10 @@ pub async fn convert_resource_packs_batch(
                 true,
                 // 用户开关：删除 shaders（发生在管线末尾的清理点）
                 delete_shaders,
+                // 物品定义 / CIT 三项：缺省由本函数开头归一化，这里原样透传。
+                convert_item_definitions,
+                convert_cit,
+                delete_cit,
             ) {
                 Ok((result_path, timing)) => {
                     let elapsed = file_start.elapsed();

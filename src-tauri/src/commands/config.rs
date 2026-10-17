@@ -61,6 +61,33 @@ pub struct AppConfig {
     /// 不会让整份配置解析失败（`read_config_file` 解析失败会**回落到默认值**，
     /// 那会把用户所有设置一次清空——这是必须避免的失败形态）。
     pub delete_shaders: Option<bool>,
+    /// **是否把旧包的 `models/item/*.json` `overrides` 升成 1.21.4+ 物品定义**。
+    ///
+    /// `None` 视为 **true**（保持 8a27615 以来的行为）。这不是破坏性选项：
+    /// 关掉只是不写 `assets/minecraft/items/*.json`，包里的旧模型一个字节都不动。
+    /// 代价写在 UI 文案里：1.21.4+ 不再读 `overrides`，弓的拉弦、时钟帧动画与
+    /// `CustomModelData` 自定义外观会退回原版。
+    ///
+    /// 为什么它需要跟随配置/备份：它是**产物形态**的选择（新版外观能不能用），
+    /// 与 `delete_shaders` 同类；只写 localStorage 会让"重装后忘了自己关过"变成
+    /// 一次难以解释的静默差异。
+    pub convert_item_definitions: Option<bool>,
+    /// **是否把 OptiFine CIT 转成 1.21.4+ 物品定义**。
+    ///
+    /// `None` 视为 **true**。关闭 = 不生成新定义，但 `optifine/cit/**` 与
+    /// `mcpatcher/cit/**` **原样保留**——装了 OptiFine 的客户端仍然会读它们。
+    /// 这正是它与 [`AppConfig::delete_cit`] 的区别：一个是"不转换"，一个是"删掉"。
+    pub convert_cit: Option<bool>,
+    /// **是否把两棵 CIT 源目录整个删掉**（破坏性，`None` 视为 false）。
+    ///
+    /// 为 true 时 `native_run` 会在全部任务之后的清理点删除
+    /// `assets/minecraft/optifine/cit` 与 `assets/minecraft/mcpatcher/cit`，
+    /// 同时 **CIT 转换任务被跳过**——`delete_cit` 优先于 [`AppConfig::convert_cit`]：
+    /// 删除就是删除，没有"先转一遍再删"的意义。
+    ///
+    /// 和 `delete_shaders` 一样两端都写（配置 + localStorage）：破坏性选项
+    /// 重装后不该"看起来关着、实际还开着"，也不该反过来。
+    pub delete_cit: Option<bool>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -106,6 +133,15 @@ pub struct ConfigPatch {
     /// 与 [`AppConfig::delete_shaders`] 对应（前端 camelCase 传参）。
     #[serde(alias = "deleteShaders")]
     pub delete_shaders: Option<bool>,
+    /// 与 [`AppConfig::convert_item_definitions`] 对应。
+    #[serde(alias = "convertItemDefinitions")]
+    pub convert_item_definitions: Option<bool>,
+    /// 与 [`AppConfig::convert_cit`] 对应。
+    #[serde(alias = "convertCit")]
+    pub convert_cit: Option<bool>,
+    /// 与 [`AppConfig::delete_cit`] 对应。
+    #[serde(alias = "deleteCit")]
+    pub delete_cit: Option<bool>,
 }
 
 pub(crate) fn config_path() -> Result<std::path::PathBuf, String> {
@@ -438,6 +474,9 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         patch.log_redaction.as_ref().map(|_| "log_redaction"),
         patch.performance_mode.as_ref().map(|_| "performance_mode"),
         patch.delete_shaders.as_ref().map(|_| "delete_shaders"),
+        patch.convert_item_definitions.as_ref().map(|_| "convert_item_definitions"),
+        patch.convert_cit.as_ref().map(|_| "convert_cit"),
+        patch.delete_cit.as_ref().map(|_| "delete_cit"),
         patch.output_mode.as_ref().map(|_| "output_mode"),
         patch.output_path.as_ref().map(|_| "output_path"),
         patch.palette.as_ref().map(|_| "palette"),
@@ -545,6 +584,16 @@ pub fn update_config(patch: ConfigPatch) -> Result<serde_json::Value, String> {
         // 这里**不要**顺手把旧配置迁移成 true —— 默许删除用户数据是不可接受的。
         cfg.delete_shaders = Some(v);
     }
+    if let Some(v) = patch.convert_item_definitions {
+        cfg.convert_item_definitions = Some(v);
+    }
+    if let Some(v) = patch.convert_cit {
+        cfg.convert_cit = Some(v);
+    }
+    if let Some(v) = patch.delete_cit {
+        // 同上：破坏性选项只接受用户明确点开的值，不做任何"迁移"。
+        cfg.delete_cit = Some(v);
+    }
     write_config_file(&cfg)?;
     crate::log_info!("OKAY update_config [{}]", changed.join(", "));
     serde_json::to_value(cfg).map_err(|e| format!("Failed to read config: {}", e))
@@ -595,5 +644,62 @@ mod tests {
         let raw = serde_json::to_string(&cfg).expect("serialize");
         let back: AppConfig = serde_json::from_str(&raw).expect("deserialize");
         assert_eq!(back.delete_shaders, Some(true));
+    }
+
+    /// **旧配置没有 CIT 三项时：解析不能失败，更不能被"迁移"成删除。**
+    ///
+    /// 这条比 `delete_shaders` 那条更要紧：三项里有一个是破坏性的。
+    /// `read_config_file` 解析失败会回落默认值，而 `delete_cit` 的默认是关；
+    /// 但一旦有人把字段写成非 `Option`（或加 `#[serde(default = "true")]`），
+    /// 旧配置就会读出 `Some(false)`/`Some(true)` 的**猜测值**——前者悄悄改变产物，
+    /// 后者下一次转换直接删掉用户的 CIT。三者都必须是 `None`。
+    #[test]
+    fn old_config_without_cit_switches_still_parses() {
+        let raw = r#"{"performance_mode":"performance","theme_mode":"dark","delete_shaders":true}"#;
+        let cfg: AppConfig = serde_json::from_str(raw).expect("旧配置必须能解析");
+        assert_eq!(cfg.convert_item_definitions, None, "缺省必须是 None（运行时按 true 处理）");
+        assert_eq!(cfg.convert_cit, None, "缺省必须是 None（运行时按 true 处理）");
+        assert_eq!(cfg.delete_cit, None, "缺省必须是 None（运行时按 false 处理）");
+        // 顺带确认别的键没被解析失败连带清空
+        assert_eq!(cfg.performance_mode.as_deref(), Some("performance"));
+        assert_eq!(cfg.theme_mode.as_deref(), Some("dark"));
+        assert_eq!(cfg.delete_shaders, Some(true));
+    }
+
+    /// 前端 camelCase / 旧 snake_case 都要能被 patch 接收——少了 alias 不会报错，
+    /// 只会**静默不生效**（用户点了开关、配置却没存下来）。
+    #[test]
+    fn cit_patch_accepts_both_camel_and_snake_case() {
+        let camel: ConfigPatch = serde_json::from_str(
+            r#"{"convertItemDefinitions":false,"convertCit":false,"deleteCit":true}"#,
+        )
+        .expect("camelCase patch");
+        assert_eq!(camel.convert_item_definitions, Some(false));
+        assert_eq!(camel.convert_cit, Some(false));
+        assert_eq!(camel.delete_cit, Some(true));
+
+        let snake: ConfigPatch = serde_json::from_str(
+            r#"{"convert_item_definitions":true,"convert_cit":true,"delete_cit":false}"#,
+        )
+        .expect("snake_case patch");
+        assert_eq!(snake.convert_item_definitions, Some(true));
+        assert_eq!(snake.convert_cit, Some(true));
+        assert_eq!(snake.delete_cit, Some(false));
+    }
+
+    /// 存进文件再读回来是同一个值（配置要能跟着备份/迁移走）。
+    #[test]
+    fn cit_switches_survive_a_round_trip() {
+        let cfg = AppConfig {
+            convert_item_definitions: Some(false),
+            convert_cit: Some(false),
+            delete_cit: Some(true),
+            ..AppConfig::default()
+        };
+        let raw = serde_json::to_string(&cfg).expect("serialize");
+        let back: AppConfig = serde_json::from_str(&raw).expect("deserialize");
+        assert_eq!(back.convert_item_definitions, Some(false));
+        assert_eq!(back.convert_cit, Some(false));
+        assert_eq!(back.delete_cit, Some(true));
     }
 }
