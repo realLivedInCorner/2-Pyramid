@@ -234,6 +234,21 @@ const canSkipSha = computed(() => {
   return !!kind && skippableSha(kind);
 });
 
+/**
+ * 页脚动作行。
+ *
+ * 「检查中 / 安装中」没有可做的动作 —— 这时连页脚都不渲染，否则页面底部
+ * 会孤零零留一条发丝线（分隔线只应该在它真的分隔了两样东西时出现）。
+ */
+const footerVisible = computed(
+  () => phase.value !== "checking" && phase.value !== "installing",
+);
+const footerHint = computed(() => {
+  if (phase.value === "downloading") return t("update.cancelHint");
+  if (phase.value === "found" && isDismissable.value) return t("update.remindLaterHint");
+  return "";
+});
+
 async function copyDetail() {
   const text = activeError.value?.detail ?? "";
   if (!text) return;
@@ -421,6 +436,8 @@ onMounted(async () => {
 
     <main class="up-body" aria-live="polite">
       <div class="up-column">
+        <!-- 正文滚动区：主操作被钉在页脚，所以日志再长也不会把「立即更新」推出视野 -->
+        <div class="up-scroll">
         <!-- :key 一变就重挂载，入场动画重播；动画本身只写 backwards 填充，
              避免动画结束后留下 translate 让本页成为包含块（Workbench 记录过这个坑） -->
         <section class="up-state" :key="phase" :data-phase="phase">
@@ -520,17 +537,6 @@ onMounted(async () => {
                 <div class="up-md" v-html="renderedBody" @click="onMdClick"></div>
               </div>
             </section>
-
-            <div class="up-actions">
-              <p v-if="isDismissable" class="up-hint">{{ t("update.remindLaterHint") }}</p>
-              <button v-if="isDismissable" class="ghost-btn" type="button" @click="goBack">
-                {{ t("update.remindLater") }}
-              </button>
-              <button class="primary-btn" type="button" @click="startDownload(false)">
-                <i class="ri-download-2-line" aria-hidden="true"></i>
-                {{ t("update.updateNow") }}
-              </button>
-            </div>
           </template>
 
           <!-- ── 下载中 / 校验中 ── -->
@@ -569,18 +575,6 @@ onMounted(async () => {
                 <i class="ri-error-warning-line" aria-hidden="true"></i>
                 {{ t("update.skippedNotice") }}
               </p>
-
-              <div class="up-actions">
-                <p class="up-hint">{{ t("update.cancelHint") }}</p>
-                <button
-                  class="ghost-btn"
-                  type="button"
-                  :disabled="session.cancelRequested || isVerifying"
-                  @click="cancelDownload"
-                >
-                  {{ session.cancelRequested ? t("update.cancelling") : t("update.cancel") }}
-                </button>
-              </div>
             </div>
           </template>
 
@@ -597,16 +591,6 @@ onMounted(async () => {
                 {{ session.skippedSha ? t("update.shaSkippedBadge") : t("update.verifiedOk") }}
               </p>
               <p class="up-warn">{{ t("update.readyWarn") }}</p>
-            </div>
-
-            <div class="up-actions">
-              <button class="ghost-btn" type="button" @click="goBack">
-                {{ t("update.installLater") }}
-              </button>
-              <button class="primary-btn" type="button" @click="doInstall">
-                <i class="ri-restart-line" aria-hidden="true"></i>
-                {{ t("update.installRestart") }}
-              </button>
             </div>
           </template>
 
@@ -678,51 +662,83 @@ onMounted(async () => {
                 </div>
               </template>
             </div>
-
-            <div class="up-actions">
-              <button class="ghost-btn" type="button" @click="goBack">{{ t("update.backHome") }}</button>
-              <button class="primary-btn" type="button" @click="retry">
-                <i class="ri-refresh-line" aria-hidden="true"></i>
-                {{ t("update.retry") }}
-              </button>
-            </div>
           </template>
         </section>
 
-        <!-- 检查失败态在这里复用同一套「技术细节 + 重试」，
-             不塞进上面的 up-status 里 —— 那里是给一句话结论的地方 -->
-        <div v-if="phase === 'checkFailed'" class="up-checkfail-extra">
-          <div class="up-detail">
-            <div class="up-detail-head">
-              <button class="up-detail-toggle" type="button" @click="showDetail = !showDetail">
-                <i :class="showDetail ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" aria-hidden="true"></i>
-                {{ t("update.technicalDetail") }}
-              </button>
-              <button class="up-detail-copy" type="button" @click="copyDetail">
-                {{ copied ? t("update.copied") : t("update.copyDetail") }}
-              </button>
-            </div>
-            <pre v-if="showDetail" class="up-detail-body">{{ activeError?.detail }}</pre>
-          </div>
-          <div class="up-actions">
-            <button class="ghost-btn" type="button" @click="goBack">{{ t("update.backHome") }}</button>
-            <button class="primary-btn" type="button" @click="runCheck">
-              <i class="ri-refresh-line" aria-hidden="true"></i>
-              {{ t("update.checkAgain") }}
+        <!-- 检查失败态的技术细节复用同一套组件，但不塞进上面的 up-status ——
+             那里是给一句话结论的地方 -->
+        <div v-if="phase === 'checkFailed'" class="up-detail up-detail-solo">
+          <div class="up-detail-head">
+            <button class="up-detail-toggle" type="button" @click="showDetail = !showDetail">
+              <i :class="showDetail ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" aria-hidden="true"></i>
+              {{ t("update.technicalDetail") }}
+            </button>
+            <button class="up-detail-copy" type="button" @click="copyDetail">
+              {{ copied ? t("update.copied") : t("update.copyDetail") }}
             </button>
           </div>
+          <pre v-if="showDetail" class="up-detail-body">{{ activeError?.detail }}</pre>
         </div>
+        </div><!-- /.up-scroll -->
 
-        <!-- 「已是最新」也留一个重新检查；放在状态块外，取消/安装中不出现 -->
-        <div v-if="phase === 'latest'" class="up-checkfail-extra">
-          <div class="up-actions">
+        <!--
+          页脚：主操作固定在这里，不随内容滚走。
+          原因是踩过的坑：1240×800 下「有新版本」一屏放不下（标签 + 版本对比 +
+          明细 + 长更新日志），主按钮被顶到首屏外 —— 用户得先滚动才看得见
+          「立即更新」，而那是这一页唯一要做的事。
+          做法与 Workbench 的 .stage-actions 同构：正文单独滚，动作行贴在页面底部，
+          上方一条发丝线与内容分隔（不叠玻璃卡片）。
+        -->
+        <footer v-if="footerVisible" class="up-footer">
+          <p v-if="footerHint" class="up-hint">{{ footerHint }}</p>
+
+          <template v-if="phase === 'latest' || phase === 'checkFailed'">
             <button class="ghost-btn" type="button" @click="goBack">{{ t("update.backHome") }}</button>
             <button class="ghost-btn" type="button" @click="runCheck">
               <i class="ri-refresh-line" aria-hidden="true"></i>
               {{ t("update.checkAgain") }}
             </button>
-          </div>
-        </div>
+          </template>
+
+          <template v-else-if="phase === 'found'">
+            <button v-if="isDismissable" class="ghost-btn" type="button" @click="goBack">
+              {{ t("update.remindLater") }}
+            </button>
+            <button class="primary-btn" type="button" @click="startDownload(false)">
+              <i class="ri-download-2-line" aria-hidden="true"></i>
+              {{ t("update.updateNow") }}
+            </button>
+          </template>
+
+          <template v-else-if="phase === 'downloading'">
+            <button
+              class="ghost-btn"
+              type="button"
+              :disabled="session.cancelRequested || isVerifying"
+              @click="cancelDownload"
+            >
+              {{ session.cancelRequested ? t("update.cancelling") : t("update.cancel") }}
+            </button>
+          </template>
+
+          <template v-else-if="phase === 'ready'">
+            <button class="ghost-btn" type="button" @click="goBack">
+              {{ t("update.installLater") }}
+            </button>
+            <button class="primary-btn" type="button" @click="doInstall">
+              <i class="ri-restart-line" aria-hidden="true"></i>
+              {{ t("update.installRestart") }}
+            </button>
+          </template>
+
+          <template v-else-if="phase === 'failed'">
+            <button class="ghost-btn" type="button" @click="goBack">{{ t("update.backHome") }}</button>
+            <button class="primary-btn" type="button" @click="retry">
+              <i class="ri-refresh-line" aria-hidden="true"></i>
+              {{ t("update.retry") }}
+            </button>
+          </template>
+        </footer>
       </div>
     </main>
   </div>
@@ -810,31 +826,68 @@ onMounted(async () => {
   letter-spacing: 0.02em;
 }
 
-/* ── 正文 ── */
+/* ── 正文 ──
+   .up-body 只负责定位，**不滚动**：滚动交给 .up-scroll，页脚才能在它之外
+   固定住。让 .up-body 同时承担滚动 + flex 布局，页脚会跟着内容一起滚走。
+
+   左对齐而不是居中：页头的「更新」标题与返回钮都贴左缘 48px，正文若居中
+   （1240 宽时左缘在 232）两者会错开一大截，读起来像两块东西。整页共用一条
+   左脊，标题 → 版本 → 明细 → 日志 → 页脚依次落下来。 */
 .up-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
   position: relative;
   z-index: 1;
   display: flex;
-  justify-content: center;
-  padding: 10px 48px 44px;
+  justify-content: flex-start;
+  padding: 10px 150px 0 48px;
 }
-.up-body::-webkit-scrollbar { width: 8px; }
-.up-body::-webkit-scrollbar-track { background: transparent; }
-.up-body::-webkit-scrollbar-thumb {
-  background: rgba(var(--warm-rgb), 0.18);
-  border-radius: 4px;
-}
-.up-body::-webkit-scrollbar-thumb:hover { background: rgba(var(--warm-rgb), 0.32); }
 
 .up-column {
   width: 100%;
-  max-width: 760px;
+  /* 820 是「一行读得下去」的上限：再宽，更新日志的长句会跨到 100+ 字符 */
+  max-width: 820px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.up-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 纵向 flex：让短状态块能撑满剩余高度并居中（见下面的 .up-state[data-phase]） */
+  display: flex;
+  flex-direction: column;
+  /* 底部留白：最后一行不该紧贴页脚那条发丝线 */
+  padding-bottom: 18px;
+}
+.up-scroll::-webkit-scrollbar { width: 8px; }
+.up-scroll::-webkit-scrollbar-track { background: transparent; }
+.up-scroll::-webkit-scrollbar-thumb {
+  background: rgba(var(--warm-rgb), 0.18);
+  border-radius: 4px;
+}
+.up-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--warm-rgb), 0.32); }
+
+/* 页脚：主操作固定，发丝线与正文分隔（不叠玻璃卡片） */
+.up-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 0 18px;
+  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
+}
+.up-footer .up-hint {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
 }
 
 /*
@@ -851,6 +904,25 @@ onMounted(async () => {
 @keyframes up-in {
   from { opacity: 0; translate: 0 10px; }
   to { opacity: 1; translate: 0 0; }
+}
+
+/*
+ * 短状态（检查中 / 已最新 / 已就绪 / 下载中 / 安装中）在剩余高度里纵向居中。
+ *
+ * 不这么做的话，1240×800 下「下载中」只有标题 + 进度条 + 一行元信息，
+ * 全挤在顶部，下面 500px 全是空的，看起来像页面没渲染完。
+ *
+ * `flex: 1 0 auto` 而不是 `1 1 auto` —— 这条不能省：内容比可见区高时
+ * 才不会被压缩；一旦被压缩，`justify-content: center` 会把溢出部分推到
+ * 滚动原点**上方**，那部分永远滚不到（flexbox 的经典坑）。
+ */
+.up-state[data-phase="checking"],
+.up-state[data-phase="latest"],
+.up-state[data-phase="ready"],
+.up-state[data-phase="downloading"],
+.up-state[data-phase="installing"] {
+  flex: 1 0 auto;
+  justify-content: center;
 }
 
 /* ── 居中状态（检查中 / 已最新 / 安装中）── */
@@ -878,7 +950,13 @@ onMounted(async () => {
   line-height: 1.7;
   color: var(--ink-2);
 }
-.up-status-hint.dim { color: var(--ink-3); }
+/*
+ * 第二行说明（「该怎么办」）。
+ * 走 --ink-2 而不是 --ink-3：它是一整句话，不是标签。深色下 --ink-3 在渐变
+ * 底上实测只有 4.04–4.45，够 3:1 的辅助门槛但不到正文 4.5，句子不该用那一档。
+ * 与上一行的层级差由字号给（13px → 12.5px），不靠再压一档灰度。
+ */
+.up-status-hint.dim { color: var(--ink-2); font-size: 12.5px; }
 .up-status-meta {
   margin: 4px 0 0;
   display: inline-flex;
@@ -1076,16 +1154,16 @@ onMounted(async () => {
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
-/* 日志正文限高滚动：长日志不该把「立即更新」顶到看不见的地方 */
+/*
+ * 日志正文**不再自己滚动**。
+ *
+ * 原来的写法是 max-height: 236px + overflow-y: auto —— 那是弹窗时代的补丁：
+ * 弹窗高度固定，长日志会把按钮顶出去。现在外层 .up-scroll 已经能滚，再套一个
+ * 内层滚动条会出现「滚到底之后页面才开始滚」的套娃手感（滚轮接力），
+ * 而且在 800px 高的窗口里，内层那个 236px 只够看三行。
+ */
 .up-notes-body {
-  max-height: 236px;
-  overflow-y: auto;
   padding: 10px 0 2px;
-}
-.up-notes-body::-webkit-scrollbar { width: 6px; }
-.up-notes-body::-webkit-scrollbar-thumb {
-  background: rgba(var(--warm-rgb), 0.2);
-  border-radius: 6px;
 }
 
 /*
@@ -1296,6 +1374,22 @@ onMounted(async () => {
  *   · 正文 13px / 1.8 行距：页面正文是 13/1.7，这里故意再松一点，逼着读慢
  * 不用投影、不用 backdrop-filter —— 全项目用「行 + 发丝线」分隔，
  * 这里也只是页面里一个被强调的行块，不是浮起来的卡片。
+ *
+ * ── 对比度实测（1200×750 无头 Chrome，方法见 .dsh-tmp 下的 contrast.py：
+ *    前景取 computed color，背景取元素矩形外扩 3px、剔除字形与抗锯齿过渡像素
+ *    后逐通道中位数；每个背景像素各算一次，报中位数）──
+ *
+ *    元素            浅色        深色
+ *    眉标 (10.5px)   4.58:1      4.10:1     辅助文字，要求 ≥3
+ *    标题 (15px)    15.25:1     12.44:1
+ *    代价 (13px)     5.75:1      6.57:1     正文，要求 ≥4.5（背景最差 4.98 / 5.50）
+ *    责任 (13px)    14.96:1     11.72:1     正文，要求 ≥4.5（背景最差 12.47 / 10.40）
+ *
+ *    背景实测：浅色 rgb(237,235,230)，深色 rgb(49,44,42)
+ *    （= 页面渐变上再叠一层 5% 暖灰，所以比页面底色略深/略亮各一档）。
+ *
+ * 深色下眉标 4.10 不算宽裕 —— 所以它只放
+ * 「SECURITY / 安全边界」这种标签，任何整句都不要用这个色阶。
  */
 .up-skip-box {
   padding: 18px 20px 16px 22px;
@@ -1357,31 +1451,13 @@ onMounted(async () => {
   background: rgba(var(--warm-rgb), 0.1);
 }
 
-/* ── 动作行 ── */
-.up-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 28px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(var(--warm-rgb), 0.14);
-}
-.up-actions .up-hint {
-  flex: 1;
-  min-width: 160px;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
-.up-checkfail-extra { display: flex; flex-direction: column; }
+/* 检查失败时，技术细节直接跟在状态块后面（没有 up-state 包着），单独给上间距 */
+.up-detail-solo { margin-top: 18px; }
 
 /* ── 窄窗 ── */
 @media (max-width: 980px) {
   .up-head { padding: 26px 24px 14px; }
-  .up-body { padding: 8px 24px 32px; }
+  .up-body { padding: 8px 24px 0; }
 }
 @media (max-width: 720px) {
   .up-head {
@@ -1390,11 +1466,12 @@ onMounted(async () => {
     gap: 12px;
     padding: 22px 16px 10px;
   }
-  .up-body { padding: 6px 16px 28px; }
+  .up-body { padding: 6px 16px 0; }
   .up-head-meta { padding-left: 0; }
   .up-ver-num { font-size: 28px; }
-  .up-notes-body { max-height: 200px; }
-  .up-actions { justify-content: stretch; }
-  .up-actions > button { flex: 1; }
+  /* 窄窗下页脚按钮占满整行：两个 36px 高的小按钮挤在右边会难点 */
+  .up-footer { justify-content: stretch; }
+  .up-footer > button { flex: 1; }
+  .up-footer .up-hint { min-width: 100%; }
 }
 </style>
