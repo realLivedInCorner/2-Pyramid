@@ -167,6 +167,13 @@
             "stacksize",
             "enchantments",
             "enchantmentlevels",
+            // **`enchantmentIDs=` 必须单列。** 它是 `enchantments=` 的旧名，
+            // 属性键在这里会 to_ascii_lowercase，所以实际比较的是
+            // `enchantmentids` —— 只写 `enchantments` 拦不住它。
+            // 实测：服主材质包普遍只写 `enchantmentIDs=` 而**不写** Levels，
+            // 漏掉这一项会把"附魔某等级才换皮"静默当成"无条件换皮"，
+            // 于是该物品的所有实例都变成那张贴图 —— 条件被丢弃且无人察觉。
+            "enchantmentids",
             "biome",
             "weather",
             "hand",
@@ -736,6 +743,47 @@
             assert!(
                 p.view().resolve("assets/minecraft/items/stick.json").is_none(),
                 "跳过就不能留下半成品"
+            );
+        }
+
+        /// **`enchantmentIDs=` 必须被拦下。**
+        ///
+        /// 它是 `enchantments=` 的旧名，而属性键在这里会被 `to_ascii_lowercase`，
+        /// 所以实际比较的是 `enchantmentids` —— 只写 `enchantments` 拦不住它。
+        ///
+        /// 为什么这条值得单独钉：漏掉它时规则会被当成**无条件换皮**转换，
+        /// 于是该物品的每一个实例都变成那张贴图，而"附魔某等级才换皮"的条件
+        /// 被静默丢弃。玩家看到错误的贴图且无从察觉，比不转换糟得多。
+        ///
+        /// 真实来源：一份 1.20.1 服务端材质包的 24 条 CIT 规则里 18 条用
+        /// `enchantmentIDs=` + `enchantmentLevels=` 触发。
+        #[test]
+        fn enchantment_ids_alone_is_blocked_not_treated_as_unconditional() {
+            let mut p = pack(
+                55,
+                vec![
+                    (
+                        &format!("{CIT_DIR}/sharp.properties"),
+                        // 注意：**故意不写 enchantmentLevels**，只留 enchantmentIDs
+                        "type=item\nmatchItems=diamond_sword\nenchantmentIDs=sharpness\nmodel=s2\n",
+                    ),
+                    (&format!("{CIT_DIR}/s2.json"), "{}"),
+                ],
+            );
+            let outcome = run_on(&mut p);
+            assert_eq!(
+                outcome.changed, 0,
+                "带附魔条件的规则不能当成无条件换皮转换"
+            );
+            assert_eq!(outcome.skipped, 1);
+            assert!(
+                p.view().resolve("assets/minecraft/items/diamond_sword.json").is_none(),
+                "跳过就不能留下半成品——留下就等于把条件丢了"
+            );
+            assert!(
+                outcome.notes.iter().any(|n| n.contains("enchantmentids")),
+                "跳过必须写清是哪一条条件拦下的，实际 notes = {:?}",
+                outcome.notes
             );
         }
 

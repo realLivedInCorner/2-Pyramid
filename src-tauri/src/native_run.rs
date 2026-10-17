@@ -124,6 +124,17 @@ pub struct MixedRunReport {
     /// 其中经适配层跑旧闭包的个数。
     pub legacy_tasks: usize,
     pub native_names: Vec<String>,
+    /// **原生任务主动跳过的次数**与**原因说明**。
+    ///
+    /// 为什么必须有这两项：任务是"能做就做、做不了就跳过"的，而跳过**本身是对的**
+    /// （例如 OptiFine CIT 用附魔等级触发，1.21.4+ 的物品定义读不到附魔，硬翻会把
+    /// 精确条件放宽成近似条件）。问题在于跳过之后**没有任何人告诉用户**——
+    /// 用户看到的是"转换完了，但自定义外观没生效"，无从判断是没实现还是没条件。
+    ///
+    /// 实测：一份 1.20.1 服务端材质包有 24 条 CIT 规则，全部因条件不可表达而跳过，
+    /// 而这两个字段此前在 `finish_dispatch` 里被直接丢弃，用户一个字的解释都拿不到。
+    pub skipped: usize,
+    pub notes: Vec<String>,
     /// 原生任务登记的**延迟删除**路径（在清理点统一应用）。
     pub deferred_removals: Vec<String>,
     /// 声明阶段与活注册表不一致的原生任务（见 §9.40：阶段决定相对位置）。
@@ -348,6 +359,9 @@ fn finish_dispatch(
         .extend(outcome.deferred_removals.iter().cloned());
     report.native_tasks += 1;
     report.native_names.push(name.to_string());
+    // 跳过数与原因必须**汇总上报**，否则任务跳过了什么用户永远不知道（见字段注释）。
+    report.skipped += outcome.skipped;
+    report.notes.extend(outcome.notes.iter().cloned());
     Ok(outcome)
 }
 
@@ -875,6 +889,27 @@ where
     // 这正是当初 `pipeline_s` 一个总数无法回答的问题，所以留一个显式的余量项。
     phases.other_s = (pipeline_clock.elapsed().as_secs_f32() - phases.total()).max(0.0);
     report.phases = phases;
+
+    // **跳过必须被说出来。** 任务是"能就做、不能就跳过"的，而跳过往往是对的
+    // （CIT 用附魔等级触发，1.21.4+ 的物品定义读不到附魔，硬翻比不转更糟）。
+    // 但此前这些理由被 `finish_dispatch` 直接丢弃，用户看到的是"转换完了、
+    // 自定义外观却没生效"，无从判断是没实现、没条件、还是自己写错了。
+    // 逐条 warn（不拼成一行：原因可能几十条，拼起来日志里读不了），再给一个总数。
+    // 注意**不要**给这些说明统一加「跳过」前缀：`notes` 里既有跳过原因，
+    // 也有普通进展（"写出 12 个物品模型定义"、"defer removal of …"）。
+    // 一律标成「跳过」会让日志说谎 —— 实测第一次就这么写错了，
+    // 于是 21 条非跳过说明被当成跳过，读日志的人会以为转换失败了一大片。
+    for note in &report.notes {
+        crate::log_warn!("{}", note);
+    }
+    if report.skipped > 0 {
+        crate::log_warn!(
+            "本次转换共跳过 {} 项（{} 条说明见上）；产物其余部分不受影响",
+            report.skipped,
+            report.notes.len()
+        );
+    }
+
     Ok(report)
 }
 
